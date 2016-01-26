@@ -24,14 +24,20 @@
       <SourceControlFiles>False</SourceControlFiles>
     </Filter>
     <Filter Include="Generated Files\Debug">
-      <UniqueIdentifier>{8a0649a4-8a33-4214-a37c-e99c5a28ef44}</UniqueIdentifier>
+      <UniqueIdentifier>{cbbc7bef-4fb4-466b-8441-586403fa4032}</UniqueIdentifier>
       <Extensions>cpp;moc</Extensions>
       <SourceControlFiles>False</SourceControlFiles>
     </Filter>
     <Filter Include="Generated Files\Release">
-      <UniqueIdentifier>{33bd3fc3-702e-4130-9ea8-9a25b90d8158}</UniqueIdentifier>
+      <UniqueIdentifier>{e1ed71c7-0b51-4be8-9dc2-c5cc2509728f}</UniqueIdentifier>
       <Extensions>cpp;moc</Extensions>
       <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="Images">
+      <UniqueIdentifier>{b05280f9-404c-4350-8f4c-9c2d455a4fa9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Styles">
+      <UniqueIdentifier>{fcc5e30c-29e8-4bf4-97fc-b1cd1819ec3d}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -53,12 +59,72 @@
     <ClCompile Include="GeneratedFiles\qrc_hydrocouplecomposer.cpp">
       <Filter>Generated Files</Filter>
     </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_splashscreen.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_splashscreen.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="splashscreen.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="componentmanager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_componentmanager.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_componentmanager.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="graphicsview.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_graphicsview.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_graphicsview.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="connectiondialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_connectiondialog.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_connectiondialog.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="gmodelcomponent.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_gmodelcomponent.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_gmodelcomponent.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="hydrocoupleproject.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_hydrocoupleproject.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_hydrocoupleproject.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="gdefaultselectiongraphic.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="GeneratedFiles\ui_hydrocouplecomposer.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GeneratedFiles\ui_connectiondialog.h">
       <Filter>Generated Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -72,8 +138,180 @@
     <CustomBuild Include="hydrocouplecomposer.qrc">
       <Filter>Resource Files</Filter>
     </CustomBuild>
+    <CustomBuild Include="splashscreen.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="componentmanager.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="graphicsview.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="connectiondialog.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="connectiondialog.ui">
+      <Filter>Form Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="gmodelcomponent.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="hydrocoupleproject.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="gdefaultselectiongraphic.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="HydroCoupleComposer.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Styles\style.qss">
+      <Filter>Styles</Filter>
+    </None>
+    <None Include="Images\Thumbs.db">
+      <Filter>Images</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="Images\adaptercomponent.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\addcomponent.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\addFile.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\bottomedges.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\clear.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\clonecomponent.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\close.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\comphover.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\compnormal.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\compselected.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\comptriggerhover.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\comptriggernormal.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\copy.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\createconnection.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\default.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\deletecomponent.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\deleteconnection.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\distributebottomedges.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\distributehorizontalcenters.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\distributeleftedges.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\distributerightedges.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\distributetopedges.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\distributeverticalcenters.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\horizontalcenters.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\hydrocouplecomposer.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\hydrocouplecomposersplash.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\layout.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\leftedges.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\modelcomponent.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\new.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\open.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\pan.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\print.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\printPreview.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\recentfiles.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\refresh.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\rightedges.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\save.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\Saveas.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\topedges.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\trigger.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\validate.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\verticalcenters.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\zoomextent.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\ZoomIn.png">
+      <Filter>Images</Filter>
+    </Image>
+    <Image Include="Images\ZoomOut.png">
+      <Filter>Images</Filter>
+    </Image>
   </ItemGroup>
 </Project>
