@@ -2,4 +2,4 @@
 
 Cross platform GUI for creating HydroCouple Compositions
 
-![HydroCoupleComposer Screenshot](Images/hydrocouplecomposerscreenshot.png)
+![HydroCoupleComposer Screenshot](resources/images/hydrocouplecomposerscreenshot.png)
