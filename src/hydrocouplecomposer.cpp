@@ -8,6 +8,7 @@
 #include <graphviz/gvc.h>
 #include <iostream>
 #include <string>
+#include <random>
 
 using namespace HydroCouple;
 using namespace std;
@@ -37,6 +38,8 @@ HydroCoupleComposer::HydroCoupleComposer(QWidget *parent)
 {
    setupUi(this);
 
+   dockWidgetModelComponentInfos->setWindowFlags(Qt::Window);
+   dockWidgetSimulationStatus->setWindowFlags(Qt::Window);
 
    m_componentManager = new ComponentManager(this);
    m_project = new HydroCoupleProject(this);
@@ -174,6 +177,18 @@ void HydroCoupleComposer::keyPressEvent(QKeyEvent * event)
 
       m_propertyModel->setData(QVariant());
       graphicsViewHydroCoupleComposer->scene()->blockSignals(false);
+   }
+   else if( event->key() == Qt::Key_A && event->modifiers() & Qt::ControlModifier)
+   {
+      graphicsViewHydroCoupleComposer->scene()->blockSignals(true);
+
+      for(QGraphicsItem* item : graphicsViewHydroCoupleComposer->scene()->items())
+      {
+         item->setSelected(true);
+      }
+
+      graphicsViewHydroCoupleComposer->scene()->blockSignals(false);
+
    }
 }
 
@@ -453,6 +468,25 @@ void HydroCoupleComposer::setupContextMenus()
    m_treeviewComponentInfoContextMenuActions.append(actionBrowseComponentInfoFolder);
    m_treeviewComponentInfoContextMenuActions.append(actionActionAddModelComponentLibrary);
    m_treeviewComponentInfoContextMenuActions.append(actionDeleteModelComponentLibrary);
+
+   m_graphicsViewContextMenuActions.append(actionSetTrigger);
+   m_graphicsViewContextMenuActions.append(actionCloneComponent);
+   m_graphicsViewContextMenuActions.append(actionDeleteComponent);
+
+   QAction* sep1 = new QAction(this);
+   sep1->setSeparator(true);
+   m_graphicsViewContextMenuActions.append(sep1);
+
+   m_graphicsViewContextMenuActions.append(actionCreateConnection);
+   m_graphicsViewContextMenuActions.append(actionDeleteConnection);
+
+   QAction* sep2 = new QAction(this);
+   sep2->setSeparator(true);
+   m_graphicsViewContextMenuActions.append(sep1);
+
+   QMenu layoutMenu;
+
+
 }
 
 void HydroCoupleComposer::createConnection(GModelComponent *producer, GModelComponent *consumer)
@@ -461,6 +495,10 @@ void HydroCoupleComposer::createConnection(GModelComponent *producer, GModelComp
    {
       producer->createComponentModelConnection(consumer);
    }
+
+   for(GModelComponent* component : m_selectedModelComponents)
+      component->setSelected(false);
+
    actionCreateConnection->setChecked(false);
 }
 
@@ -817,10 +855,21 @@ void HydroCoupleComposer::onClearSettings()
    m_project->addComponent(comp15);
    m_project->addComponent(comp16);
 
+   QRectF viewRect = QRectF(graphicsViewHydroCoupleComposer->viewport()->rect());
+   QPolygonF rect = graphicsViewHydroCoupleComposer->mapToScene(viewRect.x() , viewRect.y() , viewRect.width() , viewRect.height());
+
+   uniform_real_distribution<qreal> xdist (rect.boundingRect().left() , rect.boundingRect().right());
+   uniform_real_distribution<qreal> ydist (rect.boundingRect().bottom() , rect.boundingRect().top());
+    std::default_random_engine generator;
+   for( GModelComponent * p : m_project->modelComponents())
+   {
+      p->setPos( xdist(generator) , ydist(generator));
+   }
+
    comp2->createComponentModelConnection(comp1);
    comp1->createComponentModelConnection(comp2);
-   comp3->createComponentModelConnection(comp1);
-   comp4->createComponentModelConnection(comp1);
+   comp3->createComponentModelConnection(comp11);
+   //comp1->createComponentModelConnection(comp4);
    comp5->createComponentModelConnection(comp2);
    comp6->createComponentModelConnection(comp2);
    comp7->createComponentModelConnection(comp2);
@@ -828,9 +877,9 @@ void HydroCoupleComposer::onClearSettings()
    comp9->createComponentModelConnection(comp3);
    comp10->createComponentModelConnection(comp3);
    comp11->createComponentModelConnection(comp6);
-   comp11->createComponentModelConnection(comp4);
+   comp4->createComponentModelConnection(comp11);
    comp12->createComponentModelConnection(comp13);
-   comp13->createComponentModelConnection(comp12);
+   //comp13->createComponentModelConnection(comp12);
    comp15->createComponentModelConnection(comp14);
    comp16->createComponentModelConnection(comp15);
    comp13->createComponentModelConnection(comp4);
@@ -919,8 +968,13 @@ void HydroCoupleComposer::onCreateConnection(bool create)
 void HydroCoupleComposer::onLayoutComponents()
 {
 
-   Agraph_t* G = agopen("ComponentLayout" , Agdirected , 0);
+   char lay[4];
+   strcpy(lay , "lay");
+   Agraph_t* G = agopen(lay , Agdirected , 0);
    GVC_t* gvc = gvContext();
+   char nullChar[1];
+   nullChar[0] = '0';
+
 
    if(m_project->modelComponents().length())
    {
@@ -931,10 +985,31 @@ void HydroCoupleComposer::onLayoutComponents()
 
       strcpy(g_size_c, g_size.c_str());
 
-      agsafeset(G , "size" , g_size_c,"");
-      agsafeset(G , "nodesep" , "4.0","");
-      agsafeset(G , "ranksep" , "2.0","");
-      agsafeset(G , "rankdir" , "RL","");
+      char size[5] ;
+      strcpy(size , "size");
+
+      char nodesep[8] ;
+      strcpy(nodesep , "nodesep");
+
+      char ranksep[8] ;
+      strcpy(ranksep , "ranksep");
+
+      char rankdir[8] ;
+      strcpy(rankdir , "rankdir");
+
+
+      agsafeset(G , size , g_size_c, nullChar);
+
+      char num[4] ;
+      strcpy(num , "4.0");
+      agsafeset(G , nodesep , num, nullChar);
+
+      strcpy(num , "3.0");
+      agsafeset(G , ranksep , num, nullChar);
+
+      char al[3];
+      strcpy(al , "RL");
+      agsafeset(G , rankdir , al, nullChar);
 
       delete[] g_size_c ;
    }
@@ -947,18 +1022,13 @@ void HydroCoupleComposer::onLayoutComponents()
       strcpy(name, component->modelComponent()->id().toStdString().c_str());
       Agnode_t* node = agnode(G,name,1);
 
-      //agsafeset(node , "fixedsize" ,"true","");
-
       string height_s = std::to_string(component->boundingRect().height()).c_str();
       char* height = new char[height_s.length() + 1]();
       strcpy(height, height_s.c_str());
-      //agsafeset(node , "height" , height,"");
-
 
       string width_s = std::to_string(component->boundingRect().width()).c_str();
       char* width = new char[width_s.length() + 1]();
       strcpy(width, width_s.c_str());
-      //agsafeset(node , "width" , width,"");
 
       delete[] name;
       delete[] width;
@@ -978,10 +1048,7 @@ void HydroCoupleComposer::onLayoutComponents()
          strcpy(to_n, connection->consumerComponent()->modelComponent()->id().toStdString().c_str());
          Agnode_t* to = agnode( G , to_n , 0 );
 
-         Agedge_t* edge =  agedge(G , from , to , "" , 1);
-
-         // agsafeset(edge , "weight" , "1.2","");
-         // agsafeset(edge , "len" , "100.0","");
+         Agedge_t* edge =  agedge(G , from , to , nullChar , 1);
 
          delete[] from_n;
          delete[] to_n;
@@ -1179,6 +1246,14 @@ void HydroCoupleComposer::onRemoveComponentLibrary()
          treeViewModelComponentInfos->setCurrentIndex(QModelIndex());
          onModelComponentInfoClicked(QModelIndex());
       }
+   }
+}
+
+void HydroCoupleComposer::onCloneModel()
+{
+   if(m_selectedModelComponents.count())
+   {
+      
    }
 }
 
@@ -1903,5 +1978,29 @@ void HydroCoupleComposer::onTreeViewModelComponentInfoContextMenuRequested(const
 
 void HydroCoupleComposer::onGraphicsViewHydroCoupleComposerContextMenuRequested(const QPoint& pos)
 {
+   QMenu contextMenu;
 
+   QMenu* layout = new QMenu("Layout Components",this);
+   layout->addAction(actionLayoutComponents);
+   layout->addSeparator();
+   layout->addAction(actionAlignTop);
+   layout->addAction(actionAlignBottom);
+   layout->addAction(actionAlignLeft);
+   layout->addAction(actionAlignRight);
+   layout->addSeparator();
+   layout->addAction(actionAlignVerticalCenters);
+   layout->addAction(actionAlignHorizontalCenters);
+   layout->addSeparator();
+   layout->addAction(actionDistributeTopEdges);
+   layout->addAction(actionDistributeBottomEdges);
+   layout->addAction(actionDistributeLeftEdges);
+   layout->addAction(actionDistributeRightEdges);
+   layout->addAction(actionDistributeVerticalCenters);
+   layout->addAction(actionDistributeHorizontalCenters);
+
+
+   contextMenu.addActions(m_graphicsViewContextMenuActions);
+   contextMenu.addSeparator();
+   contextMenu.addMenu(layout);
+   contextMenu.exec(graphicsViewHydroCoupleComposer->viewport()->mapToGlobal(pos));
 }

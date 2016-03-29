@@ -1,0 +1,51 @@
+<RCC>
+    <qresource prefix="/HydroCoupleComposer">
+        <file alias="default">Images/default.png</file>
+        <file alias="new">Images/new.png</file>
+        <file alias="open">Images/open.png</file>
+        <file alias="print">Images/print.png</file>
+        <file alias="printpreview">Images/printPreview.png</file>
+        <file alias="save">Images/save.png</file>
+        <file alias="saveas">Images/Saveas.png</file>
+        <file alias="hydrocouplecomposer">Images/hydrocouplecomposer.png</file>
+        <file alias="hydrocouplecomposersplash">Images/hydrocouplecomposersplash.png</file>
+        <file alias="adaptercomponent">Images/adaptercomponent.png</file>
+        <file alias="close">Images/close.png</file>
+        <file alias="recentfiles">Images/recentfiles.png</file>
+        <file alias="addfile">Images/addFile.png</file>
+        <file alias="clear">Images/clear.png</file>
+        <file alias="comphover">Images/comphover.png</file>
+        <file alias="compnormal">Images/compnormal.png</file>
+        <file alias="compselected">Images/compselected.png</file>
+        <file alias="comptriggerhover">Images/comptriggerhover.png</file>
+        <file alias="comptriggernormal">Images/comptriggernormal.png</file>
+        <file alias="pan">Images/pan.png</file>
+        <file alias="zoomextent">Images/zoomextent.png</file>
+        <file alias="zoomin">Images/ZoomIn.png</file>
+        <file alias="zoomout">Images/ZoomOut.png</file>
+        <file alias="createconnection">Images/createconnection.png</file>
+        <file alias="deleteconnection">Images/deleteconnection.png</file>
+        <file alias="Styles">Styles/style.qss</file>
+        <file alias="addcomponent">Images/addcomponent.png</file>
+        <file alias="deletecomponent">Images/deletecomponent.png</file>
+        <file alias="clonecomponent">Images/clonecomponent.png</file>
+        <file alias="bottomedges">Images/bottomedges.png</file>
+        <file alias="horizontalcenters">Images/horizontalcenters.png</file>
+        <file alias="leftedges">Images/leftedges.png</file>
+        <file alias="rightedges">Images/rightedges.png</file>
+        <file alias="topedges">Images/topedges.png</file>
+        <file alias="verticalcenters">Images/verticalcenters.png</file>
+        <file alias="trigger">Images/trigger.png</file>
+        <file alias="distributebottomedges">Images/distributebottomedges.png</file>
+        <file alias="distributehorizontalcenters">Images/distributehorizontalcenters.png</file>
+        <file alias="distributeleftedges">Images/distributeleftedges.png</file>
+        <file alias="distributerightedges">Images/distributerightedges.png</file>
+        <file alias="distributetopedges">Images/distributetopedges.png</file>
+        <file alias="distributeverticalcenters">Images/distributeverticalcenters.png</file>
+        <file alias="layoutcomponents">Images/layout.png</file>
+        <file alias="validate">Images/validate.png</file>
+        <file alias="copy">Images/copy.png</file>
+        <file alias="execute">images/execute.png</file>
+        <file>images/hydrocouplecomposer.png</file>
+    </qresource>
+</RCC>

@@ -15,6 +15,11 @@ macx {
   INCLUDEPATH += /usr/local/include
 }
 
+win32 {
+  INCLUDEPATH += 'C:/Program Files (x86)/Graphviz2.38/include'
+}
+
+
 HEADERS += ./include/componentmanager.h \
            ./include/connectiondialog.h \
            ./include/gdefaultselectiongraphic.h \
@@ -48,10 +53,22 @@ ICON = ./resources/HydroCoupleComposer.icns
 FORMS += ./forms/hydrocouplecomposer.ui \
          ./forms/connectiondialog.ui
 
+
 macx {
-LIBS += -L$$PWD/../../QPropertyModel/QPropertyModel/bin/debug/ -lQPropertyModel.1.0.0
+CONFIG(release , debug|release): LIBS += -L./../../../../QPropertyModel/QPropertyModel/bin/release -lQPropertyModel.1.0.0
+CONFIG(debug , debug|release): LIBS += -L./../../../../QPropertyModel/QPropertyModel/bin/debug -lQPropertyModel.1.0.0
 LIBS += -L/usr/local/lib -lcgraph
 LIBS += -L/usr/local/lib -lgvc
 }
 
+win32 {
+CONFIG(release, debug|release): LIBS += -L$$PWD/../../QPropertyModel/QPropertyModel/bin/release/ -lQPropertyModel1
+CONFIG(debug, debug|release): LIBS += -L$$PWD/../../QPropertyModel/QPropertyModel/bin/debug/ -lQPropertyModel1
+
+#CONFIG(release, debug|release): LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/release/lib' -cgraph
+#CONFIG(debug, debug|release): LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/debug/lib' -cgraph
+
+#CONFIG(release, debug|release):LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/release/lib' -gvc
+#CONFIG(debug, debug|release):LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/debug/lib' -gvc
+}
 
