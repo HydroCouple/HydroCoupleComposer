@@ -29,7 +29,9 @@ HEADERS += ./include/componentmanager.h \
            ./include/hydrocoupleproject.h \
            ./include/splashscreen.h \
            ./include/custompropertyitems.h \
-           ./include/gmodelcomponentconnection.h
+           ./include/gmodelcomponentconnection.h \
+    include/gcomponentitemconnection.h \
+    include/gexchangeitems.h
 
 SOURCES += ./src/stdafx.cpp \
            ./src/main.cpp \
@@ -42,7 +44,8 @@ SOURCES += ./src/stdafx.cpp \
            ./src/hydrocouplecomposer.cpp \
            ./src/splashscreen.cpp \
            ./src/custompropertyitems.cpp \
-           ./src/gmodelcomponentconnection.cpp
+           ./src/gmodelcomponentconnection.cpp \
+    src/gexchangeitems.cpp
 
 PRECOMPILED_HEADER += ./include/stdafx.h
 

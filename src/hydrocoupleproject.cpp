@@ -41,8 +41,19 @@ bool HydroCoupleProject::deleteComponent(GModelComponent *component)
    if (m_modelComponents.removeAll(component))
    {
       emit componentDeleting(component);
-      delete component;
-      m_hasChanges = true;
+
+      for(GModelComponent* model : m_modelComponents)
+      {
+         for(GModelComponentConnection* connection : model->modelComponentConnections())
+         {
+            if(connection->consumerComponent() == component)
+            {
+               model->deleteComponentConnection(connection);
+            }
+         }
+      }
+
+      delete component;      m_hasChanges = true;
       emit stateModified(m_hasChanges);
       return true;
    }

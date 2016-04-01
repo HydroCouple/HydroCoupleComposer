@@ -58,13 +58,23 @@ class HydroCoupleProject : public QObject
        */
       void stateModified(bool hasChanges);
 
-
    public slots:
 
+      /*!
+       * \brief onTriggerChanged
+       * \param triggerModelComponent
+       */
       void onTriggerChanged(GModelComponent *triggerModelComponent);
 
+      /*!
+       * \brief onSaveProject
+       */
       void onSaveProject();
 
+      /*!
+       * \brief onSaveProjectAs
+       * \param file
+       */
       void onSaveProjectAs(const QFileInfo& file);
 
    private:

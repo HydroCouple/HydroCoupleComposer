@@ -422,7 +422,6 @@ void HydroCoupleComposer::setupSignalSlotConnections()
    connect(actionDefaultSelect, SIGNAL(toggled(bool)), actionCreateConnection, SLOT(setEnabled(bool)));
    connect(actionCreateConnection, SIGNAL(toggled(bool)), this, SLOT(onCreateConnection(bool)));
    connect(actionSetTrigger, SIGNAL(triggered()), this, SLOT(onSetAsTrigger()));
-   connect(actionCloneComponent, SIGNAL(triggered()), this, SLOT(onCloneModel()));
    connect(actionDeleteComponent, SIGNAL(triggered()), this, SLOT(onDeleteSelectedComponents()));
    connect(actionDeleteConnection, SIGNAL(triggered()), this, SLOT(onDeleteSelectedConnections()));
    connect(actionAlignTop, SIGNAL(triggered()), this, SLOT(onAlignTop()));
@@ -470,7 +469,6 @@ void HydroCoupleComposer::setupContextMenus()
    m_treeviewComponentInfoContextMenuActions.append(actionDeleteModelComponentLibrary);
 
    m_graphicsViewContextMenuActions.append(actionSetTrigger);
-   m_graphicsViewContextMenuActions.append(actionCloneComponent);
    m_graphicsViewContextMenuActions.append(actionDeleteComponent);
 
    QAction* sep1 = new QAction(this);
@@ -583,7 +581,6 @@ bool HydroCoupleComposer::compareTopEdges(GModelComponent*   a, GModelComponent 
 
 bool HydroCoupleComposer::compareVerticalCenters(GModelComponent*   a, GModelComponent *  b)
 {
-
    return a->sceneBoundingRect().center().y() < b->sceneBoundingRect().center().y();
 }
 
@@ -734,7 +731,6 @@ void HydroCoupleComposer::onOpenRecentFile()
 
 void HydroCoupleComposer::onUpdateRecentFiles()
 {
-
    if(!m_lastOpenedFilePath.isEmpty() && !m_lastOpenedFilePath.isNull())
    {
       for (int i = 0; i < m_recentFiles.count(); i++)
@@ -860,7 +856,7 @@ void HydroCoupleComposer::onClearSettings()
 
    uniform_real_distribution<qreal> xdist (rect.boundingRect().left() , rect.boundingRect().right());
    uniform_real_distribution<qreal> ydist (rect.boundingRect().bottom() , rect.boundingRect().top());
-    std::default_random_engine generator;
+   std::default_random_engine generator;
    for( GModelComponent * p : m_project->modelComponents())
    {
       p->setPos( xdist(generator) , ydist(generator));
@@ -1018,7 +1014,7 @@ void HydroCoupleComposer::onLayoutComponents()
 
    for(GModelComponent* component : m_project->modelComponents())
    {
-      char* name = new char[component->modelComponent()->id().length() +1]();
+      char name [component->modelComponent()->id().length() +1];
       strcpy(name, component->modelComponent()->id().toStdString().c_str());
       Agnode_t* node = agnode(G,name,1);
 
@@ -1030,7 +1026,7 @@ void HydroCoupleComposer::onLayoutComponents()
       char* width = new char[width_s.length() + 1]();
       strcpy(width, width_s.c_str());
 
-      delete[] name;
+      //delete[] name;
       delete[] width;
       delete[] height;
    }
@@ -1088,54 +1084,49 @@ void HydroCoupleComposer::onSetAsTrigger()
 
 void HydroCoupleComposer::onDeleteSelectedComponents()
 {
-   if (QMessageBox::question(this, "Delete ?", "Are you sure you want to delete selected Model Components ?",
+   if (m_selectedModelComponents.length() &&
+       QMessageBox::question(this, "Delete ?", "Are you sure you want to delete selected Model Components ?",
                              QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No , QMessageBox::StandardButton::Yes) == QMessageBox::Yes)
    {
 
-      if(m_selectedModelComponents.length())
+      graphicsViewHydroCoupleComposer->scene()->blockSignals(true);
+
+      for (GModelComponent* model : m_selectedModelComponents)
       {
-         graphicsViewHydroCoupleComposer->scene()->blockSignals(true);
+         QString id = model->modelComponent()->id();
 
-         for (GModelComponent* model : m_selectedModelComponents)
+         if (m_project->deleteComponent(model))
          {
-            QString id = model->modelComponent()->id();
-
-            if (m_project->deleteComponent(model))
-            {
-               setStatusTip(id + " has been removed");
-            }
+            setStatusTip(id + " has been removed");
          }
-
-         m_selectedModelComponents.clear();
-
-         m_propertyModel->setData(QVariant());
-         graphicsViewHydroCoupleComposer->scene()->blockSignals(false);
       }
+
+      m_selectedModelComponents.clear();
+
+      m_propertyModel->setData(QVariant());
+      graphicsViewHydroCoupleComposer->scene()->blockSignals(false);
    }
 }
 
 void HydroCoupleComposer::onDeleteSelectedConnections()
 {
-   if (QMessageBox::question(this, "Delete ?", "Are you sure you want to delete selected connections ?",
+   if (m_selectModelComponentConnections.length() &&
+       QMessageBox::question(this, "Delete ?", "Are you sure you want to delete selected connections ?",
                              QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No , QMessageBox::StandardButton::Yes) == QMessageBox::Yes)
    {
+      graphicsViewHydroCoupleComposer->scene()->blockSignals(true);
 
-      if(m_selectModelComponentConnections.length())
+      for(GModelComponentConnection* connection : m_selectModelComponentConnections)
       {
-         graphicsViewHydroCoupleComposer->scene()->blockSignals(true);
+         QString id;
 
-         for(GModelComponentConnection* connection : m_selectModelComponentConnections)
+         if (connection->producerComponent()->deleteComponentConnection(connection))
          {
-            QString id;
-
-            if (connection->producerComponent()->deleteComponentConnection(connection))
-            {
-               setStatusTip(id + " has been removed");
-            }
+            setStatusTip(id + " has been removed");
          }
-         m_propertyModel->setData(QVariant());
-         graphicsViewHydroCoupleComposer->scene()->blockSignals(false);
       }
+      m_propertyModel->setData(QVariant());
+      graphicsViewHydroCoupleComposer->scene()->blockSignals(false);
 
       m_selectModelComponentConnections.clear();
    }
@@ -1246,14 +1237,6 @@ void HydroCoupleComposer::onRemoveComponentLibrary()
          treeViewModelComponentInfos->setCurrentIndex(QModelIndex());
          onModelComponentInfoClicked(QModelIndex());
       }
-   }
-}
-
-void HydroCoupleComposer::onCloneModel()
-{
-   if(m_selectedModelComponents.count())
-   {
-      
    }
 }
 
@@ -1577,7 +1560,6 @@ void HydroCoupleComposer::onSelectionChanged()
    if(m_selectedModelComponents.length())
    {
       actionDeleteComponent->setEnabled(true);
-      actionCloneComponent->setEnabled(true);
       actionSetTrigger->setEnabled(true);
       actionAlignBottom->setEnabled(true);
       actionAlignTop->setEnabled(true);
@@ -1626,7 +1608,6 @@ void HydroCoupleComposer::onSelectionChanged()
    else
    {
       actionDeleteComponent->setEnabled(false);
-      actionCloneComponent->setEnabled(false);
       actionSetTrigger->setEnabled(false);
       actionAlignBottom->setEnabled(false);
       actionAlignTop->setEnabled(false);

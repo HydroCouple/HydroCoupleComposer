@@ -9,7 +9,7 @@ using namespace HydroCouple;
 const QString GModelComponent::sc_descriptionHtml =
       "<h2>[Caption]</h2>"
       "<h4>[Id]</h4>"
-      "<h5><i>Status : [Status]</h5></i>"
+      "<h5><i>Status : [Status]</i></h5>"
       "<hr>"
       "<div>"
       "<img alt=\"icon\" src='[IconPath]' width=\"40\" align=\"left\" />"
@@ -25,11 +25,14 @@ QPen GModelComponent::s_triggerPen(QBrush(QColor(255, 0, 0), Qt::BrushStyle::Sol
 QBrush GModelComponent::s_selectedBrush(QColor(255, 230, 220), Qt::BrushStyle::SolidPattern);
 QPen GModelComponent::s_selectedPen(QBrush(QColor(255, 0, 0), Qt::BrushStyle::SolidPattern), 5.0, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::RoundJoin);
 
+QFont GModelComponent::m_font;
+
 #pragma endregion
 
 GModelComponent::GModelComponent(IModelComponent* model, HydroCoupleProject *parent)
    : QGraphicsObject(), m_margin(15), m_cornerRadius(15), m_width(250), m_isTrigger(false)
 {
+   m_font = QFont();
    m_parent = parent;
    m_modelComponent = model;
    m_textItem = new QGraphicsTextItem(this);
@@ -38,7 +41,7 @@ GModelComponent::GModelComponent(IModelComponent* model, HydroCoupleProject *par
 
    connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(propertyChanged(const QString&, const QVariant&)), this, SLOT(onPropertyChanged(const QString&, const QVariant&)));
 
-   onReCreateGraphicObjects();
+   onCreateTextItem();
 
    setFlag(GraphicsItemFlag::ItemIsMovable, true);
    setFlag(GraphicsItemFlag::ItemIsSelectable, true);
@@ -56,8 +59,8 @@ GModelComponent::~GModelComponent()
 
    qDeleteAll(m_modelComponentConnections);
    m_modelComponentConnections.clear();
-
    delete m_modelComponent;
+
 }
 
 IModelComponent* GModelComponent::modelComponent() const
@@ -162,7 +165,7 @@ void GModelComponent::setCornerRadius(int cornerRadius)
 {
    m_cornerRadius = cornerRadius;
    emit propertyChanged("CornerRadius", m_cornerRadius);
-   onReCreateGraphicObjects();
+   onCreateTextItem();
 }
 
 QGraphicsTextItem* GModelComponent::graphicsTextItem() const
@@ -242,6 +245,18 @@ void GModelComponent::setTriggerBrush(const QBrush& triggerBrush)
    update();
 }
 
+QFont GModelComponent::font() const
+{
+   return m_font;
+}
+
+void GModelComponent::setFont(const QFont &font)
+{
+   m_font = font;
+   emit propertyChanged("Font", m_font);
+   onCreateTextItem();
+}
+
 QRectF GModelComponent::boundingRect() const
 {
    QRectF bRect = m_textItem->boundingRect();
@@ -251,6 +266,7 @@ QRectF GModelComponent::boundingRect() const
 
 void GModelComponent::paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget)
 {
+   onCreateTextItem();
    QPen pen = s_pen;
    QBrush brush = s_brush;
    QPainterPath m_path = QPainterPath();
@@ -412,14 +428,15 @@ void GModelComponent::onPropertyChanged(const QString& propertyName, const QVari
        !propertyName.compare("Description", Qt::CaseInsensitive)
        )
    {
-      onReCreateGraphicObjects();
+      onCreateTextItem();
    }
 
    emit propertyChanged(propertyName, value);
 }
 
-void GModelComponent::onReCreateGraphicObjects()
+void GModelComponent::onCreateTextItem()
 {
+   m_textItem->setFont(m_font);
    QString desc(sc_descriptionHtml);
    QFileInfo iconFile(QFileInfo(m_modelComponent->componentInfo()->libraryFilePath()).dir(), m_modelComponent->componentInfo()->iconFilePath());
 

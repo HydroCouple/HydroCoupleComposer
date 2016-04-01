@@ -206,8 +206,6 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       void onRemoveComponentLibrary();
 
-      void onCloneModel();
-      
       /*!
          * \brief onModelComponentInfoLoaded
          * \param modelComponentInfo

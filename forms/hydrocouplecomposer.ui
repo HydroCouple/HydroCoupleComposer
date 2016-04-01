@@ -128,7 +128,6 @@
    <addaction name="actionDeleteComponent"/>
    <addaction name="actionCreateConnection"/>
    <addaction name="actionDeleteConnection"/>
-   <addaction name="actionCloneComponent"/>
    <addaction name="actionSetTrigger"/>
    <addaction name="actionExecute"/>
    <addaction name="separator"/>
@@ -506,21 +505,6 @@
    </property>
    <property name="toolTip">
     <string>Browse to Enclosing</string>
-   </property>
-  </action>
-  <action name="actionCloneComponent">
-   <property name="enabled">
-    <bool>false</bool>
-   </property>
-   <property name="icon">
-    <iconset resource="../resources/hydrocouplecomposer.qrc">
-     <normaloff>:/HydroCoupleComposer/clonecomponent</normaloff>:/HydroCoupleComposer/clonecomponent</iconset>
-   </property>
-   <property name="text">
-    <string>Clone Component</string>
-   </property>
-   <property name="toolTip">
-    <string>Clone Component</string>
    </property>
   </action>
   <action name="actionAlignTop">

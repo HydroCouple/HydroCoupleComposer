@@ -6,6 +6,7 @@
 #include <QPen>
 #include <QBrush>
 #include <QXmlStreamReader>
+#include <QFont>
 
 #include "hydrocouple.h"
 #include "hydrocoupleproject.h"
@@ -29,6 +30,7 @@ class GModelComponent : public QGraphicsObject
       Q_PROPERTY(QBrush SelectedBrush READ selectedBrush WRITE setSelectedBrush NOTIFY propertyChanged)
       Q_PROPERTY(QPen TriggerPen READ triggerPen WRITE setTriggerPen NOTIFY propertyChanged)
       Q_PROPERTY(QBrush TriggerBrush READ triggerBrush WRITE setTriggerBrush NOTIFY propertyChanged)
+      Q_PROPERTY(QFont Font READ font WRITE setFont NOTIFY propertyChanged)
 
 
       //Q_ENUM(HydroCouple::ComponentStatus)
@@ -91,6 +93,10 @@ class GModelComponent : public QGraphicsObject
 
       void setTriggerBrush(const QBrush& triggerBrush);
 
+      QFont font() const;
+
+      void setFont(const QFont& font);
+
       //!bounding rect for this component
       QRectF boundingRect() const override;
 
@@ -143,11 +149,11 @@ class GModelComponent : public QGraphicsObject
 
       void onPropertyChanged(const QString& propertyName, const QVariant& value);
 
-      void onReCreateGraphicObjects();
+      void onCreateTextItem();
 
    private:
       HydroCouple::IModelComponent* m_modelComponent;
-      QGraphicsTextItem* m_textItem;
+      QGraphicsTextItem* m_textItem, *m_numConnectionsText;
       HydroCoupleProject* m_parent;
       QList<GModelComponentConnection*> m_modelComponentConnections;
       int m_margin , m_width, m_cornerRadius;
@@ -155,6 +161,7 @@ class GModelComponent : public QGraphicsObject
       static QPen s_triggerPen, s_pen , s_selectedPen;
       static QBrush s_triggerBrush, s_brush , s_selectedBrush;
       bool m_isTrigger;
+      static QFont m_font;
 };
 
 
