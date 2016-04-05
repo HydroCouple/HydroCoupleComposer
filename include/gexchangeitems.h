@@ -34,7 +34,7 @@ class GExchangeItem : public QGraphicsObject
    public:
       GExchangeItem(const QString& itemID, QGraphicsObject *parent = nullptr);
 
-      virtual ~GComponentItem();
+      virtual ~GExchangeItem();
 
       virtual QString itemId() const;
 
@@ -46,73 +46,73 @@ class GExchangeItem : public QGraphicsObject
 
 
 
-class GInput: public GExchangeItem
-{
-      Q_OBJECT
-      Q_PROPERTY(GModelComponent* Model READ model)
-      Q_PROPERTY(bool IsMultiConsumer READ isMultiConsumer)
+//class GInput: public GExchangeItem
+//{
+//      Q_OBJECT
+//      Q_PROPERTY(GModelComponent* Model READ model)
+//      Q_PROPERTY(bool IsMultiConsumer READ isMultiConsumer)
 
-   public:
-      GInput(GModelComponent* model, const QString& inputId,
-             bool isMultiInput = false);
+//   public:
+//      GInput(GModelComponent* model, const QString& inputId,
+//             bool isMultiInput = false);
 
-      ~GInput();
+//      ~GInput();
 
-      GModelComponent* model() const;
+//      GModelComponent* model() const;
 
-      bool isMultiInput() const;
+//      bool isMultiInput() const;
 
-   private:
-      GModelComponent* m_model;
-      bool m_isMultiInput;
-};
-
-
-
-class GOutputItem : public GExchangeItem
-{
-      Q_OBJECT
-      Q_PROPERTY(GModelComponent* Model READ model)
-
-   public:
-      GOutputItem(GModelComponent* model, const QString& outputId);
-
-      ~GOutputItem();
-
-      GModelComponent* model() const;
-
-   protected:
-      GModelComponent* m_model;
-
-};
+//   private:
+//      GModelComponent* m_model;
+//      bool m_isMultiInput;
+//};
 
 
 
-class GAdaptedOutputItem : public GOutputItem
-{
-      Q_OBJECT
-      Q_PROPERTY(GOutputItem* ParentProvider READ parentProvider)
+//class GOutputItem : public GExchangeItem
+//{
+//      Q_OBJECT
+//      Q_PROPERTY(GModelComponent* Model READ model)
 
-   public:
-      GAdaptedOutputItem(GOutputItem* parentProvider);
+//   public:
+//      GOutputItem(GModelComponent* model, const QString& outputId);
 
-      ~GAdaptedOutputItem();
+//      ~GOutputItem();
 
-      GOutputItem* parentProvider() const;
+//      GModelComponent* model() const;
 
-   private:
-     GOutputItem* parentProvider;
-};
+//   protected:
+//      GModelComponent* m_model;
 
-
-class GAdaptedOutputItemFromAdaptedOutputFactory : public GAdaptedOutputItem
-{
-      Q_OBJECT
-      //Q_PROPERTY(type name READ name WRITE setName NOTIFY nameChanged)
-
-   public:
+//};
 
 
-};
+
+//class GAdaptedOutputItem : public GOutputItem
+//{
+//      Q_OBJECT
+//      Q_PROPERTY(GOutputItem* ParentProvider READ parentProvider)
+
+//   public:
+//      GAdaptedOutputItem(GOutputItem* parentProvider);
+
+//      ~GAdaptedOutputItem();
+
+//      GOutputItem* parentProvider() const;
+
+//   private:
+//     GOutputItem* parentProvider;
+//};
+
+
+//class GAdaptedOutputItemFromAdaptedOutputFactory : public GAdaptedOutputItem
+//{
+//      Q_OBJECT
+//      //Q_PROPERTY(type name READ name WRITE setName NOTIFY nameChanged)
+
+//   public:
+
+
+//};
 
 #endif // GEXCHANGEITEMS_H

@@ -13,22 +13,22 @@ ComponentManager::ComponentManager(QObject *parent)
 
 ComponentManager::~ComponentManager()
 {
-   qDeleteAll(m_modelComponentInfoList);
-   m_modelComponentInfoList.clear();
+   qDeleteAll(m_modelComponentInfoHash.keys());
+   m_modelComponentInfoHash.clear();
 
-   qDeleteAll(m_adaptedOutputFactoryComponentInfoList);
-   m_adaptedOutputFactoryComponentInfoList.clear();
+   qDeleteAll(m_adaptedOutputFactoryComponentInfoHash.keys());
+   m_adaptedOutputFactoryComponentInfoHash.clear();
 }
 
 QList<IModelComponentInfo*> ComponentManager::modelComponentInfoList() const
 {
-   return m_modelComponentInfoList;
+   return m_modelComponentInfoHash.keys();
 }
 
 IModelComponentInfo* ComponentManager::findModelComponentInfoById(const QString& id)
 {
-   for (QList<IModelComponentInfo*>::iterator it = m_modelComponentInfoList.begin();
-        it != m_modelComponentInfoList.end(); it++)
+   for (QList<IModelComponentInfo*>::iterator it = m_modelComponentInfoHash.keys().begin();
+        it != m_modelComponentInfoHash.keys().end(); it++)
    {
       IModelComponentInfo* modelComponentInfo = *it;
 
@@ -41,31 +41,43 @@ IModelComponentInfo* ComponentManager::findModelComponentInfoById(const QString&
    return nullptr;
 }
 
-bool ComponentManager::removeModelComponentInfoById(const QString& id)
+bool ComponentManager::unloadModelComponentInfoById(const QString& id)
 {
    IModelComponentInfo* componentInfo = findModelComponentInfoById(id);
 
-   if(componentInfo && m_modelComponentInfoList.removeOne(componentInfo))
+   emit postMessage("Unloading model component library " + componentInfo->name() + "...");
+
+   if(componentInfo && m_modelComponentInfoHash.contains(componentInfo))
    {
-      emit modelComponentInfoRemoved(componentInfo);
-      delete componentInfo;
+
+
+
+      QPluginLoader* plugin = m_modelComponentInfoHash[componentInfo];
+      m_modelComponentInfoHash.remove(componentInfo);
+
+      emit modelComponentInfoUnloaded(componentInfo->id());
+      emit postMessage("Model component library " + componentInfo->name() + " unloaded");
+
+      plugin->unload();
+
       return true;
    }
    else
    {
+      emit postMessage("Unable to unload model component library " + componentInfo->name() );
       return false;
    }
 }
 
 QList<IAdaptedOutputFactoryComponentInfo*> ComponentManager::adaptedOutputFactoryComponentInfoList() const
 {
-   return m_adaptedOutputFactoryComponentInfoList;
+   return m_adaptedOutputFactoryComponentInfoHash.keys();
 }
 
 IAdaptedOutputFactoryComponentInfo* ComponentManager::findAdaptedOutputFactoryComponentInfoById(const QString& id)
 {
-   for (QList<IAdaptedOutputFactoryComponentInfo*>::iterator it = m_adaptedOutputFactoryComponentInfoList.begin();
-        it != m_adaptedOutputFactoryComponentInfoList.end(); it++)
+   for (QList<IAdaptedOutputFactoryComponentInfo*>::iterator it = m_adaptedOutputFactoryComponentInfoHash.keys().begin();
+        it != m_adaptedOutputFactoryComponentInfoHash.keys().end(); it++)
    {
       IAdaptedOutputFactoryComponentInfo*adaptedOutputFactoryComponentInfo = *it;
 
@@ -78,34 +90,43 @@ IAdaptedOutputFactoryComponentInfo* ComponentManager::findAdaptedOutputFactoryCo
    return nullptr;
 }
 
-bool ComponentManager::removeAdaptedOutputFactoryComponentInfoById(const QString& id)
+bool ComponentManager::unloadAdaptedOutputFactoryComponentInfoById(const QString& id)
 {
    IAdaptedOutputFactoryComponentInfo* componentInfo = findAdaptedOutputFactoryComponentInfoById(id);
 
-   if(componentInfo && m_adaptedOutputFactoryComponentInfoList.removeOne(componentInfo))
+   emit postMessage("Unloading adapted output factory component library " + componentInfo->name() + "...");
+
+   if(componentInfo && m_adaptedOutputFactoryComponentInfoHash.contains(componentInfo))
    {
-      emit adaptedOutputFactoryComponentRemoved(componentInfo);
-      delete componentInfo;
+      QPluginLoader* plugin = m_adaptedOutputFactoryComponentInfoHash[componentInfo];
+      m_adaptedOutputFactoryComponentInfoHash.remove(componentInfo);
+
+      emit adaptedOutputFactoryComponentUnloaded(componentInfo->id());
+      emit postMessage("Adapted output factory component library " + componentInfo->name() + " unloaded");
+
+      plugin->unload();
+
       return true;
    }
    else
    {
+      emit postMessage("Unable to unload adapted output factory component library " + componentInfo->name());
       return false;
    }
 }
 
-bool ComponentManager::addComponent(const QFileInfo& file)
+bool ComponentManager::loadComponent(const QFileInfo& file)
 {
    QString message;
 
    if (file.exists())
    {
-      qDebug() << file.filePath();
 
       if (hasValidExtension(file))
       {
-         QPluginLoader pluginLoader(file.filePath());
-         QObject* component = pluginLoader.instance();
+         QPluginLoader* pluginLoader = new QPluginLoader(file.filePath() , this);
+
+         QObject* component = pluginLoader->instance();
 
          if (component)
          {
@@ -113,23 +134,22 @@ bool ComponentManager::addComponent(const QFileInfo& file)
 
             if (mcomponentInfo)
             {
+               emit postMessage("Loading model component library " + mcomponentInfo->name() + "...");
 
-               qDebug() << mcomponentInfo->id();
-
-               mcomponentInfo->setLibraryFilePath(file.filePath());
-
-               for (IModelComponentInfo* model : m_modelComponentInfoList)
+               for (IModelComponentInfo* model : m_modelComponentInfoHash.keys())
                {
-                  qDebug() << model->id();
-
                   if (!mcomponentInfo->id().compare(model->id()))
                   {
+                     pluginLoader->unload();
+                     emit postMessage("Model component library " + mcomponentInfo->name() + "has already been loaded");
                      return true;
                   }
                }
 
-               m_modelComponentInfoList.append(mcomponentInfo);
+               mcomponentInfo->setLibraryFilePath(file.filePath());
+               m_modelComponentInfoHash[mcomponentInfo] = pluginLoader;
                emit modelComponentInfoLoaded(mcomponentInfo);
+
                return true;
             }
 
@@ -137,16 +157,23 @@ bool ComponentManager::addComponent(const QFileInfo& file)
 
             if (acomponentInfo)
             {
+               emit postMessage("Loading adapted output factor component library " + acomponentInfo->name() + "...");
+
                acomponentInfo->setLibraryFilePath(file.filePath());
-               for (IAdaptedOutputFactoryComponentInfo* model : m_adaptedOutputFactoryComponentInfoList)
+
+               for (IAdaptedOutputFactoryComponentInfo* model : m_adaptedOutputFactoryComponentInfoHash.keys())
                {
                   if (!acomponentInfo->id().compare(model->id()))
                   {
-                     delete acomponentInfo;
+                     pluginLoader->unload();
+                     emit postMessage("Adapted output factory component library " + mcomponentInfo->name() + "has already been loaded");
                      return true;
                   }
                }
-               m_adaptedOutputFactoryComponentInfoList.append(acomponentInfo);
+
+
+               m_adaptedOutputFactoryComponentInfoHash[acomponentInfo] = pluginLoader;
+               acomponentInfo->setLibraryFilePath(file.filePath());
                emit adaptedOutputFactoryComponentInfoLoaded(acomponentInfo);
                return true;
             }
@@ -163,6 +190,9 @@ bool ComponentManager::addComponent(const QFileInfo& file)
             emit statusChangedMessage(message);
             emit statusChangedMessage(message, 10);
          }
+
+         pluginLoader->unload();
+
       }
    }
    else
@@ -201,14 +231,15 @@ void ComponentManager::addComponentDirectory(const QDir& directory)
       QString message = "Checking '/" + directory.absolutePath() + "'/ for plugins";
 
       emit statusChangedMessage(message);
-      emit statusChangedMessage(message, 0);
+
 
       while (it.hasNext())
       {
          it.next();
+
          if (it.fileInfo().isFile())
          {
-            addComponent(it.fileInfo());
+            loadComponent(it.fileInfo());
          }
       }
    }

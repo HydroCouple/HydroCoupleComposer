@@ -32,7 +32,7 @@ GraphicsView::GraphicsView(QWidget *parent)
    m_zoomItem.setVisible(true);
    m_currentTool = Tool::Default;
    totalScaleFactor = 1.0;
-   setCacheMode(QGraphicsView::CacheBackground);
+   setCacheMode(QGraphicsView::CacheNone);
    setFocusPolicy(Qt::FocusPolicy::ClickFocus);
 }
 

@@ -20,8 +20,8 @@ int main(int argc, char *argv[])
    if (argc < 2)
    {
       QApplication a(argc, argv);
-      a.setOrganizationName("Insuyo");
-      a.setOrganizationDomain("www.insuyo.com");
+      a.setOrganizationName("HydroCouple");
+      a.setOrganizationDomain("hydrocouple.org");
       a.setApplicationName("HydroCoupleComposer");
 
       //set style

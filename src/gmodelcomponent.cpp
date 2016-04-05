@@ -254,7 +254,11 @@ void GModelComponent::setFont(const QFont &font)
 {
    m_font = font;
    emit propertyChanged("Font", m_font);
-   onCreateTextItem();
+
+   for(GModelComponent* component : m_parent->modelComponents())
+   {
+      component->onCreateTextItem();
+   }
 }
 
 QRectF GModelComponent::boundingRect() const
@@ -266,7 +270,6 @@ QRectF GModelComponent::boundingRect() const
 
 void GModelComponent::paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget)
 {
-   onCreateTextItem();
    QPen pen = s_pen;
    QBrush brush = s_brush;
    QPainterPath m_path = QPainterPath();

@@ -22,48 +22,48 @@ QString GExchangeItem::toString() const
    return m_id;
 }
 
-//=====================================================================================
+////=====================================================================================
 
-GInput::GInput(GModelComponent* model, const QString& inputId, bool isMultiInput)
-   : GExchangeItem(inputId, model), m_isMultiInput(isMultiInput)
-{
-   m_model = model;
-}
+//GInput::GInput(GModelComponent* model, const QString& inputId, bool isMultiInput)
+//   : GExchangeItem(inputId, model), m_isMultiInput(isMultiInput)
+//{
+//   m_model = model;
+//}
 
-GInput::~GInput()
-{
+//GInput::~GInput()
+//{
 
-}
+//}
 
-GModelComponent* GInput::model() const
-{
-   return m_model;
-}
+//GModelComponent* GInput::model() const
+//{
+//   return m_model;
+//}
 
-bool GInput::isMultiInput() const
-{
-   return m_isMultiInput;
-}
+//bool GInput::isMultiInput() const
+//{
+//   return m_isMultiInput;
+//}
 
-//=====================================================================================
+////=====================================================================================
 
 
-GOutputItem::GOutputItem(GModelComponent* model, const QString& outputId)
-   : GExchangeItem(outputId, model)
-{
-   m_model = model;
-}
+//GOutputItem::GOutputItem(GModelComponent* model, const QString& outputId)
+//   : GExchangeItem(outputId, model)
+//{
+//   m_model = model;
+//}
 
-GOutputItem::~GOutputItem()
-{
+//GOutputItem::~GOutputItem()
+//{
 
-}
+//}
 
-GModelComponent* GOutputItem::model() const
-{
-   return m_model;
-}
+//GModelComponent* GOutputItem::model() const
+//{
+//   return m_model;
+//}
 
-//=====================================================================================
+////=====================================================================================
 
 

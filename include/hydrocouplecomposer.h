@@ -10,6 +10,7 @@
 #include <QStandardItem>
 #include <QProgressBar>
 #include <QSettings>
+#include "modelstatusitemmodel.h"
 
 class GModelComponent;
 
@@ -27,7 +28,7 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        */
       HydroCoupleComposer(QWidget *parent = 0);
 
-      ~HydroCoupleComposer();
+      virtual ~HydroCoupleComposer();
 
       //! ComponentManager manages all component types
       /*!
@@ -69,17 +70,19 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       void initializeGUIComponents();
 
-      void setupComponentInfoTreeView();
+      void initializeSimulationStatusTreeView();
 
-      void setupPropertyGrid();
+      void initializeComponentInfoTreeView();
 
-      void setupActions();
+      void initializePropertyGrid();
 
-      void setupSignalSlotConnections();
+      void initializeActions();
 
-      void setupProjectSignalSlotConnections();
+      void initializeSignalSlotConnections();
 
-      void setupContextMenus();
+      void initializeProjectSignalSlotConnections();
+
+      void initializeContextMenus();
 
       void createConnection(GModelComponent* producer , GModelComponent* consumer);
 
@@ -118,7 +121,7 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
    public slots:
       //!Set process progress
-      void onSetProgress(bool visible, const QString& message = QString(), int progress = 0);
+      void onSetProgress(bool visible, const QString& message = QString(), int progress = 0 , int min = 0 , int max = 100);
 
       //!Post Output message
       void onPostMessage(const QString& message);
@@ -202,9 +205,9 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       void onBrowseToComponentLibraryPath();
 
-      void onOpenComponentLibrary();
+      void onLoadComponentLibrary();
 
-      void onRemoveComponentLibrary();
+      void onUnloadComponentLibrary();
 
       /*!
          * \brief onModelComponentInfoLoaded
@@ -212,7 +215,7 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
          */
       void onModelComponentInfoLoaded(const HydroCouple::IModelComponentInfo* modelComponentInfo);
 
-      void onModelComponentInfoRemoved(const HydroCouple::IModelComponentInfo* modelComponentInfo);
+      void onModelComponentInfoUnloaded(const QString& id);
 
       void onModelComponentInfoClicked(const QModelIndex& index);
 
@@ -287,6 +290,10 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       void onGraphicsViewHydroCoupleComposerContextMenuRequested(const QPoint& pos);
 
+      void onAbout();
+      
+      void onPreferences();
+      
    signals:
 
       void currentToolChanged(int currentTool);
@@ -294,9 +301,9 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
    private:
       ComponentManager* m_componentManager;
       HydroCoupleProject* m_project;
-      QProgressBar* m_progressBar;
       QPropertyModel* m_propertyModel;
       QStandardItemModel* m_componentTreeViewModel;
+      QProgressBar* m_progressBar;
       static QIcon s_categoryIcon;
       QStringList m_recentFiles;
       QSettings m_settings;
@@ -316,6 +323,7 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       bool m_createConnection;
       QList<QAction*> m_treeviewComponentInfoContextMenuActions;
       QList<QAction*> m_graphicsViewContextMenuActions;
+      ModelStatusItemModel* m_modelStatusItemModel;
 };
 
 //Encapsulate options in one class and expose;

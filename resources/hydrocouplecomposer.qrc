@@ -15,10 +15,6 @@
         <file alias="addfile">Images/addFile.png</file>
         <file alias="clear">Images/clear.png</file>
         <file alias="comphover">Images/comphover.png</file>
-        <file alias="compnormal">Images/compnormal.png</file>
-        <file alias="compselected">Images/compselected.png</file>
-        <file alias="comptriggerhover">Images/comptriggerhover.png</file>
-        <file alias="comptriggernormal">Images/comptriggernormal.png</file>
         <file alias="pan">Images/pan.png</file>
         <file alias="zoomextent">Images/zoomextent.png</file>
         <file alias="zoomin">Images/ZoomIn.png</file>
@@ -46,6 +42,8 @@
         <file alias="validate">Images/validate.png</file>
         <file alias="copy">Images/copy.png</file>
         <file alias="execute">images/execute.png</file>
-        <file>images/hydrocouplecomposer.png</file>
+        <file alias="hydrocouplecomposer">images/hydrocouplecomposer.png</file>
+        <file alias="loadlibrary">images/loadlibrary.png</file>
+        <file alias="unloadlibrary">images/unloadlibrary.png</file>
     </qresource>
 </RCC>

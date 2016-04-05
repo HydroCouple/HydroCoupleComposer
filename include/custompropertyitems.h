@@ -23,6 +23,8 @@ class IComponentInfoPropertyItem : public QObjectPropertyItem
       Q_OBJECT
    public:
       Q_INVOKABLE IComponentInfoPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IComponentInfoPropertyItem(){}
 };
 
 class IModelComponentInfoPropertyItem : public QObjectPropertyItem
@@ -30,6 +32,9 @@ class IModelComponentInfoPropertyItem : public QObjectPropertyItem
       Q_OBJECT
    public:
       Q_INVOKABLE IModelComponentInfoPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IModelComponentInfoPropertyItem(){}
+
 };
 
 class IModelComponentPropertyItem : public QObjectPropertyItem
@@ -37,6 +42,8 @@ class IModelComponentPropertyItem : public QObjectPropertyItem
       Q_OBJECT
    public:
       Q_INVOKABLE IModelComponentPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IModelComponentPropertyItem(){}
 };
 
 class IModelComponentListPropertyItem : public QObjectListPropertyItem
@@ -45,6 +52,8 @@ class IModelComponentListPropertyItem : public QObjectListPropertyItem
 
    public:
       Q_INVOKABLE IModelComponentListPropertyItem(const QVariant& value , const QMetaProperty& prop, QObjectClassPropertyItem * parent);
+
+      virtual ~IModelComponentListPropertyItem(){}
 };
 
 class IAdaptedOutputFactoryComponentInfoPropertyItem : public QObjectPropertyItem
@@ -52,6 +61,8 @@ class IAdaptedOutputFactoryComponentInfoPropertyItem : public QObjectPropertyIte
       Q_OBJECT
    public:
       Q_INVOKABLE IAdaptedOutputFactoryComponentInfoPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IAdaptedOutputFactoryComponentInfoPropertyItem(){}
 };
 
 class IAdaptedOutputFactoryPropertyItem : public QObjectPropertyItem
@@ -59,6 +70,8 @@ class IAdaptedOutputFactoryPropertyItem : public QObjectPropertyItem
       Q_OBJECT
    public:
       Q_INVOKABLE IAdaptedOutputFactoryPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IAdaptedOutputFactoryPropertyItem(){}
 };
 
 
@@ -68,6 +81,8 @@ class IAdaptedOutputFactoryListPropertyItem : public QObjectListPropertyItem
 
    public:
       Q_INVOKABLE IAdaptedOutputFactoryListPropertyItem(const QVariant& value , const QMetaProperty& prop, QObjectClassPropertyItem * parent);
+
+      virtual ~IAdaptedOutputFactoryListPropertyItem(){}
 };
 
 
@@ -77,6 +92,8 @@ class IArgumentPropertyItem : public QObjectPropertyItem
 
    public:
       Q_INVOKABLE IArgumentPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IArgumentPropertyItem(){}
 };
 
 class IArgumentListPropertyItem : public QObjectListPropertyItem
@@ -85,6 +102,8 @@ class IArgumentListPropertyItem : public QObjectListPropertyItem
 
    public:
       Q_INVOKABLE IArgumentListPropertyItem(const QVariant& value , const QMetaProperty& prop, QObjectClassPropertyItem * parent);
+
+      virtual ~IArgumentListPropertyItem(){}
 };
 
 
@@ -93,6 +112,8 @@ class IInputPropertyItem : public QObjectPropertyItem
       Q_OBJECT
    public:
       Q_INVOKABLE IInputPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IInputPropertyItem(){}
 };
 
 
@@ -101,6 +122,8 @@ class IInputListPropertyItem : public QObjectListPropertyItem
       Q_OBJECT
    public:
       Q_INVOKABLE IInputListPropertyItem(const QVariant& value , const QMetaProperty& prop, QObjectClassPropertyItem * parent);
+
+      virtual ~IInputListPropertyItem(){}
 };
 
 class IOutputPropertyItem : public QObjectPropertyItem
@@ -108,6 +131,8 @@ class IOutputPropertyItem : public QObjectPropertyItem
       Q_OBJECT
    public:
       Q_INVOKABLE IOutputPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IOutputPropertyItem(){}
 };
 
 class IOutputListPropertyItem : public QObjectListPropertyItem
@@ -115,6 +140,8 @@ class IOutputListPropertyItem : public QObjectListPropertyItem
       Q_OBJECT
    public:
       Q_INVOKABLE IOutputListPropertyItem(const QVariant& value , const QMetaProperty& prop, QObjectClassPropertyItem * parent);
+
+      virtual ~IOutputListPropertyItem(){}
 };
 
 

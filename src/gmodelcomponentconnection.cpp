@@ -5,9 +5,11 @@
 #pragma region static variables
 
 float GModelComponentConnection::m_arrowLength(40.0f);
-float GModelComponentConnection::m_arrowWidth(20.0f);
+float GModelComponentConnection::m_arrowWidth(30.0f);
 QPen GModelComponentConnection::m_pen = QPen(QBrush(QColor(0.0, 150.0, 255.0), Qt::BrushStyle::SolidPattern), 2, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::MiterJoin);
 QPen GModelComponentConnection::m_selectedPen = QPen(QBrush(QColor(255, 99, 71), Qt::BrushStyle::SolidPattern), 4, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::MiterJoin);
+QBrush GModelComponentConnection::m_brush = QBrush(Qt::GlobalColor::white);
+QFont GModelComponentConnection::m_font ;
 int GModelComponentConnection::zLocation = 10000;
 
 #pragma endregion
@@ -17,6 +19,9 @@ GModelComponentConnection::GModelComponentConnection(GModelComponent* const prod
 {
    m_producerModel = producer;
    m_consumerModel = consumer;
+   m_font = QFont();
+   m_font.setBold(true);
+   m_font.setPointSizeF(25);
 
    m_numConnectionsText = new QGraphicsTextItem(this);
    m_numConnectionsText->setToolTip("Number of Connections");
@@ -96,6 +101,17 @@ void GModelComponentConnection::setPen(const QPen& pen)
    m_pen = pen;
 }
 
+QBrush GModelComponentConnection::brush() const
+{
+   return m_brush;
+}
+
+void GModelComponentConnection::setBrush(const QBrush& brush)
+{
+   m_brush = brush;
+}
+
+
 QPen GModelComponentConnection::selectedPen() const
 {
    return m_selectedPen;
@@ -105,6 +121,18 @@ void GModelComponentConnection::setSelectedPen(const QPen& pen)
 {
    m_selectedPen = pen;
 }
+
+QFont GModelComponentConnection::font() const
+{
+   return m_font  ;
+}
+
+void GModelComponentConnection::setFont(const QFont& font)
+{
+   m_font = font;
+}
+
+
 
 float GModelComponentConnection::arrowLength() const
 {
@@ -144,31 +172,46 @@ void GModelComponentConnection::paint(QPainter * painter, const QStyleOptionGrap
    m_path.quadTo(m_c1, m_mid);
    m_path.quadTo(m_c2, m_end);
 
+   QPen pen ;
+
    if (isSelected())
    {
-      painter->setPen(m_selectedPen);
-      painter->drawPath(m_path);
-      painter->setBrush(m_selectedPen.brush());
-      painter->drawPolygon(m_arrowPoint, 3, Qt::FillRule::OddEvenFill);
-      QPolygonF g = QPolygonF();
-      g.append(m_arrowPoint[0]);
-      g.append(m_arrowPoint[1]);
-      g.append(m_arrowPoint[2]);
-      m_path.addPolygon(g);
-      //SelectionGraphicItem::paint(m_boundary, painter, option, widget);
+      pen = m_selectedPen;
    }
    else
    {
-      painter->setPen(m_pen);
-      painter->drawPath(m_path);
-      painter->setBrush(m_pen.brush());
-      painter->drawPolygon(m_arrowPoint, 3, Qt::FillRule::OddEvenFill);
-      QPolygonF g = QPolygonF();
-      g.append(m_arrowPoint[0]);
-      g.append(m_arrowPoint[1]);
-      g.append(m_arrowPoint[2]);
-      m_path.addPolygon(g);
+      pen = m_pen;
    }
+
+   painter->setPen(pen);
+   painter->drawPath(m_path);
+   painter->setBrush(pen.brush());
+   painter->drawPolygon(m_arrowPoint, 3, Qt::FillRule::OddEvenFill);
+
+
+   QPolygonF g = QPolygonF();
+   g.append(m_arrowPoint[0]);
+   g.append(m_arrowPoint[1]);
+   g.append(m_arrowPoint[2]);
+   m_path.addPolygon(g);
+
+   painter->setBrush(m_brush);
+
+   QFontMetrics mt(m_font);
+   QString number = QString::number( m_itemConnections.length());
+   float w = (float)mt.width(number);
+   float h = (float)mt.height();
+   
+   float max = w > h ? w /2.0 : h /2.0;
+  
+   QRectF rectf(m_labelLocation.x() - max- 5 , m_labelLocation.y() - max -5 , 2*max + 10 , 2 * max +10);
+
+   painter->drawRoundedRect(rectf,max +5  , max +5  );
+   m_path.addRoundedRect( rectf,max +5  , max +5);
+
+   painter->setFont(m_font);
+   painter->drawText(rectf, Qt::AlignCenter,  number);
+
 }
 
 
@@ -240,23 +283,6 @@ QPointF GModelComponentConnection::maxPosition(const QList<QPointF> & points)
    return QPointF(x, y);
 }
 
-//bool GModelComponentConnection::containsConnection(GComponentItemConnection* const connection)
-//{
-//   for (int i = 0; i < m_itemConnections.count(); i++)
-//   {
-//      GComponentItemConnection* connectionC = m_itemConnections[i];
-
-//      if (connectionC->producerItem() == connection->producerItem() &&
-//          connectionC->consumerItem() == connection->consumerItem()
-//          )
-//      {
-//         return true;
-//      }
-//   }
-
-//   return false;
-//}
-
 void GModelComponentConnection::parentLocationOrSizeChanged()
 {
 
@@ -296,6 +322,8 @@ void GModelComponentConnection::parentLocationOrSizeChanged()
 
    m_c1 = p1 + nuvector.toPointF() * - 0.25 * curveHeight;
 
+   m_labelLocation = p1 + nuvector.toPointF() * -0.125 * curveHeight;
+
    //control point 2
    QVector3D s2 = uline * lineLength * 0.75;
    QPointF p2 = s2.toPointF() + m_start;
@@ -324,6 +352,7 @@ void GModelComponentConnection::parentLocationOrSizeChanged()
    QPointF zeroPoint = minPosition(allPoints);
    QPointF maxPoint = maxPosition(allPoints);
 
+   m_labelLocation = m_labelLocation - zeroPoint;
    m_start = m_start - zeroPoint;
    m_end = m_end - zeroPoint;
    m_mid = m_mid - zeroPoint;

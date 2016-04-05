@@ -26,6 +26,8 @@ QList<GModelComponent*> HydroCoupleProject::modelComponents() const
 
 void HydroCoupleProject::addComponent(GModelComponent *component)
 {
+   postMessage("Adding Component " +  component->modelComponent()->id() + "...");
+
    if (!contains(component))
    {
       m_modelComponents.append(component);
@@ -33,11 +35,14 @@ void HydroCoupleProject::addComponent(GModelComponent *component)
       emit componentAdded(component);
       m_hasChanges = true;
       emit stateModified(m_hasChanges);
+      postMessage("Added Component " +  component->modelComponent()->id() + "...");
    }
 }
 
 bool HydroCoupleProject::deleteComponent(GModelComponent *component)
 {
+   postMessage("Removing Component " +  component->modelComponent()->id() + "...");
+
    if (m_modelComponents.removeAll(component))
    {
       emit componentDeleting(component);
@@ -51,6 +56,8 @@ bool HydroCoupleProject::deleteComponent(GModelComponent *component)
                model->deleteComponentConnection(connection);
             }
          }
+
+         postMessage("Removed Component " +  component->modelComponent()->id() + "...");
       }
 
       delete component;      m_hasChanges = true;
@@ -76,6 +83,7 @@ HydroCoupleProject* HydroCoupleProject::readProjectFile(const QFileInfo &file)
 
 void HydroCoupleProject::onTriggerChanged(GModelComponent* triggerModelComponent)
 {
+
    for (QList<GModelComponent*>::Iterator it = m_modelComponents.begin();
         it != m_modelComponents.end(); it++)
    {

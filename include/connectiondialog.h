@@ -11,7 +11,7 @@ class ConnectionDialog : public QDialog, public Ui::ConnectionDialog
 public:
 	ConnectionDialog(QDialog *parent = 0);
 
-	~ConnectionDialog();
+	virtual ~ConnectionDialog();
 };
 
 #endif // CONNECTIONDIALOG_H

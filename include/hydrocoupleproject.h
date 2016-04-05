@@ -18,7 +18,7 @@ class HydroCoupleProject : public QObject
    public:
       HydroCoupleProject(QObject *parent);
 
-      ~HydroCoupleProject();
+      virtual ~HydroCoupleProject();
 
       //!File to save project in
       QFileInfo projectFile() const;
@@ -49,7 +49,9 @@ class HydroCoupleProject : public QObject
       //! emit when component is added to update ui and graphics
       void componentAdded(GModelComponent *component);
 
-      //! emit when component is removed to update UI and graphics
+      /*!
+       * \brief emit when component is removed to update UI and graphics.
+       */
       void componentDeleting(GModelComponent *component);
 
       /*!
@@ -57,6 +59,12 @@ class HydroCoupleProject : public QObject
        * \param hasChanges
        */
       void stateModified(bool hasChanges);
+
+
+      void postMessage(const QString& message);
+
+
+      void setProgress(bool visible, const QString& message, int progressvalue , int min = 0, int max = 100);
 
    public slots:
 

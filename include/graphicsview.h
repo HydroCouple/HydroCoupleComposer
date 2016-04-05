@@ -22,7 +22,7 @@ class GraphicsView : public QGraphicsView
       Q_ENUMS(Tool)
 
       GraphicsView(QWidget *parent = 0);
-      ~GraphicsView();
+      virtual ~GraphicsView();
 
    public slots:
       void onCurrentToolChanged(int currentTool);

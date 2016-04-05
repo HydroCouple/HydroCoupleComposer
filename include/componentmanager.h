@@ -5,6 +5,7 @@
 #include <QDir>
 #include <hydrocouple.h>
 #include <QSet>
+#include <QPluginLoader>
 
 class ComponentManager : public QObject
 {
@@ -13,23 +14,23 @@ class ComponentManager : public QObject
    public:
       ComponentManager(QObject *parent);
 
-      ~ComponentManager();
+      virtual ~ComponentManager();
 
       //!Loaded model components
       QList<HydroCouple::IModelComponentInfo*> modelComponentInfoList() const;
 
       HydroCouple::IModelComponentInfo* findModelComponentInfoById(const QString& id);
 
-      bool removeModelComponentInfoById(const QString& id);
+      bool unloadModelComponentInfoById(const QString& id);
 
       //!Loaded model components
       QList<HydroCouple::IAdaptedOutputFactoryComponentInfo*> adaptedOutputFactoryComponentInfoList() const;
 
       HydroCouple::IAdaptedOutputFactoryComponentInfo* findAdaptedOutputFactoryComponentInfoById(const QString& id);
 
-      bool removeAdaptedOutputFactoryComponentInfoById(const QString& id);
+      bool unloadAdaptedOutputFactoryComponentInfoById(const QString& id);
 
-      bool addComponent(const QFileInfo& file);
+      bool loadComponent(const QFileInfo& file);
 
       QSet<QString> componentFileExtensions() const;
 
@@ -47,7 +48,7 @@ class ComponentManager : public QObject
       //! Emitted when a component is loaded successfully
       void modelComponentInfoLoaded(const HydroCouple::IModelComponentInfo* modelComponentInfo);
 
-      void modelComponentInfoRemoved(const HydroCouple::IModelComponentInfo* modelComponentInfo);
+      void modelComponentInfoUnloaded(const QString& id);
 
       /*!
        * \brief Emitted when a component is loaded successfully
@@ -58,16 +59,20 @@ class ComponentManager : public QObject
        * \brief adaptedOutputFactoryComponentInfoLoaded
        * \param adaptedOutputComponentInfo
        */
-      void adaptedOutputFactoryComponentRemoved(const HydroCouple::IAdaptedOutputFactoryComponentInfo*  adaptedOutputComponentInfo);
+      void adaptedOutputFactoryComponentUnloaded(const QString&  id);
+
+      void postMessage(const QString& message);
+
+      void setProgress(bool visible, const QString& message, int progressvalue , int min = 0, int max = 100);
 
    private:
       bool hasValidExtension(const QFileInfo& file);
 
    private:
-      QList<HydroCouple::IModelComponentInfo*> m_modelComponentInfoList;
-      QList<HydroCouple::IAdaptedOutputFactoryComponentInfo*> m_adaptedOutputFactoryComponentInfoList;
       QSet<QString> m_componentFileExtensions;
       QList<QDir> m_componentDirectories;
+      QHash<HydroCouple::IModelComponentInfo* , QPluginLoader*> m_modelComponentInfoHash;
+      QHash<HydroCouple::IAdaptedOutputFactoryComponentInfo* , QPluginLoader*> m_adaptedOutputFactoryComponentInfoHash;
 };
 
 #endif // COMPONENTMANAGER_H
