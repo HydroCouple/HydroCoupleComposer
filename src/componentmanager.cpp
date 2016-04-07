@@ -6,9 +6,16 @@ using namespace HydroCouple;
 ComponentManager::ComponentManager(QObject *parent)
    : QObject(parent)
 {
+
+#ifdef _WIN32 // note the underscore: without it, it's not msdn official!
    m_componentFileExtensions.insert("*.dll");
-   m_componentFileExtensions.insert("*.dylib");
+#elif __unix__ // all unices, not all compilers
    m_componentFileExtensions.insert("*.so");
+#elif __linux__
+   m_componentFileExtensions.insert("*.so");
+#elif __APPLE__
+   m_componentFileExtensions.insert("*.dylib");
+#endif
 }
 
 ComponentManager::~ComponentManager()
@@ -45,13 +52,8 @@ bool ComponentManager::unloadModelComponentInfoById(const QString& id)
 {
    IModelComponentInfo* componentInfo = findModelComponentInfoById(id);
 
-   emit postMessage("Unloading model component library " + componentInfo->name() + "...");
-
    if(componentInfo && m_modelComponentInfoHash.contains(componentInfo))
    {
-
-
-
       QPluginLoader* plugin = m_modelComponentInfoHash[componentInfo];
       m_modelComponentInfoHash.remove(componentInfo);
 
@@ -94,8 +96,6 @@ bool ComponentManager::unloadAdaptedOutputFactoryComponentInfoById(const QString
 {
    IAdaptedOutputFactoryComponentInfo* componentInfo = findAdaptedOutputFactoryComponentInfoById(id);
 
-   emit postMessage("Unloading adapted output factory component library " + componentInfo->name() + "...");
-
    if(componentInfo && m_adaptedOutputFactoryComponentInfoHash.contains(componentInfo))
    {
       QPluginLoader* plugin = m_adaptedOutputFactoryComponentInfoHash[componentInfo];
@@ -134,8 +134,6 @@ bool ComponentManager::loadComponent(const QFileInfo& file)
 
             if (mcomponentInfo)
             {
-               emit postMessage("Loading model component library " + mcomponentInfo->name() + "...");
-
                for (IModelComponentInfo* model : m_modelComponentInfoHash.keys())
                {
                   if (!mcomponentInfo->id().compare(model->id()))
@@ -157,8 +155,6 @@ bool ComponentManager::loadComponent(const QFileInfo& file)
 
             if (acomponentInfo)
             {
-               emit postMessage("Loading adapted output factor component library " + acomponentInfo->name() + "...");
-
                acomponentInfo->setLibraryFilePath(file.filePath());
 
                for (IAdaptedOutputFactoryComponentInfo* model : m_adaptedOutputFactoryComponentInfoHash.keys())
@@ -179,16 +175,14 @@ bool ComponentManager::loadComponent(const QFileInfo& file)
             }
 
             delete component;
-            message = "'/" + file.filePath() + "'/ is not a valid HydroCouple component";
-            emit statusChangedMessage(message);
-            emit statusChangedMessage(message ,  10);
+            message = "\"" + file.filePath() + "\" is not a valid HydroCouple component library";
+            emit postMessage(message);
             return false;
          }
          else
          {
-            message = "'/" + file.filePath() + "'/ is not a valid Qt plugin";
-            emit statusChangedMessage(message);
-            emit statusChangedMessage(message, 10);
+            message = "'/" + file.filePath() + "'/ is not a valid Qt plugin library";
+            emit postMessage(message);
          }
 
          pluginLoader->unload();
@@ -198,8 +192,7 @@ bool ComponentManager::loadComponent(const QFileInfo& file)
    else
    {
       message = "File '" + file.filePath() + "' does not exist";
-      emit statusChangedMessage(message);
-      emit statusChangedMessage(message, 10);
+      emit postMessage(message);
    }
 
    return false;
@@ -222,26 +215,47 @@ QList<QDir> ComponentManager::componentDirectories() const
 
 void ComponentManager::addComponentDirectory(const QDir& directory)
 {
+
+   QList<QFileInfo> files;
+
    if (!m_componentDirectories.contains(directory))
    {
       m_componentDirectories.append(directory);
 
       QDirIterator it(directory.absolutePath(), QDirIterator::Subdirectories);
 
-      QString message = "Checking '/" + directory.absolutePath() + "'/ for plugins";
+      QString message = "Checking \"" + directory.absolutePath() + "\" for component libraries...";
 
-      emit statusChangedMessage(message);
+      emit postMessage(message);
 
 
       while (it.hasNext())
       {
          it.next();
 
-         if (it.fileInfo().isFile())
+         if (it.fileInfo().isFile() && hasValidExtension(it.fileInfo()))
          {
-            loadComponent(it.fileInfo());
+            files.append(it.fileInfo());
+
          }
       }
+
+      float count = 0;
+
+      for(QFileInfo file : files)
+      {
+         emit postMessage("Loading component library \"" + file.absoluteFilePath() + "\" ...");
+
+         if(loadComponent(file))
+         {
+         }
+         count = count + 1;
+         int progress = (int)(count * 100.0 /files.length());
+         emit setProgress(true , progress);
+      }
+
+      emit setProgress(false , 0);
+
    }
 }
 

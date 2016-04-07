@@ -143,6 +143,8 @@ class GModelComponent : public QGraphicsObject
 
       void setAsTrigger(GModelComponent* component);
 
+      void postMessage(const QString& message);
+
    private slots:
 
       void onComponentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs& statusChangedEvent);

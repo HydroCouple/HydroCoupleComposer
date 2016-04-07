@@ -84,6 +84,7 @@
     <property name="title">
      <string>Tools</string>
     </property>
+    <addaction name="actionAddComponentLibraryDirectory"/>
     <addaction name="actionClearAllSettings"/>
    </widget>
    <addaction name="menuFile"/>
@@ -131,6 +132,7 @@
    <addaction name="actionDeleteComponent"/>
    <addaction name="actionCreateConnection"/>
    <addaction name="actionDeleteConnection"/>
+   <addaction name="actionCloneModelComponent"/>
    <addaction name="actionSetTrigger"/>
    <addaction name="actionExecute"/>
    <addaction name="separator"/>
@@ -241,7 +243,26 @@
    <widget class="QWidget" name="dockWidgetContentsStatus">
     <layout class="QHBoxLayout" name="horizontalLayout_4">
      <item>
-      <widget class="QTreeView" name="treeViewSimulationStatus"/>
+      <widget class="QTreeView" name="treeViewSimulationStatus">
+       <property name="editTriggers">
+        <set>QAbstractItemView::NoEditTriggers</set>
+       </property>
+       <property name="showDropIndicator" stdset="0">
+        <bool>false</bool>
+       </property>
+       <property name="alternatingRowColors">
+        <bool>true</bool>
+       </property>
+       <property name="selectionMode">
+        <enum>QAbstractItemView::SingleSelection</enum>
+       </property>
+       <attribute name="headerDefaultSectionSize">
+        <number>300</number>
+       </attribute>
+       <attribute name="headerStretchLastSection">
+        <bool>true</bool>
+       </attribute>
+      </widget>
      </item>
     </layout>
    </widget>
@@ -259,6 +280,9 @@
       <widget class="QTextEdit" name="textEdit">
        <property name="contextMenuPolicy">
         <enum>Qt::ActionsContextMenu</enum>
+       </property>
+       <property name="lineWrapMode">
+        <enum>QTextEdit::NoWrap</enum>
        </property>
        <property name="readOnly">
         <bool>true</bool>
@@ -822,6 +846,30 @@
    </property>
    <property name="toolTip">
     <string>Copy to Clipboard</string>
+   </property>
+  </action>
+  <action name="actionAddComponentLibraryDirectory">
+   <property name="icon">
+    <iconset resource="../resources/hydrocouplecomposer.qrc">
+     <normaloff>:/HydroCoupleComposer/open</normaloff>:/HydroCoupleComposer/open</iconset>
+   </property>
+   <property name="text">
+    <string>Add Component Library Directory</string>
+   </property>
+   <property name="toolTip">
+    <string>Add Component Library Directory</string>
+   </property>
+  </action>
+  <action name="actionCloneModelComponent">
+   <property name="icon">
+    <iconset resource="../resources/hydrocouplecomposer.qrc">
+     <normaloff>:/HydroCoupleComposer/clonecomponent</normaloff>:/HydroCoupleComposer/clonecomponent</iconset>
+   </property>
+   <property name="text">
+    <string>Clone Model Component</string>
+   </property>
+   <property name="toolTip">
+    <string>Clone Model Component</string>
    </property>
   </action>
  </widget>

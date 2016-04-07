@@ -41,9 +41,6 @@ class ComponentManager : public QObject
       void addComponentDirectory(const QDir& directory);
 
    signals:
-      void statusChangedMessage(const QString& message);
-
-      void statusChangedMessage(const QString& message, int timeout);
 
       //! Emitted when a component is loaded successfully
       void modelComponentInfoLoaded(const HydroCouple::IModelComponentInfo* modelComponentInfo);
@@ -63,7 +60,7 @@ class ComponentManager : public QObject
 
       void postMessage(const QString& message);
 
-      void setProgress(bool visible, const QString& message, int progressvalue , int min = 0, int max = 100);
+      void setProgress(bool visible, int progressvalue , int min = 0, int max = 100);
 
    private:
       bool hasValidExtension(const QFileInfo& file);

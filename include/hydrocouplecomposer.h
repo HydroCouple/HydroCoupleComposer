@@ -30,31 +30,40 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       virtual ~HydroCoupleComposer();
 
-      //! ComponentManager manages all component types
       /*!
-        */
+       * \brief ComponentManager manages all component types.
+       */
       ComponentManager* componentManager() const;
 
-      //! HydroCoupleProject project for this session
       /*!
-        */
+       * \brief HydroCoupleProject project for this session
+       */
       HydroCoupleProject* project() const;
 
    protected:
-      //!dispose resources and save on close
+
+      /*!
+       * \brief dispose resources and save on close.
+       */
       void closeEvent(QCloseEvent * event) override;
 
-      //!Implement Drag Drop
+      /*!
+       * \brief Implement Drag Drop.
+       */
       void dragMoveEvent(QDragMoveEvent * event) override;
 
       void dragEnterEvent(QDragEnterEvent * event) override;
 
       void dropEvent(QDropEvent * event) override;
 
-      //!Implement create connection and delete connection
+      /*!
+       * \brief Implement create connection and delete connection.
+       */
       void mousePressEvent(QMouseEvent * event) override;
 
-      //!Implement delete and others
+      /*!
+       * \brief Implement delete and others.
+       */
       void keyPressEvent(QKeyEvent * event)  override;
 
    private:
@@ -120,8 +129,7 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       static bool compareBottomEdges(GModelComponent *a, GModelComponent *b);
 
    public slots:
-      //!Set process progress
-      void onSetProgress(bool visible, const QString& message = QString(), int progress = 0 , int min = 0 , int max = 100);
+      void onSetProgress(bool visible, int progress = 0 , int min = 0 , int max = 100);
 
       //!Post Output message
       void onPostMessage(const QString& message);
@@ -158,7 +166,15 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        */
       void onOpenRecentFile();
 
-      //!Update recentFiles QActions
+      /*!
+       * \brief onAddComponentLibraryDirectory
+       */
+      void onAddComponentLibraryDirectory();
+
+
+      /*!
+       * \brief onUpdateRecentFiles
+       */
       void onUpdateRecentFiles();
 
       /*!
@@ -185,6 +201,11 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        * \brief onLayoutComponents
        */
       void onLayoutComponents();
+
+      /*!
+       * \brief onCloneModelComponents
+       */
+      void onCloneModelComponents();
 
       /*!
        * \brief onSetAsTrigger
@@ -220,6 +241,8 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       void onModelComponentInfoClicked(const QModelIndex& index);
 
       void onModelComponentInfoDoubleClicked(const QModelIndex& index);
+
+      void onModelComponentStatusItemClicked(const QModelIndex& index);
 
       void onModelComponentInfoDropped(const QPointF& scenePos, const QString& id);
 

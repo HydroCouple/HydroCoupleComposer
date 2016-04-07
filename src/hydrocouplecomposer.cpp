@@ -45,6 +45,7 @@ HydroCoupleComposer::HydroCoupleComposer(QWidget *parent)
    m_propertyModel = new QPropertyModel(this);
    m_qVariantPropertyHolder = new QVariantHolderHelper(QVariant() , this);
 
+
    initializeGUIComponents();
    initializeComponentInfoTreeView();
    initializePropertyGrid();
@@ -135,7 +136,7 @@ void HydroCoupleComposer::mousePressEvent(QMouseEvent * event)
 
 void HydroCoupleComposer::keyPressEvent(QKeyEvent * event)
 {
-   if (event->key() == Qt::Key::Key_Delete)
+   if (event->key() == Qt::Key::Key_Delete && (m_selectedModelComponents.count() || m_selectModelComponentConnections.count()))
    {
       graphicsViewHydroCoupleComposer->scene()->blockSignals(true);
 
@@ -145,8 +146,10 @@ void HydroCoupleComposer::keyPressEvent(QKeyEvent * event)
 
          if(m_selectedModelComponents.length())
          {
-            for (GModelComponent* model : m_selectedModelComponents)
+
+            for (int i = 0 ; i < m_selectedModelComponents.length() ; i++)
             {
+               GModelComponent* model  = m_selectedModelComponents[i];
                QString id = model->modelComponent()->id();
 
                if (m_project->deleteComponent(model))
@@ -160,8 +163,10 @@ void HydroCoupleComposer::keyPressEvent(QKeyEvent * event)
 
          if(m_selectModelComponentConnections.length())
          {
-            for(GModelComponentConnection* connection : m_selectModelComponentConnections)
+            for(int i = 0 ; i < m_selectModelComponentConnections.length() ; i++)
             {
+               GModelComponentConnection* connection = m_selectModelComponentConnections[i];
+
                if(connection)
                {
                   QString id;
@@ -196,7 +201,7 @@ void HydroCoupleComposer::keyPressEvent(QKeyEvent * event)
 
 void HydroCoupleComposer::openFile(const QFileInfo& file)
 {
-   onPostMessage("Opening file '/" + file.absoluteFilePath() + "'/");
+   onPostMessage("Opening file \"" + file.absoluteFilePath() + "\"");
    m_lastOpenedFilePath = file.absoluteFilePath();
    m_lastPath = file.absolutePath();
 
@@ -367,7 +372,11 @@ void HydroCoupleComposer::initializeComponentInfoTreeView()
 void HydroCoupleComposer::initializeSimulationStatusTreeView()
 {
    treeViewSimulationStatus->setModel(m_modelStatusItemModel);
-   treeViewSimulationStatus->resizeColumnToContents(3);
+
+   ModelStatusItemStyledItemDelegate* statusProgressStyledItemDelegate = new ModelStatusItemStyledItemDelegate(treeViewSimulationStatus);
+   treeViewSimulationStatus->setItemDelegate(statusProgressStyledItemDelegate);
+   treeViewSimulationStatus->setColumnWidth(3,400);
+   //treeViewSimulationStatus->header()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
 }
 
 void HydroCoupleComposer::initializePropertyGrid()
@@ -426,12 +435,15 @@ void HydroCoupleComposer::initializeSignalSlotConnections()
    connect(m_componentManager, &ComponentManager::modelComponentInfoLoaded, this, &HydroCoupleComposer::onModelComponentInfoLoaded);
    connect(m_componentManager, &ComponentManager::modelComponentInfoUnloaded, this, &HydroCoupleComposer::onModelComponentInfoUnloaded);
    connect(m_componentManager, &ComponentManager::postMessage, this, &HydroCoupleComposer::onPostMessage);
-   connect(m_componentManager, &ComponentManager::setProgress, this, &HydroCoupleComposer::onSetProgress);
+   connect(m_componentManager, SIGNAL(setProgress(bool,int,int,int)), this, SLOT(onSetProgress(bool,int,int,int)));
+   connect(actionAddComponentLibraryDirectory, &QAction::triggered, this, &HydroCoupleComposer::onAddComponentLibraryDirectory);
 
    //ComponentInfoTreeview
    connect(treeViewModelComponentInfos, SIGNAL(clicked(const QModelIndex&)), this, SLOT(onModelComponentInfoClicked(const QModelIndex&)));
    connect(treeViewModelComponentInfos, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(onModelComponentInfoDoubleClicked(const QModelIndex&)));
-   //connect(treeViewComponents->selectionModel(), SIGNAL(currentChanged(const QModelIndex &, const QModelIndex &)), this, SLOT(onCurrentChanged(const QModelIndex &, const QModelIndex &)));
+
+   //ModelComponentStatus
+   connect(treeViewSimulationStatus, SIGNAL(clicked(const QModelIndex&)) , this , SLOT(onModelComponentStatusItemClicked(const QModelIndex&)));
 
    //Toolbar actions
    connect(actionDefaultSelect, SIGNAL(toggled(bool)), this, SLOT(onSetCurrentTool(bool)));
@@ -456,6 +468,7 @@ void HydroCoupleComposer::initializeSignalSlotConnections()
 
    connect(actionDefaultSelect, SIGNAL(toggled(bool)), actionCreateConnection, SLOT(setEnabled(bool)));
    connect(actionCreateConnection, SIGNAL(toggled(bool)), this, SLOT(onCreateConnection(bool)));
+   connect(actionCloneModelComponent, SIGNAL(triggered()), this, SLOT(onCloneModelComponents()));
    connect(actionSetTrigger, SIGNAL(triggered()), this, SLOT(onSetAsTrigger()));
    connect(actionDeleteComponent, SIGNAL(triggered()), this, SLOT(onDeleteSelectedComponents()));
    connect(actionDeleteConnection, SIGNAL(triggered()), this, SLOT(onDeleteSelectedConnections()));
@@ -505,7 +518,7 @@ void HydroCoupleComposer::initializeProjectSignalSlotConnections()
    connect(m_project, SIGNAL(componentDeleting(GModelComponent* )), this, SLOT(onModelComponentDeleting(GModelComponent* )));
    connect(m_project, SIGNAL(stateModified(bool)), this, SLOT(onProjectHasChanges(bool)));
    connect(m_project , SIGNAL(postMessage(const QString&)) , this , SLOT(onPostMessage(const QString&)));
-   connect(m_project, SIGNAL(setProgress(bool,const QString&,int,int,int)), this, SLOT(onSetProgress(bool,const QString&,int,int,int)));
+   connect(m_project, SIGNAL(setProgress(bool,int,int,int)), this, SLOT(onSetProgress(bool,int,int,int)));
 }
 
 void HydroCoupleComposer::initializeContextMenus()
@@ -518,6 +531,7 @@ void HydroCoupleComposer::initializeContextMenus()
    m_treeviewComponentInfoContextMenuActions.append(actionUnloadModelComponentLibrary);
 
    m_graphicsViewContextMenuActions.append(actionSetTrigger);
+   m_graphicsViewContextMenuActions.append(actionCloneModelComponent);
    m_graphicsViewContextMenuActions.append(actionDeleteComponent);
 
    QAction* sep1 = new QAction(this);
@@ -638,7 +652,7 @@ bool HydroCoupleComposer::compareBottomEdges(GModelComponent*   a, GModelCompone
    return a->sceneBoundingRect().bottom() < b->sceneBoundingRect().bottom();
 }
 
-void HydroCoupleComposer::onSetProgress(bool visible, const QString& message , int progress , int min , int max)
+void HydroCoupleComposer::onSetProgress(bool visible, int progress , int min , int max)
 {
    m_progressBar->setVisible(visible);
 
@@ -653,9 +667,6 @@ void HydroCoupleComposer::onSetProgress(bool visible, const QString& message , i
       m_progressBar->setMinimum(0);
       m_progressBar->setMaximum(100);
    }
-
-   onPostMessage(message);
-
 }
 
 void HydroCoupleComposer::onPostMessage(const QString& message)
@@ -785,6 +796,18 @@ void HydroCoupleComposer::onOpenRecentFile()
       {
          openFile(file);
       }
+   }
+}
+
+void HydroCoupleComposer::onAddComponentLibraryDirectory()
+{
+   QString dirPath = QFileDialog::getExistingDirectory(this, "Open", m_lastPath);
+   QDir dir(dirPath);
+
+   if (dir.exists())
+   {
+      m_componentManager->addComponentDirectory(dir);
+      m_lastPath = dir.absolutePath();
    }
 }
 
@@ -1055,11 +1078,11 @@ void HydroCoupleComposer::onLayoutComponents()
 
       agsafeset(G , size , g_size_c, nullChar);
 
-      char num[4] ;
-      strcpy(num , "4.0");
+      char num[4];
+      strcpy(num , "4.5");
       agsafeset(G , nodesep , num, nullChar);
 
-      strcpy(num , "3.0");
+      strcpy(num , "3.5");
       agsafeset(G , ranksep , num, nullChar);
 
       char al[3];
@@ -1129,6 +1152,17 @@ void HydroCoupleComposer::onLayoutComponents()
 
    onZoomExtent();
 
+}
+
+void HydroCoupleComposer::onCloneModelComponents()
+{
+   if(m_selectedModelComponents.length())
+   {
+      for(GModelComponent* model : m_selectedModelComponents)
+      {
+         model->modelComponent()->clone();
+      }
+   }
 }
 
 void HydroCoupleComposer::onSetAsTrigger()
@@ -1238,6 +1272,7 @@ void HydroCoupleComposer::onBrowseToComponentLibraryPath()
             if (file.exists())
             {
                QDesktopServices::openUrl(QUrl::fromLocalFile(file.absolutePath()));
+               m_lastPath = file.absolutePath();
             }
          }
       }
@@ -1351,9 +1386,9 @@ void HydroCoupleComposer::onModelComponentInfoLoaded(const IModelComponentInfo* 
    QString html = QString(sc_modelComponentInfoHtml).replace("[Component]", modelComponentInfo->name())
          .replace("[Version]", modelComponentInfo->version())
          .replace("[Url]", modelComponentInfo->url())
-         .replace("[Caption]", modelComponentInfo->getCaption())
+         .replace("[Caption]", modelComponentInfo->caption())
          .replace("[IconPath]", iconPath)
-         .replace("[Description]", modelComponentInfo->getDescription())
+         .replace("[Description]", modelComponentInfo->description())
          .replace("[License]", modelComponentInfo->license())
          .replace("[Vendor]", modelComponentInfo->vendor())
          .replace("[Email]", modelComponentInfo->email())
@@ -1457,6 +1492,21 @@ void HydroCoupleComposer::onModelComponentInfoDoubleClicked(const QModelIndex& i
    }
 }
 
+void HydroCoupleComposer::onModelComponentStatusItemClicked(const QModelIndex &index)
+{
+   ModelStatusItem* item = nullptr;
+
+   if((item = static_cast<ModelStatusItem*>(index.internalPointer())))
+   {
+      m_propertyModel->setData(QVariant::fromValue(dynamic_cast<QObject*>(item->component())));
+      treeViewProperties->expandToDepth(1);
+   }
+   else
+   {
+      m_propertyModel->setData(QVariant());
+   }
+}
+
 void HydroCoupleComposer::onModelComponentInfoDropped(const QPointF& scenePos, const QString& id)
 {
    IModelComponentInfo* foundModelComponentInfo = nullptr;
@@ -1512,9 +1562,9 @@ void HydroCoupleComposer::onModelComponentInfoPropertyChanged(const QString& pro
          QString html = QString(sc_modelComponentInfoHtml).replace("[Component]", modelComponentInfo->name())
                .replace("[Version]", modelComponentInfo->version())
                .replace("[Url]", modelComponentInfo->url())
-               .replace("[Caption]", modelComponentInfo->getCaption())
+               .replace("[Caption]", modelComponentInfo->caption())
                .replace("[IconPath]", iconPath)
-               .replace("[Description]", modelComponentInfo->getDescription())
+               .replace("[Description]", modelComponentInfo->description())
                .replace("[License]", modelComponentInfo->license())
                .replace("[Vendor]", modelComponentInfo->vendor())
                .replace("[Email]", modelComponentInfo->email())
@@ -1537,11 +1587,15 @@ void HydroCoupleComposer::onModelComponentAdded(GModelComponent* modelComponent)
    
    connect(modelComponent, SIGNAL(componentConnectionAdded(GModelComponentConnection* )), this, SLOT(onModelComponentConnectionAdded(GModelComponentConnection* )));
    connect(modelComponent, SIGNAL(componentConnectionDeleting(GModelComponentConnection* )), this, SLOT(onModelComponentConnectionDeleting(GModelComponentConnection* )));
+
+   m_modelStatusItemModel->addNewModel(modelComponent->modelComponent());
+   treeViewSimulationStatus->expandAll();
 }
 
 void HydroCoupleComposer::onModelComponentDeleting(GModelComponent* modelComponent)
 {
    graphicsViewHydroCoupleComposer->scene()->removeItem(modelComponent);
+   m_modelStatusItemModel->removeModel(modelComponent->modelComponent());
 }
 
 void HydroCoupleComposer::onModelComponentConnectionAdded(GModelComponentConnection* modelComponentConnection)
@@ -1555,6 +1609,7 @@ void HydroCoupleComposer::onModelComponentConnectionAdded(GModelComponentConnect
 void HydroCoupleComposer::onModelComponentConnectionDeleting(GModelComponentConnection* modelComponentConnection)
 {
    graphicsViewHydroCoupleComposer->scene()->removeItem(modelComponentConnection);
+   m_selectModelComponentConnections.removeAll(modelComponentConnection);
 }
 
 void HydroCoupleComposer::onModelComponentConnectionDoubleClicked(QGraphicsSceneMouseEvent * event)
@@ -1630,6 +1685,7 @@ void HydroCoupleComposer::onSelectionChanged()
    if(m_selectedModelComponents.length())
    {
       actionDeleteComponent->setEnabled(true);
+      actionCloneModelComponent->setEnabled(true);
       actionSetTrigger->setEnabled(true);
       actionAlignBottom->setEnabled(true);
       actionAlignTop->setEnabled(true);
@@ -1678,6 +1734,7 @@ void HydroCoupleComposer::onSelectionChanged()
    else
    {
       actionDeleteComponent->setEnabled(false);
+      actionCloneModelComponent->setEnabled(false);
       actionSetTrigger->setEnabled(false);
       actionAlignBottom->setEnabled(false);
       actionAlignTop->setEnabled(false);

@@ -30,9 +30,11 @@ HEADERS += ./include/componentmanager.h \
            ./include/splashscreen.h \
            ./include/custompropertyitems.h \
            ./include/gmodelcomponentconnection.h \
-    include/gcomponentitemconnection.h \
-    include/gexchangeitems.h \
-    include/modelstatusitemmodel.h
+           ./include/gcomponentitemconnection.h \
+           ./include/gexchangeitems.h \
+           ./include/modelstatusitemmodel.h \
+           ./include/modelstatusitemstatuschangeeventargswrapper.h \
+           ./include/modelstatusitem.h
 
 SOURCES += ./src/stdafx.cpp \
            ./src/main.cpp \
@@ -46,8 +48,10 @@ SOURCES += ./src/stdafx.cpp \
            ./src/splashscreen.cpp \
            ./src/custompropertyitems.cpp \
            ./src/gmodelcomponentconnection.cpp \
-    src/gexchangeitems.cpp \
-    src/modelstatuitemmodel.cpp
+           ./src/gexchangeitems.cpp \
+           ./src/modelstatuitemmodel.cpp \
+           ./src/modelstatusitemstatuschangeeventargswrapper.cpp \
+           ./src/modelstatusitem.cpp
 
 PRECOMPILED_HEADER += ./include/stdafx.h
 
@@ -70,10 +74,10 @@ win32 {
 CONFIG(release, debug|release): LIBS += -L$$PWD/../../QPropertyModel/QPropertyModel/bin/release/ -lQPropertyModel1
 CONFIG(debug, debug|release): LIBS += -L$$PWD/../../QPropertyModel/QPropertyModel/bin/debug/ -lQPropertyModel1
 
-#CONFIG(release, debug|release): LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/release/lib' -cgraph
-#CONFIG(debug, debug|release): LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/debug/lib' -cgraph
+CONFIG(release, debug|release): LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/release/lib' -cgraph
+CONFIG(debug, debug|release): LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/debug/lib' -cgraph
 
-#CONFIG(release, debug|release):LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/release/lib' -gvc
-#CONFIG(debug, debug|release):LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/debug/lib' -gvc
+CONFIG(release, debug|release):LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/release/lib' -gvc
+CONFIG(debug, debug|release):LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/debug/lib' -gvc
 }
 

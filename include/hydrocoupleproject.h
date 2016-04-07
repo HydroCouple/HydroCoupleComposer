@@ -64,7 +64,7 @@ class HydroCoupleProject : public QObject
       void postMessage(const QString& message);
 
 
-      void setProgress(bool visible, const QString& message, int progressvalue , int min = 0, int max = 100);
+      void setProgress(bool visible, int progressvalue , int min = 0, int max = 100);
 
    public slots:
 
@@ -94,6 +94,9 @@ class HydroCoupleProject : public QObject
        * \param hasChanges
        */
       void setHasChanges(bool hasChanges);
+
+   private slots:
+      void onPostMessage(const QString& message);
 
    private:
       QList<GModelComponent*> m_modelComponents;

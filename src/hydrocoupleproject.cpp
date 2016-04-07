@@ -26,7 +26,6 @@ QList<GModelComponent*> HydroCoupleProject::modelComponents() const
 
 void HydroCoupleProject::addComponent(GModelComponent *component)
 {
-   postMessage("Adding Component " +  component->modelComponent()->id() + "...");
 
    if (!contains(component))
    {
@@ -36,15 +35,16 @@ void HydroCoupleProject::addComponent(GModelComponent *component)
       m_hasChanges = true;
       emit stateModified(m_hasChanges);
       postMessage("Added Component " +  component->modelComponent()->id() + "...");
+      connect(component, SIGNAL(postMessage(QString)) , this , SLOT(onPostMessage(QString)));
    }
 }
 
 bool HydroCoupleProject::deleteComponent(GModelComponent *component)
 {
-   postMessage("Removing Component " +  component->modelComponent()->id() + "...");
-
    if (m_modelComponents.removeAll(component))
    {
+      disconnect(component, SIGNAL(postMessage(QString)) , this , SLOT(onPostMessage(QString)));
+
       emit componentDeleting(component);
 
       for(GModelComponent* model : m_modelComponents)
@@ -60,7 +60,8 @@ bool HydroCoupleProject::deleteComponent(GModelComponent *component)
          postMessage("Removed Component " +  component->modelComponent()->id() + "...");
       }
 
-      delete component;      m_hasChanges = true;
+      delete component;
+      m_hasChanges = true;
       emit stateModified(m_hasChanges);
       return true;
    }
@@ -108,11 +109,7 @@ void HydroCoupleProject::onSaveProjectAs(const QFileInfo &file)
    emit stateModified(m_hasChanges);
 }
 
-void HydroCoupleProject::setHasChanges(bool hasChanges)
-{
-   m_hasChanges = hasChanges;
-   emit stateModified(m_hasChanges);
-}
+
 
 bool HydroCoupleProject::contains(GModelComponent* component) const
 {
@@ -128,4 +125,15 @@ bool HydroCoupleProject::contains(GModelComponent* component) const
    }
 
    return false;
+}
+
+void HydroCoupleProject::setHasChanges(bool hasChanges)
+{
+   m_hasChanges = hasChanges;
+   emit stateModified(m_hasChanges);
+}
+
+void HydroCoupleProject::onPostMessage(const QString &message)
+{
+   emit postMessage(message);
 }

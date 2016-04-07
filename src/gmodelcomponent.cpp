@@ -37,7 +37,8 @@ GModelComponent::GModelComponent(IModelComponent* model, HydroCoupleProject *par
    m_modelComponent = model;
    m_textItem = new QGraphicsTextItem(this);
 
-   connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(componentStatusChanged(const ComponentStatusChangeEventArgs&)), this, SLOT(onComponentStatusChanged(const ComponentStatusChangeEventArgs&)));
+   connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(componentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs &)),
+           this, SLOT(onComponentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs&)));
 
    connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(propertyChanged(const QString&, const QVariant&)), this, SLOT(onPropertyChanged(const QString&, const QVariant&)));
 
@@ -106,7 +107,7 @@ void GModelComponent::setTrigger(bool trigger)
       }
 
       emit propertyChanged("Trigger", m_isTrigger);
-
+      emit postMessage(m_modelComponent->id() + " has been set as the trigger" );
       update();
    }
 }
@@ -444,8 +445,8 @@ void GModelComponent::onCreateTextItem()
    QFileInfo iconFile(QFileInfo(m_modelComponent->componentInfo()->libraryFilePath()).dir(), m_modelComponent->componentInfo()->iconFilePath());
 
    desc.replace("[Id]", m_modelComponent->id())
-         .replace("[Caption]", m_modelComponent->getCaption())
-         .replace("[Description]", m_modelComponent->getDescription())
+         .replace("[Caption]", m_modelComponent->caption())
+         .replace("[Description]", m_modelComponent->description())
          .replace("[Status]", modelComponentStatusAsString(m_modelComponent->status()))
          .replace("[IconPath]", iconFile.absoluteFilePath());
 

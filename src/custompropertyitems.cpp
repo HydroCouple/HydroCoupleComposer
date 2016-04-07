@@ -1,5 +1,5 @@
 #include "custompropertyitems.h"
-
+#include <assert.h>
 
 using namespace HydroCouple;
 
@@ -7,10 +7,9 @@ void CustomPropertyItems::registerCustomPropertyItems(QPropertyModel* propertyMo
 {
    //IModelComponent*
     propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IModelComponent*>(), &IModelComponentPropertyItem::staticMetaObject);
+    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<QList<IModelComponent*>>(), &IModelComponentListPropertyItem::staticMetaObject);
     propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IComponentInfo*>(), &IComponentInfoPropertyItem::staticMetaObject);
     propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IModelComponentInfo*>(), &IModelComponentInfoPropertyItem::staticMetaObject);
-    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IModelComponent*>(), &IModelComponentPropertyItem::staticMetaObject);
-    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<QList<IModelComponent*>>(), &IModelComponentListPropertyItem::staticMetaObject);
     propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IAdaptedOutputFactoryComponentInfo*>(), &IAdaptedOutputFactoryComponentInfoPropertyItem::staticMetaObject);
     propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IAdaptedOutputFactory*>(), &IAdaptedOutputFactoryPropertyItem::staticMetaObject);
     propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<QList<IAdaptedOutputFactory*>>(), &IAdaptedOutputFactoryListPropertyItem::staticMetaObject);
@@ -35,7 +34,8 @@ QList<QObject*> convertToQObjectList(const QVariant& value)
 
    for(int i = 0 ; i < values.length() ; i++)
    {
-      QObject* tmv = (QObject*) values[i];
+      QObject* tmv = dynamic_cast<QObject*>(values[i]);
+
       retValues.append(tmv);
    }
 

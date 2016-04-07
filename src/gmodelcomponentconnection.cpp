@@ -6,8 +6,8 @@
 
 float GModelComponentConnection::m_arrowLength(40.0f);
 float GModelComponentConnection::m_arrowWidth(30.0f);
-QPen GModelComponentConnection::m_pen = QPen(QBrush(QColor(0.0, 150.0, 255.0), Qt::BrushStyle::SolidPattern), 2, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::MiterJoin);
-QPen GModelComponentConnection::m_selectedPen = QPen(QBrush(QColor(255, 99, 71), Qt::BrushStyle::SolidPattern), 4, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::MiterJoin);
+QPen GModelComponentConnection::m_pen = QPen(QBrush(QColor(0.0, 150.0, 255.0), Qt::BrushStyle::SolidPattern),5, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::MiterJoin);
+QPen GModelComponentConnection::m_selectedPen = QPen(QBrush(QColor(255, 99, 71), Qt::BrushStyle::SolidPattern), 10, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::MiterJoin);
 QBrush GModelComponentConnection::m_brush = QBrush(Qt::GlobalColor::white);
 QFont GModelComponentConnection::m_font ;
 int GModelComponentConnection::zLocation = 10000;

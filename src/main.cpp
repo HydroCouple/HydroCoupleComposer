@@ -36,14 +36,14 @@ int main(int argc, char *argv[])
 
 
       //!Read settings
-      splash.onShowMessage("Reading Settings");
+      splash.onShowMessage("Reading Application Settings");
 
       //!Load components
       splash.onShowMessage("Loading Component Libraries");
 
       //!Setup component manager
       ComponentManager* manager = w.componentManager();
-      manager->connect(manager, SIGNAL(statusChangedMessage(const QString&)), &splash, SLOT(onShowMessage(const QString &)));
+      manager->connect(manager, SIGNAL(postMessage(const QString&)), &splash, SLOT(onShowMessage(const QString &)));
 
 #ifdef _WIN32 // note the underscore: without it, it's not msdn official!
       // Windows (x64 and x86)
@@ -65,12 +65,14 @@ int main(int argc, char *argv[])
       manager->addComponentDirectory(QDir("./../../../Components"));
 #endif
 
+
 #ifdef QT_DEBUG
      manager->addComponentDirectory(QDir("./../../../../../../HydroCoupleSDK/bin/"));
 #endif
-
       splash.finish(&w);
       w.show();
+
+
       return a.exec();
    }
    else

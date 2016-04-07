@@ -148,6 +148,7 @@ class IOutputListPropertyItem : public QObjectListPropertyItem
 Q_DECLARE_METATYPE(HydroCouple::IComponentInfo*)
 Q_DECLARE_METATYPE(HydroCouple::IModelComponentInfo*)
 Q_DECLARE_METATYPE(HydroCouple::IModelComponent*)
+Q_DECLARE_METATYPE(QList<HydroCouple::IModelComponent*>)
 Q_DECLARE_METATYPE(HydroCouple::IAdaptedOutputFactoryComponentInfo*)
 Q_DECLARE_METATYPE(HydroCouple::IAdaptedOutputFactory*)
 Q_DECLARE_METATYPE(QList<HydroCouple::IAdaptedOutputFactory*>)
