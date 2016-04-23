@@ -227,7 +227,7 @@ void GraphicsView::mouseMoveEvent(QMouseEvent * event)
 
    QString status = QString("Screen Coordinates : %1 , %2 | Scene Coordinates : %3 , %4").arg(ePos.x()).arg(ePos.y()).arg(currentPos.x()).arg(currentPos.y());
 
-   emit statusChanged(status);
+   //emit statusChanged(status);
 }
 
 bool GraphicsView::viewportEvent(QEvent *event)

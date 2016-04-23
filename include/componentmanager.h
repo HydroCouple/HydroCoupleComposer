@@ -30,6 +30,8 @@ class ComponentManager : public QObject
 
       bool unloadAdaptedOutputFactoryComponentInfoById(const QString& id);
 
+      HydroCouple::IComponentInfo* findComponentInfoById(const QString& id);
+
       bool loadComponent(const QFileInfo& file);
 
       QSet<QString> componentFileExtensions() const;

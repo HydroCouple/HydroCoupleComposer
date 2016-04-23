@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "modelstatusitemstatuschangeeventargswrapper.h"
 
 using namespace HydroCouple;
@@ -7,10 +8,6 @@ ModelStatusItemStatusChangeEventArgsWrapper::ModelStatusItemStatusChangeEventArg
    , m_percentProgress(0) , m_message("")
 {
 
-#ifdef QT_DEBUG
-   m_hasProgress = true;
-   m_percentProgress = rand() % 100 + 1;
-#endif
 
 }
 

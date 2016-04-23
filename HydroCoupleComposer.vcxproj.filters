@@ -1,0 +1,401 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Form Files">
+      <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
+      <Extensions>ui</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Form Files">
+      <UniqueIdentifier>{99349809-55BA-4b9d-BF79-8FDBB0286EB3}</UniqueIdentifier>
+      <Extensions>ui</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Generated Files">
+      <UniqueIdentifier>{71ED8ED8-ACB9-4CE9-BBE1-E00B30144E11}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;moc;h;def;odl;idl;res;</Extensions>
+    </Filter>
+    <Filter Include="Generated Files">
+      <UniqueIdentifier>{71ED8ED8-ACB9-4CE9-BBE1-E00B30144E11}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;moc;h;def;odl;idl;res;</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{D9D6E242-F8AF-46E4-B9FD-80ECBC20BA3E}</UniqueIdentifier>
+      <Extensions>qrc;*</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{D9D6E242-F8AF-46E4-B9FD-80ECBC20BA3E}</UniqueIdentifier>
+      <Extensions>qrc;*</Extensions>
+      <ParseFiles>false</ParseFiles>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Generated Files\Debug">
+      <UniqueIdentifier>{8fba0bab-2c5b-42c7-bb3a-2806918d4e20}</UniqueIdentifier>
+      <Extensions>cpp;moc</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+    <Filter Include="Generated Files\Release">
+      <UniqueIdentifier>{f8846f2d-5c26-4c1b-b037-7c1e7adde5e3}</UniqueIdentifier>
+      <Extensions>cpp;moc</Extensions>
+      <SourceControlFiles>False</SourceControlFiles>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\componentmanager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\connectiondialog.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\custompropertyitems.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gdefaultselectiongraphic.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gexchangeitems.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gmodelcomponent.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\gmodelcomponentconnection.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\graphicsview.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hydrocouplecomposer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\hydrocoupleproject.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\modelstatuitemmodel.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\modelstatusitem.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\modelstatusitemstatuschangeeventargswrapper.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\splashscreen.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\stdafx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Debug\.moc\moc_componentmanager.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Release\.moc\moc_componentmanager.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Debug\.moc\moc_connectiondialog.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Release\.moc\moc_connectiondialog.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Debug\.moc\moc_custompropertyitems.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Release\.moc\moc_custompropertyitems.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Debug\.moc\moc_gexchangeitems.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Release\.moc\moc_gexchangeitems.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Debug\.moc\moc_gmodelcomponent.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Release\.moc\moc_gmodelcomponent.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Debug\.moc\moc_gmodelcomponentconnection.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Release\.moc\moc_gmodelcomponentconnection.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Debug\.moc\moc_graphicsview.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Release\.moc\moc_graphicsview.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Debug\.moc\moc_hydrocouplecomposer.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Release\.moc\moc_hydrocouplecomposer.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Debug\.moc\moc_hydrocoupleproject.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Release\.moc\moc_hydrocoupleproject.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Debug\.moc\moc_modelstatusitem.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Release\.moc\moc_modelstatusitem.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Debug\.moc\moc_modelstatusitemmodel.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Release\.moc\moc_modelstatusitemmodel.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Debug\.moc\moc_modelstatusitemstatuschangeeventargswrapper.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Release\.moc\moc_modelstatusitemstatuschangeeventargswrapper.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Debug\.moc\moc_splashscreen.cpp">
+      <Filter>Generated Files\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="build\Release\.moc\moc_splashscreen.cpp">
+      <Filter>Generated Files\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="build\$(ConfigurationName)\.qrc\qrc_hydrocouplecomposer.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="include\componentmanager.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="include\connectiondialog.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="include\custompropertyitems.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <ClInclude Include="include\gcomponentitemconnection.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="include\gdefaultselectiongraphic.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <CustomBuild Include="include\gexchangeitems.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="include\gmodelcomponent.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="include\gmodelcomponentconnection.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="include\graphicsview.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="include\hydrocouplecomposer.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="include\hydrocoupleproject.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="include\modelstatusitem.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="include\modelstatusitemmodel.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="include\modelstatusitemstatuschangeeventargswrapper.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="include\splashscreen.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="include\stdafx.h">
+      <Filter>Header Files</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="include\stdafx.h.cpp">
+      <Filter>Generated Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="forms\connectiondialog.ui">
+      <Filter>Form Files</Filter>
+    </CustomBuild>
+    <CustomBuild Include="forms\hydrocouplecomposer.ui">
+      <Filter>Form Files</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="resources\Images\Saveas.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\ZoomIn.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\ZoomOut.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\adaptercomponent.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\addFile.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\addcomponent.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\bottomedges.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\clear.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\clonecomponent.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\close.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\comphover.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\copy.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\createconnection.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\default.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\deletecomponent.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\deleteconnection.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\distributebottomedges.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\distributehorizontalcenters.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\distributeleftedges.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\distributerightedges.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\distributetopedges.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\distributeverticalcenters.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\images\execute.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\horizontalcenters.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\hydrocouplecomposer.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <CustomBuild Include="resources\hydrocouplecomposer.qrc">
+      <Filter>Resource Files</Filter>
+    </CustomBuild>
+    <None Include="resources\Images\hydrocouplecomposersplash.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\layout.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\leftedges.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\images\loadlibrary.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\new.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\open.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\pan.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\print.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\printPreview.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\recentfiles.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\rightedges.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\save.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Styles\style.qss">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\topedges.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\trigger.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\images\unloadlibrary.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\validate.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\verticalcenters.png">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="resources\Images\zoomextent.png">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="resources\HydroCoupleComposer.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="build\$(ConfigurationName)\.ui\ui_connectiondialog.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+    <ClInclude Include="build\$(ConfigurationName)\.ui\ui_hydrocouplecomposer.h">
+      <Filter>Generated Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

@@ -16,52 +16,41 @@ const QString GModelComponent::sc_descriptionHtml =
       "<p>[Description]</p>"
       "</div>";
 
-QBrush GModelComponent::s_brush(QColor(255, 255, 255), Qt::BrushStyle::SolidPattern);
-QPen GModelComponent::s_pen(QBrush(QColor(0,150,255), Qt::BrushStyle::SolidPattern), 5.0, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::RoundJoin);
 
 QBrush GModelComponent::s_triggerBrush(QColor(255, 255, 255), Qt::BrushStyle::SolidPattern);
 QPen GModelComponent::s_triggerPen(QBrush(QColor(255, 0, 0), Qt::BrushStyle::SolidPattern), 5.0, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::RoundJoin);
 
-QBrush GModelComponent::s_selectedBrush(QColor(255, 230, 220), Qt::BrushStyle::SolidPattern);
-QPen GModelComponent::s_selectedPen(QBrush(QColor(255, 0, 0), Qt::BrushStyle::SolidPattern), 5.0, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::RoundJoin);
-
-QFont GModelComponent::m_font;
-
 #pragma endregion
 
 GModelComponent::GModelComponent(IModelComponent* model, HydroCoupleProject *parent)
-   : QGraphicsObject(), m_margin(15), m_cornerRadius(15), m_width(250), m_isTrigger(false)
+   : GNode(model->id(),model->caption(),GNode::Component), m_isTrigger(false), m_moveExchangeItemsWhenMoved(true)
 {
-   m_font = QFont();
+
+   setFlag(GraphicsItemFlag::ItemSendsScenePositionChanges, true);
+   m_textItem->setFlag(GraphicsItemFlag::ItemIsMovable, false);
+   m_textItem->setFlag(GraphicsItemFlag::ItemIsSelectable, false);
+   m_textItem->setFlag(GraphicsItemFlag::ItemIsFocusable, false);
+
    m_parent = parent;
    m_modelComponent = model;
-   m_textItem = new QGraphicsTextItem(this);
 
    connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(componentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs &)),
            this, SLOT(onComponentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs&)));
-
    connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(propertyChanged(const QString&, const QVariant&)), this, SLOT(onPropertyChanged(const QString&, const QVariant&)));
 
+
+   connect(this, &GNode::propertyChanged,this, &GModelComponent::onPropertyChanged);
+   connect(this, &GNode::doubleClicked,this, &GModelComponent::onDoubleClicked);
+
    onCreateTextItem();
-
-   setFlag(GraphicsItemFlag::ItemIsMovable, true);
-   setFlag(GraphicsItemFlag::ItemIsSelectable, true);
-   setFlag(GraphicsItemFlag::ItemIsFocusable, true);
-
-
 }
 
 GModelComponent::~GModelComponent()
 {
-   for(int i = 0 ; i < m_modelComponentConnections.length() ; i++)
-   {
-      emit componentConnectionDeleting(m_modelComponentConnections[i]);
-   }
+   qDeleteAll(m_inputExchangeItems);
+   m_inputExchangeItems.clear();
 
-   qDeleteAll(m_modelComponentConnections);
-   m_modelComponentConnections.clear();
    delete m_modelComponent;
-
 }
 
 IModelComponent* GModelComponent::modelComponent() const
@@ -69,25 +58,9 @@ IModelComponent* GModelComponent::modelComponent() const
    return m_modelComponent;
 }
 
-ComponentStatus GModelComponent::status() const
+QString GModelComponent::status() const
 {
-   return m_modelComponent->status();
-}
-
-QList<GModelComponentConnection*> GModelComponent::modelComponentConnections() const
-{
-   return m_modelComponentConnections;
-}
-
-void GModelComponent::deleteAllConnections()
-{
-   for(GModelComponentConnection* connection : m_modelComponentConnections)
-   {
-      emit deleteComponentConnection(connection);
-   }
-
-   qDeleteAll(m_modelComponentConnections);
-   m_modelComponentConnections.clear();
+   return modelComponentStatusAsString( m_modelComponent->status());
 }
 
 bool GModelComponent::trigger() const
@@ -110,116 +83,6 @@ void GModelComponent::setTrigger(bool trigger)
       emit postMessage(m_modelComponent->id() + " has been set as the trigger" );
       update();
    }
-}
-
-int GModelComponent::width() const
-{
-   return m_width;
-}
-
-void GModelComponent::setWidth(int width)
-{
-   if (width < 50 + m_margin * 2)
-   {
-      m_width = 50 + 2 * m_margin;
-   }
-   else
-   {
-      m_width = width;
-   }
-
-   //m_textItem->setPos(0, 0);
-   m_textItem->setTextWidth(m_width - 2 * m_margin);
-   m_textItem->setPos(m_margin, m_margin);
-   update();
-
-   emit propertyChanged("Width", m_width);
-}
-
-int GModelComponent::margin() const
-{
-   return m_margin;
-}
-
-void GModelComponent::setMargin(int margin)
-{
-   //not elegant fix later
-   if (2 * margin < m_width - 2 * m_margin)
-   {
-      m_margin = margin;
-      //m_textItem->setPos(0, 0);
-      m_textItem->setTextWidth(m_width - 2 * m_margin);
-      m_textItem->setPos(m_margin, m_margin);
-
-      update();
-   }
-
-   emit propertyChanged("Margin", m_margin);
-}
-
-int GModelComponent::cornerRadius() const
-{
-   return m_cornerRadius;
-}
-
-void GModelComponent::setCornerRadius(int cornerRadius)
-{
-   m_cornerRadius = cornerRadius;
-   emit propertyChanged("CornerRadius", m_cornerRadius);
-   onCreateTextItem();
-}
-
-QGraphicsTextItem* GModelComponent::graphicsTextItem() const
-{
-  return m_textItem;
-}
-
-QPen GModelComponent::pen() const
-{
-   return s_pen;
-}
-
-void GModelComponent::setPen(const QPen& pen)
-{
-   s_pen = pen;
-   emit propertyChanged("Pen", s_pen);
-   update();
-}
-
-QBrush GModelComponent::brush() const
-{
-   return s_brush;
-}
-
-void GModelComponent::setBrush(const QBrush& brush)
-{
-   s_brush = brush;
-   emit propertyChanged("Brush", s_brush);
-   update();
-}
-
-QPen GModelComponent::selectedPen() const
-{
-   return s_selectedPen;
-}
-
-void GModelComponent::setSelectedPen(const QPen& selectedPen)
-{
-   s_selectedPen = selectedPen;
-   emit propertyChanged("SelectedPen", s_selectedPen);
-   update();
-}
-
-QBrush GModelComponent::selectedBrush() const
-{
-   return s_selectedBrush;
-}
-
-void GModelComponent::setSelectedBrush(const QBrush& selectedBrush)
-{
-   s_selectedBrush = selectedBrush;
-   emit propertyChanged("SelectedBrush", s_selectedBrush);
-   update();
 }
 
 QPen GModelComponent::triggerPen() const
@@ -246,115 +109,24 @@ void GModelComponent::setTriggerBrush(const QBrush& triggerBrush)
    update();
 }
 
-QFont GModelComponent::font() const
+bool GModelComponent::moveExchangeItemsWhenMoved() const
 {
-   return m_font;
+   return m_moveExchangeItemsWhenMoved;
 }
 
-void GModelComponent::setFont(const QFont &font)
+void GModelComponent::setMoveExchangeItemsWhenMoved(bool move)
 {
-   m_font = font;
-   emit propertyChanged("Font", m_font);
-
-   for(GModelComponent* component : m_parent->modelComponents())
-   {
-      component->onCreateTextItem();
-   }
+   m_moveExchangeItemsWhenMoved = move;
 }
 
-QRectF GModelComponent::boundingRect() const
+QList<GInput*> GModelComponent::inputExchangeItems() const
 {
-   QRectF bRect = m_textItem->boundingRect();
-   bRect.setCoords(0, 0, bRect.width() + 2 * m_margin, bRect.height() + 2 * m_margin);
-   return bRect;
+   return m_inputExchangeItems;
 }
 
-void GModelComponent::paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget)
+QList<GOutput*> GModelComponent::outputExchangeItems() const
 {
-   QPen pen = s_pen;
-   QBrush brush = s_brush;
-   QPainterPath m_path = QPainterPath();
-
-
-   QRectF bRect = m_textItem->boundingRect();
-   bRect.setCoords(0, 0, bRect.width() + 2 * m_margin, bRect.height() + 2 * m_margin);
-   m_path.addRoundedRect(bRect, m_cornerRadius, m_cornerRadius, Qt::SizeMode::AbsoluteSize);
-
-
-   if (option->state & QStyle::State_Selected)
-   {
-      pen = s_selectedPen;
-      brush = s_selectedBrush;
-   }
-   else if (m_isTrigger)
-   {
-      pen = s_triggerPen;
-      brush = s_triggerBrush;
-   }
-
-   painter->setPen(pen);
-   painter->setBrush(brush);
-   painter->drawPath(m_path);
-
-   if (option->state & QStyle::State_Selected)
-   {
-      GDefaultSelectionGraphic::paint(bRect, painter);
-   }
-}
-
-QVariant GModelComponent::itemChange(GraphicsItemChange change, const QVariant &value)
-{
-   if(change == ItemSelectedHasChanged)
-   {
-      if(isSelected())
-      {
-         qreal z = 0;
-
-         for(QGraphicsItem* it : scene()->items())
-         {
-            if(dynamic_cast<GModelComponent*>(it) &&  it->zValue() > z)
-               z = it->zValue();
-         }
-
-         setZValue(z + 0.000000000001);
-      }
-   }
-
-   return QGraphicsObject::itemChange(change, value);
-}
-
-
-bool GModelComponent::createComponentModelConnection(GModelComponent* component)
-{
-    for(GModelComponentConnection* connection :  m_modelComponentConnections)
-
-    {
-       if(connection->consumerComponent() == component)
-       {
-          return false;
-       }
-    }
-
-    GModelComponentConnection* connection = new GModelComponentConnection(this,component);
-    m_modelComponentConnections.append(connection);
-    emit componentConnectionAdded(connection);
-    m_parent->setHasChanges(true);
-    return true;
-}
-
-bool GModelComponent::deleteComponentConnection(GModelComponentConnection *connection)
-{
-   if(m_modelComponentConnections.removeAll(connection))
-   {
-      emit componentConnectionDeleting(connection);
-      delete connection;
-      m_parent->setHasChanges(true);
-      return true;
-   }
-   else
-   {
-      return false;
-   }
+   return m_outputExchangeItems;
 }
 
 QString GModelComponent::modelComponentStatusAsString(ComponentStatus status)
@@ -419,8 +191,157 @@ GModelComponent* GModelComponent::readComponentSection(const QXmlStreamReader &x
    return nullptr;
 }
 
+QRectF GModelComponent::boundingRect() const
+{
+   QRectF m_boundingRect(0, 0, m_textItem->boundingRect().width() + 2 * m_xmargin, m_textItem->boundingRect().height() + 2 * m_ymargin);
+   return m_boundingRect;
+}
+
+void GModelComponent::paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget)
+{
+   QPen pen = m_pen;
+   QBrush brush = m_brush;
+   QPainterPath m_path = QPainterPath();
+
+   QRectF bRect = m_textItem->boundingRect();
+   bRect.setCoords(0, 0, bRect.width() + 2 * m_margin, bRect.height() + 2 * m_margin);
+   m_path.addRoundedRect(bRect, m_cornerRadius, m_cornerRadius, Qt::SizeMode::AbsoluteSize);
+
+   if (option->state & QStyle::State_Selected)
+   {
+      pen = s_selectedPen;
+      brush = s_selectedBrush;
+   }
+   else if (m_isTrigger)
+   {
+      pen = s_triggerPen;
+      brush = s_triggerBrush;
+   }
+
+   painter->setPen(pen);
+   painter->setBrush(brush);
+   painter->drawPath(m_path);
+
+   if (option->state & QStyle::State_Selected)
+   {
+      GDefaultSelectionGraphic::paint(bRect, painter);
+   }
+}
+
+QVariant GModelComponent::itemChange(GraphicsItemChange change, const QVariant &value)
+{
+   if(change == QGraphicsItem::ItemPositionChange && m_moveExchangeItemsWhenMoved)
+   {
+      QPointF move = value.toPointF() - pos();
+
+      for(GInput* input : m_inputExchangeItems)
+      {
+         input->moveBy(move.x() , move.y());
+      }
+
+      for(GOutput* output : m_outputExchangeItems)
+      {
+         output->moveBy(move.x() , move.y());
+      }
+   }
+
+   return GNode::itemChange(change, value);
+}
+
+void GModelComponent::createExchangeItems()
+{
+
+   for(GConnection* connection : m_connections)
+   {
+      m_connections.removeAll(connection);
+      delete connection;
+   }
+
+   for(GOutput* output : m_outputExchangeItems)
+   {
+      m_outputExchangeItems.removeAll(output);
+      delete output;
+   }
+
+   for(GInput* input : m_inputExchangeItems)
+   {
+      m_inputExchangeItems.removeAll(input);
+      delete input;
+   }
+
+   QPointF p = pos();
+   QRectF bound = boundingRect();
+
+   qreal xl = p.x() - 1.5*m_size;
+   qreal xr = p.x() + m_size + 2* m_margin + 1.5*m_size;
+
+   qreal lc = p.y() + bound.height()/2.0 - 40.0 ;
+   bool sign = true;
+   int count = 0;
+
+   for(IOutput* output : m_modelComponent->outputs())
+   {
+      GOutput* goutput = new GOutput(output);
+      m_outputExchangeItems.append(goutput);
+
+      if(sign)
+      {
+         goutput->setPos(xl, count * 180 + lc);
+         sign = false;
+         count++;
+      }
+      else
+      {
+         goutput->setPos(xl, -count * 180 + lc);
+         sign = true;
+      }
+
+      if(scene())
+      {
+         scene()->addItem(goutput);
+      }
+
+      createConnection(goutput);
+   }
+
+   sign = true;
+   count  = 0;
+
+   for(IInput* input : m_modelComponent->inputs())
+   {
+      GInput* ginput = new GInput(input, nullptr);
+      m_inputExchangeItems.append(ginput);
+
+      if(sign)
+      {
+         ginput->setPos(xr, count * 180 + lc);
+         sign = false;
+         count++;
+      }
+      else
+      {
+         ginput->setPos(xr, -count * 180 + lc);
+         sign = true;
+      }
+
+      if(scene())
+      {
+         scene()->addItem(ginput);
+      }
+
+      ginput->createConnection(this);
+   }
+}
+
 void GModelComponent::onComponentStatusChanged(const IComponentStatusChangeEventArgs& statusChangedEvent)
 {
+   onCreateTextItem();
+
+   if(statusChangedEvent.status() ==  ComponentStatus::Initialized)
+   {
+      createExchangeItems();
+   }
+
    emit componentStatusChanged(statusChangedEvent);
 }
 
@@ -438,9 +359,16 @@ void GModelComponent::onPropertyChanged(const QString& propertyName, const QVari
    emit propertyChanged(propertyName, value);
 }
 
+void GModelComponent::onDoubleClicked(GNode *node)
+{
+   GModelComponent* component = dynamic_cast<GModelComponent*>(node);
+   emit doubleClicked(component);
+}
+
 void GModelComponent::onCreateTextItem()
 {
    m_textItem->setFont(m_font);
+   m_textItem->setScale(1.0);
    QString desc(sc_descriptionHtml);
    QFileInfo iconFile(QFileInfo(m_modelComponent->componentInfo()->libraryFilePath()).dir(), m_modelComponent->componentInfo()->iconFilePath());
 
@@ -453,6 +381,8 @@ void GModelComponent::onCreateTextItem()
    setToolTip(desc);
 
    m_textItem->setHtml(desc);
-   m_textItem->setTextWidth(m_width - 2 * m_margin);
+   m_textItem->setTextWidth(m_size - 2 * m_margin);
    m_textItem->setPos(m_margin, m_margin);
+
+   m_xmargin = m_ymargin = m_margin;
 }

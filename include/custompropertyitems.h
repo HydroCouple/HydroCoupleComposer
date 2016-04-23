@@ -5,6 +5,7 @@
 #include "qpropertymodel.h"
 #include "hydrocouple.h"
 #include "qobjectlistpropertyitem.h"
+#include "gnode.h"
 
 class CustomPropertyItems
 {
@@ -17,6 +18,34 @@ class CustomPropertyItems
 
 template<typename T>
 QList<QObject*> convertToQObjectList(const QList<T>& values);
+
+class IDescriptionPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE IDescriptionPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IDescriptionPropertyItem(){}
+};
+
+class IIdentityPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE IIdentityPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IIdentityPropertyItem(){}
+};
+
+class IIdentityListPropertyItem : public QObjectListPropertyItem
+{
+      Q_OBJECT
+
+   public:
+      Q_INVOKABLE IIdentityListPropertyItem(const QVariant& value , const QMetaProperty& prop, QObjectClassPropertyItem * parent);
+
+      virtual ~IIdentityListPropertyItem(){}
+};
 
 class IComponentInfoPropertyItem : public QObjectPropertyItem
 {
@@ -56,6 +85,106 @@ class IModelComponentListPropertyItem : public QObjectListPropertyItem
       virtual ~IModelComponentListPropertyItem(){}
 };
 
+class IDimensionPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE IDimensionPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IDimensionPropertyItem(){}
+};
+
+class IDimensionListPropertyItem : public QObjectListPropertyItem
+{
+      Q_OBJECT
+
+   public:
+      Q_INVOKABLE IDimensionListPropertyItem(const QVariant& value , const QMetaProperty& prop, QObjectClassPropertyItem * parent);
+
+      virtual ~IDimensionListPropertyItem(){}
+};
+
+class IValueDefinitionPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE IValueDefinitionPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IValueDefinitionPropertyItem(){}
+};
+
+class IQualityPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE IQualityPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IQualityPropertyItem(){}
+};
+
+class IUnitDimensionsPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE IUnitDimensionsPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IUnitDimensionsPropertyItem(){}
+};
+
+class IUnitPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE IUnitPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IUnitPropertyItem(){}
+};
+
+class IQuantityPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE IQuantityPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IQuantityPropertyItem(){}
+};
+
+class IValueSetPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE IValueSetPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IValueSetPropertyItem(){}
+};
+
+class IComponentItemPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE IComponentItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IComponentItemPropertyItem(){}
+};
+
+class IArgumentPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE IArgumentPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IArgumentPropertyItem(){}
+};
+
+class IArgumentListPropertyItem : public QObjectListPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE IArgumentListPropertyItem(const QVariant& value , const QMetaProperty& prop, QObjectClassPropertyItem * parent);
+
+      virtual ~IArgumentListPropertyItem(){}
+};
+
 class IAdaptedOutputFactoryComponentInfoPropertyItem : public QObjectPropertyItem
 {
       Q_OBJECT
@@ -74,7 +203,6 @@ class IAdaptedOutputFactoryPropertyItem : public QObjectPropertyItem
       virtual ~IAdaptedOutputFactoryPropertyItem(){}
 };
 
-
 class IAdaptedOutputFactoryListPropertyItem : public QObjectListPropertyItem
 {
       Q_OBJECT
@@ -85,28 +213,6 @@ class IAdaptedOutputFactoryListPropertyItem : public QObjectListPropertyItem
       virtual ~IAdaptedOutputFactoryListPropertyItem(){}
 };
 
-
-class IArgumentPropertyItem : public QObjectPropertyItem
-{
-      Q_OBJECT
-
-   public:
-      Q_INVOKABLE IArgumentPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
-
-      virtual ~IArgumentPropertyItem(){}
-};
-
-class IArgumentListPropertyItem : public QObjectListPropertyItem
-{
-      Q_OBJECT
-
-   public:
-      Q_INVOKABLE IArgumentListPropertyItem(const QVariant& value , const QMetaProperty& prop, QObjectClassPropertyItem * parent);
-
-      virtual ~IArgumentListPropertyItem(){}
-};
-
-
 class IInputPropertyItem : public QObjectPropertyItem
 {
       Q_OBJECT
@@ -115,7 +221,6 @@ class IInputPropertyItem : public QObjectPropertyItem
 
       virtual ~IInputPropertyItem(){}
 };
-
 
 class IInputListPropertyItem : public QObjectListPropertyItem
 {
@@ -144,21 +249,14 @@ class IOutputListPropertyItem : public QObjectListPropertyItem
       virtual ~IOutputListPropertyItem(){}
 };
 
+class GNodePropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE GNodePropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
 
-Q_DECLARE_METATYPE(HydroCouple::IComponentInfo*)
-Q_DECLARE_METATYPE(HydroCouple::IModelComponentInfo*)
-Q_DECLARE_METATYPE(HydroCouple::IModelComponent*)
-Q_DECLARE_METATYPE(QList<HydroCouple::IModelComponent*>)
-Q_DECLARE_METATYPE(HydroCouple::IAdaptedOutputFactoryComponentInfo*)
-Q_DECLARE_METATYPE(HydroCouple::IAdaptedOutputFactory*)
-Q_DECLARE_METATYPE(QList<HydroCouple::IAdaptedOutputFactory*>)
-Q_DECLARE_METATYPE(HydroCouple::IArgument*)
-Q_DECLARE_METATYPE(QList<HydroCouple::IArgument*>)
-Q_DECLARE_METATYPE(HydroCouple::IInput*)
-Q_DECLARE_METATYPE(QList<HydroCouple::IInput*>)
-Q_DECLARE_METATYPE(HydroCouple::IOutput*)
-Q_DECLARE_METATYPE(QList<HydroCouple::IOutput*>)
-
+      virtual ~GNodePropertyItem(){}
+};
 
 
 #endif // CUSTOMPROPERTYITEMS_H

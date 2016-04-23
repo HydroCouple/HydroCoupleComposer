@@ -11,6 +11,22 @@
 #include <QProgressBar>
 #include <QSettings>
 #include "modelstatusitemmodel.h"
+#include "argumentdialog.h"
+
+
+#ifdef _WIN32
+
+#include "cgraph.h"
+#include "gvc.h"
+
+#else
+
+#include <graphviz/cgraph.h>
+#include <graphviz/gvc.h>
+
+#endif
+
+
 
 class GModelComponent;
 
@@ -67,20 +83,36 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       void keyPressEvent(QKeyEvent * event)  override;
 
    private:
+
       /*!
        * \brief openFile
        * \param file
        */
       void openFile(const QFileInfo& file);
 
+      /*!
+       * \brief readSettings
+       */
       void readSettings();
 
+      /*!
+       * \brief writeSettings
+       */
       void writeSettings();
 
+      /*!
+       * \brief initializeGUIComponents
+       */
       void initializeGUIComponents();
 
+      /*!
+       * \brief initializeSimulationStatusTreeView
+       */
       void initializeSimulationStatusTreeView();
 
+      /*!
+       * \brief initializeComponentInfoTreeView
+       */
       void initializeComponentInfoTreeView();
 
       void initializePropertyGrid();
@@ -93,40 +125,53 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       void initializeContextMenus();
 
-      void createConnection(GModelComponent* producer , GModelComponent* consumer);
+      void createConnection(GExchangeItem* producer , GExchangeItem* consumer);
 
       QStandardItem* findStandardItem(const QString& displayName, QStandardItem* parent,
                                       QVariant::Type userType = QVariant::Bool, Qt::ItemDataRole role = Qt::DisplayRole, bool recursive = false);
 
-      //!Set right
-      static void setRight(GModelComponent *component, double right);
+
+      void addRemoveNodeToGraphicsView(GNode* node, bool add = true);
+
+      void layoutNode(Agraph_t* graph, QHash<GNode*,QString> & identifiers, GNode* node, int& currentIndex, bool addToGraph = true);
+
+      void layoutEdges(Agraph_t* graph, const QHash<GNode*,QString> & identifiers, GNode* node);
+
+      void stringToCharP(const QString& text, char * & output);
+
+      /*!
+       * \brief setRight
+       * \param component
+       * \param right
+       */
+      static void setRight(QGraphicsItem *graphicsItem, double right);
 
       //!Set vertical center
-      static void setHorizontalCenter(GModelComponent *component, double hcenter);
+      static void setHorizontalCenter(QGraphicsItem *graphicsItem, double hcenter);
 
       //!Set bottom
-      static void setBottom(GModelComponent *component, double bottom);
+      static void setBottom(QGraphicsItem *graphicsItem, double bottom);
 
       //!Set vertical center
-      static void setVerticalCenter(GModelComponent *component, double vcenter);
+      static void setVerticalCenter(QGraphicsItem *graphicsItem, double vcenter);
 
       //!compare left edge
-      static bool compareLeftEdges(GModelComponent *a, GModelComponent *b);
+      static bool compareLeftEdges(QGraphicsItem *a, QGraphicsItem *b);
 
       //!compare horizontal center
-      static bool compareHorizontalCenters(GModelComponent *a, GModelComponent *b);
+      static bool compareHorizontalCenters(QGraphicsItem *a, QGraphicsItem *b);
 
       //!compare right edges
-      static bool compareRightEdges(GModelComponent *a, GModelComponent *b);
+      static bool compareRightEdges(QGraphicsItem *a, QGraphicsItem *b);
 
       //!compare top edges
-      static bool compareTopEdges(GModelComponent *a, GModelComponent *b);
+      static bool compareTopEdges(QGraphicsItem *a, QGraphicsItem *b);
 
       //!compare verticel center
-      static bool compareVerticalCenters(GModelComponent *a, GModelComponent *b);
+      static bool compareVerticalCenters(QGraphicsItem *a, QGraphicsItem *b);
 
       //!compare right edges
-      static bool compareBottomEdges(GModelComponent *a, GModelComponent *b);
+      static bool compareBottomEdges(QGraphicsItem *a, QGraphicsItem *b);
 
    public slots:
       void onSetProgress(bool visible, int progress = 0 , int min = 0 , int max = 100);
@@ -156,6 +201,9 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        */
       void onSaveAs();
 
+
+      void onExport();
+
       /*!
        * \brief onPrint
        */
@@ -171,21 +219,25 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        */
       void onAddComponentLibraryDirectory();
 
-
       /*!
        * \brief onUpdateRecentFiles
        */
       void onUpdateRecentFiles();
 
       /*!
-         * \brief Clear recenFiles list
-         */
+       * \brief Clear recenFiles list
+       */
       void onClearRecentFiles();
 
       /*!
-         * \brief Clears GUI and other  application settings
-         */
+       * \brief Clears GUI and other  application settings
+       */
       void onClearSettings();
+
+      /*!
+       * \brief onEditSelectedItem
+       */
+      void onEditSelectedItem();
 
       /*!
        * \brief onAddModelComponent
@@ -212,6 +264,10 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        */
       void onSetAsTrigger();
 
+      void onInitializeComponent();
+
+      void onValidateComponent();
+
       /*!
        * \brief onDeleteSelectedComponents
        */
@@ -222,55 +278,72 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        */
       void onDeleteSelectedConnections();
 
+      /*!
+       * \brief onValidateModelComponentLibrary
+       */
       void onValidateModelComponentLibrary();
 
+      /*!
+       * \brief onBrowseToComponentLibraryPath
+       */
       void onBrowseToComponentLibraryPath();
 
+      /*!
+       * \brief onLoadComponentLibrary
+       */
       void onLoadComponentLibrary();
 
+      /*!
+       * \brief onUnloadComponentLibrary
+       */
       void onUnloadComponentLibrary();
 
       /*!
-         * \brief onModelComponentInfoLoaded
-         * \param modelComponentInfo
-         */
+      * \brief onModelComponentInfoLoaded
+      * \param modelComponentInfo
+      */
       void onModelComponentInfoLoaded(const HydroCouple::IModelComponentInfo* modelComponentInfo);
 
       void onModelComponentInfoUnloaded(const QString& id);
 
-      void onModelComponentInfoClicked(const QModelIndex& index);
+      void onAdaptedOutputFactoryComponentInfoLoaded(const HydroCouple::IAdaptedOutputFactoryComponentInfo* adaptedOutputFactoryComponentInfo);
 
-      void onModelComponentInfoDoubleClicked(const QModelIndex& index);
+      void onAdaptedOutputFactoryComponentInfoUnloaded(const QString& id);
+
+      void onComponentInfoClicked(const QModelIndex& index);
+
+      void onComponentInfoDoubleClicked(const QModelIndex& index);
 
       void onModelComponentStatusItemClicked(const QModelIndex& index);
 
+      void onModelComponentStatusItemDoubleClicked(const QModelIndex& index);
+
       void onModelComponentInfoDropped(const QPointF& scenePos, const QString& id);
 
-      void onModelComponentInfoPropertyChanged(const QString& propertyName, const QVariant& value);
+      void onComponentInfoPropertyChanged(const QString& propertyName, const QVariant& value);
 
       void onModelComponentAdded(GModelComponent* modelComponent);
 
       void onModelComponentDeleting(GModelComponent* modelComponent);
 
-      void onModelComponentConnectionAdded(GModelComponentConnection* modelComponentConnection);
-
-      void onModelComponentConnectionDeleting(GModelComponentConnection* modelComponentConnection);
-
-      void onModelComponentConnectionDoubleClicked(QGraphicsSceneMouseEvent * event);
+      void onModelComponentDoubleClicked(GModelComponent* modelComponent);
 
       void onProjectHasChanges(bool hasChanges);
 
       /*!
-         * \brief onSetCurrentTool
-         * \param toggled
-         */
+       * \brief onSetCurrentTool
+       * \param toggled
+       */
       void onSetCurrentTool(bool toggled);
 
       /*!
-         * \brief onZoomExtent
-         */
+       * \brief onZoomExtent
+       */
       void onZoomExtent();
 
+      /*!
+       * \brief onSelectionChanged
+       */
       void onSelectionChanged();
 
       //!Align top
@@ -316,7 +389,7 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       void onAbout();
       
       void onPreferences();
-      
+
    signals:
 
       void currentToolChanged(int currentTool);
@@ -337,18 +410,19 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       static const QString sc_modelComponentInfoHtml;
       GraphicsView::Tool m_currentTool;
       QList<GModelComponent*> m_selectedModelComponents;
-      QList<GModelComponentConnection*> m_selectModelComponentConnections;
-      int m_currentModelComponentzValue;
-      int m_currentModelComponentConnectionzValue;
+      QList<GExchangeItem*> m_selectedExchangeItems;
+      QList<GAdaptedOutput*> m_selectedAdaptedOutputs;
+      QList<GNode*> m_selectedNodes;
+      QList<GConnection*> m_selectedConnections;
       QVariantHolderHelper* m_qVariantPropertyHolder;
       QString m_lastPath;
-      GModelComponent *m_connProd , *m_connCons;
+      GExchangeItem *m_connProd , *m_connCons;
       bool m_createConnection;
       QList<QAction*> m_treeviewComponentInfoContextMenuActions;
       QList<QAction*> m_graphicsViewContextMenuActions;
       ModelStatusItemModel* m_modelStatusItemModel;
+      ArgumentDialog* m_argumentDialog;
+      QStandardItem *m_modelComponentInfoStandardItem, *m_adaptedOutputComponentInfoStandardItem;
 };
-
-//Encapsulate options in one class and expose;
 
 #endif // HYDROCOUPLECOMPOSER_H

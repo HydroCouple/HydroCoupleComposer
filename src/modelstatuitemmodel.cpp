@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "modelstatusitemmodel.h"
 #include "gmodelcomponent.h"
 #include <QDebug>
@@ -29,11 +30,7 @@ void ModelStatusItemStyledItemDelegate::paint(QPainter *painter, const QStyleOpt
       progressStyle.rect = option.rect; // Maybe some other initialization from option would be needed
       progressStyle.textVisible = true;
 
-#ifdef QT_DEBUG
-      progressStyle.minimum = 0;
-      progressStyle.maximum = 100;
-      progressStyle.progress = item->status()->percentProgress();
-#else
+
       if(item->status()->status() == ComponentStatus::Initializing ||
             item->status()->status() == ComponentStatus::Validating ||
             item->status()->status() == ComponentStatus::WaitingForData ||
@@ -67,7 +64,7 @@ void ModelStatusItemStyledItemDelegate::paint(QPainter *painter, const QStyleOpt
          progressStyle.progress = 0;
          progressStyle.text = item->status()->currentStatus();
       }
-#endif
+
       QApplication::style()->drawControl(QStyle::CE_ProgressBar, &progressStyle , painter);
       return;
    }

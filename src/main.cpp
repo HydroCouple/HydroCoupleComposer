@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
       QApplication a(argc, argv);
       a.setOrganizationName("HydroCouple");
       a.setOrganizationDomain("hydrocouple.org");
-      a.setApplicationName("HydroCoupleComposer");
+      a.setApplicationName("hydrocouplecomposer");
 
       //set style
       setApplicationStyle(a);
@@ -67,7 +67,13 @@ int main(int argc, char *argv[])
 
 
 #ifdef QT_DEBUG
-     manager->addComponentDirectory(QDir("./../../../../../../HydroCoupleSDK/bin/"));
+
+#if __APPLE__
+	  manager->addComponentDirectory(QDir("./../../../../../../HydroCoupleSDK/build/"));
+#else
+	  manager->addComponentDirectory(QDir("./../HydroCoupleSDK"));
+#endif
+
 #endif
       splash.finish(&w);
       w.show();

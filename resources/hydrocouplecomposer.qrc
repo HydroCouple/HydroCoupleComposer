@@ -42,8 +42,9 @@
         <file alias="validate">Images/validate.png</file>
         <file alias="copy">Images/copy.png</file>
         <file alias="execute">images/execute.png</file>
-        <file alias="hydrocouplecomposer">images/hydrocouplecomposer.png</file>
         <file alias="loadlibrary">images/loadlibrary.png</file>
         <file alias="unloadlibrary">images/unloadlibrary.png</file>
+        <file alias="edit">images/edit.png</file>
+        <file alias="exportcomponent">images/exportcomponent.png</file>
     </qresource>
 </RCC>

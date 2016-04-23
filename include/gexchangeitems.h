@@ -20,99 +20,115 @@
 #ifndef GEXCHANGEITEMS_H
 #define GEXCHANGEITEMS_H
 
-#include <QObject>
 #include <QGraphicsObject>
-
+#include "hydrocouple.h"
+#include "gnode.h"
+#include "gconnection.h"
 
 class GModelComponent;
+class GOutput;
+class GAdaptedOutput;
 
-class GExchangeItem : public QGraphicsObject
+class GExchangeItem : public GNode
 {
       Q_OBJECT
-      Q_PROPERTY(QString Id READ itemId)
 
    public:
-      GExchangeItem(const QString& itemID, QGraphicsObject *parent = nullptr);
+      GExchangeItem(HydroCouple::IExchangeItem* exchangeItem, GNode::NodeType type,  QGraphicsObject *parent = nullptr);
 
       virtual ~GExchangeItem();
 
-      virtual QString itemId() const;
-
-      virtual QString toString() const;
+      virtual HydroCouple::IExchangeItem* exchangeItem() const;
 
    private:
-      QString m_id;
+      HydroCouple::IExchangeItem* m_exchangeItem;
 };
 
 
+class GInput: public GExchangeItem
+{
+      Q_OBJECT
 
-//class GInput: public GExchangeItem
-//{
-//      Q_OBJECT
-//      Q_PROPERTY(GModelComponent* Model READ model)
-//      Q_PROPERTY(bool IsMultiConsumer READ isMultiConsumer)
+   public:
+      GInput(HydroCouple::IInput* input, QGraphicsObject* parent = nullptr);
 
-//   public:
-//      GInput(GModelComponent* model, const QString& inputId,
-//             bool isMultiInput = false);
+      virtual ~GInput();
 
-//      ~GInput();
+      HydroCouple::IInput* input() const;
 
-//      GModelComponent* model() const;
+      GOutput* provider() const;
 
-//      bool isMultiInput() const;
+      void setProvider(GOutput* provider);
 
-//   private:
-//      GModelComponent* m_model;
-//      bool m_isMultiInput;
-//};
+   private:
+      HydroCouple::IInput* m_input;
+      GOutput* m_provider;
+};
 
+class GMultiInput : public GInput
+{
+      Q_OBJECT
 
+   public:
+      GMultiInput(HydroCouple::IMultiInput* input, QGraphicsObject* parent = nullptr);
 
-//class GOutputItem : public GExchangeItem
-//{
-//      Q_OBJECT
-//      Q_PROPERTY(GModelComponent* Model READ model)
+      virtual ~GMultiInput();
 
-//   public:
-//      GOutputItem(GModelComponent* model, const QString& outputId);
+      HydroCouple::IMultiInput* multiInput() const;
 
-//      ~GOutputItem();
+      QList<GOutput*> providers() const;
 
-//      GModelComponent* model() const;
+      void addProvider(GOutput* provider);
 
-//   protected:
-//      GModelComponent* m_model;
+      void removeProvider(GOutput* provider);
 
-//};
+   private:
+      HydroCouple::IMultiInput* m_multiInput;
+      QList<GOutput*> m_providers;
+};
 
+class GOutput : public GExchangeItem
+{
+      Q_OBJECT
 
+   public:
+      GOutput(HydroCouple::IOutput* output, QGraphicsObject* parent = nullptr);
 
-//class GAdaptedOutputItem : public GOutputItem
-//{
-//      Q_OBJECT
-//      Q_PROPERTY(GOutputItem* ParentProvider READ parentProvider)
+      virtual ~GOutput();
 
-//   public:
-//      GAdaptedOutputItem(GOutputItem* parentProvider);
+      HydroCouple::IOutput* output() const;
 
-//      ~GAdaptedOutputItem();
-
-//      GOutputItem* parentProvider() const;
-
-//   private:
-//     GOutputItem* parentProvider;
-//};
+   protected:
+      HydroCouple::IOutput* m_output;
+};
 
 
-//class GAdaptedOutputItemFromAdaptedOutputFactory : public GAdaptedOutputItem
-//{
-//      Q_OBJECT
-//      //Q_PROPERTY(type name READ name WRITE setName NOTIFY nameChanged)
+class GAdaptedOutput : public GOutput
+{
+      Q_OBJECT
 
-//   public:
+      Q_PROPERTY(HydroCouple::IAdaptedOutput AdaptedOutput READ adaptedOutput)
 
+   public:
+      GAdaptedOutput(HydroCouple::IAdaptedOutput* adaptedOutput, HydroCouple::IAdaptedOutputFactory* factory,
+                         GOutput* adaptee, GInput* input = nullptr , QGraphicsObject* parent = nullptr);
 
-//};
+      virtual ~GAdaptedOutput();
+
+      HydroCouple::IAdaptedOutput* adaptedOutput() const;
+
+      GOutput* adaptee() const;
+
+      GInput* input() const;
+
+      HydroCouple::IAdaptedOutputFactory* factory() const;
+
+   private:
+      GOutput* m_adaptee;
+      GInput* m_input;
+      HydroCouple::IAdaptedOutput * m_adaptedOutput;
+      HydroCouple::IAdaptedOutputFactory* m_adaptedOutputFactory;
+};
+
 
 #endif // GEXCHANGEITEMS_H

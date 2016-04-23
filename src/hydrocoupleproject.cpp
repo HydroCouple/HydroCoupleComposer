@@ -44,21 +44,9 @@ bool HydroCoupleProject::deleteComponent(GModelComponent *component)
    if (m_modelComponents.removeAll(component))
    {
       disconnect(component, SIGNAL(postMessage(QString)) , this , SLOT(onPostMessage(QString)));
-
       emit componentDeleting(component);
 
-      for(GModelComponent* model : m_modelComponents)
-      {
-         for(GModelComponentConnection* connection : model->modelComponentConnections())
-         {
-            if(connection->consumerComponent() == component)
-            {
-               model->deleteComponentConnection(connection);
-            }
-         }
-
-         postMessage("Removed Component " +  component->modelComponent()->id() + "...");
-      }
+      postMessage("Removed Component " +  component->modelComponent()->id() + "...");
 
       delete component;
       m_hasChanges = true;
@@ -110,6 +98,11 @@ void HydroCoupleProject::onSaveProjectAs(const QFileInfo &file)
 }
 
 
+void HydroCoupleProject::onSetHasChanges(bool hasChanges)
+{
+   m_hasChanges = hasChanges;
+   emit stateModified(m_hasChanges);
+}
 
 bool HydroCoupleProject::contains(GModelComponent* component) const
 {

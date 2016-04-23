@@ -11,17 +11,20 @@ INCLUDEPATH += .\
                ../HydroCouple/include \
                ../../QPropertyModel/QPropertyModel/include
 
-macx {
+macx{
   INCLUDEPATH += /usr/local/include
 }
 
-win32 {
-  INCLUDEPATH += 'C:/Program Files (x86)/Graphviz2.38/include'
+win32{
+  INCLUDEPATH += ../../graphviz/lib/cgraph \
+                 ../../graphviz/lib/gvc \
+                 ../../graphviz/lib/cdt \
+                 ../../graphviz/lib/common \
+                 ../../graphviz/lib/pathplan
 }
 
 
 HEADERS += ./include/componentmanager.h \
-           ./include/connectiondialog.h \
            ./include/gdefaultselectiongraphic.h \
            ./include/gmodelcomponent.h \
            ./include/graphicsview.h \
@@ -29,55 +32,89 @@ HEADERS += ./include/componentmanager.h \
            ./include/hydrocoupleproject.h \
            ./include/splashscreen.h \
            ./include/custompropertyitems.h \
-           ./include/gmodelcomponentconnection.h \
-           ./include/gcomponentitemconnection.h \
            ./include/gexchangeitems.h \
            ./include/modelstatusitemmodel.h \
            ./include/modelstatusitemstatuschangeeventargswrapper.h \
-           ./include/modelstatusitem.h
+           ./include/modelstatusitem.h \
+           ./include/argumentdialog.h \
+           ./include/gnode.h \
+           ./include/gconnection.h
 
 SOURCES += ./src/stdafx.cpp \
            ./src/main.cpp \
            ./src/hydrocoupleproject.cpp \
            ./src/componentmanager.cpp \
-           ./src/connectiondialog.cpp \
            ./src/gdefaultselectiongraphic.cpp \
            ./src/gmodelcomponent.cpp \
            ./src/graphicsview.cpp \
            ./src/hydrocouplecomposer.cpp \
            ./src/splashscreen.cpp \
            ./src/custompropertyitems.cpp \
-           ./src/gmodelcomponentconnection.cpp \
-           ./src/gexchangeitems.cpp \
+           ./src/gexchangeitem.cpp \
            ./src/modelstatuitemmodel.cpp \
            ./src/modelstatusitemstatuschangeeventargswrapper.cpp \
-           ./src/modelstatusitem.cpp
+           ./src/modelstatusitem.cpp \
+           ./src/argumentdialog.cpp \
+           ./src/gnode.cpp \
+           ./src/gconnection.cpp \
+           ./src/ginput.cpp \
+           ./src/gmultiinput.cpp \
+           ./src/goutput.cpp \
+           ./src/gadaptedoutput.cpp
 
 PRECOMPILED_HEADER += ./include/stdafx.h
 
 RESOURCES += ./resources/hydrocouplecomposer.qrc
 RC_FILE = ./resources/HydroCoupleComposer.rc
+
+macx{
 ICON = ./resources/HydroCoupleComposer.icns
+}
 
 FORMS += ./forms/hydrocouplecomposer.ui \
-         ./forms/connectiondialog.ui
+         ./forms/argumentdialog.ui
 
 
-macx {
-CONFIG(release , debug|release): LIBS += -L./../../../../QPropertyModel/QPropertyModel/bin/release -lQPropertyModel.1.0.0
-CONFIG(debug , debug|release): LIBS += -L./../../../../QPropertyModel/QPropertyModel/bin/debug -lQPropertyModel.1.0.0
-LIBS += -L/usr/local/lib -lcgraph
-LIBS += -L/usr/local/lib -lgvc
+CONFIG(debug, debug|release) {
+   DESTDIR = ./build/debug
+   OBJECTS_DIR = $$DESTDIR/.obj
+   MOC_DIR = $$DESTDIR/.moc
+   RCC_DIR = $$DESTDIR/.qrc
+   UI_DIR = $$DESTDIR/.ui
+   
+   macx{
+   LIBS += -L./../../QPropertyModel/QPropertyModel/build/debug -lQPropertyModel.1.0.0 \
+           -L/usr/local/lib -lcgraph \
+           -L/usr/local/lib -lgvc
+   }
+   
+   win32{
+   LIBS += -L./../../QPropertyModel/QPropertyModel/build/debug -lQPropertyModel1 \
+           -L./graphviz/lib -lcgraph \
+           -L./graphviz/lib -lgvc
+   }
 }
 
-win32 {
-CONFIG(release, debug|release): LIBS += -L$$PWD/../../QPropertyModel/QPropertyModel/bin/release/ -lQPropertyModel1
-CONFIG(debug, debug|release): LIBS += -L$$PWD/../../QPropertyModel/QPropertyModel/bin/debug/ -lQPropertyModel1
+CONFIG(release, debug|release){
 
-CONFIG(release, debug|release): LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/release/lib' -cgraph
-CONFIG(debug, debug|release): LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/debug/lib' -cgraph
+    DESTDIR = bin
+    RELEASE_EXTRAS = ./build/release 
+    OBJECTS_DIR = $$RELEASE_EXTRAS/.obj
+    MOC_DIR = $$RELEASE_EXTRAS/.moc
+    RCC_DIR = $$RELEASE_EXTRAS/.qrc
+    UI_DIR = $$RELEASE_EXTRAS/.ui
+    
+   macx{
+      LIBS += -L./../../QPropertyModel/QPropertyModel/lib -lQPropertyModel.1.0.0 \
+              -L/usr/local/lib -lcgraph \
+              -L/usr/local/lib -lgvc
+   }
+   
+   win32{
+      LIBS += -L./../../QPropertyModel/QPropertyModel/lib -lQPropertyModel1 \
+              -L./graphviz/lib -lcgraph \
+              -L./graphviz/lib -lgvc
+   }
+}   
 
-CONFIG(release, debug|release):LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/release/lib' -gvc
-CONFIG(debug, debug|release):LIBS += -L'C:/Program Files (x86)/Graphviz2.38/lib/debug/lib' -gvc
-}
 

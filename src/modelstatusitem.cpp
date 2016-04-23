@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "modelstatusitem.h"
 
 using namespace HydroCouple;
@@ -10,11 +11,11 @@ ModelStatusItem::ModelStatusItem(HydroCouple::IModelComponent *component, ModelS
 
    m_status = new ModelStatusItemStatusChangeEventArgsWrapper(this);
 
-   connect(dynamic_cast<QObject*>(m_component) , SIGNAL(componentStatusChanged(const IComponentStatusChangeEventArgs&))
-           ,this , SLOT(onComponentStatusChanged(const IComponentStatusChangeEventArgs&)));
+   connect(dynamic_cast<QObject*>(m_component) , SIGNAL(componentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs &))
+           ,this , SLOT(onComponentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs &)));
 
-   connect(dynamic_cast<QObject*>(m_component) , SIGNAL(propertyChanged(const QString&, const QVariant&))
-           ,this , SLOT(onPropertyChanged(const QString&,const QVariant&)));
+   connect(dynamic_cast<QObject*>(m_component) , SIGNAL(propertyChanged(const QString &, const QVariant &))
+           ,this , SLOT(onPropertyChanged(const QString &,const QVariant &)));
 
    resetChildren();
 

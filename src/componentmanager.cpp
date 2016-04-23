@@ -16,6 +16,7 @@ ComponentManager::ComponentManager(QObject *parent)
 #elif __APPLE__
    m_componentFileExtensions.insert("*.dylib");
 #endif
+
 }
 
 ComponentManager::~ComponentManager()
@@ -34,10 +35,11 @@ QList<IModelComponentInfo*> ComponentManager::modelComponentInfoList() const
 
 IModelComponentInfo* ComponentManager::findModelComponentInfoById(const QString& id)
 {
-   for (QList<IModelComponentInfo*>::iterator it = m_modelComponentInfoHash.keys().begin();
-        it != m_modelComponentInfoHash.keys().end(); it++)
+   QList<IModelComponentInfo*> componentInfos = m_modelComponentInfoHash.keys();
+
+   for (int i = 0; i < componentInfos.length(); i++)
    {
-      IModelComponentInfo* modelComponentInfo = *it;
+      IModelComponentInfo* modelComponentInfo = componentInfos[i];
 
       if (!modelComponentInfo->id().compare(id))
       {
@@ -52,7 +54,7 @@ bool ComponentManager::unloadModelComponentInfoById(const QString& id)
 {
    IModelComponentInfo* componentInfo = findModelComponentInfoById(id);
 
-   if(componentInfo && m_modelComponentInfoHash.contains(componentInfo))
+   if (componentInfo && m_modelComponentInfoHash.contains(componentInfo))
    {
       QPluginLoader* plugin = m_modelComponentInfoHash[componentInfo];
       m_modelComponentInfoHash.remove(componentInfo);
@@ -66,7 +68,7 @@ bool ComponentManager::unloadModelComponentInfoById(const QString& id)
    }
    else
    {
-      emit postMessage("Unable to unload model component library " + componentInfo->name() );
+      emit postMessage("Unable to unload model component library " + componentInfo->name());
       return false;
    }
 }
@@ -78,14 +80,15 @@ QList<IAdaptedOutputFactoryComponentInfo*> ComponentManager::adaptedOutputFactor
 
 IAdaptedOutputFactoryComponentInfo* ComponentManager::findAdaptedOutputFactoryComponentInfoById(const QString& id)
 {
-   for (QList<IAdaptedOutputFactoryComponentInfo*>::iterator it = m_adaptedOutputFactoryComponentInfoHash.keys().begin();
-        it != m_adaptedOutputFactoryComponentInfoHash.keys().end(); it++)
-   {
-      IAdaptedOutputFactoryComponentInfo*adaptedOutputFactoryComponentInfo = *it;
+   QList<IAdaptedOutputFactoryComponentInfo*> componentInfos = m_adaptedOutputFactoryComponentInfoHash.keys();
 
-      if (!adaptedOutputFactoryComponentInfo->id().compare(id))
+   for (int i = 0; i < componentInfos.length(); i++)
+   {
+      IAdaptedOutputFactoryComponentInfo* componentInfo = componentInfos[i];
+
+      if (!componentInfo->id().compare(id))
       {
-         return adaptedOutputFactoryComponentInfo;
+         return componentInfo;
       }
    }
 
@@ -96,7 +99,7 @@ bool ComponentManager::unloadAdaptedOutputFactoryComponentInfoById(const QString
 {
    IAdaptedOutputFactoryComponentInfo* componentInfo = findAdaptedOutputFactoryComponentInfoById(id);
 
-   if(componentInfo && m_adaptedOutputFactoryComponentInfoHash.contains(componentInfo))
+   if (componentInfo && m_adaptedOutputFactoryComponentInfoHash.contains(componentInfo))
    {
       QPluginLoader* plugin = m_adaptedOutputFactoryComponentInfoHash[componentInfo];
       m_adaptedOutputFactoryComponentInfoHash.remove(componentInfo);
@@ -115,6 +118,17 @@ bool ComponentManager::unloadAdaptedOutputFactoryComponentInfoById(const QString
    }
 }
 
+IComponentInfo* ComponentManager::findComponentInfoById(const QString &id)
+{
+   IComponentInfo* componentInfo = nullptr;
+
+   if( componentInfo = findModelComponentInfoById(id))
+      return componentInfo;
+   else
+      return findAdaptedOutputFactoryComponentInfoById(id);
+
+}
+
 bool ComponentManager::loadComponent(const QFileInfo& file)
 {
    QString message;
@@ -124,7 +138,7 @@ bool ComponentManager::loadComponent(const QFileInfo& file)
 
       if (hasValidExtension(file))
       {
-         QPluginLoader* pluginLoader = new QPluginLoader(file.filePath() , this);
+         QPluginLoader* pluginLoader = new QPluginLoader(file.filePath(), this);
 
          QObject* component = pluginLoader->instance();
 
@@ -242,19 +256,19 @@ void ComponentManager::addComponentDirectory(const QDir& directory)
 
       float count = 0;
 
-      for(QFileInfo file : files)
+      for (QFileInfo file : files)
       {
          emit postMessage("Loading component library \"" + file.absoluteFilePath() + "\" ...");
 
-         if(loadComponent(file))
+         if (loadComponent(file))
          {
          }
          count = count + 1;
-         int progress = (int)(count * 100.0 /files.length());
-         emit setProgress(true , progress);
+         int progress = (int)(count * 100.0 / files.length());
+         emit setProgress(true, progress);
       }
 
-      emit setProgress(false , 0);
+      emit setProgress(false, 0);
 
    }
 }

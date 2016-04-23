@@ -5,7 +5,6 @@
 #include <QFileInfo>
 
 class GModelComponent;
-class GModelComponentConnection;
 
 class HydroCoupleProject : public QObject
 {
@@ -84,6 +83,9 @@ class HydroCoupleProject : public QObject
        * \param file
        */
       void onSaveProjectAs(const QFileInfo& file);
+
+
+      void onSetHasChanges(bool hasChanges);
 
    private:
       //!Performs deep check to see if component has already been added

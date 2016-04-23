@@ -19,27 +19,26 @@ void GDefaultSelectionGraphic::paint(const QRectF& rect, QPainter * painter, con
 	float y3 = rect.bottom() - hwidth;
 
 	painter->drawEllipse(x2 + hwidth - hwidth / 2, y2 + hwidth - hwidth / 2, width / 2, width / 2);
-
-
 	painter->setBrush(QBrush(QColor(255, 255, 255)));
+
 	//top r
 	painter->drawRect(x1, y1, width, width);
 	//m r 
-	painter->drawRect(x1, y2, width, width);
+	painter->drawRoundedRect(x1, y2, width, width,width,width);
 	//bottom r
 	painter->drawRect(x1, y3, width, width);
 
 	//top m
-	painter->drawRect(x2, y1, width, width);
+	painter->drawRoundedRect(x2, y1, width, width , width, width);
 	//m m
 	//painter->drawRect(x2, y2, width, width);
 	//bottom m
-	painter->drawRect(x2, y3, width, width);
+	painter->drawRoundedRect(x2, y3, width, width, width, width);
 
 	//top l
 	painter->drawRect(x3, y1, width, width);
 	//m l
-	painter->drawRect(x3, y2, width, width);
+	painter->drawRoundedRect(x3, y2, width, width,width,width);
 	//bottom l
 	painter->drawRect(x3, y3, width, width);
 }
