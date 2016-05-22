@@ -3,6 +3,7 @@
 #include <assert.h>
 
 using namespace HydroCouple;
+using namespace HydroCouple::Temporal;
 
 void CustomPropertyItems::registerCustomPropertyItems(QPropertyModel* propertyModel)
 {
@@ -21,8 +22,7 @@ void CustomPropertyItems::registerCustomPropertyItems(QPropertyModel* propertyMo
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IUnitDimensions*>(), &IUnitDimensionsPropertyItem::staticMetaObject);
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IUnit*>(), &IUnitPropertyItem::staticMetaObject);
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IQuantity*>(), &IQuantityPropertyItem::staticMetaObject);
-   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IValueSet*>(), &IValueSetPropertyItem::staticMetaObject);
-   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IComponentItem*>(), &IComponentItemPropertyItem::staticMetaObject);
+   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IComponentDataItem*>(), &IComponentDataItemPropertyItem::staticMetaObject);
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IArgument*>(), &IArgumentPropertyItem::staticMetaObject);
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<QList<IArgument*>>(), &IArgumentListPropertyItem::staticMetaObject);
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IAdaptedOutputFactoryComponentInfo*>(), &IAdaptedOutputFactoryComponentInfoPropertyItem::staticMetaObject);
@@ -31,10 +31,20 @@ void CustomPropertyItems::registerCustomPropertyItems(QPropertyModel* propertyMo
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IArgument*>(), &IArgumentPropertyItem::staticMetaObject);
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IInput*>(), &IInputPropertyItem::staticMetaObject);
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<QList<IInput*>>(), &IInputListPropertyItem::staticMetaObject);
+   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IExchangeItem*>(), &IExchangeItemPropertyItem::staticMetaObject);
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IOutput*>(), &IOutputPropertyItem::staticMetaObject);
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<QList<IOutput*>>(), &IOutputListPropertyItem::staticMetaObject);
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<GNode*>(), &GNodePropertyItem::staticMetaObject);
-
+   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<ITime*>(), &ITimePropertyItem::staticMetaObject);
+   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<QList<ITime*>>(), &ITimeListPropertyItem::staticMetaObject);
+   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<ITimeSpan*>(), &ITimeSpanPropertyItem::staticMetaObject);
+   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<ITimeSpan*>(), &ITimeSpanListPropertyItem::staticMetaObject);
+   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<ITimeComponentDataItem*>(), &ITimeComponentDataItemPropertyItem::staticMetaObject);
+   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<ITimeExchangeItem*>(), &ITimeExchangeItemPropertyItem::staticMetaObject);
+   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IIdBasedTimeComponentDataItem*>(), &IIdBasedTimeComponentDataItemPropertyItem::staticMetaObject);
+   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IIdBasedTimeExchangeItem*>(), &IIdBasedTimeExchangeItemPropertyItem::staticMetaObject);
+   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IUnit*>(), &IUnitPropertyItem::staticMetaObject);
+   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IUnitDimensions*>(), &IUnitDimensionsPropertyItem::staticMetaObject);
 
 }
 
@@ -144,14 +154,9 @@ IQuantityPropertyItem::IQuantityPropertyItem(const QVariant& value , const QMeta
 
 }
 
-IValueSetPropertyItem::IValueSetPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent)
-   : QObjectPropertyItem( dynamic_cast<QObject*>(qvariant_cast<IValueSet*>(value)) , prop , parent)
-{
 
-}
-
-IComponentItemPropertyItem::IComponentItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent)
-   : QObjectPropertyItem( dynamic_cast<QObject*>(qvariant_cast<IComponentItem*>(value)) , prop , parent)
+IComponentDataItemPropertyItem::IComponentDataItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent)
+   : QObjectPropertyItem( dynamic_cast<QObject*>(qvariant_cast<IComponentDataItem*>(value)) , prop , parent)
 {
 
 }
@@ -192,6 +197,12 @@ IInputListPropertyItem::IInputListPropertyItem(const QVariant &value, const QMet
    setQVariantToQObjectListConverter( & convertToQObjectList<IInput*>);
 }
 
+IExchangeItemPropertyItem::IExchangeItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent)
+   : QObjectPropertyItem(dynamic_cast<QObject*>(qvariant_cast<IExchangeItem*>(value)) , prop , parent)
+{
+
+}
+
 IOutputPropertyItem::IOutputPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent)
    : QObjectPropertyItem( dynamic_cast<QObject*>(qvariant_cast<IOutput*>(value)) , prop , parent)
 {
@@ -215,3 +226,54 @@ GNodePropertyItem::GNodePropertyItem(const QVariant& value , const QMetaProperty
 {
 
 }
+
+ITimePropertyItem::ITimePropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent)
+   : QObjectPropertyItem( dynamic_cast<QObject*>(qvariant_cast<ITime*>(value)) , prop , parent)
+{
+
+}
+
+ITimeListPropertyItem::ITimeListPropertyItem(const QVariant &value, const QMetaProperty &prop, QObjectClassPropertyItem *parent)
+   : QObjectListPropertyItem(QVariant::fromValue(convertToQObjectList<ITime*>(value)), prop , parent)
+{
+   setQVariantToQObjectListConverter( & convertToQObjectList<ITime*>);
+}
+
+ITimeSpanPropertyItem::ITimeSpanPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent)
+   : QObjectPropertyItem( dynamic_cast<QObject*>(qvariant_cast<ITimeSpan*>(value)) , prop , parent)
+{
+
+}
+
+ITimeSpanListPropertyItem::ITimeSpanListPropertyItem(const QVariant &value, const QMetaProperty &prop, QObjectClassPropertyItem *parent)
+   : QObjectListPropertyItem(QVariant::fromValue(convertToQObjectList<ITimeSpan*>(value)), prop , parent)
+{
+   setQVariantToQObjectListConverter( & convertToQObjectList<ITimeSpan*>);
+}
+
+ITimeComponentDataItemPropertyItem::ITimeComponentDataItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent)
+   : QObjectPropertyItem( dynamic_cast<QObject*>(qvariant_cast<ITimeComponentDataItem*>(value)) , prop , parent)
+{
+
+}
+
+ITimeExchangeItemPropertyItem::ITimeExchangeItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent)
+   : QObjectPropertyItem( dynamic_cast<QObject*>(qvariant_cast<ITimeExchangeItem*>(value)) , prop , parent)
+{
+
+}
+
+
+IIdBasedTimeComponentDataItemPropertyItem::IIdBasedTimeComponentDataItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent)
+   : QObjectPropertyItem( dynamic_cast<QObject*>(qvariant_cast<IIdBasedTimeComponentDataItem*>(value)) , prop , parent)
+{
+
+}
+
+
+IIdBasedTimeExchangeItemPropertyItem::IIdBasedTimeExchangeItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent)
+   : QObjectPropertyItem( dynamic_cast<QObject*>(qvariant_cast<IIdBasedTimeExchangeItem*>(value)) , prop , parent)
+{
+
+}
+

@@ -36,7 +36,7 @@ class GNode : public QGraphicsObject
       Q_PROPERTY(QList<GConnection*> Connections READ connections NOTIFY propertyChanged)
 
    public:
-      GNode(const QString& id, const QString& caption, NodeType nodeType, QGraphicsObject* parent = nullptr);
+      GNode(const QString& id, const QString& caption, NodeType nodeType);
 
       virtual ~GNode();
 
@@ -84,15 +84,15 @@ class GNode : public QGraphicsObject
 
       virtual QRectF boundingRect() const override;
 
-      QList<GConnection*> connections() const;
+       QList<GConnection*> connections() const;
 
-      virtual bool createConnection(GNode* consumer);
+      virtual bool createConnection(GNode* consumer) = 0;
 
-      virtual bool deleteConnection(GConnection* connection);
+      virtual bool deleteConnection(GConnection* connection) = 0;
 
-      virtual bool deleteConnection(GNode* consumer);
+      virtual bool deleteConnection(GNode* consumer) = 0;
 
-      void deleteConnections();
+      virtual void deleteConnections() = 0;
       
       void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
@@ -100,7 +100,9 @@ class GNode : public QGraphicsObject
 
       void doubleClicked(GNode * component);
 
-      virtual void propertyChanged(const QString& propertyName, const QVariant& value);
+      virtual void propertyChanged(const QString& propertyName);
+
+      virtual void hasChanges();
 
       void connectionAdded(GConnection *connection);
 
@@ -114,9 +116,10 @@ class GNode : public QGraphicsObject
 
       virtual void onCreateTextItem();
 
-      virtual void onChildPropertyChanged();
+      virtual void onChildHasChanges();
 
    protected:
+      QList<GConnection*> m_connections;
       int m_margin , m_size, m_cornerRadius , m_xmargin, m_ymargin , m_height , m_width;
       QString m_id, m_caption;
       NodeType m_nodeType;
@@ -128,7 +131,6 @@ class GNode : public QGraphicsObject
       static QBrush s_selectedBrush;
       static const QString sc_captionHtml;
       QFont m_font;
-      QList<GConnection*> m_connections;
       static int s_zindex;
 };
 

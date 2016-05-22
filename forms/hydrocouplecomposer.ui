@@ -70,6 +70,14 @@
     <property name="title">
      <string>Edit</string>
     </property>
+    <addaction name="actionEditSelected"/>
+    <addaction name="separator"/>
+    <addaction name="actionDeleteComponent"/>
+    <addaction name="actionSetTrigger"/>
+    <addaction name="separator"/>
+    <addaction name="actionCreateConnection"/>
+    <addaction name="actionDeleteConnection"/>
+    <addaction name="actionReloadComponentConnections"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -85,6 +93,7 @@
     <property name="title">
      <string>Tools</string>
     </property>
+    <addaction name="actionExecute"/>
     <addaction name="actionAddComponentLibraryDirectory"/>
     <addaction name="actionClearAllSettings"/>
    </widget>
@@ -122,6 +131,7 @@
    <addaction name="actionNew"/>
    <addaction name="actionOpen"/>
    <addaction name="actionSave"/>
+   <addaction name="actionPrint"/>
    <addaction name="separator"/>
    <addaction name="actionDefaultSelect"/>
    <addaction name="actionZoomIn"/>
@@ -130,11 +140,14 @@
    <addaction name="actionPan"/>
    <addaction name="separator"/>
    <addaction name="actionEditSelected"/>
+   <addaction name="separator"/>
    <addaction name="actionAddComponent"/>
    <addaction name="actionDeleteComponent"/>
+   <addaction name="separator"/>
    <addaction name="actionCreateConnection"/>
    <addaction name="actionDeleteConnection"/>
-   <addaction name="actionCloneModelComponent"/>
+   <addaction name="actionReloadComponentConnections"/>
+   <addaction name="separator"/>
    <addaction name="actionSetTrigger"/>
    <addaction name="actionExecute"/>
    <addaction name="separator"/>
@@ -946,6 +959,18 @@
    </property>
    <property name="toolTip">
     <string>Export Selected Component</string>
+   </property>
+  </action>
+  <action name="actionReloadComponentConnections">
+   <property name="icon">
+    <iconset resource="../resources/hydrocouplecomposer.qrc">
+     <normaloff>:/HydroCoupleComposer/reloadconnections</normaloff>:/HydroCoupleComposer/reloadconnections</iconset>
+   </property>
+   <property name="text">
+    <string>Reload Component Connections</string>
+   </property>
+   <property name="toolTip">
+    <string>Reload Component Connections</string>
    </property>
   </action>
  </widget>

@@ -58,9 +58,11 @@ class ModelStatusItemModel : public QAbstractItemModel
 
       void setUpdateTimeOut(int timeout);
 
+      QList<ModelStatusItem*> models() const;
+
    private slots:
 
-      void onComponentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs& statusChangedEvent);
+      void onComponentStatusChanged(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
 
       void onModelStatusItemPropertyChanged();
 
@@ -71,9 +73,9 @@ class ModelStatusItemModel : public QAbstractItemModel
       void onUpdateStatus();
 
    private:
-      void createSignalSlotConnections(ModelStatusItem* modelStatusItem);
+      void createSignalSlotConnections(ModelStatusItem *modelStatusItem);
 
-      void disconnectSignalSlotConnections(ModelStatusItem* modelStatusItem);
+      void disconnectSignalSlotConnections(ModelStatusItem *modelStatusItem);
 
    private:
       QList<ModelStatusItem*> m_models;

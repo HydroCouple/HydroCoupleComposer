@@ -7,6 +7,11 @@
 #include <iostream>
 #include <string>
 #include <random>
+#include <QPrinter>
+#include <QPrintDialog>
+#include <QPointF>
+#include "qxmlsyntaxhighlighter.h"
+#include "simulationmanager.h"
 
 using namespace HydroCouple;
 using namespace std;
@@ -31,19 +36,26 @@ const QString HydroCoupleComposer::sc_modelComponentInfoHtml =
 
 QIcon HydroCoupleComposer::s_categoryIcon = QIcon();
 
+
+
 HydroCoupleComposer::HydroCoupleComposer(QWidget *parent)
-   : QMainWindow(parent)
+   : QMainWindow(parent),
+     m_simulationManager(nullptr)
 {
    setupUi(this);
    
+   qRegisterMetaType<std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs>>();
+   qRegisterMetaType<std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs>>("std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs>");
+
    m_argumentDialog = new ArgumentDialog();
+   new QXMLSyntaxHighlighter(m_argumentDialog->textEditInput);
    m_modelStatusItemModel = new ModelStatusItemModel(this);
-   m_componentManager = new ComponentManager(this);
    m_project = new HydroCoupleProject(this);
    m_componentTreeViewModel = new QStandardItemModel(this);
    m_propertyModel = new QPropertyModel(this);
    m_qVariantPropertyHolder = new QVariantHolderHelper(QVariant() , this);
-   
+   m_graphicsContextMenu = new QMenu(this);
+   m_treeviewComponentInfoContextMenu = new QMenu(this);
    
    initializeGUIComponents();
    initializeComponentInfoTreeView();
@@ -59,18 +71,50 @@ HydroCoupleComposer::HydroCoupleComposer(QWidget *parent)
 HydroCoupleComposer::~HydroCoupleComposer()
 {
    m_argumentDialog->close();
-
    delete m_argumentDialog;
-}
-
-ComponentManager* HydroCoupleComposer::componentManager() const
-{
-   return m_componentManager;
 }
 
 HydroCoupleProject* HydroCoupleComposer::project() const
 {
    return m_project;
+}
+
+void HydroCoupleComposer::setProject(HydroCoupleProject *project)
+{
+   if(m_project)
+   {
+      delete m_project;
+   }
+
+   m_project = project;
+   setWindowTitle(m_project->projectFile().fileName() + "[*] - HydroCouple Composer");
+   setWindowModified(m_project->hasChanges());
+
+   initializeProjectSignalSlotConnections();
+
+   for(GModelComponent* modelComponent : m_project->modelComponents())
+   {
+      onModelComponentAdded(modelComponent);
+   }
+
+   for(IModelComponentInfo* cinfo : m_project->componentManager()->modelComponentInfoList())
+   {
+      onModelComponentInfoLoaded(cinfo);
+   }
+
+   for(IAdaptedOutputFactoryComponentInfo* cinfo : m_project->componentManager()->adaptedOutputFactoryComponentInfoList())
+   {
+      onAdaptedOutputFactoryComponentInfoLoaded(cinfo);
+   }
+
+
+   m_simulationManager = new SimulationManager(m_project);
+
+   connect(m_simulationManager, &SimulationManager::postMessage , this , &HydroCoupleComposer::onPostToStatusBar);
+   connect(m_simulationManager, &SimulationManager::setProgress , this , &HydroCoupleComposer::onSetProgress);
+
+   onZoomExtent();
+
 }
 
 void HydroCoupleComposer::closeEvent(QCloseEvent* event)
@@ -98,13 +142,10 @@ void HydroCoupleComposer::closeEvent(QCloseEvent* event)
    
    graphicsViewHydroCoupleComposer->scene()->blockSignals(true);
    
-   for(GModelComponent* comp : m_project->modelComponents())
-   {
-      m_project->deleteComponent(comp);
-   }
+   delete m_project;
+   m_project = nullptr;
    
    graphicsViewHydroCoupleComposer->scene()->blockSignals(false);
-   QMainWindow::closeEvent(event);
 }
 
 void HydroCoupleComposer::dragMoveEvent(QDragMoveEvent* event)
@@ -114,12 +155,53 @@ void HydroCoupleComposer::dragMoveEvent(QDragMoveEvent* event)
 
 void HydroCoupleComposer::dragEnterEvent(QDragEnterEvent * event)
 {
-   
+   bool hasValid = false;
+   if(event->mimeData()->hasUrls())
+   {
+      foreach (const QUrl &url, event->mimeData()->urls())
+      {
+         QFileInfo fileInfo(url.toLocalFile());
+         QString extension = fileInfo.suffix();
+
+#ifdef _WIN32 // note the underscore: without it, it's not msdn official!
+         if(!extension.compare("dll" , Qt::CaseInsensitive))
+#elif __unix__ // all unices, not all compilers
+         if(!extension.compare("so" , Qt::CaseInsensitive))
+#elif __linux__
+         if(!extension.compare("so" , Qt::CaseInsensitive))
+#elif __APPLE__
+         if(!extension.compare("dylib" , Qt::CaseInsensitive))
+#endif
+         {
+            hasValid = true;
+         }
+         else if(!extension.compare("hcp" , Qt::CaseInsensitive))
+         {
+            hasValid = true;
+         }
+         else if(!extension.compare("hcc" , Qt::CaseInsensitive))
+         {
+            hasValid = true;
+         }
+      }
+
+      if(hasValid)
+      {
+         event->acceptProposedAction();
+      }
+   }
 }
 
 void HydroCoupleComposer::dropEvent(QDropEvent * event)
 {
-   
+   if(event->mimeData()->hasUrls())
+   {
+      foreach (const QUrl &url, event->mimeData()->urls())
+      {
+         QFileInfo fileInfo(url.toLocalFile());
+         openFile(fileInfo);
+      }
+   }
 }
 
 void HydroCoupleComposer::mousePressEvent(QMouseEvent * event)
@@ -183,6 +265,7 @@ void HydroCoupleComposer::keyPressEvent(QKeyEvent * event)
 
 void HydroCoupleComposer::openFile(const QFileInfo& file)
 {
+
    onPostMessage("Opening file \"" + file.absoluteFilePath() + "\"");
    m_lastOpenedFilePath = file.absoluteFilePath();
    m_lastPath = file.absolutePath();
@@ -199,7 +282,7 @@ void HydroCoupleComposer::openFile(const QFileInfo& file)
    if(!extension.compare("dylib" , Qt::CaseInsensitive))
 #endif
    {
-      m_componentManager->loadComponent(file);
+      m_project->componentManager()->loadComponent(file);
    }
    else if(!extension.compare("hcp" , Qt::CaseInsensitive))
    {
@@ -222,22 +305,46 @@ void HydroCoupleComposer::openFile(const QFileInfo& file)
          }
       }
       
-      HydroCoupleProject* project;
-      
-      if ((project = HydroCoupleProject::readProjectFile(file)))
+      if(m_project)
       {
          delete m_project;
-         m_project = project;
+         m_project = nullptr;
       }
+
+      HydroCoupleProject* project;
       
-      initializeProjectSignalSlotConnections();
+      QList<QString> errorMessages;
+
+      if ((project = HydroCoupleProject::readProjectFile(file, errorMessages)))
+      {
+         setProject(project);
+      }
+      else
+      {
+         project = new HydroCoupleProject(this);
+         setProject(project);
+      }
+
+      for(QString message : errorMessages)
+      {
+         onPostMessage(message);
+      }
    }
    else if(!extension.compare("hcc" , Qt::CaseInsensitive))
    {
-      GModelComponent* modelComponent = GModelComponent::readComponentFile(file);
+      QList<QString> errorMessages;
+
+      GModelComponent* modelComponent = GModelComponent::readComponentFile(file,m_project,errorMessages);
+
       if(modelComponent)
       {
+         modelComponent->setProject(m_project);
          m_project->addComponent(modelComponent);
+      }
+
+      for(QString message : errorMessages)
+      {
+         onPostMessage(message);
       }
    }
    
@@ -349,8 +456,6 @@ void HydroCoupleComposer::initializeGUIComponents()
 
       if((macMenu = dynamic_cast<QMenu*>(child)))
       {
-         qDebug() << macMenu->title();
-
          if(!macMenu->title().compare("File" , Qt::CaseInsensitive))
          {
             macMenu->addAction(actionAbout);
@@ -372,6 +477,7 @@ void HydroCoupleComposer::initializeGUIComponents()
 
 void HydroCoupleComposer::initializeComponentInfoTreeView()
 {
+   m_componentTreeViewModel->clear();
    QStandardItem* rootItem = m_componentTreeViewModel->invisibleRootItem();
    s_categoryIcon.addFile(":/HydroCoupleComposer/close", QSize(), QIcon::Mode::Normal, QIcon::State::Off);
    s_categoryIcon.addFile(":/HydroCoupleComposer/open", QSize(), QIcon::Mode::Normal, QIcon::State::On);
@@ -405,6 +511,7 @@ void HydroCoupleComposer::initializeComponentInfoTreeView()
 
 void HydroCoupleComposer::initializeSimulationStatusTreeView()
 {
+
    treeViewSimulationStatus->setModel(m_modelStatusItemModel);
    
    ModelStatusItemStyledItemDelegate* statusProgressStyledItemDelegate = new ModelStatusItemStyledItemDelegate(treeViewSimulationStatus);
@@ -465,13 +572,7 @@ void HydroCoupleComposer::initializeActions()
 
 void HydroCoupleComposer::initializeSignalSlotConnections()
 {
-   //component manager
-   connect(m_componentManager, &ComponentManager::modelComponentInfoLoaded, this, &HydroCoupleComposer::onModelComponentInfoLoaded);
-   connect(m_componentManager, &ComponentManager::modelComponentInfoUnloaded, this, &HydroCoupleComposer::onModelComponentInfoUnloaded);
-   connect(m_componentManager, &ComponentManager::adaptedOutputFactoryComponentInfoLoaded, this, &HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoLoaded);
-   connect(m_componentManager, &ComponentManager::adaptedOutputFactoryComponentUnloaded, this, &HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoUnloaded);
-   connect(m_componentManager, &ComponentManager::postMessage, this, &HydroCoupleComposer::onPostMessage);
-   connect(m_componentManager, SIGNAL(setProgress(bool,int,int,int)), this, SLOT(onSetProgress(bool,int,int,int)));
+
    connect(actionAddComponentLibraryDirectory, &QAction::triggered, this, &HydroCoupleComposer::onAddComponentLibraryDirectory);
    
    //ComponentInfoTreeview
@@ -498,7 +599,9 @@ void HydroCoupleComposer::initializeSignalSlotConnections()
    connect(actionPrint, SIGNAL(triggered()), this, SLOT(onPrint()));
    connect(actionClearAllSettings, SIGNAL(triggered()), this, SLOT(onClearSettings()));
    connect(actionAddComponent, SIGNAL(triggered()), this, SLOT(onAddModelComponent()));
-   
+   connect(actionExecute, SIGNAL(triggered()), this, SLOT(onRunSimulation()));
+
+
    connect(actionValidateComponentLibrary , SIGNAL ( triggered()) , this , SLOT( onValidateModelComponentLibrary()));
    connect(actionBrowseComponentInfoFolder , SIGNAL(triggered()) , this , SLOT(onBrowseToComponentLibraryPath()));
    connect(actionLoadModelComponentLibrary , SIGNAL(triggered()) , this , SLOT(onLoadComponentLibrary()));
@@ -555,45 +658,74 @@ void HydroCoupleComposer::initializeSignalSlotConnections()
 void HydroCoupleComposer::initializeProjectSignalSlotConnections()
 {
    //HydroCoupleProject
-   setWindowModified(m_project->hasChanges());
    connect(m_project, SIGNAL(componentAdded(GModelComponent* )), this, SLOT(onModelComponentAdded(GModelComponent* )));
    connect(m_project, SIGNAL(componentDeleting(GModelComponent* )), this, SLOT(onModelComponentDeleting(GModelComponent* )));
    connect(m_project, SIGNAL(stateModified(bool)), this, SLOT(onProjectHasChanges(bool)));
    connect(m_project , SIGNAL(postMessage(const QString&)) , this , SLOT(onPostMessage(const QString&)));
    connect(m_project, SIGNAL(setProgress(bool,int,int,int)), this, SLOT(onSetProgress(bool,int,int,int)));
+   connect(actionReloadComponentConnections , SIGNAL(triggered()) , m_project , SLOT(onReloadConnections()));
+
+
+   //component manager
+   connect(m_project->componentManager(), &ComponentManager::modelComponentInfoLoaded, this, &HydroCoupleComposer::onModelComponentInfoLoaded);
+   connect(m_project->componentManager(), &ComponentManager::modelComponentInfoUnloaded, this, &HydroCoupleComposer::onModelComponentInfoUnloaded);
+   connect(m_project->componentManager(), &ComponentManager::adaptedOutputFactoryComponentInfoLoaded, this, &HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoLoaded);
+   connect(m_project->componentManager(), &ComponentManager::adaptedOutputFactoryComponentUnloaded, this, &HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoUnloaded);
+   connect(m_project->componentManager(), &ComponentManager::postMessage, this, &HydroCoupleComposer::onPostMessage);
+   connect(m_project->componentManager(), SIGNAL(setProgress(bool,int,int,int)), this, SLOT(onSetProgress(bool,int,int,int)));
 }
 
 void HydroCoupleComposer::initializeContextMenus()
 {
    //Component Info
-   m_treeviewComponentInfoContextMenuActions.append(actionAddComponent);
-   m_treeviewComponentInfoContextMenuActions.append(actionValidateComponentLibrary);
-   m_treeviewComponentInfoContextMenuActions.append(actionBrowseComponentInfoFolder);
-   m_treeviewComponentInfoContextMenuActions.append(actionLoadModelComponentLibrary);
-   //m_treeviewComponentInfoContextMenuActions.append(actionUnloadModelComponentLibrary);
+   m_treeviewComponentInfoContextMenu->addAction(actionAddComponent);
+   m_treeviewComponentInfoContextMenu->addAction(actionValidateComponentLibrary);
+   m_treeviewComponentInfoContextMenu->addAction(actionBrowseComponentInfoFolder);
+   m_treeviewComponentInfoContextMenu->addAction(actionLoadModelComponentLibrary);
    
-   m_graphicsViewContextMenuActions.append(actionSetTrigger);
-   m_graphicsViewContextMenuActions.append(actionCloneModelComponent);
-   m_graphicsViewContextMenuActions.append(actionDeleteComponent);
-   m_graphicsViewContextMenuActions.append(actionInitializeComponent);
-   m_graphicsViewContextMenuActions.append(actionValidateComponent);
 
-   QAction* sep1 = new QAction(this);
-   sep1->setSeparator(true);
-   m_graphicsViewContextMenuActions.append(sep1);
-   m_graphicsViewContextMenuActions.append(actionCreateConnection);
-   m_graphicsViewContextMenuActions.append(actionDeleteConnection);
+   m_graphicsContextMenu->addAction(actionSetTrigger);
+   m_graphicsContextMenu->addAction(actionCloneModelComponent);
+   m_graphicsContextMenu->addAction(actionDeleteComponent);
+   m_graphicsContextMenu->addAction(actionInitializeComponent);
+   m_graphicsContextMenu->addAction(actionValidateComponent);
 
-   //   QAction* sep2 = new QAction(this);
-   //   sep2->setSeparator(true);
-   //   m_graphicsViewContextMenuActions.append(sep2);
+   m_graphicsContextMenu->addSeparator();
+
+   m_graphicsContextMenu->addAction(actionCreateConnection);
+   m_graphicsContextMenu->addAction(actionDeleteConnection);
+
+   m_graphicsContextMenu->addSeparator();
+
+   QMenu* layout = new QMenu("Layout Components",m_graphicsContextMenu);
+   layout->addAction(actionLayoutComponents);
+   layout->addSeparator();
+   layout->addAction(actionAlignTop);
+   layout->addAction(actionAlignBottom);
+   layout->addAction(actionAlignLeft);
+   layout->addAction(actionAlignRight);
+   layout->addSeparator();
+   layout->addAction(actionAlignVerticalCenters);
+   layout->addAction(actionAlignHorizontalCenters);
+   layout->addSeparator();
+   layout->addAction(actionDistributeTopEdges);
+   layout->addAction(actionDistributeBottomEdges);
+   layout->addAction(actionDistributeLeftEdges);
+   layout->addAction(actionDistributeRightEdges);
+   layout->addAction(actionDistributeVerticalCenters);
+   layout->addAction(actionDistributeHorizontalCenters);
+   m_graphicsContextMenu->addMenu(layout);
+
+   m_graphicsContextMenu->addSeparator();
+
+   m_graphicsContextMenu->addAction(actionPrint);
 }
 
 void HydroCoupleComposer::createConnection(GExchangeItem *producer, GExchangeItem *consumer)
 {
    if(producer != consumer &&
          (producer->nodeType() == GNode::Output || producer->nodeType() == GNode::AdaptedOutput) &&
-         (consumer->nodeType() == GNode::Input  || consumer->nodeType() == GNode::AdaptedOutput))
+         ( consumer->nodeType() == GNode::Input || consumer->nodeType() == GNode::MultiInput  || consumer->nodeType() == GNode::AdaptedOutput))
    {
       producer->createConnection(consumer);
    }
@@ -606,9 +738,9 @@ void HydroCoupleComposer::createConnection(GExchangeItem *producer, GExchangeIte
    actionCreateConnection->setChecked(false);
 }
 
-QStandardItem* HydroCoupleComposer::findStandardItem(const QString& displayName, QStandardItem* parent,  QVariant::Type userType, Qt::ItemDataRole role, bool recursive)
+QStandardItem* HydroCoupleComposer::findStandardItem(const QString& id, QStandardItem* parent,  QVariant::Type userType, Qt::ItemDataRole role, bool recursive)
 {
-   if (!displayName.isNull() && !displayName.isEmpty())
+   if (!id.isNull() && !id.isEmpty())
    {
       for (int i = 0; i < parent->rowCount(); i++)
       {
@@ -617,7 +749,7 @@ QStandardItem* HydroCoupleComposer::findStandardItem(const QString& displayName,
          QString cname = child->data(role).toString();
          QVariant userRole = child->data(Qt::UserRole);
          
-         if (userRole.userType() == userType && !cname.compare(displayName, Qt::CaseInsensitive))
+         if (userRole.userType() == userType && !cname.compare(id, Qt::CaseInsensitive))
          {
             return child;
          }
@@ -627,7 +759,7 @@ QStandardItem* HydroCoupleComposer::findStandardItem(const QString& displayName,
             
             if (child->hasChildren())
             {
-               c = findStandardItem(displayName, child , userType , role , recursive);
+               c = findStandardItem(id, child , userType , role , recursive);
                
                if (c != child)
                {
@@ -648,7 +780,12 @@ void HydroCoupleComposer::addRemoveNodeToGraphicsView(GNode *node, bool add)
       for(GConnection* connection : node->connections())
       {
          graphicsViewHydroCoupleComposer->scene()->addItem(connection);
-         addRemoveNodeToGraphicsView(connection->consumer(),add);
+
+         if(connection->consumer()->nodeType() != GNode::Input &&
+               connection->consumer()->nodeType() != GNode::MultiInput)
+         {
+            addRemoveNodeToGraphicsView(connection->consumer(),add);
+         }
       }
 
       graphicsViewHydroCoupleComposer->scene()->addItem(node);
@@ -833,6 +970,11 @@ void HydroCoupleComposer::onPostMessage(const QString& message)
    textEdit->append(QDateTime::currentDateTime().toString() + " : " + message);
 }
 
+void HydroCoupleComposer::onPostToStatusBar(const QString& message)
+{
+   this->statusBarMain->showMessage(message ,10000);
+}
+
 void HydroCoupleComposer::onNewProject()
 {
    if(m_project->hasChanges())
@@ -854,10 +996,8 @@ void HydroCoupleComposer::onNewProject()
       }
    }
    
-   delete m_project;
-   
-   m_project = new HydroCoupleProject(this);
-   initializeProjectSignalSlotConnections();
+   HydroCoupleProject* newProject = new HydroCoupleProject(this);
+   setProject(newProject);
 }
 
 void HydroCoupleComposer::onOpenFiles()
@@ -920,10 +1060,12 @@ void HydroCoupleComposer::onSave()
       m_project->onSaveProject();
    }
    else if (!(file = QFileDialog::getSaveFileName(this, "Save", m_lastPath,
-                                                  "HydroCouple Composer Project (*hcp)")).isEmpty())
+                                                  "HydroCouple Composer Project (*.hcp)")).isEmpty())
    {
       m_project->onSaveProjectAs(QFileInfo(file));
    }
+
+   //   writeSettings();
 }
 
 void HydroCoupleComposer::onSaveAs()
@@ -931,10 +1073,10 @@ void HydroCoupleComposer::onSaveAs()
    QString file;
    
    if (!(file = QFileDialog::getSaveFileName(this, "Save", m_lastPath,
-                                             "HydroCouple Composer Project (*hcp)")).isEmpty())
+                                             "HydroCouple Composer Project (*.hcp)")).isEmpty())
    {
-         QFileInfo inputFile(file);
-   m_project->onSaveProjectAs(inputFile);
+      QFileInfo inputFile(file);
+      m_project->onSaveProjectAs(inputFile);
    }
 }
 
@@ -947,14 +1089,23 @@ void HydroCoupleComposer::onExport()
       if (!(file = QFileDialog::getSaveFileName(this, "Save", m_lastPath,
                                                 "HydroCouple Component (*.hcc)")).isEmpty())
       {
-            QFileInfo inputFile(file);
+         QFileInfo inputFile(file);
       }
    }
 }
 
 void HydroCoupleComposer::onPrint()
 {
-   
+   QPrinter printer;
+
+   if(QPrintDialog(&printer).exec() == QDialog::Accepted)
+   {
+      QPainter painter (&printer);
+      painter.setRenderHint(QPainter::Antialiasing,true);
+      painter.setRenderHint(QPainter::TextAntialiasing,true);
+      QRectF rect = graphicsViewHydroCoupleComposer->mapToScene(graphicsViewHydroCoupleComposer->viewport()->geometry()).boundingRect();
+      graphicsViewHydroCoupleComposer->scene()->render(&painter, QRect(), rect);
+   }
 }
 
 void HydroCoupleComposer::onOpenRecentFile()
@@ -972,6 +1123,30 @@ void HydroCoupleComposer::onOpenRecentFile()
    }
 }
 
+void HydroCoupleComposer::onRunSimulation()
+{
+   if(m_project->hasChanges())
+   {
+      if (QMessageBox::question(this, "Save ?", "You have changes that need to be saved, Do you want to save ?",
+                                QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No, QMessageBox::StandardButton::Yes) == QMessageBox::Yes)
+      {
+         QString file;
+
+         if(m_project->projectFile().exists())
+         {
+            m_project->onSaveProject();
+         }
+         else if (!(file = QFileDialog::getSaveFileName(this, "Save", m_lastPath,
+                                                        "HydroCouple Composer Project (*.hcp)")).isEmpty())
+         {
+            m_project->onSaveProjectAs(QFileInfo(file));
+         }
+      }
+   }
+
+   m_simulationManager->runSimulation(true);
+}
+
 void HydroCoupleComposer::onAddComponentLibraryDirectory()
 {
    QString dirPath = QFileDialog::getExistingDirectory(this, "Open", m_lastPath);
@@ -979,7 +1154,7 @@ void HydroCoupleComposer::onAddComponentLibraryDirectory()
    
    if (dir.exists())
    {
-      m_componentManager->addComponentDirectory(dir);
+      m_project->componentManager()->addComponentDirectory(dir);
       m_lastPath = dir.absolutePath();
    }
 }
@@ -1054,7 +1229,7 @@ void HydroCoupleComposer::onClearRecentFiles()
 void HydroCoupleComposer::onClearSettings()
 {
    
-   IModelComponentInfo* m_comp = m_componentManager->modelComponentInfoList()[0];
+   IModelComponentInfo* m_comp = m_project->componentManager()->modelComponentInfoList()[0];
    GModelComponent* comp1 = new GModelComponent(m_comp->createComponentInstance(), m_project);
    comp1->modelComponent()->setCaption("Comp1");
    GModelComponent* comp2 = new GModelComponent(m_comp->createComponentInstance(), m_project);
@@ -1127,8 +1302,13 @@ void HydroCoupleComposer::onEditSelectedItem()
    {
       if( m_argumentDialog->isHidden())
       {
-         m_argumentDialog->show();
-         m_argumentDialog->setComponent(m_selectedModelComponents[0]);
+         GModelComponent *modelComponent = m_selectedModelComponents[0];
+
+         if(modelComponent->modelComponent()->status() == HydroCouple::Created || modelComponent->modelComponent()->status() == HydroCouple::Failed)
+         {
+            m_argumentDialog->show();
+            m_argumentDialog->setComponent(modelComponent);
+         }
       }
    }
    else if (m_selectedModelComponents.length() == 0 && m_selectedAdaptedOutputs.length() == 1)
@@ -1159,7 +1339,7 @@ void HydroCoupleComposer::onAddModelComponent()
             
             IModelComponentInfo* foundModelComponentInfo = nullptr;
             
-            if ((foundModelComponentInfo = m_componentManager->findModelComponentInfoById(id)) != nullptr)
+            if ((foundModelComponentInfo = m_project->componentManager()->findModelComponentInfoById(id)) != nullptr)
             {
                IModelComponent* component = foundModelComponentInfo->createComponentInstance();
                
@@ -1258,10 +1438,10 @@ void HydroCoupleComposer::onLayoutComponents()
          strcpy(rankdir , "rankdir");
 
          char num[4];
-         strcpy(num , "3.0");
+         strcpy(num , "4.0");
          agsafeset(G , nodesep , num, nullChar);
 
-         strcpy(num , "5.0");
+         strcpy(num , "6.0");
          agsafeset(G , ranksep , num, nullChar);
 
          char al[3];
@@ -1275,7 +1455,7 @@ void HydroCoupleComposer::onLayoutComponents()
 
       for(GModelComponent* component : m_project->modelComponents())
       {
-         for(GInput* input : component->inputExchangeItems())
+         for(GInput* input : component->inputGraphicObjects().values())
          {
             layoutNode(G,identifiers,input,index,true);
          }
@@ -1286,7 +1466,7 @@ void HydroCoupleComposer::onLayoutComponents()
 
       for(GModelComponent* component : m_project->modelComponents())
       {
-         for(GInput* input : component->inputExchangeItems())
+         for(GInput* input : component->inputGraphicObjects().values())
          {
             layoutEdges(G,identifiers,input);
          }
@@ -1298,7 +1478,7 @@ void HydroCoupleComposer::onLayoutComponents()
 
       for(GModelComponent* component : m_project->modelComponents())
       {
-         for(GInput* input : component->inputExchangeItems())
+         for(GInput* input : component->inputGraphicObjects().values())
          {
             layoutNode(G,identifiers,input,index, false);
          }
@@ -1309,6 +1489,7 @@ void HydroCoupleComposer::onLayoutComponents()
       agclose(G);
       gvFreeContext(gvc);
    }
+
    onZoomExtent();
    
 }
@@ -1338,13 +1519,11 @@ void HydroCoupleComposer::onInitializeComponent()
    {
       for(GModelComponent* gModelComponent : m_selectedModelComponents)
       {
-         IModelComponent* modelComponent = gModelComponent->modelComponent();
-
-         if(modelComponent->status() == ComponentStatus::Created ||
-               modelComponent->status() == ComponentStatus::Invalid
-               )
+         if(gModelComponent->modelComponent()->status() == ComponentStatus::Created ||
+               gModelComponent->modelComponent()->status() == ComponentStatus::Initialized ||
+               gModelComponent->modelComponent()->status() == ComponentStatus::Failed)
          {
-            modelComponent->initialize();
+            gModelComponent->modelComponent()->initialize();
          }
       }
    }
@@ -1434,7 +1613,7 @@ void HydroCoupleComposer::onValidateModelComponentLibrary()
       {
          QString id = value.toString();
          IModelComponentInfo* foundComponentInfo = NULL;
-         if ((foundComponentInfo = m_componentManager->findModelComponentInfoById(id)))
+         if ((foundComponentInfo = m_project->componentManager()->findModelComponentInfoById(id)))
          {
             QString validationMessage;
             
@@ -1463,7 +1642,7 @@ void HydroCoupleComposer::onBrowseToComponentLibraryPath()
       {
          QString id = value.toString();
          IComponentInfo* foundComponentInfo = NULL;
-         if ((foundComponentInfo = m_componentManager->findComponentInfoById(id)))
+         if ((foundComponentInfo = m_project->componentManager()->findComponentInfoById(id)))
          {
             QFileInfo file (foundComponentInfo->libraryFilePath());
             
@@ -1476,7 +1655,6 @@ void HydroCoupleComposer::onBrowseToComponentLibraryPath()
       }
    }
 }
-
 void HydroCoupleComposer::onLoadComponentLibrary()
 {
 #ifdef _WIN32
@@ -1526,7 +1704,7 @@ void HydroCoupleComposer::onUnloadComponentLibrary()
          if (value.type() != QVariant::Bool)
          {
             QString id = value.toString();
-            m_componentManager->unloadModelComponentInfoById(id);
+            m_project->componentManager()->unloadModelComponentInfoById(id);
             treeViewModelComponentInfos->setCurrentIndex(QModelIndex());
             onComponentInfoClicked(QModelIndex());
          }
@@ -1536,11 +1714,9 @@ void HydroCoupleComposer::onUnloadComponentLibrary()
 
 void HydroCoupleComposer::onModelComponentInfoLoaded(const IModelComponentInfo* modelComponentInfo)
 {
-   
    QStringList categories = modelComponentInfo->category().split('\\', QString::SplitBehavior::SkipEmptyParts);
    
    QStandardItem* parent = m_modelComponentInfoStandardItem;
-   
    
    while (categories.count() > 0)
    {
@@ -1608,11 +1784,11 @@ void HydroCoupleComposer::onModelComponentInfoLoaded(const IModelComponentInfo* 
    
    if(modelComponentInfoObject)
    {
-      connect( modelComponentInfoObject , SIGNAL(propertyChanged(const QString& , const QVariant& )   )
-               , this , SLOT(onComponentInfoPropertyChanged(const QString& , const QVariant& ) ));
+      connect( modelComponentInfoObject , SIGNAL(propertyChanged(const QString &))
+               , this , SLOT(onComponentInfoPropertyChanged(const QString &)));
    }
    
-   treeViewModelComponentInfos->expandToDepth(1);
+   treeViewModelComponentInfos->expandToDepth(2);
 }
 
 void HydroCoupleComposer::onModelComponentInfoUnloaded(const QString& id)
@@ -1621,7 +1797,7 @@ void HydroCoupleComposer::onModelComponentInfoUnloaded(const QString& id)
    
    if(childCategoryItem)
    {
-      m_componentTreeViewModel->removeRow(childCategoryItem->index().row()) ;
+      m_componentTreeViewModel->removeRow(childCategoryItem->index().row() , m_modelComponentInfoStandardItem->index()) ;
       m_propertyModel->setData(QVariant());
    }
    
@@ -1716,7 +1892,21 @@ void HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoLoaded(const IAdapt
 
 void HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoUnloaded(const QString &id)
 {
+   QStandardItem* childCategoryItem = findStandardItem(id, m_adaptedOutputComponentInfoStandardItem , QVariant::String , Qt::UserRole , true);
 
+   if(childCategoryItem)
+   {
+      m_componentTreeViewModel->removeRow(childCategoryItem->index().row() , m_adaptedOutputComponentInfoStandardItem->index()) ;
+      m_propertyModel->setData(QVariant());
+   }
+
+   //   for(GModelComponent* modelComponent :  m_project->modelComponents())
+   //   {
+   //      if(!modelComponent->modelComponent()->componentInfo()->id().compare(id))
+   //      {
+   //         m_project->deleteComponent(modelComponent);
+   //      }
+   //   }
 }
 
 void HydroCoupleComposer::onComponentInfoClicked(const QModelIndex& index)
@@ -1726,7 +1916,7 @@ void HydroCoupleComposer::onComponentInfoClicked(const QModelIndex& index)
    IAdaptedOutputFactoryComponentInfo* foundAdaptedOutputFactoryComponentInfo = nullptr;
    
    if (index.isValid() && (value.type() != QVariant::Bool)
-       && (foundModelComponentInfo = m_componentManager->findModelComponentInfoById(value.toString())) != nullptr)
+       && (foundModelComponentInfo = m_project->componentManager()->findModelComponentInfoById(value.toString())) != nullptr)
    {
       QVariant variant = QVariant::fromValue(dynamic_cast<QObject*>(foundModelComponentInfo));
       m_propertyModel->setData(variant);
@@ -1738,7 +1928,7 @@ void HydroCoupleComposer::onComponentInfoClicked(const QModelIndex& index)
       actionUnloadModelComponentLibrary->setEnabled(true);
    }
    else if (index.isValid() && (value.type() != QVariant::Bool)
-            && (foundAdaptedOutputFactoryComponentInfo = m_componentManager->findAdaptedOutputFactoryComponentInfoById(value.toString())) != nullptr)
+            && (foundAdaptedOutputFactoryComponentInfo = m_project->componentManager()->findAdaptedOutputFactoryComponentInfoById(value.toString())) != nullptr)
    {
       QVariant variant = QVariant::fromValue(dynamic_cast<QObject*>(foundAdaptedOutputFactoryComponentInfo));
       m_propertyModel->setData(variant);
@@ -1769,7 +1959,7 @@ void HydroCoupleComposer::onComponentInfoDoubleClicked(const QModelIndex& index)
       
       IModelComponentInfo* foundModelComponentInfo = nullptr;
       
-      if ((foundModelComponentInfo = m_componentManager->findModelComponentInfoById(id)) != nullptr)
+      if ((foundModelComponentInfo = m_project->componentManager()->findModelComponentInfoById(id)) != nullptr)
       {
          IModelComponent* component = foundModelComponentInfo->createComponentInstance();
          
@@ -1833,7 +2023,7 @@ void HydroCoupleComposer::onModelComponentInfoDropped(const QPointF& scenePos, c
 {
    IModelComponentInfo* foundModelComponentInfo = nullptr;
    
-   if ((foundModelComponentInfo = m_componentManager->findModelComponentInfoById(id)) != nullptr)
+   if ((foundModelComponentInfo = m_project->componentManager()->findModelComponentInfoById(id)) != nullptr)
    {
       IModelComponent* component = foundModelComponentInfo->createComponentInstance();
       
@@ -1854,17 +2044,17 @@ void HydroCoupleComposer::onModelComponentInfoDropped(const QPointF& scenePos, c
    }
 }
 
-void HydroCoupleComposer::onComponentInfoPropertyChanged(const QString& propertyName, const QVariant& value)
+void HydroCoupleComposer::onComponentInfoPropertyChanged(const QString& propertyName)
 {
    
-   IModelComponentInfo* modelComponentInfo = dynamic_cast<IModelComponentInfo*>(sender());
-   
-   if(modelComponentInfo)
+   IModelComponentInfo* modelComponentInfo = nullptr ;
+   IAdaptedOutputFactoryComponentInfo* adapted = nullptr;
+
+   if((modelComponentInfo = dynamic_cast<IModelComponentInfo*>(sender())))
    {
-      QStandardItem* root = m_componentTreeViewModel->invisibleRootItem();
-      QStandardItem* componentTreeViewItem = findStandardItem( modelComponentInfo->id(), root, QVariant::String , Qt::UserRole , true);
+      QStandardItem* componentTreeViewItem = findStandardItem( modelComponentInfo->id(), m_modelComponentInfoStandardItem, QVariant::String , Qt::UserRole , true);
       
-      if(componentTreeViewItem && componentTreeViewItem != root)
+      if(componentTreeViewItem && componentTreeViewItem != m_modelComponentInfoStandardItem)
       {
          
          QString iconPath = ":/HydroCoupleComposer/hydrocouplecomposer";
@@ -1898,15 +2088,18 @@ void HydroCoupleComposer::onComponentInfoPropertyChanged(const QString& property
          componentTreeViewItem->setData(modelComponentInfo->id(), Qt::UserRole);
       }
    }
-   
+   else if((adapted = dynamic_cast<IAdaptedOutputFactoryComponentInfo*>(sender())))
+   {
+
+   }
 }
 
 void HydroCoupleComposer::onModelComponentAdded(GModelComponent* modelComponent)
 {
-   //graphicsViewHydroCoupleComposer->scene()->addItem(modelComponent);
+   connect(modelComponent , SIGNAL(doubleClicked(GModelComponent*)) , this , SLOT(onModelComponentDoubleClicked(GModelComponent*)));
    addRemoveNodeToGraphicsView(modelComponent);
 
-   for(GInput* input : modelComponent->inputExchangeItems())
+   for(GInput* input : modelComponent->inputGraphicObjects().values())
    {
       addRemoveNodeToGraphicsView(input);
    }
@@ -1922,7 +2115,9 @@ void HydroCoupleComposer::onModelComponentDeleting(GModelComponent *modelCompone
 
 void HydroCoupleComposer::onModelComponentDoubleClicked(GModelComponent *modelComponent)
 {
-   if(!m_argumentDialog->isVisible())
+   if(!m_argumentDialog->isVisible() && (modelComponent->modelComponent()->status() == HydroCouple::Created
+                                         || modelComponent->modelComponent()->status() == HydroCouple::Failed
+                                         || modelComponent->modelComponent()->status() == HydroCouple::Initialized ))
    {
       m_argumentDialog->show();
       m_argumentDialog->setComponent(modelComponent);
@@ -1931,10 +2126,16 @@ void HydroCoupleComposer::onModelComponentDoubleClicked(GModelComponent *modelCo
 
 void HydroCoupleComposer::onProjectHasChanges(bool hasChanges)
 {
-   //fix title
-#if __APPLE__
+   if(hasChanges)
+   {
+      setWindowTitle(m_project->projectFile().fileName() + "[*] - HydroCouple Composer");
+   }
+   else
+   {
+      setWindowTitle(m_project->projectFile().fileName() + " - HydroCouple Composer");
+   }
+
    setWindowModified(hasChanges);
-#endif // __APPLE__
 }
 
 void HydroCoupleComposer::onSetCurrentTool(bool on)
@@ -2442,38 +2643,12 @@ void HydroCoupleComposer::onDistributeHorizontalCenters()
 
 void HydroCoupleComposer::onTreeViewModelComponentInfoContextMenuRequested(const QPoint& pos)
 {
-   QMenu contextMenu;
-   contextMenu.addActions(m_treeviewComponentInfoContextMenuActions);
-   contextMenu.exec(treeViewModelComponentInfos->viewport()->mapToGlobal(pos));
+   m_treeviewComponentInfoContextMenu->exec(treeViewModelComponentInfos->viewport()->mapToGlobal(pos));
 }
 
 void HydroCoupleComposer::onGraphicsViewHydroCoupleComposerContextMenuRequested(const QPoint& pos)
 {
-   QMenu contextMenu;
-   
-   QMenu* layout = new QMenu("Layout Components",this);
-   layout->addAction(actionLayoutComponents);
-   layout->addSeparator();
-   layout->addAction(actionAlignTop);
-   layout->addAction(actionAlignBottom);
-   layout->addAction(actionAlignLeft);
-   layout->addAction(actionAlignRight);
-   layout->addSeparator();
-   layout->addAction(actionAlignVerticalCenters);
-   layout->addAction(actionAlignHorizontalCenters);
-   layout->addSeparator();
-   layout->addAction(actionDistributeTopEdges);
-   layout->addAction(actionDistributeBottomEdges);
-   layout->addAction(actionDistributeLeftEdges);
-   layout->addAction(actionDistributeRightEdges);
-   layout->addAction(actionDistributeVerticalCenters);
-   layout->addAction(actionDistributeHorizontalCenters);
-   
-   
-   contextMenu.addActions(m_graphicsViewContextMenuActions);
-   contextMenu.addSeparator();
-   contextMenu.addMenu(layout);
-   contextMenu.exec(graphicsViewHydroCoupleComposer->viewport()->mapToGlobal(pos));
+   m_graphicsContextMenu->exec(graphicsViewHydroCoupleComposer->viewport()->mapToGlobal(pos));
 }
 
 void HydroCoupleComposer::onAbout()

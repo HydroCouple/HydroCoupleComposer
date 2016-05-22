@@ -4,7 +4,6 @@
 
 using namespace HydroCouple;
 
-#pragma region variables
 
 const QString GModelComponent::sc_descriptionHtml =
       "<h2>[Caption]</h2>"
@@ -13,17 +12,19 @@ const QString GModelComponent::sc_descriptionHtml =
       "<hr>"
       "<div>"
       "<img alt=\"icon\" src='[IconPath]' width=\"40\" align=\"left\" />"
-      "<p>[Description]</p>"
+      "<p>  [Description]</p>"
       "</div>";
 
 
 QBrush GModelComponent::s_triggerBrush(QColor(255, 255, 255), Qt::BrushStyle::SolidPattern);
 QPen GModelComponent::s_triggerPen(QBrush(QColor(255, 0, 0), Qt::BrushStyle::SolidPattern), 5.0, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::RoundJoin);
 
-#pragma endregion
 
 GModelComponent::GModelComponent(IModelComponent* model, HydroCoupleProject *parent)
-   : GNode(model->id(),model->caption(),GNode::Component), m_isTrigger(false), m_moveExchangeItemsWhenMoved(true)
+   : GNode(model->id(),model->caption(),GNode::Component), m_isTrigger(false),
+     m_moveExchangeItemsWhenMoved(true),
+     m_readFromFile(false),
+     m_ignoreSignalsFromComponent(false)
 {
 
    setFlag(GraphicsItemFlag::ItemSendsScenePositionChanges, true);
@@ -34,9 +35,9 @@ GModelComponent::GModelComponent(IModelComponent* model, HydroCoupleProject *par
    m_parent = parent;
    m_modelComponent = model;
 
-   connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(componentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs &)),
-           this, SLOT(onComponentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs&)));
-   connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(propertyChanged(const QString&, const QVariant&)), this, SLOT(onPropertyChanged(const QString&, const QVariant&)));
+   connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(componentStatusChanged(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &)),
+           this, SLOT(onComponentStatusChanged(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &)));
+   connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(propertyChanged(const QString &)), this, SLOT(onPropertyChanged(const QString&)));
 
 
    connect(this, &GNode::propertyChanged,this, &GModelComponent::onPropertyChanged);
@@ -47,10 +48,18 @@ GModelComponent::GModelComponent(IModelComponent* model, HydroCoupleProject *par
 
 GModelComponent::~GModelComponent()
 {
-   qDeleteAll(m_inputExchangeItems);
-   m_inputExchangeItems.clear();
-
+   deleteExchangeItems();
    delete m_modelComponent;
+}
+
+HydroCoupleProject* GModelComponent::project() const
+{
+   return m_parent;
+}
+
+void GModelComponent::setProject(HydroCoupleProject *project)
+{
+   m_parent = project;
 }
 
 IModelComponent* GModelComponent::modelComponent() const
@@ -79,8 +88,9 @@ void GModelComponent::setTrigger(bool trigger)
          emit setAsTrigger(this);
       }
 
-      emit propertyChanged("Trigger", m_isTrigger);
+      emit propertyChanged("Trigger");
       emit postMessage(m_modelComponent->id() + " has been set as the trigger" );
+      emit hasChanges();
       update();
    }
 }
@@ -93,7 +103,8 @@ QPen GModelComponent::triggerPen() const
 void GModelComponent::setTriggerPen(const QPen& triggerPen)
 {
    s_triggerPen = triggerPen;
-   emit propertyChanged("TriggerPen", s_triggerPen);
+   emit propertyChanged("TriggerPen");
+   emit hasChanges();
    update();
 }
 
@@ -105,7 +116,8 @@ QBrush GModelComponent::triggerBrush() const
 void GModelComponent::setTriggerBrush(const QBrush& triggerBrush)
 {
    s_triggerBrush = triggerBrush;
-   emit propertyChanged("TriggerBrush", s_triggerBrush);
+   emit propertyChanged("TriggerBrush");
+   emit hasChanges();
    update();
 }
 
@@ -119,14 +131,24 @@ void GModelComponent::setMoveExchangeItemsWhenMoved(bool move)
    m_moveExchangeItemsWhenMoved = move;
 }
 
-QList<GInput*> GModelComponent::inputExchangeItems() const
+QHash<QString,IInput*> GModelComponent::inputs() const
 {
-   return m_inputExchangeItems;
+   return m_inputs;
 }
 
-QList<GOutput*> GModelComponent::outputExchangeItems() const
+QHash<QString, IOutput*> GModelComponent::outputs() const
 {
-   return m_outputExchangeItems;
+   return m_outputs;
+}
+
+QHash<QString,GInput*> GModelComponent::inputGraphicObjects() const
+{
+   return m_inputGraphicObjects;
+}
+
+QHash<QString, GOutput*> GModelComponent::outputGraphicObjects() const
+{
+   return m_outputGraphicObjects;
 }
 
 QString GModelComponent::modelComponentStatusAsString(ComponentStatus status)
@@ -181,14 +203,407 @@ QString GModelComponent::modelComponentStatusAsString(ComponentStatus status)
    }
 }
 
-GModelComponent* GModelComponent::readComponentFile(const QFileInfo& file)
+GModelComponent* GModelComponent::readComponentFile(const QFileInfo & fileInfo, HydroCoupleProject* project, QList<QString>& errorMessages)
 {
+   QFile file(fileInfo.absoluteFilePath());
+
+   if(file.open(QIODevice::ReadOnly))
+   {
+      QXmlStreamReader xmlReader(&file);
+
+      while(!xmlReader.isEndDocument() && !xmlReader.hasError())
+      {
+         if(!xmlReader.name().compare("ModelComponent", Qt::CaseInsensitive) && !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+         {
+            while (!((xmlReader.isEndElement() || xmlReader.isEndDocument())
+                     && !xmlReader.name().compare("ModelComponent", Qt::CaseInsensitive))
+                   && !xmlReader.hasError())
+            {
+               GModelComponent* modelComponent = readComponent(xmlReader, project , errorMessages);
+
+               if(modelComponent)
+               {
+                  modelComponent->m_readFromFile = true;
+                  modelComponent->m_exportFile = fileInfo;
+                  return modelComponent;
+               }
+            }
+         }
+         xmlReader.readNext();
+      }
+   }
+
    return nullptr;
 }
 
-GModelComponent* GModelComponent::readComponentSection(const QXmlStreamReader &xmlReader)
+GModelComponent* GModelComponent::readComponent(QXmlStreamReader & xmlReader, HydroCoupleProject* project, QList<QString>& errorMessages)
 {
+   if(!xmlReader.name().compare("ModelComponent", Qt::CaseInsensitive) && !xmlReader.hasError()
+         && xmlReader.tokenType() == QXmlStreamReader::StartElement )
+   {
+      QXmlStreamAttributes attributes = xmlReader.attributes();
+
+      if(attributes.hasAttribute("ModelComponentFile"))
+      {
+         QStringRef value = attributes.value("ModelComponentFile");
+         QFileInfo fileInfo(value.toString());
+
+         if(fileInfo.isRelative() && project)
+         {
+            fileInfo = project->projectFile().dir().absoluteFilePath(value.toString());
+         }
+
+         if(fileInfo.exists())
+         {
+            GModelComponent* modelComponent = readComponentFile(fileInfo, project, errorMessages);
+            return modelComponent;
+         }
+         else
+         {
+            errorMessages.append("ModelComponentFile specified was not found : "+ fileInfo.absoluteFilePath() +" : Column " + QString::number(xmlReader.columnNumber()) + " Row " + QString::number(xmlReader.lineNumber()));
+         }
+      }
+      else
+      {
+
+         if(attributes.hasAttribute("ModelComponentLibrary"))
+         {
+            QStringRef value = attributes.value("ModelComponentLibrary");
+            QFileInfo fileInfo(value.toString());
+
+            if(fileInfo.isRelative() && project)
+            {
+               fileInfo = project->projectFile().dir().absoluteFilePath(value.toString());
+            }
+
+            if(fileInfo.exists())
+            {
+               IModelComponentInfo* modelComponentInfo = dynamic_cast<IModelComponentInfo*>(project->m_componentManager->loadComponent(fileInfo));
+
+               if(modelComponentInfo)
+               {
+                  IModelComponent* component = modelComponentInfo->createComponentInstance();
+                  GModelComponent* gcomponent = new GModelComponent(component, project);
+
+                  if(attributes.hasAttribute("IsTrigger"))
+                  {
+                     QString trigVal = attributes.value("IsTrigger").toString();
+
+                     if(!trigVal.compare("True" , Qt::CaseInsensitive))
+                     {
+                        gcomponent->setTrigger(true);
+                     }
+                  }
+
+                  if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
+                  {
+                     QString xposS = attributes.value("XPos").toString();
+                     QString yposS = attributes.value("YPos").toString();
+
+                     bool ok;
+
+                     double xloc = xposS.toDouble(&ok);
+                     double yloc = yposS.toDouble(&ok);
+
+                     if(ok)
+                     {
+                        gcomponent->setPos(xloc,yloc);
+                     }
+                  }
+
+                  while (!(xmlReader.isEndElement() && !xmlReader.name().compare("ModelComponent", Qt::CaseInsensitive)) && !xmlReader.hasError())
+                  {
+                     if(!xmlReader.name().compare("Arguments", Qt::CaseInsensitive) && !xmlReader.hasError()
+                           && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+                     {
+                        while (!(xmlReader.isEndElement() && !xmlReader.name().compare("Arguments", Qt::CaseInsensitive)) && !xmlReader.hasError())
+                        {
+                           if(!xmlReader.name().compare("Argument", Qt::CaseInsensitive) && !xmlReader.hasError()  && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+                           {
+                              readArgument(xmlReader, component);
+
+                              while (!(xmlReader.isEndElement() && !xmlReader.name().compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
+                              {
+                                 xmlReader.readNext();
+                              }
+                           }
+                           xmlReader.readNext();
+                        }
+
+                        component->initialize();
+
+                     }
+                     xmlReader.readNext();
+                  }
+
+                  return gcomponent;
+               }
+               else
+               {
+                  errorMessages.append("Unable to load component specified at: "+ fileInfo.absoluteFilePath() +" : Column " + QString::number(xmlReader.columnNumber()) + " Row " + QString::number(xmlReader.lineNumber()));
+               }
+            }
+            else
+            {
+               errorMessages.append("ModelComponentFile specified was not found : "+ fileInfo.absoluteFilePath() +" : Column " + QString::number(xmlReader.columnNumber()) +  " Row " + QString::number(xmlReader.lineNumber()));
+            }
+         }
+      }
+
+      while (!(xmlReader.isEndElement()
+               && !xmlReader.name().compare("ModelComponent", Qt::CaseInsensitive))
+             && !xmlReader.hasError())
+      {
+         xmlReader.readNext();
+      }
+   }
+
    return nullptr;
+}
+
+void GModelComponent::readComponentConnections(QXmlStreamReader & xmlReader, QList<QString>& errorMessages)
+{
+   if(!xmlReader.name().compare("ModelComponentConnection",Qt::CaseInsensitive) && !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement )
+   {
+      while(!(xmlReader.isEndElement() && !xmlReader.name().compare("ModelComponentConnection", Qt::CaseInsensitive)) && !xmlReader.hasError())
+      {
+         if(!xmlReader.name().compare("OutputExchangeItem",Qt::CaseInsensitive) && !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+         {
+
+            QXmlStreamAttributes attributes = xmlReader.attributes();
+
+            if(attributes.hasAttribute("OutputExchangeItemId"))
+            {
+               QStringRef id = attributes.value("OutputExchangeItemId");
+
+               GOutput* outputExchangeItem = nullptr;
+
+               for(GOutput* output : m_outputGraphicObjects.values())
+               {
+                  if(!output->output()->id().compare(id.toString()))
+                  {
+
+                     if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
+                     {
+                        QString xposS = attributes.value("XPos").toString();
+                        QString yposS = attributes.value("YPos").toString();
+
+                        bool ok;
+
+                        double xloc = xposS.toDouble(&ok);
+                        double yloc = yposS.toDouble(&ok);
+
+                        if(ok)
+                        {
+                           output->setPos(xloc,yloc);
+                        }
+                     }
+
+                     outputExchangeItem = output;
+                     break;
+                  }
+               }
+
+               if(outputExchangeItem)
+               {
+                  outputExchangeItem->readOutputExchangeItemConnections(xmlReader, errorMessages);
+               }
+            }
+         }
+         xmlReader.readNext();
+      }
+   }
+}
+
+void GModelComponent::writeComponent(const QFileInfo &fileInfo)
+{
+   QFile file(fileInfo.absoluteFilePath());
+
+   if(file.open(QIODevice::WriteOnly | QIODevice::Truncate))
+   {
+      QXmlStreamWriter xmlWriter(&file);
+      xmlWriter.setAutoFormatting(true);
+
+      xmlWriter.writeStartElement("ModelComponent");
+      {
+         QString relPath = fileInfo.dir().relativeFilePath(m_modelComponent->componentInfo()->libraryFilePath());
+         xmlWriter.writeAttribute("Name",m_modelComponent->componentInfo()->name());
+
+         if(m_isTrigger)
+         {
+            xmlWriter.writeAttribute("IsTrigger" , "True");
+         }
+
+         xmlWriter.writeAttribute("ModelComponentLibrary",relPath);
+
+         xmlWriter.writeAttribute("XPos" , QString::number(pos().x()));
+         xmlWriter.writeAttribute("YPos" , QString::number(pos().y()));
+
+         xmlWriter.writeStartElement("Arguments");
+         {
+            for(IArgument* argument : m_modelComponent->arguments())
+            {
+               xmlWriter.writeStartElement("Argument");
+               {
+                  xmlWriter.writeAttribute("ArgumentId",argument->id());
+
+                  switch (argument->argumentIOType())
+                  {
+                     case HydroCouple::File:
+                        {
+                           xmlWriter.writeAttribute("ArgumentIOType","File");
+                           xmlWriter.writeCharacters(fileInfo.dir().relativeFilePath(argument->toString()));
+                        }
+                        break;
+                     case HydroCouple::String:
+                        {
+                           xmlWriter.writeAttribute("ArgumentIOType","String");
+
+                           QString input = argument->toString();
+
+                           if(!input.contains("</"))
+                           {
+                              xmlWriter.writeCharacters(argument->toString());
+                           }
+                           else
+                           {
+                              QXmlStreamReader xmlReader(input);
+
+                              while (xmlReader.name().isEmpty() || xmlReader.name().isNull())
+                              {
+                                 xmlReader.readNext();
+                              }
+
+                              while (!xmlReader.atEnd())
+                              {
+                                 xmlWriter.writeCurrentToken(xmlReader);
+                                 xmlReader.readNext();
+                              }
+                           }
+                        }
+                        break;
+                  }
+               }
+               xmlWriter.writeEndElement();
+            }
+         }
+         xmlWriter.writeEndElement();
+      }
+      xmlWriter.writeEndElement();
+   }
+
+   m_readFromFile = true;
+   m_exportFile = fileInfo;
+}
+
+void GModelComponent::writeComponent(QXmlStreamWriter &xmlWriter)
+{
+   QDir projectDir = m_parent->projectFile().dir();
+   xmlWriter.setAutoFormatting(true);
+
+   xmlWriter.writeStartElement("ModelComponent");
+   {
+      if(m_readFromFile)
+      {
+         writeComponent(m_exportFile);
+         xmlWriter.writeAttribute("ModelComponentFile",projectDir.relativeFilePath(m_exportFile.absoluteFilePath()));
+      }
+      else
+      {
+         QString relPath = projectDir.relativeFilePath(m_modelComponent->componentInfo()->libraryFilePath());
+         xmlWriter.writeAttribute("Name",m_modelComponent->componentInfo()->name());
+
+         if(m_isTrigger)
+         {
+            xmlWriter.writeAttribute("IsTrigger" , "True");
+         }
+
+         xmlWriter.writeAttribute("ModelComponentLibrary",relPath);
+
+         xmlWriter.writeAttribute("XPos" , QString::number(pos().x()));
+         xmlWriter.writeAttribute("YPos" , QString::number(pos().y()));
+
+         xmlWriter.writeStartElement("Arguments");
+         {
+            for(IArgument* argument : m_modelComponent->arguments())
+            {
+               xmlWriter.writeStartElement("Argument");
+               {
+                  xmlWriter.writeAttribute("Id",argument->id());
+
+                  switch (argument->argumentIOType())
+                  {
+                     case HydroCouple::File:
+                        {
+                           xmlWriter.writeAttribute("ArgumentIOType","File");
+                           xmlWriter.writeTextElement("ArgumentText" , projectDir.relativeFilePath(argument->toString()));
+                        }
+                        break;
+                     case HydroCouple::String:
+                        {
+                           xmlWriter.writeAttribute("ArgumentIOType","String");
+                           QString input = argument->toString();
+
+                           if(!input.contains("</"))
+                           {
+                              xmlWriter.writeCharacters(argument->toString());
+                           }
+                           else
+                           {
+                              QXmlStreamReader xmlReader(input);
+
+                              while (xmlReader.name().isEmpty() || xmlReader.name().isNull())
+                              {
+                                 xmlReader.readNext();
+                              }
+
+                              while (!xmlReader.atEnd())
+                              {
+                                 xmlWriter.writeCurrentToken(xmlReader);
+                                 xmlReader.readNext();
+                              }
+                           }
+                        }
+                        break;
+                  }
+               }
+               xmlWriter.writeEndElement();
+            }
+         }
+         xmlWriter.writeEndElement();
+      }
+   }
+   xmlWriter.writeEndElement();
+}
+
+void GModelComponent::writeComponentConnections(QXmlStreamWriter &xmlWriter)
+{
+   bool found  = false;
+
+   for(GOutput* output :  m_outputGraphicObjects.values())
+   {
+      if(output->connections().length())
+         found = true;
+   }
+
+   if(!found)
+      return ;
+
+   int index = m_parent->modelComponents().indexOf(this);
+
+   xmlWriter.writeStartElement("ModelComponentConnection");
+   {
+      xmlWriter.writeAttribute("SourceModelComponentIndex" , QString::number(index));
+
+      for(GOutput* output :  m_outputGraphicObjects.values())
+      {
+         if(output->connections().length())
+         {
+            output->writeExchangeItemConnections(xmlWriter);
+         }
+      }
+   }
+   xmlWriter.writeEndElement();
 }
 
 QRectF GModelComponent::boundingRect() const
@@ -228,18 +643,102 @@ void GModelComponent::paint(QPainter * painter, const QStyleOptionGraphicsItem *
    }
 }
 
+bool GModelComponent::createConnection(GNode *consumer)
+{
+   if(consumer->nodeType() == GNode::Output)
+   {
+      for(GConnection *connection : m_connections)
+      {
+         if(connection->consumer() == consumer)
+            return false;
+      }
+
+      GConnection* connection = new GConnection(this,consumer);
+      m_connections.append(connection);
+
+      emit connectionAdded(connection);
+      emit propertyChanged("Connections");
+      emit hasChanges();
+
+      if(scene())
+      {
+         scene()->addItem(connection);
+      }
+
+      return true;
+   }
+
+
+   return false;
+}
+
+bool GModelComponent::deleteConnection(GConnection *connection)
+{
+   if(m_connections.removeAll(connection))
+   {
+      if(scene())
+      {
+         scene()->removeItem(connection);
+         scene()->removeItem(connection->consumer());
+      }
+
+      m_outputGraphicObjects.remove(((GOutput*)connection->consumer())->id());
+
+      delete connection->consumer();
+      delete connection;
+      emit propertyChanged("Connections");
+      emit hasChanges();
+      return true;
+   }
+   else
+   {
+      return false;
+   }
+}
+
+bool GModelComponent::deleteConnection(GNode *consumer)
+{
+   for(GConnection* connection : m_connections)
+   {
+      if(connection->consumer() == consumer)
+      {
+         return deleteConnection(connection);
+      }
+   }
+
+   return false;
+}
+
+void GModelComponent::deleteConnections()
+{
+   while (m_connections.length())
+   {
+      deleteConnection(m_connections[0]);
+   }
+}
+
+bool GModelComponent::ignoreSignalsFromComponent() const
+{
+   return m_ignoreSignalsFromComponent;
+}
+
+void GModelComponent::setIgnoreSignalsFromComponent(bool ignore)
+{
+   m_ignoreSignalsFromComponent = ignore;
+}
+
 QVariant GModelComponent::itemChange(GraphicsItemChange change, const QVariant &value)
 {
    if(change == QGraphicsItem::ItemPositionChange && m_moveExchangeItemsWhenMoved)
    {
       QPointF move = value.toPointF() - pos();
 
-      for(GInput* input : m_inputExchangeItems)
+      for(GInput* input : m_inputGraphicObjects.values())
       {
          input->moveBy(move.x() , move.y());
       }
 
-      for(GOutput* output : m_outputExchangeItems)
+      for(GOutput* output : m_outputGraphicObjects.values())
       {
          output->moveBy(move.x() , move.y());
       }
@@ -248,26 +747,19 @@ QVariant GModelComponent::itemChange(GraphicsItemChange change, const QVariant &
    return GNode::itemChange(change, value);
 }
 
+void GModelComponent::deleteExchangeItems()
+{
+   m_inputs.clear();
+   m_outputs.clear();
+
+   qDeleteAll(m_inputGraphicObjects.values());
+   m_inputGraphicObjects.clear();
+
+   deleteConnections();
+}
+
 void GModelComponent::createExchangeItems()
 {
-
-   for(GConnection* connection : m_connections)
-   {
-      m_connections.removeAll(connection);
-      delete connection;
-   }
-
-   for(GOutput* output : m_outputExchangeItems)
-   {
-      m_outputExchangeItems.removeAll(output);
-      delete output;
-   }
-
-   for(GInput* input : m_inputExchangeItems)
-   {
-      m_inputExchangeItems.removeAll(input);
-      delete input;
-   }
 
    QPointF p = pos();
    QRectF bound = boundingRect();
@@ -279,10 +771,13 @@ void GModelComponent::createExchangeItems()
    bool sign = true;
    int count = 0;
 
-   for(IOutput* output : m_modelComponent->outputs())
+
+   for(IOutput *output : m_modelComponent->outputs())
    {
-      GOutput* goutput = new GOutput(output);
-      m_outputExchangeItems.append(goutput);
+      m_outputs[output->id()] = output;
+
+      GOutput* goutput = new GOutput(output->id(),this);
+      m_outputGraphicObjects[output->id()] = goutput;
 
       if(sign)
       {
@@ -301,16 +796,32 @@ void GModelComponent::createExchangeItems()
          scene()->addItem(goutput);
       }
 
+      connect(goutput,SIGNAL(hasChanges()),this,SLOT(onChildHasChanges()));
       createConnection(goutput);
    }
 
    sign = true;
    count  = 0;
 
-   for(IInput* input : m_modelComponent->inputs())
+
+   for(IInput *input : m_modelComponent->inputs())
    {
-      GInput* ginput = new GInput(input, nullptr);
-      m_inputExchangeItems.append(ginput);
+      m_inputs[input->id()] = input;
+
+      GInput* ginput = nullptr;
+
+      IMultiInput* minput = dynamic_cast<IMultiInput*>(input);
+
+      if(minput)
+      {
+         ginput = new GMultiInput(minput->id(), this);
+      }
+      else
+      {
+         ginput = new GInput(input->id(),this);
+      }
+
+      m_inputGraphicObjects[ginput->id()] = ginput;
 
       if(sign)
       {
@@ -329,34 +840,98 @@ void GModelComponent::createExchangeItems()
          scene()->addItem(ginput);
       }
 
+      connect(ginput,SIGNAL(hasChanges()),this,SLOT(onChildHasChanges()));
       ginput->createConnection(this);
    }
+
+   emit hasChanges();
 }
 
-void GModelComponent::onComponentStatusChanged(const IComponentStatusChangeEventArgs& statusChangedEvent)
+void GModelComponent::readArgument(QXmlStreamReader &xmlReader , IModelComponent* component)
 {
-   onCreateTextItem();
-
-   if(statusChangedEvent.status() ==  ComponentStatus::Initialized)
+   if(!xmlReader.name().compare("Argument", Qt::CaseInsensitive) && !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement )
    {
-      createExchangeItems();
+      QXmlStreamAttributes attributes = xmlReader.attributes();
+
+      if(attributes.hasAttribute("Id") && attributes.hasAttribute("ArgumentIOType"))
+      {
+         QStringRef argumentId = attributes.value("Id");
+         QStringRef argIOType = attributes.value("ArgumentIOType");
+         IArgument* targument = nullptr;
+
+         for(IArgument* argument : component->arguments())
+         {
+            qDebug() << argument->id();
+
+            if(!argumentId.toString().compare(argument->id() , Qt::CaseInsensitive))
+            {
+               targument = argument;
+
+               QString value;
+               QXmlStreamWriter writer(&value);
+
+               while(!(xmlReader.isEndElement() && !xmlReader.name().compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
+               {
+                  xmlReader.readNext();
+                  writer.writeCurrentToken(xmlReader);
+                  qDebug() << xmlReader.text();
+               }
+
+               if(!argIOType.toString().compare("File", Qt::CaseInsensitive))
+               {
+                  targument->readValues(value , true);
+               }
+               else
+               {
+                  qDebug() << value;
+                  targument->readValues(value);
+               }
+
+               break;
+            }
+         }
+      }
    }
-
-   emit componentStatusChanged(statusChangedEvent);
 }
 
-void GModelComponent::onPropertyChanged(const QString& propertyName, const QVariant& value)
+void GModelComponent::onComponentStatusChanged(const std::shared_ptr<IComponentStatusChangeEventArgs> & statusChangedEvent)
 {
-   if (!propertyName.compare("Status", Qt::CaseInsensitive) ||
-       !propertyName.compare("Id", Qt::CaseInsensitive) ||
-       !propertyName.compare("Caption", Qt::CaseInsensitive) ||
-       !propertyName.compare("Description", Qt::CaseInsensitive)
-       )
+   //#ifndef QT_DEBUG
+   if(statusChangedEvent->status() == ComponentStatus::Failed || !m_ignoreSignalsFromComponent)
    {
+      //#endif
       onCreateTextItem();
-   }
 
-   emit propertyChanged(propertyName, value);
+      if(statusChangedEvent->status() ==  ComponentStatus::Initialized ||
+            statusChangedEvent->status() == ComponentStatus::Created)
+      {
+         deleteExchangeItems();
+         createExchangeItems();
+      }
+
+      emit componentStatusChanged(statusChangedEvent);
+
+      emit postMessage(statusChangedEvent->message());
+      //#ifndef QT_DEBUG
+   }
+   //#endif
+}
+
+void GModelComponent::onPropertyChanged(const QString& propertyName)
+{
+   if(!m_ignoreSignalsFromComponent)
+   {
+      if (!propertyName.compare("Status", Qt::CaseInsensitive) ||
+          !propertyName.compare("Id", Qt::CaseInsensitive) ||
+          !propertyName.compare("Caption", Qt::CaseInsensitive) ||
+          !propertyName.compare("Description", Qt::CaseInsensitive)
+          )
+      {
+         onCreateTextItem();
+      }
+
+      emit propertyChanged(propertyName);
+   }
 }
 
 void GModelComponent::onDoubleClicked(GNode *node)

@@ -3,7 +3,6 @@
 
 #include <QtWidgets/QMainWindow>
 #include "ui_hydrocouplecomposer.h"
-#include "componentmanager.h"
 #include "hydrocoupleproject.h"
 #include "qpropertymodel.h"
 #include "qvariantholderhelper.h"
@@ -15,25 +14,21 @@
 
 
 #ifdef _WIN32
-
 #include "cgraph.h"
 #include "gvc.h"
-
 #else
-
 #include <graphviz/cgraph.h>
 #include <graphviz/gvc.h>
-
 #endif
 
 
 
 class GModelComponent;
+class SimulationManager;
 
 class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerClass
 {
       Q_OBJECT
-      Q_PROPERTY(ComponentManager* Componentmanager READ componentManager)
       Q_PROPERTY(HydroCoupleProject* Project READ project)
 
    public:
@@ -47,14 +42,12 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       virtual ~HydroCoupleComposer();
 
       /*!
-       * \brief ComponentManager manages all component types.
-       */
-      ComponentManager* componentManager() const;
-
-      /*!
        * \brief HydroCoupleProject project for this session
        */
       HydroCoupleProject* project() const;
+
+
+      void setProject(HydroCoupleProject* project);
 
    protected:
 
@@ -127,7 +120,7 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       void createConnection(GExchangeItem* producer , GExchangeItem* consumer);
 
-      QStandardItem* findStandardItem(const QString& displayName, QStandardItem* parent,
+      QStandardItem* findStandardItem(const QString& id, QStandardItem* parent,
                                       QVariant::Type userType = QVariant::Bool, Qt::ItemDataRole role = Qt::DisplayRole, bool recursive = false);
 
 
@@ -179,6 +172,9 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       //!Post Output message
       void onPostMessage(const QString& message);
 
+      //!Message
+      void onPostToStatusBar(const QString &message);
+
    private slots:
 
       /*!
@@ -201,7 +197,6 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        */
       void onSaveAs();
 
-
       void onExport();
 
       /*!
@@ -213,6 +208,11 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        * \brief onOpenRecentFile Slot connected to open recent file action
        */
       void onOpenRecentFile();
+
+      /*!
+       * \brief onRunSimulation
+       */
+      void onRunSimulation();
 
       /*!
        * \brief onAddComponentLibraryDirectory
@@ -320,7 +320,7 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       void onModelComponentInfoDropped(const QPointF& scenePos, const QString& id);
 
-      void onComponentInfoPropertyChanged(const QString& propertyName, const QVariant& value);
+      void onComponentInfoPropertyChanged(const QString& propertyName);
 
       void onModelComponentAdded(GModelComponent* modelComponent);
 
@@ -395,7 +395,7 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       void currentToolChanged(int currentTool);
 
    private:
-      ComponentManager* m_componentManager;
+
       HydroCoupleProject* m_project;
       QPropertyModel* m_propertyModel;
       QStandardItemModel* m_componentTreeViewModel;
@@ -418,11 +418,12 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       QString m_lastPath;
       GExchangeItem *m_connProd , *m_connCons;
       bool m_createConnection;
-      QList<QAction*> m_treeviewComponentInfoContextMenuActions;
-      QList<QAction*> m_graphicsViewContextMenuActions;
       ModelStatusItemModel* m_modelStatusItemModel;
       ArgumentDialog* m_argumentDialog;
       QStandardItem *m_modelComponentInfoStandardItem, *m_adaptedOutputComponentInfoStandardItem;
+      QMenu *m_graphicsContextMenu, *m_treeviewComponentInfoContextMenu;
+      SimulationManager *m_simulationManager;
+
 };
 
 #endif // HYDROCOUPLECOMPOSER_H

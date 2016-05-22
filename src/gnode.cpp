@@ -5,17 +5,17 @@
 #include "gexchangeitems.h"
 
 const QString GNode::sc_captionHtml =
-      "<h2 align=\"center\">[Caption]</h2>"
-      "<h3 align=\"center\">[Id]</h3>";
+      "<h1 align=\"center\">[Id]</h1>"
+      "<h2 align=\"center\"><i>[Caption]</i></h2>";
 
 
 int GNode::s_zindex(1000);
 QBrush GNode::s_selectedBrush(QColor(255, 230, 220), Qt::BrushStyle::SolidPattern);
 QPen GNode::s_selectedPen(QBrush(QColor(255, 0, 0), Qt::BrushStyle::SolidPattern), 4.0, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::RoundJoin);
 
-GNode::GNode(const QString& id, const QString& caption, NodeType type, QGraphicsObject* parent)
-   :QGraphicsObject(parent),
-     m_id(id), m_caption(caption) , m_nodeType(type), m_margin(15),
+GNode::GNode(const QString& id, const QString& caption, NodeType type)
+   :QGraphicsObject(nullptr),
+      m_margin(15), m_id(id), m_caption(caption), m_nodeType(type),
      m_font(QFont())
 {
    m_textItem = new QGraphicsTextItem(this);
@@ -87,15 +87,6 @@ GNode::GNode(const QString& id, const QString& caption, NodeType type, QGraphics
 
 GNode::~GNode()
 {
-   qDeleteAll(m_connections);
-   m_connections.clear();
-
-   GAdaptedOutput* adaptedOutput = nullptr;
-   if((adaptedOutput = dynamic_cast<GAdaptedOutput*>(this)))
-   {
-      adaptedOutput->adaptee()->deleteConnection(this);
-   }
-
    if(scene())
    {
       scene()->removeItem(this);
@@ -111,7 +102,8 @@ void GNode::setId(const QString &id)
 {
    m_id = id;
    onCreateTextItem();
-   emit propertyChanged("Id" , m_id);
+   emit propertyChanged("Id");
+   emit hasChanges();
 }
 
 QString GNode::caption() const
@@ -123,7 +115,8 @@ void GNode::setCaption(const QString &caption)
 {
    m_caption = caption;
    onCreateTextItem();
-   emit propertyChanged("Caption" , m_caption);
+   emit propertyChanged("Caption");
+   emit hasChanges();
 }
 
 GNode::NodeType GNode::nodeType() const
@@ -140,7 +133,8 @@ void GNode::setSize(int size)
 {
    m_size = size;
    onCreateTextItem();
-   emit propertyChanged("Size" , m_size);
+   emit propertyChanged("Size");
+   emit hasChanges();
 }
 
 int GNode::margin() const
@@ -154,7 +148,8 @@ void GNode::setMargin(int margin)
    {
       m_margin = margin;
       onCreateTextItem();
-      emit propertyChanged("Margin", m_margin);
+      emit propertyChanged("Margin");
+      emit hasChanges();
    }
 }
 
@@ -166,7 +161,8 @@ int GNode::cornerRadius() const
 void GNode::setCornerRadius(int cornerRadius)
 {
    m_cornerRadius = cornerRadius;
-   emit propertyChanged("CornerRadius", m_cornerRadius);
+   emit propertyChanged("CornerRadius");
+   emit hasChanges();
    onCreateTextItem();
 }
 
@@ -178,7 +174,8 @@ QPen GNode::pen() const
 void GNode::setPen(const QPen& pen)
 {
    m_pen = pen;
-   emit propertyChanged("Pen", m_pen);
+   emit propertyChanged("Pen");
+   emit hasChanges();
    update();
 }
 
@@ -190,7 +187,8 @@ QBrush GNode::brush() const
 void GNode::setBrush(const QBrush& brush)
 {
    m_brush = brush;
-   emit propertyChanged("Brush", m_brush);
+   emit propertyChanged("Brush");
+   emit hasChanges();
    update();
 }
 
@@ -202,7 +200,8 @@ QPen GNode::selectedPen() const
 void GNode::setSelectedPen(const QPen& selectedPen)
 {
    s_selectedPen = selectedPen;
-   emit propertyChanged("SelectedPen", s_selectedPen);
+   emit propertyChanged("SelectedPen");
+   emit hasChanges();
    update();
 }
 
@@ -214,7 +213,8 @@ QBrush GNode::selectedBrush() const
 void GNode::setSelectedBrush(const QBrush& selectedBrush)
 {
    s_selectedBrush = selectedBrush;
-   emit propertyChanged("SelectedBrush", s_selectedBrush);
+   emit propertyChanged("SelectedBrush");
+   emit hasChanges();
    update();
 }
 
@@ -226,7 +226,8 @@ QFont GNode::font() const
 void GNode::setFont(const QFont &font)
 {
    m_font = font;
-   emit propertyChanged("Font", m_font);
+   emit propertyChanged("Font");
+   emit hasChanges();
    onCreateTextItem();
 }
 
@@ -241,106 +242,107 @@ QList<GConnection*> GNode::connections() const
    return m_connections;
 }
 
-bool GNode::createConnection(GNode *consumer)
-{
-   if(consumer == this)
-      return false;
+//bool GNode::createConnection(GNode *consumer)
+//{
+   //Same item
+//   if(consumer == this)
+//      return false;
 
-   for(GConnection* connection :  m_connections)
-   {
-      if(connection->consumer() == consumer)
-      {
-         return false;
-      }
-   }
+//   //Same connection exist
+//   for(GConnection* connection :  m_connections)
+//   {
+//      if(connection->consumer() == consumer)
+//      {
+//         return false;
+//      }
+//   }
    
-   GExchangeItem *producere , *consumere;
+//   //Same ModelComponent
+//   GExchangeItem *producere , *consumere;
 
-   if( (producere = dynamic_cast<GExchangeItem*>(this)) &&
-       (consumere = dynamic_cast<GExchangeItem*>(consumer)) &&
-       !producere->exchangeItem()->modelComponent()->id().compare(consumere->exchangeItem()->modelComponent()->id()))
-   {
-      return false;
-   }
+//   if( (producere = dynamic_cast<GExchangeItem*>(this)) &&
+//       (consumere = dynamic_cast<GExchangeItem*>(consumer)) &&
+//       !producere->exchangeItem()->modelComponent()->id().compare(consumere->exchangeItem()->modelComponent()->id()))
+//   {
+//      return false;
+//   }
+
+//   if(dynamic_cast<GMultiInput*>(consumer))
+//   {
+//      GMultiInput* minput = dynamic_cast<GMultiInput*>(consumer);
+//      minput->addProvider(dynamic_cast<GOutput*>(this));
+//   }
+//   else if(dynamic_cast<GInput*>(consumer))
+//   {
+//      GInput* input = dynamic_cast<GInput*>(consumer);
+//      if(input->provider())
+//      {
+//         input->provider()->deleteConnection(input);
+//      }
+//      input->setProvider(dynamic_cast<GOutput*>(this));
+//   }
 
 
+//   GConnection* connection = new GConnection(this,consumer);
+//   m_connections.append(connection);
 
-   if(dynamic_cast<GMultiInput*>(consumer))
-   {
-      GMultiInput* minput = dynamic_cast<GMultiInput*>(consumer);
-      minput->addProvider(dynamic_cast<GOutput*>(this));
-   }
-   else if(dynamic_cast<GInput*>(consumer))
-   {
-      GInput* input = dynamic_cast<GInput*>(consumer);
+//   emit connectionAdded(connection);
+//   emit propertyChanged("Connections" , QVariant::fromValue(connection));
+//   emit hasChanges();
 
-      if(input->provider())
-      {
-         input->provider()->deleteConnection(input);
-      }
+//   if(scene())
+//   {
+//      scene()->addItem(consumer);
+//      scene()->addItem(connection);
+//   }
 
-      input->setProvider(dynamic_cast<GOutput*>(this));
-   }
+//   return true;
+//}
 
-   GConnection* connection = new GConnection(this,consumer);
-   m_connections.append(connection);
+//bool GNode::deleteConnection(GConnection *connection)
+//{
+//   if(m_connections.removeAll(connection))
+//   {
+//      emit propertyChanged("Connections" , QVariant::fromValue(connection));
+//      delete connection;
+//      GAdaptedOutput* adaptedOutput = nullptr;
+//      if((adaptedOutput = dynamic_cast<GAdaptedOutput*>(this)) && m_connections.length() == 0)
+//      {
+//         adaptedOutput->adaptee()->deleteConnection(this);
+//      }
+//      emit hasChanges();
+//      return true;
+//   }
+//   else
+//   {
+//      return false;
+//   }
+//}
 
-   emit connectionAdded(connection);
-   emit propertyChanged("Connections" , QVariant::fromValue(connection));
+//bool GNode::deleteConnection(GNode *consumer)
+//{
+//   for(GConnection* connection : m_connections)
+//   {
+//      if(connection->consumer() == consumer)
+//      {
+//         bool deleted = deleteConnection(connection);
+//         emit hasChanges();
+//         return deleted;
+//      }
+//   }
 
-   if(scene())
-   {
-      scene()->addItem(consumer);
-      scene()->addItem(connection);
-   }
+//   return false;
+//}
 
-   return true;
-}
+//void GNode::deleteConnections()
+//{
+//   for(int i = 0 ; i < m_connections.length() ; i++)
+//   {
+//      deleteConnection(m_connections[i]);
+//   }
 
-bool GNode::deleteConnection(GConnection *connection)
-{
-   if(m_connections.removeAll(connection))
-   {
-      emit propertyChanged("Connections" , QVariant::fromValue(connection));
-      delete connection;
-
-      GAdaptedOutput* adaptedOutput = nullptr;
-
-      if((adaptedOutput = dynamic_cast<GAdaptedOutput*>(this)) && m_connections.length() == 0)
-      {
-         adaptedOutput->adaptee()->deleteConnection(this);
-      }
-
-      return true;
-   }
-   else
-   {
-      return false;
-   }
-}
-
-bool GNode::deleteConnection(GNode *consumer)
-{
-   for(GConnection* connection : m_connections)
-   {
-      if(connection->consumer() == consumer)
-      {
-         return deleteConnection(connection);
-      }
-   }
-
-   return false;
-}
-
-void GNode::deleteConnections()
-{
-   for(int i = 0 ; i < m_connections.length() ; i++)
-   {
-      delete m_connections[i];
-   }
-
-   m_connections.clear();
-}
+//   m_connections.clear();
+//}
 
 void GNode::paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget)
 {
@@ -405,4 +407,9 @@ void GNode::onCreateTextItem()
    m_textItem->setHtml(desc);
    m_textItem->setPos(-(m_textItem->boundingRect().width() - m_size-2*m_margin) /2.0 , - m_textItem->boundingRect().height() - 2);
    m_xmargin = m_ymargin = m_margin;
+}
+
+void GNode::onChildHasChanges()
+{
+  emit hasChanges();
 }

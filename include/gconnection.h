@@ -1,6 +1,7 @@
 #ifndef GCONNECTION_H
 #define GCONNECTION_H
 
+#include "hydrocouple.h"
 #include <QGraphicsObject>
 #include <QPen>
 #include <QBrush>
@@ -16,7 +17,7 @@ class GModelComponent;
 class GConnection : public QGraphicsObject
 {
       friend class GNode;
-      friend class GComponent;
+      friend class GModelComponent;
       friend class GInput;
       friend class GOutput;
       friend class GAdaptedOutput;
@@ -94,6 +95,8 @@ class GConnection : public QGraphicsObject
 
    private:
 
+      void retrieveValidAdaptedOutputArguments();
+
       QPointF minPosition(const QList<QPointF> & points);
 
       QPointF maxPosition(const QList<QPointF> & points);
@@ -113,6 +116,7 @@ class GConnection : public QGraphicsObject
       static QFont m_font;
       static float m_arrowLength , m_arrowWidth;
       static int s_zindex;
+      QList<GAdaptedOutput*> m_validAdaptedOutputs;
 
 };
 

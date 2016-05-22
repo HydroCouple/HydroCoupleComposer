@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QFileInfo>
+#include "componentmanager.h"
 
 class GModelComponent;
 
@@ -12,6 +13,7 @@ class HydroCoupleProject : public QObject
 
       Q_OBJECT
       Q_PROPERTY(QFileInfo ProjectFile READ projectFile)
+      Q_PROPERTY(ComponentManager* Componentmanager READ componentManager)
       Q_PROPERTY(QList<GModelComponent*> ModelComponents READ modelComponents)
 
    public:
@@ -22,8 +24,12 @@ class HydroCoupleProject : public QObject
       //!File to save project in
       QFileInfo projectFile() const;
 
+      ComponentManager* componentManager() const;
+
       //!Instantiated model components
       QList<GModelComponent*> modelComponents() const;
+
+      GModelComponent* findModelComponentById(const QString& id);
 
       //!add instantiated component to list of components
       void addComponent(GModelComponent *component);
@@ -42,7 +48,7 @@ class HydroCoupleProject : public QObject
        * \param file
        * \return
        */
-      static HydroCoupleProject* readProjectFile(const QFileInfo& file);
+      static HydroCoupleProject* readProjectFile(const QFileInfo& file, QList<QString>& errorMessages);
 
    signals:
       //! emit when component is added to update ui and graphics
@@ -85,17 +91,14 @@ class HydroCoupleProject : public QObject
       void onSaveProjectAs(const QFileInfo& file);
 
 
-      void onSetHasChanges(bool hasChanges);
+      void onSetHasChanges(bool hasChanges = true);
+
+
+      void onReloadConnections();
 
    private:
       //!Performs deep check to see if component has already been added
       bool contains(GModelComponent *component) const;
-
-      /*!
-       * \brief setHasChanges
-       * \param hasChanges
-       */
-      void setHasChanges(bool hasChanges);
 
    private slots:
       void onPostMessage(const QString& message);
@@ -104,6 +107,7 @@ class HydroCoupleProject : public QObject
       QList<GModelComponent*> m_modelComponents;
       QFileInfo m_projectFile;
       bool m_hasChanges;
+      ComponentManager* m_componentManager;
 };
 
 Q_DECLARE_METATYPE(HydroCoupleProject*)

@@ -2,9 +2,7 @@ TEMPLATE = app
 TARGET = HydroCoupleComposer
 VERSION = 1.0.0
 
-QT += core \
-      widgets \
-      gui
+QT += core widgets gui printsupport concurrent
 
 INCLUDEPATH += .\
                ./include \
@@ -38,7 +36,9 @@ HEADERS += ./include/componentmanager.h \
            ./include/modelstatusitem.h \
            ./include/argumentdialog.h \
            ./include/gnode.h \
-           ./include/gconnection.h
+           ./include/gconnection.h \
+           ./include/qxmlsyntaxhighlighter.h \
+           ./include/simulationmanager.h
 
 SOURCES += ./src/stdafx.cpp \
            ./src/main.cpp \
@@ -60,7 +60,9 @@ SOURCES += ./src/stdafx.cpp \
            ./src/ginput.cpp \
            ./src/gmultiinput.cpp \
            ./src/goutput.cpp \
-           ./src/gadaptedoutput.cpp
+           ./src/gadaptedoutput.cpp \
+           ./src/qxmlsyntaxhighlighter.cpp \
+           ./src/simulationmanager.cpp
 
 PRECOMPILED_HEADER += ./include/stdafx.h
 
@@ -76,6 +78,7 @@ FORMS += ./forms/hydrocouplecomposer.ui \
 
 
 CONFIG(debug, debug|release) {
+
    DESTDIR = ./build/debug
    OBJECTS_DIR = $$DESTDIR/.obj
    MOC_DIR = $$DESTDIR/.moc
@@ -85,7 +88,7 @@ CONFIG(debug, debug|release) {
    macx{
    LIBS += -L./../../QPropertyModel/QPropertyModel/build/debug -lQPropertyModel.1.0.0 \
            -L/usr/local/lib -lcgraph \
-           -L/usr/local/lib -lgvc
+           -L/usr/local/lib -lgvc \
    }
    
    win32{

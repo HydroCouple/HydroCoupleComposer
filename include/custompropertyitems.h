@@ -3,7 +3,7 @@
 
 #include "qobjectpropertyitem.h"
 #include "qpropertymodel.h"
-#include "hydrocouple.h"
+#include "hydrocoupletemporal.h"
 #include "qobjectlistpropertyitem.h"
 #include "gnode.h"
 
@@ -149,22 +149,13 @@ class IQuantityPropertyItem : public QObjectPropertyItem
       virtual ~IQuantityPropertyItem(){}
 };
 
-class IValueSetPropertyItem : public QObjectPropertyItem
+class IComponentDataItemPropertyItem : public QObjectPropertyItem
 {
       Q_OBJECT
    public:
-      Q_INVOKABLE IValueSetPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+      Q_INVOKABLE IComponentDataItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
 
-      virtual ~IValueSetPropertyItem(){}
-};
-
-class IComponentItemPropertyItem : public QObjectPropertyItem
-{
-      Q_OBJECT
-   public:
-      Q_INVOKABLE IComponentItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
-
-      virtual ~IComponentItemPropertyItem(){}
+      virtual ~IComponentDataItemPropertyItem(){}
 };
 
 class IArgumentPropertyItem : public QObjectPropertyItem
@@ -231,6 +222,15 @@ class IInputListPropertyItem : public QObjectListPropertyItem
       virtual ~IInputListPropertyItem(){}
 };
 
+class IExchangeItemPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE IExchangeItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IExchangeItemPropertyItem(){}
+};
+
 class IOutputPropertyItem : public QObjectPropertyItem
 {
       Q_OBJECT
@@ -258,5 +258,101 @@ class GNodePropertyItem : public QObjectPropertyItem
       virtual ~GNodePropertyItem(){}
 };
 
+class ITimePropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE ITimePropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~ITimePropertyItem(){}
+};
+
+class ITimeListPropertyItem : public QObjectListPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE ITimeListPropertyItem(const QVariant& value , const QMetaProperty& prop, QObjectClassPropertyItem * parent);
+
+      virtual ~ITimeListPropertyItem(){}
+};
+
+
+class ITimeSpanPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE ITimeSpanPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~ITimeSpanPropertyItem(){}
+};
+
+class ITimeSpanListPropertyItem : public QObjectListPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE ITimeSpanListPropertyItem(const QVariant& value , const QMetaProperty& prop, QObjectClassPropertyItem * parent);
+
+      virtual ~ITimeSpanListPropertyItem(){}
+};
+
+
+class ITimeComponentDataItemPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE ITimeComponentDataItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~ITimeComponentDataItemPropertyItem(){}
+};
+
+
+class ITimeExchangeItemPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE ITimeExchangeItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~ITimeExchangeItemPropertyItem(){}
+};
+
+
+class IIdBasedTimeComponentDataItemPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE IIdBasedTimeComponentDataItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IIdBasedTimeComponentDataItemPropertyItem(){}
+};
+
+
+
+class IIdBasedTimeExchangeItemPropertyItem : public QObjectPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE IIdBasedTimeExchangeItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+      virtual ~IIdBasedTimeExchangeItemPropertyItem(){}
+};
+
+//class IUnitPropertyItem : public QObjectPropertyItem
+//{
+//      Q_OBJECT
+//   public:
+//      Q_INVOKABLE IUnitPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+//      virtual ~IUnitPropertyItem(){}
+//};
+
+
+//class IUnitDimensionsPropertyItem : public QObjectPropertyItem
+//{
+//      Q_OBJECT
+//   public:
+//      Q_INVOKABLE IUnitDimensionsPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+
+//      virtual ~IUnitDimensionsPropertyItem(){}
+//};
 
 #endif // CUSTOMPROPERTYITEMS_H

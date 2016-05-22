@@ -32,7 +32,7 @@ class ComponentManager : public QObject
 
       HydroCouple::IComponentInfo* findComponentInfoById(const QString& id);
 
-      bool loadComponent(const QFileInfo& file);
+      HydroCouple::IComponentInfo* loadComponent(const QFileInfo& file);
 
       QSet<QString> componentFileExtensions() const;
 

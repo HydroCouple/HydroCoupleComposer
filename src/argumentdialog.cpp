@@ -7,11 +7,12 @@ using namespace  HydroCouple ;
 ArgumentDialog::ArgumentDialog(QDialog *parent)
    :QDialog(parent)
 {
-    setupUi(this);
-
-    connect(pushButtonClose , SIGNAL(clicked()) , this , SLOT(close()));
-    connect(pushButtonInitialize, SIGNAL(clicked()) , this , SLOT(onInitializeComponent()));
-    connect(pushButtonBrowse, SIGNAL(clicked()), this, SLOT(onBrowseForFile()));
+   setupUi(this);
+   connect(pushButtonClose , SIGNAL(clicked()) , this , SLOT(close()));
+   connect(pushButtonReadValues, SIGNAL(clicked()) , this , SLOT(onReadArgument()));
+   connect(pushButtonInitializeComponent, SIGNAL(clicked()), this, SLOT(onInitializeComponent()));
+   connect(pushButtonBrowse, SIGNAL(clicked()), this, SLOT(onBrowseForFile()));
+   connect(comboBoxArguments, SIGNAL(currentIndexChanged(int)), this, SLOT(onSelectedArgumentChanged(int)));
 }
 
 ArgumentDialog::~ArgumentDialog()
@@ -22,29 +23,151 @@ ArgumentDialog::~ArgumentDialog()
 void ArgumentDialog::setComponent(GModelComponent *component)
 {
    m_component = component;
+
+   setWindowTitle(m_component->caption() + " Arguments");
+
+   comboBoxArguments->clear();
+   m_arguments.clear();
+
    for(IArgument* argument : component->modelComponent()->arguments())
    {
-      QAction* action = new QAction(argument->caption() , comboBoxArguments);
-      action->setData(QVariant::fromValue(argument));
-      comboBoxArguments->addAction(action);
+      m_arguments[argument->id()] = argument;
+      comboBoxArguments->addItem(argument->caption() , argument->id());
    }
 }
 
 
+void ArgumentDialog::onReadArgument()
+{
+
+   if(m_component->modelComponent()->status() == HydroCouple::Created ||
+      m_component->modelComponent()->status() == HydroCouple::Failed ||
+      m_component->modelComponent()->status() == HydroCouple::Initialized)
+   {
+      int index;
+
+      if(m_arguments.size() && (index = comboBoxArguments->currentIndex()) > -1)
+      {
+         QVariant arg = comboBoxArguments->itemData(index);
+         IArgument* argument = m_arguments[arg.toString()];
+
+         if(radioButtonFileInput->isChecked() && !lineEditFileInput->text().isEmpty() && !lineEditFileInput->text().isNull())
+         {
+            if(argument->readValues(lineEditFileInput->text(), true))
+            {
+               labelStatus->setText("Input read successfully");
+            }
+            else
+            {
+               labelStatus->setText("Input could not be read Successfully");
+            }
+         }
+         else if(!textEditInput->toPlainText().isEmpty() && !textEditInput->toPlainText().isNull())
+         {
+            if(argument->readValues(textEditInput->toPlainText()))
+            {
+               labelStatus->setText("Input read successfully");
+            }
+            else
+            {
+               labelStatus->setText("Input could not be read Successfully");
+            }
+
+            QTimer::singleShot(5000, this , SLOT(onRefreshStatus()));
+         }
+      }
+   }
+}
 
 void ArgumentDialog::onInitializeComponent()
 {
-   m_component->modelComponent()->initialize();
-   QList<QString> messages = m_component->modelComponent()->validate();
-   textEditInputValidation->clear();
-
-   for(QString message : messages)
+   if(m_component->modelComponent()->status() == HydroCouple::Created ||
+         m_component->modelComponent()->status() == HydroCouple::Failed ||
+         m_component->modelComponent()->status() == HydroCouple::Initialized
+         )
    {
-      textEditInputValidation->append(m_component->modelComponent()->id() + " Validation Message :" + message);
+      m_component->modelComponent()->initialize();
    }
 }
 
 void ArgumentDialog::onBrowseForFile()
 {
+   int index;
+   if(m_arguments.size() && (index = comboBoxArguments->currentIndex()) > -1)
+   {
+      QVariant arg = comboBoxArguments->itemData(index);
+      IArgument* argument = m_arguments[arg.toString()];
 
+      QString filter ="";
+
+      for(const QString &cfilter : argument->inputFileTypeFilters())
+      {
+         if(filter.isEmpty())
+         {
+            filter = cfilter;
+         }
+         else
+         {
+            filter = filter + ";;" + cfilter;
+         }
+      }
+
+      QString file = QFileDialog::getOpenFileName(this, "Open Argument File","", filter);
+
+      if (!file.isEmpty() && QFileInfo(file).dir().exists())
+      {
+          lineEditFileInput->setText(file);
+      }
+   }
+}
+
+void ArgumentDialog::onSelectedArgumentChanged(int index)
+{
+   if(index > -1)
+   {
+      QVariant arg = comboBoxArguments->itemData(index);
+      IArgument* argument = m_arguments[arg.toString()];
+
+      if(argument->canReadFromFile() && !argument->canReadFromString())
+      {
+         radioButtonFileInput->setChecked(true);
+         groupBoxInputType->setVisible(false);
+         groupBoxTextInput->setVisible(false);
+         groupBoxInputFile->setVisible(true);
+      }
+      else if(!argument->canReadFromFile() && argument->canReadFromString())
+      {
+         radioButtonFileInput->setChecked(false);
+         groupBoxInputType->setVisible(false);
+         groupBoxTextInput->setVisible(true);
+         groupBoxInputFile->setVisible(false);
+      }
+      else
+      {
+         groupBoxInputType->setVisible(true);
+         groupBoxTextInput->setVisible(true);
+         groupBoxInputFile->setVisible(true);
+      }
+
+      if(argument->argumentIOType() == HydroCouple::String)
+      {
+         radioButtonTextInput->setChecked(true);
+         textEditInput->setText(argument->toString());
+      }
+      else
+      {
+         radioButtonTextInput->setChecked(false);
+         lineEditFileInput->setText(argument->toString());
+      }
+   }
+   else
+   {
+      lineEditFileInput->clear();
+      textEditInput->clear();
+   }
+}
+
+void ArgumentDialog::onRefreshStatus()
+{
+   labelStatus->setText("");
 }

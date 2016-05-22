@@ -36,7 +36,7 @@ class ModelStatusItem : public QObject
        *
        * \details See HydroCouple::ComponentStatus for the possible states.
        */
-      void componentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs& statusChangedEvent);
+      void componentStatusChanged(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
 
       void propertyChanged();
       
@@ -49,9 +49,9 @@ class ModelStatusItem : public QObject
 
 
    private slots:
-      void onComponentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs& statusChangedEvent);
+      void onComponentStatusChanged(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
 
-      void onPropertyChanged(const QString& propertyName, const QVariant& value);
+      void onPropertyChanged(const QString& propertyName);
 
    private:
       QModelIndex m_indexes[5];

@@ -43,6 +43,7 @@ void ModelStatusItemStyledItemDelegate::paint(QPainter *painter, const QStyleOpt
       {
          if(item->status()->hasProgressMonitor())
          {
+            progressStyle.text = QString::number(item->status()->percentProgress()) + " %";
             progressStyle.minimum = 0;
             progressStyle.maximum = 100;
             progressStyle.progress = item->status()->percentProgress();
@@ -86,10 +87,12 @@ QSize ModelStatusItemStyledItemDelegate::sizeHint(const QStyleOptionViewItem &op
 //=====================================================================================================================
 
 ModelStatusItemModel::ModelStatusItemModel(QObject *parent)
-   :QAbstractItemModel(parent) , m_timeOut(250) , m_useTimerUpdate(true)
+   :QAbstractItemModel(parent) , m_useTimerUpdate(true) , m_timeOut(500)
 {
    m_timer = new QTimer(this);
    connect(m_timer , SIGNAL(timeout()) , this , SLOT(onUpdateStatus()));
+
+   if(m_useTimerUpdate)
    m_timer->start(m_timeOut);
 }
 
@@ -309,7 +312,12 @@ void ModelStatusItemModel::setUpdateTimeOut(int timeout)
    m_timer->setInterval(timeout);
 }
 
-void ModelStatusItemModel::onComponentStatusChanged(const IComponentStatusChangeEventArgs &statusChangedEvent)
+QList<ModelStatusItem*> ModelStatusItemModel::models() const
+{
+   return m_models;
+}
+
+void ModelStatusItemModel::onComponentStatusChanged(const std::shared_ptr<IComponentStatusChangeEventArgs> &statusChangedEvent)
 {
    if(!m_useTimerUpdate)
    {
@@ -348,17 +356,17 @@ void ModelStatusItemModel::onUpdateStatus()
 
 void ModelStatusItemModel::createSignalSlotConnections(ModelStatusItem *modelStatusItem)
 {
-   connect(modelStatusItem , SIGNAL(componentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs &)) ,
-           this , SLOT(onComponentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs &)));
+   connect(modelStatusItem , &ModelStatusItem::componentStatusChanged,
+           this , &ModelStatusItemModel::onComponentStatusChanged);
 
-   connect(modelStatusItem , SIGNAL(propertyChanged()) ,
-           this , SLOT(onModelStatusItemPropertyChanged()));
+   connect(modelStatusItem , &ModelStatusItem::propertyChanged ,
+           this , &ModelStatusItemModel::onModelStatusItemPropertyChanged);
 
-   connect(modelStatusItem , SIGNAL(childrenChanging()) ,
-           this , SLOT(onChildrenChanging()));
+   connect(modelStatusItem , &ModelStatusItem::childrenChanging ,
+           this , &ModelStatusItemModel::onChildrenChanging);
 
-   connect(modelStatusItem , SIGNAL(childrenChanged()) ,
-           this , SLOT(onChildrenChanged()));
+   connect(modelStatusItem ,  &ModelStatusItem::childrenChanged ,
+           this , &ModelStatusItemModel::onChildrenChanged);
 
    for(ModelStatusItem* item : modelStatusItem->m_children)
    {
@@ -368,17 +376,17 @@ void ModelStatusItemModel::createSignalSlotConnections(ModelStatusItem *modelSta
 
 void ModelStatusItemModel::disconnectSignalSlotConnections(ModelStatusItem *modelStatusItem)
 {
-   disconnect(modelStatusItem , SIGNAL(componentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs &)) ,
-              this , SLOT(onComponentStatusChanged(const HydroCouple::IComponentStatusChangeEventArgs &)));
+   disconnect(modelStatusItem , &ModelStatusItem::componentStatusChanged,
+           this , &ModelStatusItemModel::onComponentStatusChanged);
 
-   disconnect(modelStatusItem , SIGNAL(propertyChanged()) ,
-              this , SLOT(onModelStatusItemPropertyChanged()));
+   disconnect(modelStatusItem , &ModelStatusItem::propertyChanged ,
+           this , &ModelStatusItemModel::onModelStatusItemPropertyChanged);
 
-   disconnect(modelStatusItem , SIGNAL(childrenChanging()) ,
-              this , SLOT(onChildrenChanging()));
+   disconnect(modelStatusItem , &ModelStatusItem::childrenChanging ,
+           this , &ModelStatusItemModel::onChildrenChanging);
 
-   disconnect(modelStatusItem , SIGNAL(childrenChanged()) ,
-              this , SLOT(onChildrenChanged()));
+   disconnect(modelStatusItem ,  &ModelStatusItem::childrenChanged ,
+           this , &ModelStatusItemModel::onChildrenChanged);
 
    for(ModelStatusItem* item : modelStatusItem->childModelStatusItems())
    {

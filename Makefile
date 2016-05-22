@@ -12,10 +12,10 @@ MAKEFILE      = Makefile
 
 CC            = /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang
 CXX           = /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++
-DEFINES       = -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB
+DEFINES       = -DQT_PRINTSUPPORT_LIB -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CONCURRENT_LIB -DQT_CORE_LIB
 CFLAGS        = -pipe -g -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk -mmacosx-version-min=10.11.3 -Wall -W -fPIC $(DEFINES)
 CXXFLAGS      = -pipe -stdlib=libc++ -g -std=gnu++11 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk -mmacosx-version-min=10.11.3 -Wall -W -fPIC $(DEFINES)
-INCPATH       = -I. -I. -Iinclude -I../HydroCouple/include -I../../QPropertyModel/QPropertyModel/include -I/usr/local/include -I../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -Ibuild/debug/.moc -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk/System/Library/Frameworks/OpenGL.framework/Headers -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk/System/Library/Frameworks/AGL.framework/Headers -Ibuild/debug/.ui -I../../../../Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib
+INCPATH       = -I. -I. -Iinclude -I../HydroCouple/include -I../../QPropertyModel/QPropertyModel/include -I/usr/local/include -I../../../../Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I../../../../Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -Ibuild/debug/.moc -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk/System/Library/Frameworks/OpenGL.framework/Headers -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk/System/Library/Frameworks/AGL.framework/Headers -Ibuild/debug/.ui -I../../../../Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib
 QMAKE         = /Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/qmake
 DEL_FILE      = rm -f
 CHK_DIR_EXISTS= test -d
@@ -36,7 +36,7 @@ DISTNAME      = HydroCoupleComposer1.0.0
 DISTDIR = /Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/build/debug/.obj/HydroCoupleComposer1.0.0
 LINK          = /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++
 LFLAGS        = -headerpad_max_install_names -stdlib=libc++ -Wl,-syslibroot,/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk -mmacosx-version-min=10.11.3 -Wl,-rpath,/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib
-LIBS          = $(SUBLIBS) -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib -L./../../QPropertyModel/QPropertyModel/build/debug -lQPropertyModel.1.0.0 -L/usr/local/lib -lcgraph -lgvc -framework QtWidgets -framework QtGui -framework QtCore -framework OpenGL -framework AGL 
+LIBS          = $(SUBLIBS) -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib -L./../../QPropertyModel/QPropertyModel/build/debug -lQPropertyModel.1.0.0 -L/usr/local/lib -lcgraph -lgvc -framework QtPrintSupport -framework QtWidgets -framework QtGui -framework QtConcurrent -framework QtCore -framework OpenGL -framework AGL 
 AR            = /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar cq
 RANLIB        = /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib -s
 SED           = sed
@@ -68,7 +68,9 @@ SOURCES       = src/stdafx.cpp \
 		src/ginput.cpp \
 		src/gmultiinput.cpp \
 		src/goutput.cpp \
-		src/gadaptedoutput.cpp build/debug/.qrc/qrc_hydrocouplecomposer.cpp \
+		src/gadaptedoutput.cpp \
+		src/qxmlsyntaxhighlighter.cpp \
+		src/simulationmanager.cpp build/debug/.qrc/qrc_hydrocouplecomposer.cpp \
 		build/debug/.moc/moc_componentmanager.cpp \
 		build/debug/.moc/moc_gmodelcomponent.cpp \
 		build/debug/.moc/moc_graphicsview.cpp \
@@ -82,7 +84,9 @@ SOURCES       = src/stdafx.cpp \
 		build/debug/.moc/moc_modelstatusitem.cpp \
 		build/debug/.moc/moc_argumentdialog.cpp \
 		build/debug/.moc/moc_gnode.cpp \
-		build/debug/.moc/moc_gconnection.cpp
+		build/debug/.moc/moc_gconnection.cpp \
+		build/debug/.moc/moc_qxmlsyntaxhighlighter.cpp \
+		build/debug/.moc/moc_simulationmanager.cpp
 OBJECTS       = build/debug/.obj/stdafx.o \
 		build/debug/.obj/main.o \
 		build/debug/.obj/hydrocoupleproject.o \
@@ -104,6 +108,8 @@ OBJECTS       = build/debug/.obj/stdafx.o \
 		build/debug/.obj/gmultiinput.o \
 		build/debug/.obj/goutput.o \
 		build/debug/.obj/gadaptedoutput.o \
+		build/debug/.obj/qxmlsyntaxhighlighter.o \
+		build/debug/.obj/simulationmanager.o \
 		build/debug/.obj/qrc_hydrocouplecomposer.o \
 		build/debug/.obj/moc_componentmanager.o \
 		build/debug/.obj/moc_gmodelcomponent.o \
@@ -118,7 +124,9 @@ OBJECTS       = build/debug/.obj/stdafx.o \
 		build/debug/.obj/moc_modelstatusitem.o \
 		build/debug/.obj/moc_argumentdialog.o \
 		build/debug/.obj/moc_gnode.o \
-		build/debug/.obj/moc_gconnection.o
+		build/debug/.obj/moc_gconnection.o \
+		build/debug/.obj/moc_qxmlsyntaxhighlighter.o \
+		build/debug/.obj/moc_simulationmanager.o
 DIST          = ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/spec_pre.prf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/qdevice.pri \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/device_config.prf \
@@ -273,7 +281,9 @@ DIST          = ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/spec_pre.prf \
 		include/modelstatusitem.h \
 		include/argumentdialog.h \
 		include/gnode.h \
-		include/gconnection.h src/stdafx.cpp \
+		include/gconnection.h \
+		include/qxmlsyntaxhighlighter.h \
+		include/simulationmanager.h src/stdafx.cpp \
 		src/main.cpp \
 		src/hydrocoupleproject.cpp \
 		src/componentmanager.cpp \
@@ -293,7 +303,9 @@ DIST          = ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/spec_pre.prf \
 		src/ginput.cpp \
 		src/gmultiinput.cpp \
 		src/goutput.cpp \
-		src/gadaptedoutput.cpp
+		src/gadaptedoutput.cpp \
+		src/qxmlsyntaxhighlighter.cpp \
+		src/simulationmanager.cpp
 QMAKE_TARGET  = HydroCoupleComposer
 DESTDIR       = build/debug/
 TARGET        = build/debug/HydroCoupleComposer.app/Contents/MacOS/HydroCoupleComposer
@@ -448,8 +460,10 @@ Makefile: HydroCoupleComposer.pro ../../../../Qt5.6.0/5.6/clang_64/mkspecs/macx-
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/lex.prf \
 		HydroCoupleComposer.pro \
 		resources/hydrocouplecomposer.qrc \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/QtPrintSupport.prl \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/QtWidgets.prl \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/QtGui.prl \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/QtConcurrent.prl \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/QtCore.prl
 	$(QMAKE) -spec macx-clang CONFIG+=debug CONFIG+=x86_64 -o Makefile HydroCoupleComposer.pro
 ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/spec_pre.prf:
@@ -594,8 +608,10 @@ Makefile: HydroCoupleComposer.pro ../../../../Qt5.6.0/5.6/clang_64/mkspecs/macx-
 ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/lex.prf:
 HydroCoupleComposer.pro:
 resources/hydrocouplecomposer.qrc:
+../../../../Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/QtPrintSupport.prl:
 ../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/QtWidgets.prl:
 ../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/QtGui.prl:
+../../../../Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/QtConcurrent.prl:
 ../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/QtCore.prl:
 qmake: FORCE
 	@$(QMAKE) -spec macx-clang CONFIG+=debug CONFIG+=x86_64 -o Makefile HydroCoupleComposer.pro
@@ -632,8 +648,8 @@ distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents resources/hydrocouplecomposer.qrc $(DISTDIR)/
-	$(COPY_FILE) --parents include/componentmanager.h include/gdefaultselectiongraphic.h include/gmodelcomponent.h include/graphicsview.h include/hydrocouplecomposer.h include/hydrocoupleproject.h include/splashscreen.h include/custompropertyitems.h include/gexchangeitems.h include/modelstatusitemmodel.h include/modelstatusitemstatuschangeeventargswrapper.h include/modelstatusitem.h include/argumentdialog.h include/gnode.h include/gconnection.h $(DISTDIR)/
-	$(COPY_FILE) --parents src/stdafx.cpp src/main.cpp src/hydrocoupleproject.cpp src/componentmanager.cpp src/gdefaultselectiongraphic.cpp src/gmodelcomponent.cpp src/graphicsview.cpp src/hydrocouplecomposer.cpp src/splashscreen.cpp src/custompropertyitems.cpp src/gexchangeitem.cpp src/modelstatuitemmodel.cpp src/modelstatusitemstatuschangeeventargswrapper.cpp src/modelstatusitem.cpp src/argumentdialog.cpp src/gnode.cpp src/gconnection.cpp src/ginput.cpp src/gmultiinput.cpp src/goutput.cpp src/gadaptedoutput.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents include/componentmanager.h include/gdefaultselectiongraphic.h include/gmodelcomponent.h include/graphicsview.h include/hydrocouplecomposer.h include/hydrocoupleproject.h include/splashscreen.h include/custompropertyitems.h include/gexchangeitems.h include/modelstatusitemmodel.h include/modelstatusitemstatuschangeeventargswrapper.h include/modelstatusitem.h include/argumentdialog.h include/gnode.h include/gconnection.h include/qxmlsyntaxhighlighter.h include/simulationmanager.h $(DISTDIR)/
+	$(COPY_FILE) --parents src/stdafx.cpp src/main.cpp src/hydrocoupleproject.cpp src/componentmanager.cpp src/gdefaultselectiongraphic.cpp src/gmodelcomponent.cpp src/graphicsview.cpp src/hydrocouplecomposer.cpp src/splashscreen.cpp src/custompropertyitems.cpp src/gexchangeitem.cpp src/modelstatuitemmodel.cpp src/modelstatusitemstatuschangeeventargswrapper.cpp src/modelstatusitem.cpp src/argumentdialog.cpp src/gnode.cpp src/gconnection.cpp src/ginput.cpp src/gmultiinput.cpp src/goutput.cpp src/gadaptedoutput.cpp src/qxmlsyntaxhighlighter.cpp src/simulationmanager.cpp $(DISTDIR)/
 	$(COPY_FILE) --parents forms/hydrocouplecomposer.ui forms/argumentdialog.ui $(DISTDIR)/
 
 
@@ -700,6 +716,7 @@ build/debug/.qrc/qrc_hydrocouplecomposer.cpp: resources/hydrocouplecomposer.qrc 
 		resources/Images/distributebottomedges.png \
 		resources/Images/verticalcenters.png \
 		resources/Images/deletecomponent.png \
+		resources/images/reload.png \
 		resources/Images/adaptercomponent.png \
 		resources/Images/close.png \
 		resources/Images/rightedges.png \
@@ -708,9 +725,9 @@ build/debug/.qrc/qrc_hydrocouplecomposer.cpp: resources/hydrocouplecomposer.qrc 
 		resources/Images/pan.png
 	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/rcc -name hydrocouplecomposer resources/hydrocouplecomposer.qrc -o build/debug/.qrc/qrc_hydrocouplecomposer.cpp
 
-compiler_moc_header_make_all: build/debug/.moc/moc_componentmanager.cpp build/debug/.moc/moc_gmodelcomponent.cpp build/debug/.moc/moc_graphicsview.cpp build/debug/.moc/moc_hydrocouplecomposer.cpp build/debug/.moc/moc_hydrocoupleproject.cpp build/debug/.moc/moc_splashscreen.cpp build/debug/.moc/moc_custompropertyitems.cpp build/debug/.moc/moc_gexchangeitems.cpp build/debug/.moc/moc_modelstatusitemmodel.cpp build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp build/debug/.moc/moc_modelstatusitem.cpp build/debug/.moc/moc_argumentdialog.cpp build/debug/.moc/moc_gnode.cpp build/debug/.moc/moc_gconnection.cpp
+compiler_moc_header_make_all: build/debug/.moc/moc_componentmanager.cpp build/debug/.moc/moc_gmodelcomponent.cpp build/debug/.moc/moc_graphicsview.cpp build/debug/.moc/moc_hydrocouplecomposer.cpp build/debug/.moc/moc_hydrocoupleproject.cpp build/debug/.moc/moc_splashscreen.cpp build/debug/.moc/moc_custompropertyitems.cpp build/debug/.moc/moc_gexchangeitems.cpp build/debug/.moc/moc_modelstatusitemmodel.cpp build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp build/debug/.moc/moc_modelstatusitem.cpp build/debug/.moc/moc_argumentdialog.cpp build/debug/.moc/moc_gnode.cpp build/debug/.moc/moc_gconnection.cpp build/debug/.moc/moc_qxmlsyntaxhighlighter.cpp build/debug/.moc/moc_simulationmanager.cpp
 compiler_moc_header_clean:
-	-$(DEL_FILE) build/debug/.moc/moc_componentmanager.cpp build/debug/.moc/moc_gmodelcomponent.cpp build/debug/.moc/moc_graphicsview.cpp build/debug/.moc/moc_hydrocouplecomposer.cpp build/debug/.moc/moc_hydrocoupleproject.cpp build/debug/.moc/moc_splashscreen.cpp build/debug/.moc/moc_custompropertyitems.cpp build/debug/.moc/moc_gexchangeitems.cpp build/debug/.moc/moc_modelstatusitemmodel.cpp build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp build/debug/.moc/moc_modelstatusitem.cpp build/debug/.moc/moc_argumentdialog.cpp build/debug/.moc/moc_gnode.cpp build/debug/.moc/moc_gconnection.cpp
+	-$(DEL_FILE) build/debug/.moc/moc_componentmanager.cpp build/debug/.moc/moc_gmodelcomponent.cpp build/debug/.moc/moc_graphicsview.cpp build/debug/.moc/moc_hydrocouplecomposer.cpp build/debug/.moc/moc_hydrocoupleproject.cpp build/debug/.moc/moc_splashscreen.cpp build/debug/.moc/moc_custompropertyitems.cpp build/debug/.moc/moc_gexchangeitems.cpp build/debug/.moc/moc_modelstatusitemmodel.cpp build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp build/debug/.moc/moc_modelstatusitem.cpp build/debug/.moc/moc_argumentdialog.cpp build/debug/.moc/moc_gnode.cpp build/debug/.moc/moc_gconnection.cpp build/debug/.moc/moc_qxmlsyntaxhighlighter.cpp build/debug/.moc/moc_simulationmanager.cpp
 build/debug/.moc/moc_componentmanager.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
@@ -723,7 +740,7 @@ build/debug/.moc/moc_componentmanager.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
 		include/componentmanager.h
-	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/componentmanager.h -o build/debug/.moc/moc_componentmanager.cpp
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/componentmanager.h -o build/debug/.moc/moc_componentmanager.cpp
 
 build/debug/.moc/moc_gmodelcomponent.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
@@ -745,9 +762,17 @@ build/debug/.moc/moc_gmodelcomponent.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/Q
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
 		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		include/gmodelcomponent.h
-	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/gmodelcomponent.h -o build/debug/.moc/moc_gmodelcomponent.cpp
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/gmodelcomponent.h -o build/debug/.moc/moc_gmodelcomponent.cpp
 
 build/debug/.moc/moc_graphicsview.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QGraphicsView \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsview.h \
@@ -756,7 +781,7 @@ build/debug/.moc/moc_graphicsview.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtWi
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QMimeData \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qmimedata.h \
 		include/graphicsview.h
-	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/graphicsview.h -o build/debug/.moc/moc_graphicsview.cpp
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/graphicsview.h -o build/debug/.moc/moc_graphicsview.cpp
 
 build/debug/.moc/moc_hydrocouplecomposer.cpp: build/debug/.ui/ui_hydrocouplecomposer.h \
 		include/graphicsview.h \
@@ -766,9 +791,12 @@ build/debug/.moc/moc_hydrocouplecomposer.cpp: build/debug/.ui/ui_hydrocouplecomp
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsitem.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QMimeData \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qmimedata.h \
-		include/componentmanager.h \
+		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
 		../HydroCouple/include/hydrocouple.h \
@@ -778,9 +806,6 @@ build/debug/.moc/moc_hydrocouplecomposer.cpp: build/debug/.ui/ui_hydrocouplecomp
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
-		include/hydrocoupleproject.h \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
 		../../QPropertyModel/QPropertyModel/include/qpropertymodel.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qabstractitemmodel.h \
 		../../QPropertyModel/QPropertyModel/include/qpropertymodel_global.h \
@@ -827,6 +852,7 @@ build/debug/.moc/moc_hydrocouplecomposer.cpp: build/debug/.ui/ui_hydrocouplecomp
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpen.h \
 		include/gconnection.h \
 		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		include/argumentdialog.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QDialog \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdialog.h \
@@ -843,19 +869,29 @@ build/debug/.moc/moc_hydrocouplecomposer.cpp: build/debug/.ui/ui_hydrocouplecomp
 		/usr/local/include/graphviz/usershape.h \
 		/usr/local/include/graphviz/gvplugin.h \
 		include/hydrocouplecomposer.h
-	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/hydrocouplecomposer.h -o build/debug/.moc/moc_hydrocouplecomposer.cpp
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/hydrocouplecomposer.h -o build/debug/.moc/moc_hydrocouplecomposer.cpp
 
 build/debug/.moc/moc_hydrocoupleproject.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../HydroCouple/include/hydrocouple.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
 		include/hydrocoupleproject.h
-	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/hydrocoupleproject.h -o build/debug/.moc/moc_hydrocoupleproject.cpp
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/hydrocoupleproject.h -o build/debug/.moc/moc_hydrocoupleproject.cpp
 
 build/debug/.moc/moc_splashscreen.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QSplashScreen \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qsplashscreen.h \
 		include/splashscreen.h
-	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/splashscreen.h -o build/debug/.moc/moc_splashscreen.cpp
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/splashscreen.h -o build/debug/.moc/moc_splashscreen.cpp
 
 build/debug/.moc/moc_custompropertyitems.cpp: ../../QPropertyModel/QPropertyModel/include/qobjectpropertyitem.h \
 		../../QPropertyModel/QPropertyModel/include/qpropertyItem.h \
@@ -886,6 +922,7 @@ build/debug/.moc/moc_custompropertyitems.cpp: ../../QPropertyModel/QPropertyMode
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstyleditemdelegate.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QItemEditorFactory \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qitemeditorfactory.h \
+		../HydroCouple/include/hydrocoupletemporal.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../QPropertyModel/QPropertyModel/include/qobjectlistpropertyitem.h \
 		include/gnode.h \
@@ -895,7 +932,7 @@ build/debug/.moc/moc_custompropertyitems.cpp: ../../QPropertyModel/QPropertyMode
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpen.h \
 		include/gconnection.h \
 		include/custompropertyitems.h
-	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/custompropertyitems.h -o build/debug/.moc/moc_custompropertyitems.cpp
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/custompropertyitems.h -o build/debug/.moc/moc_custompropertyitems.cpp
 
 build/debug/.moc/moc_gexchangeitems.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QGraphicsObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsitem.h \
@@ -910,8 +947,11 @@ build/debug/.moc/moc_gexchangeitems.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/Qt
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QFont \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qfont.h \
 		include/gconnection.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		include/gexchangeitems.h
-	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/gexchangeitems.h -o build/debug/.moc/moc_gexchangeitems.cpp
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/gexchangeitems.h -o build/debug/.moc/moc_gexchangeitems.cpp
 
 build/debug/.moc/moc_modelstatusitemmodel.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QAbstractItemModel \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qabstractitemmodel.h \
@@ -942,10 +982,18 @@ build/debug/.moc/moc_modelstatusitemmodel.cpp: ../../../../Qt5.6.0/5.6/clang_64/
 		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
 		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QModelIndex \
 		include/modelstatusitemmodel.h
-	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/modelstatusitemmodel.h -o build/debug/.moc/moc_modelstatusitemmodel.cpp
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/modelstatusitemmodel.h -o build/debug/.moc/moc_modelstatusitemmodel.cpp
 
 build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp: include/gmodelcomponent.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
@@ -968,9 +1016,17 @@ build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp: include/gm
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
 		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		include/modelstatusitemstatuschangeeventargswrapper.h
-	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/modelstatusitemstatuschangeeventargswrapper.h -o build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/modelstatusitemstatuschangeeventargswrapper.h -o build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp
 
 build/debug/.moc/moc_modelstatusitem.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
@@ -994,14 +1050,24 @@ build/debug/.moc/moc_modelstatusitem.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/Q
 		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
 		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QModelIndex \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qabstractitemmodel.h \
 		include/modelstatusitem.h
-	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/modelstatusitem.h -o build/debug/.moc/moc_modelstatusitem.cpp
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/modelstatusitem.h -o build/debug/.moc/moc_modelstatusitem.cpp
 
 build/debug/.moc/moc_argumentdialog.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QDialog \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdialog.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QTimer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qtimer.h \
 		build/debug/.ui/ui_argumentdialog.h \
 		include/gmodelcomponent.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
@@ -1024,9 +1090,17 @@ build/debug/.moc/moc_argumentdialog.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/Qt
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
 		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		include/argumentdialog.h
-	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/argumentdialog.h -o build/debug/.moc/moc_argumentdialog.cpp
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/argumentdialog.h -o build/debug/.moc/moc_argumentdialog.cpp
 
 build/debug/.moc/moc_gnode.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QGraphicsObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsitem.h \
@@ -1037,10 +1111,16 @@ build/debug/.moc/moc_gnode.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.f
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QFont \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qfont.h \
 		include/gconnection.h \
+		../HydroCouple/include/hydrocouple.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
 		include/gnode.h
-	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/gnode.h -o build/debug/.moc/moc_gnode.cpp
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/gnode.h -o build/debug/.moc/moc_gnode.cpp
 
-build/debug/.moc/moc_gconnection.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QGraphicsObject \
+build/debug/.moc/moc_gconnection.cpp: ../HydroCouple/include/hydrocouple.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QGraphicsObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsitem.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QPen \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpen.h \
@@ -1049,7 +1129,36 @@ build/debug/.moc/moc_gconnection.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtWid
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QFont \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qfont.h \
 		include/gconnection.h
-	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/gconnection.h -o build/debug/.moc/moc_gconnection.cpp
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/gconnection.h -o build/debug/.moc/moc_gconnection.cpp
+
+build/debug/.moc/moc_qxmlsyntaxhighlighter.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QSyntaxHighlighter \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qsyntaxhighlighter.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QTextEdit \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtextedit.h \
+		include/qxmlsyntaxhighlighter.h
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/qxmlsyntaxhighlighter.h -o build/debug/.moc/moc_qxmlsyntaxhighlighter.cpp
+
+build/debug/.moc/moc_simulationmanager.cpp: include/hydrocoupleproject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../HydroCouple/include/hydrocouple.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers/QtConcurrentRun \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers/qtconcurrentrun.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QElapsedTimer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qelapsedtimer.h \
+		include/simulationmanager.h
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/simulationmanager.h -o build/debug/.moc/moc_simulationmanager.cpp
 
 compiler_moc_source_make_all:
 compiler_moc_source_clean:
@@ -1348,9 +1457,12 @@ build/debug/.obj/main.o: src/main.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QGraphicsRectItem \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QMimeData \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qmimedata.h \
-		include/componentmanager.h \
+		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
 		../HydroCouple/include/hydrocouple.h \
@@ -1360,9 +1472,6 @@ build/debug/.obj/main.o: src/main.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
-		include/hydrocoupleproject.h \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
 		../../QPropertyModel/QPropertyModel/include/qpropertymodel.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qabstractitemmodel.h \
 		../../QPropertyModel/QPropertyModel/include/qpropertymodel_global.h \
@@ -1406,6 +1515,7 @@ build/debug/.obj/main.o: src/main.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpen.h \
 		include/gconnection.h \
 		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		include/argumentdialog.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QDialog \
 		build/debug/.ui/ui_argumentdialog.h \
@@ -1558,6 +1668,16 @@ build/debug/.obj/hydrocoupleproject.o: src/hydrocoupleproject.cpp include/stdafx
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../HydroCouple/include/hydrocouple.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
 		include/gmodelcomponent.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
@@ -1570,10 +1690,8 @@ build/debug/.obj/hydrocoupleproject.o: src/hydrocoupleproject.cpp include/stdafx
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QFont \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qfont.h \
 		include/gconnection.h \
-		../HydroCouple/include/hydrocouple.h \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
-		include/gexchangeitems.h
+		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/hydrocoupleproject.o src/hydrocoupleproject.cpp
 
 build/debug/.obj/componentmanager.o: src/componentmanager.cpp include/stdafx.h \
@@ -2002,7 +2120,15 @@ build/debug/.obj/gmodelcomponent.o: src/gmodelcomponent.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
 		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		include/gdefaultselectiongraphic.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QRectF \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qrect.h
@@ -2144,9 +2270,12 @@ build/debug/.obj/graphicsview.o: src/graphicsview.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qmimedata.h \
 		include/hydrocouplecomposer.h \
 		build/debug/.ui/ui_hydrocouplecomposer.h \
-		include/componentmanager.h \
+		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
 		../HydroCouple/include/hydrocouple.h \
@@ -2156,9 +2285,6 @@ build/debug/.obj/graphicsview.o: src/graphicsview.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
-		include/hydrocoupleproject.h \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
 		../../QPropertyModel/QPropertyModel/include/qpropertymodel.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qabstractitemmodel.h \
 		../../QPropertyModel/QPropertyModel/include/qpropertymodel_global.h \
@@ -2202,6 +2328,7 @@ build/debug/.obj/graphicsview.o: src/graphicsview.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpen.h \
 		include/gconnection.h \
 		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		include/argumentdialog.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QDialog \
 		build/debug/.ui/ui_argumentdialog.h \
@@ -2354,9 +2481,12 @@ build/debug/.obj/hydrocouplecomposer.o: src/hydrocouplecomposer.cpp include/stda
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QGraphicsRectItem \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QMimeData \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qmimedata.h \
-		include/componentmanager.h \
+		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
 		../HydroCouple/include/hydrocouple.h \
@@ -2366,9 +2496,6 @@ build/debug/.obj/hydrocouplecomposer.o: src/hydrocouplecomposer.cpp include/stda
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
-		include/hydrocoupleproject.h \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
 		../../QPropertyModel/QPropertyModel/include/qpropertymodel.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qabstractitemmodel.h \
 		../../QPropertyModel/QPropertyModel/include/qpropertymodel_global.h \
@@ -2412,6 +2539,7 @@ build/debug/.obj/hydrocouplecomposer.o: src/hydrocouplecomposer.cpp include/stda
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpen.h \
 		include/gconnection.h \
 		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		include/argumentdialog.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QDialog \
 		build/debug/.ui/ui_argumentdialog.h \
@@ -2427,9 +2555,25 @@ build/debug/.obj/hydrocouplecomposer.o: src/hydrocouplecomposer.cpp include/stda
 		/usr/local/include/graphviz/usershape.h \
 		/usr/local/include/graphviz/gvplugin.h \
 		include/custompropertyitems.h \
+		../HydroCouple/include/hydrocoupletemporal.h \
 		../../QPropertyModel/QPropertyModel/include/qobjectlistpropertyitem.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QPolygonF \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpolygon.h
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpolygon.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers/QPrinter \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers/qprinter.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers/QPrintDialog \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers/qprintdialog.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPointF \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpoint.h \
+		include/qxmlsyntaxhighlighter.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QSyntaxHighlighter \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qsyntaxhighlighter.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QTextEdit \
+		include/simulationmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers/QtConcurrentRun \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers/qtconcurrentrun.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QElapsedTimer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qelapsedtimer.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/hydrocouplecomposer.o src/hydrocouplecomposer.cpp
 
 build/debug/.obj/splashscreen.o: src/splashscreen.cpp include/stdafx.h \
@@ -2722,6 +2866,7 @@ build/debug/.obj/custompropertyitems.o: src/custompropertyitems.cpp include/stda
 		../../QPropertyModel/QPropertyModel/include/qpropertyitemdelegate.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QStyledItemDelegate \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QItemEditorFactory \
+		../HydroCouple/include/hydrocoupletemporal.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../QPropertyModel/QPropertyModel/include/qobjectlistpropertyitem.h \
 		include/gnode.h \
@@ -2872,7 +3017,23 @@ build/debug/.obj/gexchangeitem.o: src/gexchangeitem.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qbrush.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QFont \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qfont.h \
-		include/gconnection.h
+		include/gconnection.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
+		include/gmodelcomponent.h \
+		include/hydrocoupleproject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/gexchangeitem.o src/gexchangeitem.cpp
 
 build/debug/.obj/modelstatuitemmodel.o: src/modelstatuitemmodel.cpp include/stdafx.h \
@@ -3032,7 +3193,15 @@ build/debug/.obj/modelstatuitemmodel.o: src/modelstatuitemmodel.cpp include/stda
 		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
 		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QModelIndex \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDebug \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdebug.h \
@@ -3190,7 +3359,15 @@ build/debug/.obj/modelstatusitemstatuschangeeventargswrapper.o: src/modelstatusi
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
-		include/gexchangeitems.h
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
+		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/modelstatusitemstatuschangeeventargswrapper.o src/modelstatusitemstatuschangeeventargswrapper.cpp
 
 build/debug/.obj/modelstatusitem.o: src/modelstatusitem.cpp include/stdafx.h \
@@ -3344,7 +3521,15 @@ build/debug/.obj/modelstatusitem.o: src/modelstatusitem.cpp include/stdafx.h \
 		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
 		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QModelIndex \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qabstractitemmodel.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/modelstatusitem.o src/modelstatusitem.cpp
@@ -3480,6 +3665,8 @@ build/debug/.obj/argumentdialog.o: src/argumentdialog.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtwidgetsversion.h \
 		include/argumentdialog.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QDialog \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QTimer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qtimer.h \
 		build/debug/.ui/ui_argumentdialog.h \
 		include/gmodelcomponent.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
@@ -3501,7 +3688,15 @@ build/debug/.obj/argumentdialog.o: src/argumentdialog.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
-		include/gexchangeitems.h
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
+		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/argumentdialog.o src/argumentdialog.cpp
 
 build/debug/.obj/gnode.o: src/gnode.cpp include/stdafx.h \
@@ -3642,13 +3837,16 @@ build/debug/.obj/gnode.o: src/gnode.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QFont \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qfont.h \
 		include/gconnection.h \
+		../HydroCouple/include/hydrocouple.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
 		include/gdefaultselectiongraphic.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QRectF \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qrect.h \
 		include/gexchangeitems.h \
-		../HydroCouple/include/hydrocouple.h \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/gnode.o src/gnode.cpp
 
 build/debug/.obj/gconnection.o: src/gconnection.cpp include/stdafx.h \
@@ -3781,6 +3979,9 @@ build/debug/.obj/gconnection.o: src/gconnection.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtoolbutton.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtwidgetsversion.h \
 		include/gconnection.h \
+		../HydroCouple/include/hydrocouple.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QGraphicsObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QPen \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpen.h \
@@ -3790,9 +3991,9 @@ build/debug/.obj/gconnection.o: src/gconnection.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qfont.h \
 		include/gnode.h \
 		include/gexchangeitems.h \
-		../HydroCouple/include/hydrocouple.h \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/gconnection.o src/gconnection.cpp
 
 build/debug/.obj/ginput.o: src/ginput.cpp include/stdafx.h \
@@ -3936,7 +4137,23 @@ build/debug/.obj/ginput.o: src/ginput.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qbrush.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QFont \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qfont.h \
-		include/gconnection.h
+		include/gconnection.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
+		include/gmodelcomponent.h \
+		include/hydrocoupleproject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/ginput.o src/ginput.cpp
 
 build/debug/.obj/gmultiinput.o: src/gmultiinput.cpp include/stdafx.h \
@@ -4080,7 +4297,23 @@ build/debug/.obj/gmultiinput.o: src/gmultiinput.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qbrush.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QFont \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qfont.h \
-		include/gconnection.h
+		include/gconnection.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
+		include/gmodelcomponent.h \
+		include/hydrocoupleproject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/gmultiinput.o src/gmultiinput.cpp
 
 build/debug/.obj/goutput.o: src/goutput.cpp include/stdafx.h \
@@ -4224,7 +4457,23 @@ build/debug/.obj/goutput.o: src/goutput.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qbrush.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QFont \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qfont.h \
-		include/gconnection.h
+		include/gconnection.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
+		include/gmodelcomponent.h \
+		include/hydrocoupleproject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/goutput.o src/goutput.cpp
 
 build/debug/.obj/gadaptedoutput.o: src/gadaptedoutput.cpp include/stdafx.h \
@@ -4368,8 +4617,328 @@ build/debug/.obj/gadaptedoutput.o: src/gadaptedoutput.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qbrush.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QFont \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qfont.h \
-		include/gconnection.h
+		include/gconnection.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
+		include/gmodelcomponent.h \
+		include/hydrocoupleproject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/gadaptedoutput.o src/gadaptedoutput.cpp
+
+build/debug/.obj/qxmlsyntaxhighlighter.o: src/qxmlsyntaxhighlighter.cpp include/stdafx.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QtWidgets \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qaccessiblewidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcolordialog.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdialog.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qerrormessage.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qfiledialog.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qfilesystemmodel.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qfontdialog.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qinputdialog.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qmessagebox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qprogressdialog.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qwizard.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicseffect.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsanchorlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsgridlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsitem.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsitemanimation.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicslayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicslayoutitem.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicslinearlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsproxywidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsscene.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicssceneevent.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicstransform.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicswidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qabstractitemdelegate.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qabstractitemview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcolumnview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdatawidgetmapper.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdirmodel.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qfileiconprovider.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qheaderview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qitemdelegate.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qitemeditorfactory.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qlistview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qlistwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstyleditemdelegate.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtableview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtablewidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtreeview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtreewidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtreewidgetitemiterator.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qaction.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qactiongroup.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qapplication.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qboxlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdesktopwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qformlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgesture.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgesturerecognizer.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgridlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qlayoutitem.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qopenglwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qshortcut.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qsizepolicy.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstackedlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtooltip.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qwhatsthis.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qwidgetaction.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qkeyeventtransition.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qmouseeventtransition.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcommonstyle.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdrawutil.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qproxystyle.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstyle.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstylefactory.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstyleoption.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstylepainter.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstyleplugin.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcolormap.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcompleter.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qscroller.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qscrollerproperties.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qsystemtrayicon.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qundogroup.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qundostack.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qundoview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qabstractbutton.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qabstractscrollarea.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qabstractslider.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qabstractspinbox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qbuttongroup.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcalendarwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcheckbox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcombobox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcommandlinkbutton.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdatetimeedit.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdial.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdialogbuttonbox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdockwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qfocusframe.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qfontcombobox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qframe.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgroupbox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qkeysequenceedit.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qlabel.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qlcdnumber.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qlineedit.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qmainwindow.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qmdiarea.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qmdisubwindow.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qmenu.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qmenubar.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qplaintextedit.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qprogressbar.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qpushbutton.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qradiobutton.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qrubberband.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qscrollarea.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qscrollbar.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qsizegrip.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qslider.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qspinbox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qsplashscreen.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qsplitter.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstackedwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstatusbar.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtabbar.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtabwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtextbrowser.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtextedit.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtoolbar.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtoolbox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtoolbutton.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtwidgetsversion.h \
+		include/qxmlsyntaxhighlighter.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QSyntaxHighlighter \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qsyntaxhighlighter.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QTextEdit
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/qxmlsyntaxhighlighter.o src/qxmlsyntaxhighlighter.cpp
+
+build/debug/.obj/simulationmanager.o: src/simulationmanager.cpp include/stdafx.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QtWidgets \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qaccessiblewidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcolordialog.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdialog.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qerrormessage.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qfiledialog.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qfilesystemmodel.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qfontdialog.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qinputdialog.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qmessagebox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qprogressdialog.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qwizard.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicseffect.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsanchorlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsgridlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsitem.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsitemanimation.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicslayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicslayoutitem.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicslinearlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsproxywidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsscene.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicssceneevent.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicstransform.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicswidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qabstractitemdelegate.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qabstractitemview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcolumnview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdatawidgetmapper.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdirmodel.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qfileiconprovider.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qheaderview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qitemdelegate.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qitemeditorfactory.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qlistview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qlistwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstyleditemdelegate.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtableview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtablewidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtreeview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtreewidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtreewidgetitemiterator.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qaction.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qactiongroup.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qapplication.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qboxlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdesktopwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qformlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgesture.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgesturerecognizer.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgridlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qlayoutitem.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qopenglwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qshortcut.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qsizepolicy.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstackedlayout.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtooltip.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qwhatsthis.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qwidgetaction.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qkeyeventtransition.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qmouseeventtransition.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcommonstyle.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdrawutil.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qproxystyle.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstyle.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstylefactory.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstyleoption.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstylepainter.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstyleplugin.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcolormap.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcompleter.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qscroller.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qscrollerproperties.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qsystemtrayicon.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qundogroup.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qundostack.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qundoview.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qabstractbutton.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qabstractscrollarea.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qabstractslider.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qabstractspinbox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qbuttongroup.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcalendarwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcheckbox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcombobox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcommandlinkbutton.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdatetimeedit.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdial.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdialogbuttonbox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qdockwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qfocusframe.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qfontcombobox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qframe.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgroupbox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qkeysequenceedit.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qlabel.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qlcdnumber.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qlineedit.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qmainwindow.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qmdiarea.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qmdisubwindow.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qmenu.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qmenubar.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qplaintextedit.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qprogressbar.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qpushbutton.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qradiobutton.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qrubberband.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qscrollarea.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qscrollbar.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qsizegrip.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qslider.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qspinbox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qsplashscreen.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qsplitter.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstackedwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qstatusbar.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtabbar.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtabwidget.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtextbrowser.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtextedit.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtoolbar.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtoolbox.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtoolbutton.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtwidgetsversion.h \
+		include/simulationmanager.h \
+		include/hydrocoupleproject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../HydroCouple/include/hydrocouple.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers/QtConcurrentRun \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers/qtconcurrentrun.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QElapsedTimer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qelapsedtimer.h \
+		include/gmodelcomponent.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
+		include/gnode.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QGraphicsObject \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QPen \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpen.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QBrush \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qbrush.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QFont \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qfont.h \
+		include/gconnection.h \
+		include/gexchangeitems.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDebug \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdebug.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFutureWatcher \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfuturewatcher.h
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/simulationmanager.o src/simulationmanager.cpp
 
 build/debug/.obj/qrc_hydrocouplecomposer.o: build/debug/.qrc/qrc_hydrocouplecomposer.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/qrc_hydrocouplecomposer.o build/debug/.qrc/qrc_hydrocouplecomposer.cpp
@@ -4415,6 +4984,12 @@ build/debug/.obj/moc_gnode.o: build/debug/.moc/moc_gnode.cpp
 
 build/debug/.obj/moc_gconnection.o: build/debug/.moc/moc_gconnection.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/moc_gconnection.o build/debug/.moc/moc_gconnection.cpp
+
+build/debug/.obj/moc_qxmlsyntaxhighlighter.o: build/debug/.moc/moc_qxmlsyntaxhighlighter.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/moc_qxmlsyntaxhighlighter.o build/debug/.moc/moc_qxmlsyntaxhighlighter.cpp
+
+build/debug/.obj/moc_simulationmanager.o: build/debug/.moc/moc_simulationmanager.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/moc_simulationmanager.o build/debug/.moc/moc_simulationmanager.cpp
 
 ####### Install
 

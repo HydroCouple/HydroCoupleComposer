@@ -46,5 +46,6 @@
         <file alias="unloadlibrary">images/unloadlibrary.png</file>
         <file alias="edit">images/edit.png</file>
         <file alias="exportcomponent">images/exportcomponent.png</file>
+        <file alias="reloadconnections">images/reload.png</file>
     </qresource>
 </RCC>

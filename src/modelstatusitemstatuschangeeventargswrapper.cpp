@@ -4,8 +4,10 @@
 using namespace HydroCouple;
 
 ModelStatusItemStatusChangeEventArgsWrapper::ModelStatusItemStatusChangeEventArgsWrapper(QObject* parent)
-   :QObject(parent) , m_hasProgress(false) , m_currentStatus(HydroCouple::Created), m_previousStatus(HydroCouple::Created)
-   , m_percentProgress(0) , m_message("")
+   :QObject(parent) , m_hasProgress(false), m_message(""), m_percentProgress(0),
+     m_currentStatus(HydroCouple::Created),
+     m_previousStatus(HydroCouple::Created)
+
 {
 
 
@@ -36,6 +38,12 @@ ComponentStatus ModelStatusItemStatusChangeEventArgsWrapper::status() const
    return m_currentStatus;
 }
 
+
+void ModelStatusItemStatusChangeEventArgsWrapper::setStatus(ComponentStatus status)
+{
+   m_currentStatus = status;
+}
+
 QString ModelStatusItemStatusChangeEventArgsWrapper::message() const
 {
    return m_message;
@@ -51,14 +59,12 @@ float ModelStatusItemStatusChangeEventArgsWrapper::percentProgress() const
    return m_percentProgress;
 }
 
-void ModelStatusItemStatusChangeEventArgsWrapper::setStatus(const IComponentStatusChangeEventArgs & status)
+void ModelStatusItemStatusChangeEventArgsWrapper::setStatus(const std::shared_ptr<IComponentStatusChangeEventArgs> &status)
 {
-#ifndef QT_DEBUG
-   m_hasProgress = status.hasProgressMonitor();
-   m_percentProgress = status.percentProgress();
-#endif
-   m_message = status.message();
-   m_previousStatus = status.previousStatus();
-   m_currentStatus = status.status();
-   m_component = status.component();
+   m_hasProgress = status->hasProgressMonitor();
+   m_percentProgress = status->percentProgress();
+   m_message = status->message();
+   m_previousStatus = status->previousStatus();
+   m_currentStatus = status->status();
+   m_component = status->component();
 }

@@ -13,11 +13,13 @@ int GConnection::s_zindex = -1000;
 
 #pragma endregion
 
+using namespace std;
+
 GConnection::GConnection(GNode *producer, GNode *consumer , QGraphicsObject* parent)
    :QGraphicsObject(parent),
-    m_pen(QBrush(QColor(0.0, 150.0, 255.0), Qt::BrushStyle::SolidPattern),4, Qt::PenStyle::SolidLine,
-    Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::MiterJoin),
-    m_brush (QBrush(Qt::GlobalColor::white))
+     m_pen(QBrush(QColor(0.0, 150.0, 255.0), Qt::BrushStyle::SolidPattern),4, Qt::PenStyle::SolidLine,
+           Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::MiterJoin),
+     m_brush (QBrush(Qt::GlobalColor::white))
 
 {
    m_font = QFont();
@@ -42,37 +44,33 @@ GConnection::GConnection(GNode *producer, GNode *consumer , QGraphicsObject* par
    setFlag(GraphicsItemFlag::ItemIsFocusable, true);
    setFlag(GraphicsItemFlag::ItemStacksBehindParent, true);
 
+   QString htmltext ="<h3 align=\"center\">Connection</h3>"
+                     "<h4 align=\"left\">Producer</h4>"
+                     "<p align=\"center\">" + producer->caption() +"</p>"
+                                                                   "<p align=\"center\">" + producer->id() +"</p>"
+                                                                                                            "<h4 align=\"left\">Consumer</h4>"
+                                                                                                            "<p align=\"center\">" + consumer->caption() +"</p>"
+                                                                                                                                                          "<p align=\"center\">" + consumer->id() +"</p>";
+
+   setToolTip(htmltext);
+
    setZValue(s_zindex);
    s_zindex--;
+
    parentLocationOrSizeChanged();
+   retrieveValidAdaptedOutputArguments();
 }
 
 GConnection::~GConnection()
 {
 
+   qDeleteAll(m_validAdaptedOutputs);
+   m_validAdaptedOutputs.clear();
 
-  if(m_consumer && (m_consumer->nodeType() == GNode::AdaptedOutput ||
-     m_consumer->nodeType() == GNode::Output))
-  {
-     delete m_consumer;
-  }
-  else if(m_consumer && (m_consumer->nodeType() == GNode::MultiInput))
-  {
-    GMultiInput* minput =  dynamic_cast<GMultiInput*>(m_consumer);
-    if(minput)
-       minput->removeProvider(dynamic_cast<GOutput*>(m_producer));
-  }
-  else if(m_consumer && (m_consumer->nodeType() == GNode::Input))
-  {
-     GInput* input = dynamic_cast<GInput*>(m_consumer);
-     if(input)
-        input->setProvider(nullptr);
-  }
-
-  if(scene())
-  {
-     scene()->removeItem(this);
-  }
+   if(scene())
+   {
+      scene()->removeItem(this);
+   }
 }
 
 GNode* GConnection::producer() const
@@ -300,6 +298,11 @@ void GConnection::parentLocationOrSizeChanged()
    m_boundary.setCoords(0, 0, maxPoint.x() - zeroPoint.x(), maxPoint.y() - zeroPoint.y());
 
    setPos(zeroPoint);
+
+}
+
+void GConnection::retrieveValidAdaptedOutputArguments()
+{
 
 }
 

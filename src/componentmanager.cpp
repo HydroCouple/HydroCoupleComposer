@@ -17,14 +17,59 @@ ComponentManager::ComponentManager(QObject *parent)
    m_componentFileExtensions.insert("*.dylib");
 #endif
 
+
+#ifdef _WIN32 // note the underscore: without it, it's not msdn official!
+   // Windows (x64 and x86)
+   addComponentDirectory(QDir("./"));
+   manager->addComponentDirectory(QDir("./Components"));
+
+#elif __unix__ // all unices, not all compilers
+   // Unix
+   addComponentDirectory(QDir("./"));
+   addComponentDirectory(QDir("./Components"));
+#elif __linux__
+   addComponentDirectory(QDir("./"));
+   addComponentDirectory(QDir("./Components"));
+   // linux
+#elif __APPLE__
+   addComponentDirectory(QDir("./"));
+   addComponentDirectory(QDir("./Components"));
+   addComponentDirectory(QDir("./../../../"));
+   addComponentDirectory(QDir("./../../../Components"));
+#endif
+
 }
 
 ComponentManager::~ComponentManager()
 {
-   qDeleteAll(m_modelComponentInfoHash.keys());
+
+   for(IModelComponentInfo* cinfo : m_modelComponentInfoHash.keys())
+   {
+      emit modelComponentInfoUnloaded(cinfo->id());
+   }
+
+   for(QPluginLoader* pl : m_modelComponentInfoHash.values())
+   {
+      pl->unload();
+   }
+
+//   qDeleteAll(m_modelComponentInfoHash.keys());
+   qDeleteAll(m_modelComponentInfoHash.values());
    m_modelComponentInfoHash.clear();
 
-   qDeleteAll(m_adaptedOutputFactoryComponentInfoHash.keys());
+
+   for(IAdaptedOutputFactoryComponentInfo* cinfo : m_adaptedOutputFactoryComponentInfoHash.keys())
+   {
+      emit adaptedOutputFactoryComponentUnloaded(cinfo->id());
+   }
+
+   for(QPluginLoader* pl : m_adaptedOutputFactoryComponentInfoHash.values())
+   {
+      pl->unload();
+   }
+
+//   qDeleteAll(m_adaptedOutputFactoryComponentInfoHash.keys());
+   qDeleteAll(m_adaptedOutputFactoryComponentInfoHash.values());
    m_adaptedOutputFactoryComponentInfoHash.clear();
 }
 
@@ -122,14 +167,14 @@ IComponentInfo* ComponentManager::findComponentInfoById(const QString &id)
 {
    IComponentInfo* componentInfo = nullptr;
 
-   if( componentInfo = findModelComponentInfoById(id))
+   if( (componentInfo = findModelComponentInfoById(id)))
       return componentInfo;
    else
       return findAdaptedOutputFactoryComponentInfoById(id);
 
 }
 
-bool ComponentManager::loadComponent(const QFileInfo& file)
+IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
 {
    QString message;
 
@@ -154,22 +199,22 @@ bool ComponentManager::loadComponent(const QFileInfo& file)
                   {
                      pluginLoader->unload();
                      emit postMessage("Model component library " + mcomponentInfo->name() + "has already been loaded");
-                     return true;
+                     return model;
                   }
                }
 
-               mcomponentInfo->setLibraryFilePath(file.filePath());
+               mcomponentInfo->setLibraryFilePath(file.absoluteFilePath());
                m_modelComponentInfoHash[mcomponentInfo] = pluginLoader;
                emit modelComponentInfoLoaded(mcomponentInfo);
 
-               return true;
+               return mcomponentInfo;
             }
 
             IAdaptedOutputFactoryComponentInfo* acomponentInfo = qobject_cast<IAdaptedOutputFactoryComponentInfo*>(component);
 
             if (acomponentInfo)
             {
-               acomponentInfo->setLibraryFilePath(file.filePath());
+               acomponentInfo->setLibraryFilePath(file.absoluteFilePath());
 
                for (IAdaptedOutputFactoryComponentInfo* model : m_adaptedOutputFactoryComponentInfoHash.keys())
                {
@@ -177,21 +222,21 @@ bool ComponentManager::loadComponent(const QFileInfo& file)
                   {
                      pluginLoader->unload();
                      emit postMessage("Adapted output factory component library " + mcomponentInfo->name() + "has already been loaded");
-                     return true;
+                     return model;
                   }
                }
 
 
                m_adaptedOutputFactoryComponentInfoHash[acomponentInfo] = pluginLoader;
-               acomponentInfo->setLibraryFilePath(file.filePath());
+               acomponentInfo->setLibraryFilePath(file.absoluteFilePath());
                emit adaptedOutputFactoryComponentInfoLoaded(acomponentInfo);
-               return true;
+               return acomponentInfo;
             }
 
             delete component;
             message = "\"" + file.filePath() + "\" is not a valid HydroCouple component library";
             emit postMessage(message);
-            return false;
+            return nullptr;
          }
          else
          {
@@ -209,7 +254,7 @@ bool ComponentManager::loadComponent(const QFileInfo& file)
       emit postMessage(message);
    }
 
-   return false;
+   return nullptr;
 }
 
 QSet<QString> ComponentManager::componentFileExtensions() const

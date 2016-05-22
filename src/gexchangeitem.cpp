@@ -1,12 +1,14 @@
 #include "stdafx.h"
 #include "gexchangeitems.h"
+#include "gmodelcomponent.h"
 
 using namespace HydroCouple;
 
-GExchangeItem::GExchangeItem(IExchangeItem* exchangeItem, GNode::NodeType type, QGraphicsObject *parent)
-   : GNode(exchangeItem->id() , exchangeItem->caption(), type , parent)
+GExchangeItem::GExchangeItem(const QString &exchangeItemId, GNode::NodeType type, GModelComponent *parent)
+   : GNode(exchangeItemId, "" , type),
+     m_exchangeItemId(exchangeItemId)
 {
-   m_exchangeItem = exchangeItem;
+   m_component = parent;
 }
 
 GExchangeItem::~GExchangeItem()
@@ -14,7 +16,17 @@ GExchangeItem::~GExchangeItem()
 
 }
 
-IExchangeItem* GExchangeItem::exchangeItem() const
+GModelComponent* GExchangeItem::modelComponent() const
 {
-   return m_exchangeItem;
+   return m_component;
+}
+
+void GExchangeItem::onPropertyChanged(const QString &propertyName)
+{
+   if(!propertyName.compare("id" ,Qt::CaseInsensitive) ||
+      !propertyName.compare("caption", Qt::CaseInsensitive))
+   {
+      setId(exchangeItem()->id());
+      setCaption(exchangeItem()->caption());
+   }
 }

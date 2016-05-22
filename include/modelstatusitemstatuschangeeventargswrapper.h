@@ -27,20 +27,22 @@ class ModelStatusItemStatusChangeEventArgsWrapper : public QObject
 
       HydroCouple::ComponentStatus status() const;
 
+      void setStatus(HydroCouple::ComponentStatus status);
+
       QString message() const ;
 
       bool hasProgressMonitor() const ;
 
       float percentProgress() const ;
 
-      void setStatus(const HydroCouple::IComponentStatusChangeEventArgs & status);
+      void setStatus(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &status);
 
    private:
       bool m_hasProgress;
       QString m_message;
       float m_percentProgress;
       HydroCouple::IModelComponent* m_component;
-      HydroCouple::ComponentStatus m_previousStatus, m_currentStatus;
+      HydroCouple::ComponentStatus m_currentStatus , m_previousStatus ;
 };
 
 
