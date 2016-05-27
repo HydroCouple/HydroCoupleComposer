@@ -5,9 +5,12 @@ using namespace  HydroCouple ;
 
 
 ArgumentDialog::ArgumentDialog(QDialog *parent)
-   :QDialog(parent)
+   :QDialog(parent),
+     m_component(nullptr),
+     m_adaptedOutput(nullptr)
 {
    setupUi(this);
+
    connect(pushButtonClose , SIGNAL(clicked()) , this , SLOT(close()));
    connect(pushButtonReadValues, SIGNAL(clicked()) , this , SLOT(onReadArgument()));
    connect(pushButtonInitializeComponent, SIGNAL(clicked()), this, SLOT(onInitializeComponent()));
@@ -22,9 +25,12 @@ ArgumentDialog::~ArgumentDialog()
 
 void ArgumentDialog::setComponent(GModelComponent *component)
 {
-   m_component = component;
+   m_isComponent = true;
 
-   setWindowTitle(m_component->caption() + " Arguments");
+   pushButtonInitializeComponent->setVisible(true);
+
+   m_component = component;
+   setWindowTitle("Model Component " + m_component->modelComponent()->id() + "'s Arguments");
 
    comboBoxArguments->clear();
    m_arguments.clear();
@@ -36,13 +42,69 @@ void ArgumentDialog::setComponent(GModelComponent *component)
    }
 }
 
+void ArgumentDialog::setAdaptedOutput(GAdaptedOutput *adaptedOutput)
+{
+   m_isComponent = false;
+
+   pushButtonInitializeComponent->setVisible(false);
+
+   m_adaptedOutput = adaptedOutput;
+   setWindowTitle("AdaptedOutput " + m_adaptedOutput->id() + "'s Arguments");
+
+
+   comboBoxArguments->clear();
+   m_arguments.clear();
+
+   for(IArgument* argument : m_adaptedOutput->adaptedOutput()->arguments())
+   {
+      m_arguments[argument->id()] = argument;
+      comboBoxArguments->addItem(argument->caption() , argument->id());
+   }
+}
 
 void ArgumentDialog::onReadArgument()
 {
+   if(m_isComponent)
+   {
+      if(m_component->modelComponent()->status() == HydroCouple::Created ||
+            m_component->modelComponent()->status() == HydroCouple::Failed ||
+            m_component->modelComponent()->status() == HydroCouple::Initialized)
+      {
+         int index;
 
-   if(m_component->modelComponent()->status() == HydroCouple::Created ||
-      m_component->modelComponent()->status() == HydroCouple::Failed ||
-      m_component->modelComponent()->status() == HydroCouple::Initialized)
+         if(m_arguments.size() && (index = comboBoxArguments->currentIndex()) > -1)
+         {
+            QVariant arg = comboBoxArguments->itemData(index);
+            IArgument* argument = m_arguments[arg.toString()];
+
+            if(radioButtonFileInput->isChecked() && !lineEditFileInput->text().isEmpty() && !lineEditFileInput->text().isNull())
+            {
+               if(argument->readValues(lineEditFileInput->text(), true))
+               {
+                  labelStatus->setText("Input read successfully");
+               }
+               else
+               {
+                  labelStatus->setText("Input could not be read Successfully");
+               }
+            }
+            else if(!textEditInput->toPlainText().isEmpty() && !textEditInput->toPlainText().isNull())
+            {
+               if(argument->readValues(textEditInput->toPlainText()))
+               {
+                  labelStatus->setText("Input read successfully");
+               }
+               else
+               {
+                  labelStatus->setText("Input could not be read Successfully");
+               }
+
+               QTimer::singleShot(5000, this , SLOT(onRefreshStatus()));
+            }
+         }
+      }
+   }
+   else
    {
       int index;
 
@@ -116,7 +178,7 @@ void ArgumentDialog::onBrowseForFile()
 
       if (!file.isEmpty() && QFileInfo(file).dir().exists())
       {
-          lineEditFileInput->setText(file);
+         lineEditFileInput->setText(file);
       }
    }
 }
@@ -149,7 +211,7 @@ void ArgumentDialog::onSelectedArgumentChanged(int index)
          groupBoxInputFile->setVisible(true);
       }
 
-      if(argument->argumentIOType() == HydroCouple::String)
+      if(argument->currentArgumentIOType() == HydroCouple::String)
       {
          radioButtonTextInput->setChecked(true);
          textEditInput->setText(argument->toString());

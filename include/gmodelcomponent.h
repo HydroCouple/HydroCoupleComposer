@@ -87,9 +87,9 @@ class GModelComponent : public GNode
 
       void deleteConnections() override;
 
-      bool ignoreSignalsFromComponent() const;
+      void disestablishConnections();
 
-      void setIgnoreSignalsFromComponent(bool ignore);
+      void reestablishConnections();
 
    protected:
 
@@ -105,7 +105,7 @@ class GModelComponent : public GNode
 
    signals:
 
-      void componentStatusChanged(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
+      void componentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
 
       void propertyChanged(const QString& propertyName) override;
 
@@ -117,7 +117,7 @@ class GModelComponent : public GNode
 
    private slots:
 
-      void onComponentStatusChanged(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
+      void onComponentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
 
       void onPropertyChanged(const QString& propertyName);
 

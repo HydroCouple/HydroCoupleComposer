@@ -28,6 +28,8 @@ class ComponentManager : public QObject
 
       HydroCouple::IAdaptedOutputFactoryComponentInfo* findAdaptedOutputFactoryComponentInfoById(const QString& id);
 
+      QHash<HydroCouple::IAdaptedOutputFactoryComponentInfo*,HydroCouple::IAdaptedOutputFactoryComponent*> adaptedOutputFactories() const;
+
       bool unloadAdaptedOutputFactoryComponentInfoById(const QString& id);
 
       HydroCouple::IComponentInfo* findComponentInfoById(const QString& id);
@@ -72,6 +74,7 @@ class ComponentManager : public QObject
       QList<QDir> m_componentDirectories;
       QHash<HydroCouple::IModelComponentInfo* , QPluginLoader*> m_modelComponentInfoHash;
       QHash<HydroCouple::IAdaptedOutputFactoryComponentInfo* , QPluginLoader*> m_adaptedOutputFactoryComponentInfoHash;
+      QHash<HydroCouple::IAdaptedOutputFactoryComponentInfo* , HydroCouple::IAdaptedOutputFactoryComponent*> m_adaptedOutputFactoriesHash;
 };
 
 #endif // COMPONENTMANAGER_H

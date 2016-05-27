@@ -62,7 +62,7 @@ class ModelStatusItemModel : public QAbstractItemModel
 
    private slots:
 
-      void onComponentStatusChanged(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
+      void onComponentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
 
       void onModelStatusItemPropertyChanged();
 

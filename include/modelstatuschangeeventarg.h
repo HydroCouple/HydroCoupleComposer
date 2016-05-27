@@ -1,12 +1,12 @@
-#ifndef MODELSTATUSITEMSTATUSCHANGEEVENTARGSWRAPPER_H
-#define MODELSTATUSITEMSTATUSCHANGEEVENTARGSWRAPPER_H
+#ifndef MODELSTATUSCHANGEEVENTARG_H
+#define MODELSTATUSCHANGEEVENTARG_H
 
 #include "gmodelcomponent.h"
 
 /*!
- * \brief The ComponentStatusChangeEventArgs class.
+ * \brief The ModelStatusChangeEventArgsWrapper class.
  */
-class ModelStatusItemStatusChangeEventArgsWrapper : public QObject
+class ModelStatusChangeEventArg : public QObject
 {
       Q_OBJECT
       Q_PROPERTY(HydroCouple::IModelComponent* Component READ component)
@@ -15,9 +15,9 @@ class ModelStatusItemStatusChangeEventArgsWrapper : public QObject
       Q_PROPERTY(QString Message READ message)
 
    public:
-      ModelStatusItemStatusChangeEventArgsWrapper(QObject* parent);
+      ModelStatusChangeEventArg(QObject* parent);
 
-      virtual ~ModelStatusItemStatusChangeEventArgsWrapper();
+      virtual ~ModelStatusChangeEventArg();
 
       HydroCouple::IModelComponent* component() const ;
 
@@ -35,7 +35,7 @@ class ModelStatusItemStatusChangeEventArgsWrapper : public QObject
 
       float percentProgress() const ;
 
-      void setStatus(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &status);
+      void setStatus(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &status);
 
    private:
       bool m_hasProgress;
@@ -47,5 +47,5 @@ class ModelStatusItemStatusChangeEventArgsWrapper : public QObject
 
 
 
-#endif // MODELSTATUSITEMSTATUSCHANGEEVENTARGSWRAPPER_H
+#endif // MODELSTATUSCHANGEEVENTARG_H
 

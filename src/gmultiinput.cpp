@@ -9,17 +9,6 @@ GMultiInput::GMultiInput(const QString &multiInputId,  GModelComponent* parent)
      m_multiInputId(multiInputId)
 {
    m_nodeType = NodeType::MultiInput;
-
-//   if(m_component->inputs().contains(m_multiInputId))
-//   {
-//      IInput* input = m_component->inputs()[m_multiInputId];
-//      setCaption(input->caption());
-
-//      QObject* object = dynamic_cast<QObject*>(input);
-
-//      connect(object, SIGNAL(propertyChanged(const QString &)),
-//              this, SLOT(onPropertyChanged(const QString &)));
-//   }
 }
 
 GMultiInput::~GMultiInput()
@@ -69,7 +58,37 @@ void GMultiInput::removeProvider(GOutput *provider)
       {
          multiInput()->removeProvider(provider->output());
       }
-
    }
+}
+
+void GMultiInput::disestablishConnections()
+{
+   if(multiInput())
+   {
+      while (multiInput()->providers().length())
+      {
+         multiInput()->removeProvider(multiInput()->providers()[0]);
+      }
+   }
+}
+
+void GMultiInput::reestablishConnections()
+{
+   if(multiInput())
+   {
+      QObject* object = dynamic_cast<QObject*>(input());
+
+      connect(object, SIGNAL(propertyChanged(const QString &)),
+              this, SLOT(onPropertyChanged(const QString &)));
+
+      for(GOutput * provider : m_providers)
+      {
+         if(provider->output())
+         {
+            multiInput()->addProvider(provider->output());
+         }
+      }
+   }
+
 }
 

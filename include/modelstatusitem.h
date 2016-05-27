@@ -2,7 +2,7 @@
 #define MODELSTATUSITEM_H
 
 #include <QObject>
-#include "modelstatusitemstatuschangeeventargswrapper.h"
+#include "modelstatuschangeeventarg.h"
 #include "QModelIndex"
 
 class ModelStatusItem : public QObject
@@ -20,7 +20,7 @@ class ModelStatusItem : public QObject
 
       HydroCouple::IModelComponent* component() const;
 
-      ModelStatusItemStatusChangeEventArgsWrapper* status() const;
+      ModelStatusChangeEventArg* status() const;
 
       QModelIndex index(int column = 0) const;
 
@@ -36,7 +36,7 @@ class ModelStatusItem : public QObject
        *
        * \details See HydroCouple::ComponentStatus for the possible states.
        */
-      void componentStatusChanged(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
+      void componentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
 
       void propertyChanged();
       
@@ -49,7 +49,7 @@ class ModelStatusItem : public QObject
 
 
    private slots:
-      void onComponentStatusChanged(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
+      void onComponentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
 
       void onPropertyChanged(const QString& propertyName);
 
@@ -57,7 +57,7 @@ class ModelStatusItem : public QObject
       QModelIndex m_indexes[5];
       HydroCouple::IModelComponent* m_component;
       QList<ModelStatusItem*> m_children;
-      ModelStatusItemStatusChangeEventArgsWrapper * m_status;
+      ModelStatusChangeEventArg * m_status;
       ModelStatusItem* m_parent;
 };
 

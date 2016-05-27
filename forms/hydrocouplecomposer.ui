@@ -972,6 +972,9 @@
    <property name="toolTip">
     <string>Reload Component Connections</string>
    </property>
+   <property name="visible">
+    <bool>false</bool>
+   </property>
   </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>

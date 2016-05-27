@@ -4,29 +4,49 @@
 
 using namespace HydroCouple;
 
-GAdaptedOutput::GAdaptedOutput(IAdaptedOutput *adaptedOutput,
+GAdaptedOutput::GAdaptedOutput(IIdentity *adaptedOutputId,
                                IAdaptedOutputFactory *factory,
                                GOutput *adaptee, GInput *input)
 
-   :GOutput(adaptedOutput->id() , adaptee->modelComponent())
+   :GOutput(adaptedOutputId->id() , adaptee->modelComponent()),
+     m_adaptedOutput(nullptr)
 {
-   setCaption(adaptedOutput->caption());
 
-   QObject* object = dynamic_cast<QObject*>(adaptedOutput);
-
-   connect(object, SIGNAL(propertyChanged(const QString &)),
-           this, SLOT(onPropertyChanged(const QString &)));
-
-   m_adaptedOutput = adaptedOutput;
+   m_adaptedOutputId = adaptedOutputId;
    m_nodeType = NodeType::AdaptedOutput;
    m_adaptee = adaptee;
    m_adaptedOutputFactory = factory;
    m_input = input;
+
+   if(m_adaptee->output() && input->input())
+   {
+      m_adaptedOutput = factory->createAdaptedOutput(m_adaptedOutputId , m_adaptee->output() , m_input->input());
+
+      if(m_adaptedOutput)
+      {
+         setCaption(m_adaptedOutput->caption());
+
+         QObject* object = dynamic_cast<QObject*>(m_adaptedOutput);
+
+         connect(object, SIGNAL(propertyChanged(const QString &)),
+                 this, SLOT(onPropertyChanged(const QString &)));
+      }
+   }
 }
 
 GAdaptedOutput::~GAdaptedOutput()
 {
-  delete m_adaptedOutput;
+   delete m_adaptedOutput;
+}
+
+HydroCouple::IExchangeItem* GAdaptedOutput::exchangeItem() const
+{
+   return m_adaptedOutput;
+}
+
+HydroCouple::IOutput* GAdaptedOutput::output() const
+{
+   return m_adaptedOutput;
 }
 
 IAdaptedOutput* GAdaptedOutput::adaptedOutput() const
@@ -138,4 +158,138 @@ void GAdaptedOutput::readAdaptedOutputExchangeItemConnections(QXmlStreamReader &
    }
 }
 
+bool GAdaptedOutput::deleteConnection(GConnection *connection)
+{
+   if(m_connections.removeAll(connection))
+   {
+      if(scene())
+      {
+         scene()->removeItem(connection);
+      }
 
+      if(connection->consumer()->nodeType() == GNode::AdaptedOutput)
+      {
+         delete connection->consumer();
+         delete connection;
+         emit propertyChanged("Connections");
+         emit hasChanges();
+      }
+      else if(connection->consumer()->nodeType() == GNode::Input)
+      {
+         GInput *input = (GInput*) connection->consumer();
+
+         input->setProvider(nullptr);
+
+         if(output() && input->input())
+         {
+            output()->removeConsumer(input->input());
+         }
+
+         delete connection;
+         emit propertyChanged("Connections");
+         emit hasChanges();
+
+         if(m_input == input)
+         {
+            m_adaptee->deleteConnection(this);
+         }
+
+      }
+      else if(connection->consumer()->nodeType() == GNode::MultiInput)
+      {
+         GMultiInput *minput = (GMultiInput*) connection->consumer();
+         minput->removeProvider(this);
+
+         if(output() && minput->multiInput())
+         {
+            output()->removeConsumer(minput->multiInput());
+         }
+
+         delete connection;
+         emit propertyChanged("Connections");
+         emit hasChanges();
+
+         if(m_input == minput)
+         {
+            m_adaptee->deleteConnection(this);
+         }
+
+      }
+
+
+      return true;
+   }
+   else
+   {
+      return false;
+   }
+}
+
+void GAdaptedOutput::disestablishConnections()
+{
+
+}
+
+void GAdaptedOutput::reestablishConnections()
+{
+   IAdaptedOutput* adaptedOutput;
+
+   if(m_adaptee->output())
+   {
+      if(m_adaptee->nodeType() == GNode::Output && m_input->input())
+      {
+         adaptedOutput = m_adaptedOutputFactory->createAdaptedOutput(m_adaptedOutputId , m_adaptee->output() , m_input->input());
+      }
+      else if(m_adaptee->nodeType() == GNode::AdaptedOutput && m_input->input())
+      {
+         adaptedOutput = m_adaptedOutputFactory->createAdaptedOutput(m_adaptedOutputId , m_adaptee->output() , m_input->input());
+      }
+
+      for(IArgument *nargument : adaptedOutput->arguments())
+      {
+         for(IArgument*argument : m_adaptedOutput->arguments())
+         {
+            if(!nargument->id().compare(argument->id()))
+            {
+               nargument->readValues(argument);
+               break;
+            }
+         }
+      }
+
+      delete m_adaptedOutput;
+      m_adaptedOutput = adaptedOutput;
+
+      for(GConnection *connection: m_connections)
+      {
+         if(connection->consumer()->nodeType() ==  GNode::Input)
+         {
+            GInput* input = dynamic_cast<GInput*>(connection->consumer());
+
+            if(input && input->input())
+            {
+               output()->addConsumer(input->input());
+            }
+         }
+         else if(connection->consumer()->nodeType() ==  GNode::MultiInput)
+         {
+            GMultiInput* input = dynamic_cast<GMultiInput*>(connection->consumer());
+
+            if(input && input->multiInput())
+            {
+               output()->addConsumer(input->multiInput());
+            }
+         }
+         else if(connection->consumer()->nodeType() ==  GNode::AdaptedOutput)
+         {
+            GAdaptedOutput* adaptedOutput = dynamic_cast<GAdaptedOutput*>(connection->consumer());
+            adaptedOutput->reestablishConnections();
+
+            if(adaptedOutput->adaptedOutput())
+            {
+               output()->addAdaptedOutput(adaptedOutput->adaptedOutput());
+            }
+         }
+      }
+   }
+}

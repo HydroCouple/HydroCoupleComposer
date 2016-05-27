@@ -44,9 +44,13 @@ class GExchangeItem : public GNode
 
       virtual HydroCouple::IExchangeItem* exchangeItem() const = 0;
 
-      GModelComponent* modelComponent() const;
+      virtual GModelComponent* modelComponent() const;
 
       virtual void writeExchangeItemConnections(QXmlStreamWriter & xmlWriter) = 0;
+
+      virtual void disestablishConnections() = 0;
+
+      virtual void reestablishConnections() = 0;
 
    protected slots:
       void onPropertyChanged(const QString &propertyName);
@@ -89,6 +93,10 @@ class GInput: public GExchangeItem
 
       void deleteConnections() override;
 
+      void disestablishConnections() override;
+
+      void reestablishConnections() override;
+
    private:
       QString m_input;
       GOutput* m_provider;
@@ -113,6 +121,10 @@ class GMultiInput : public GInput
 
       void removeProvider(GOutput* provider);
 
+      void disestablishConnections() override;
+
+      void reestablishConnections() override;
+
    private:
       QString m_multiInputId;
       QList<GOutput*> m_providers;
@@ -130,7 +142,7 @@ class GOutput : public GExchangeItem
 
       HydroCouple::IExchangeItem* exchangeItem() const override;
 
-      HydroCouple::IOutput* output() const;
+      virtual HydroCouple::IOutput* output() const;
 
       virtual void writeExchangeItemConnections(QXmlStreamWriter &xmlWriter) override;
 
@@ -146,6 +158,10 @@ class GOutput : public GExchangeItem
 
       void deleteConnections() override;
 
+      void disestablishConnections() override;
+
+      void reestablishConnections() override;
+
    protected:
       QString  m_outputId;
 };
@@ -157,10 +173,14 @@ class GAdaptedOutput : public GOutput
       Q_PROPERTY(HydroCouple::IAdaptedOutput* AdaptedOutput READ adaptedOutput)
 
    public:
-      GAdaptedOutput(HydroCouple::IAdaptedOutput * adaptedOutput, HydroCouple::IAdaptedOutputFactory *factory,
+      GAdaptedOutput(HydroCouple::IIdentity *adaptedOutputId, HydroCouple::IAdaptedOutputFactory *factory,
                      GOutput *adaptee, GInput *input);
 
       virtual ~GAdaptedOutput();
+
+      HydroCouple::IExchangeItem* exchangeItem() const override;
+
+      HydroCouple::IOutput* output() const;
 
       HydroCouple::IAdaptedOutput* adaptedOutput() const;
 
@@ -174,9 +194,17 @@ class GAdaptedOutput : public GOutput
 
       void readAdaptedOutputExchangeItemConnections(QXmlStreamReader &xmlReader, QList<QString> &errorMessages);
 
+      bool deleteConnection(GConnection* connection) override;
+
+      void disestablishConnections() override;
+
+      void reestablishConnections() override;
+
    private:
+
       GOutput *m_adaptee;
       GInput *m_input;
+      HydroCouple::IIdentity *m_adaptedOutputId;
       HydroCouple::IAdaptedOutput *m_adaptedOutput;
       HydroCouple::IAdaptedOutputFactory *m_adaptedOutputFactory;
       QList<HydroCouple::IAdaptedOutput*> m_childAdaptedOutputs;

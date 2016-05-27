@@ -34,9 +34,8 @@ const QString HydroCoupleComposer::sc_modelComponentInfoHtml =
       "</body>"
       "</html>";
 
+
 QIcon HydroCoupleComposer::s_categoryIcon = QIcon();
-
-
 
 HydroCoupleComposer::HydroCoupleComposer(QWidget *parent)
    : QMainWindow(parent),
@@ -44,14 +43,15 @@ HydroCoupleComposer::HydroCoupleComposer(QWidget *parent)
 {
    setupUi(this);
    
-   qRegisterMetaType<std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs>>();
-   qRegisterMetaType<std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs>>("std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs>");
+   qRegisterMetaType<QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>>();
+   qRegisterMetaType<QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>>("QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>");
 
    m_argumentDialog = new ArgumentDialog();
    new QXMLSyntaxHighlighter(m_argumentDialog->textEditInput);
    m_modelStatusItemModel = new ModelStatusItemModel(this);
    m_project = new HydroCoupleProject(this);
-   m_componentTreeViewModel = new QStandardItemModel(this);
+   m_componentInfoModel = new QStandardItemModel(this);
+   m_adaptedOutputsModel = new QStandardItemModel(this);
    m_propertyModel = new QPropertyModel(this);
    m_qVariantPropertyHolder = new QVariantHolderHelper(QVariant() , this);
    m_graphicsContextMenu = new QMenu(this);
@@ -110,7 +110,7 @@ void HydroCoupleComposer::setProject(HydroCoupleProject *project)
 
    m_simulationManager = new SimulationManager(m_project);
 
-   connect(m_simulationManager, &SimulationManager::postMessage , this , &HydroCoupleComposer::onPostToStatusBar);
+   connect(m_simulationManager, &SimulationManager::postMessage , this , &HydroCoupleComposer::onPostMessage);
    connect(m_simulationManager, &SimulationManager::setProgress , this , &HydroCoupleComposer::onSetProgress);
 
    onZoomExtent();
@@ -146,11 +146,12 @@ void HydroCoupleComposer::closeEvent(QCloseEvent* event)
    m_project = nullptr;
    
    graphicsViewHydroCoupleComposer->scene()->blockSignals(false);
+   event->accept();
 }
 
 void HydroCoupleComposer::dragMoveEvent(QDragMoveEvent* event)
 {
-   
+   event->accept();
 }
 
 void HydroCoupleComposer::dragEnterEvent(QDragEnterEvent * event)
@@ -206,7 +207,7 @@ void HydroCoupleComposer::dropEvent(QDropEvent * event)
 
 void HydroCoupleComposer::mousePressEvent(QMouseEvent * event)
 {
-   
+   event->accept();
 }
 
 void HydroCoupleComposer::keyPressEvent(QKeyEvent * event)
@@ -477,8 +478,8 @@ void HydroCoupleComposer::initializeGUIComponents()
 
 void HydroCoupleComposer::initializeComponentInfoTreeView()
 {
-   m_componentTreeViewModel->clear();
-   QStandardItem* rootItem = m_componentTreeViewModel->invisibleRootItem();
+   m_componentInfoModel->clear();
+   QStandardItem* rootItem = m_componentInfoModel->invisibleRootItem();
    s_categoryIcon.addFile(":/HydroCoupleComposer/close", QSize(), QIcon::Mode::Normal, QIcon::State::Off);
    s_categoryIcon.addFile(":/HydroCoupleComposer/open", QSize(), QIcon::Mode::Normal, QIcon::State::On);
    
@@ -489,35 +490,44 @@ void HydroCoupleComposer::initializeComponentInfoTreeView()
    rootItem->setWhatsThis("Model Components");
    
    QStringList temp; temp << "";
-   m_componentTreeViewModel->setHorizontalHeaderLabels(temp);
-   m_componentTreeViewModel->setSortRole(Qt::DisplayRole);
+   m_componentInfoModel->setHorizontalHeaderLabels(temp);
+   m_componentInfoModel->setSortRole(Qt::DisplayRole);
    
-   treeViewModelComponentInfos->setModel(m_componentTreeViewModel);
+   treeViewModelComponentInfos->setModel(m_componentInfoModel);
    treeViewModelComponentInfos->expand(rootItem->index());
 
    m_modelComponentInfoStandardItem = new QStandardItem("Models");
    QIcon modelIcon = QIcon(":/HydroCoupleComposer/hydrocouplecomposer");
    m_modelComponentInfoStandardItem->setIcon(modelIcon);
-   m_modelComponentInfoStandardItem->setData(true, Qt::UserRole);
-   m_componentTreeViewModel->appendRow(m_modelComponentInfoStandardItem);
+   QMap<QString,QVariant> mdata ;
+   mdata["ModelComponentInfo"] = "Models";
+   m_modelComponentInfoStandardItem->setData(mdata, Qt::UserRole);
+   m_componentInfoModel->appendRow(m_modelComponentInfoStandardItem);
+
 
    m_adaptedOutputComponentInfoStandardItem = new QStandardItem("AdaptedOutput Factories");
    QIcon adaptedOutputFactoryIcon = QIcon(":/HydroCoupleComposer/adaptercomponent");
    m_adaptedOutputComponentInfoStandardItem->setIcon(adaptedOutputFactoryIcon);
+
+   QMap<QString,QVariant> adata;
+   adata["AdaptedOutputFactoryComponentInfo"] = "AdaptedOutputFactories";
    m_adaptedOutputComponentInfoStandardItem->setData(true, Qt::UserRole);
-   m_componentTreeViewModel->appendRow(m_adaptedOutputComponentInfoStandardItem);
+   m_componentInfoModel->appendRow(m_adaptedOutputComponentInfoStandardItem);
 
 }
 
 void HydroCoupleComposer::initializeSimulationStatusTreeView()
 {
-
    treeViewSimulationStatus->setModel(m_modelStatusItemModel);
-   
    ModelStatusItemStyledItemDelegate* statusProgressStyledItemDelegate = new ModelStatusItemStyledItemDelegate(treeViewSimulationStatus);
    treeViewSimulationStatus->setItemDelegate(statusProgressStyledItemDelegate);
    treeViewSimulationStatus->setColumnWidth(3,400);
    //treeViewSimulationStatus->header()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
+}
+
+void HydroCoupleComposer::initializeAdaptedOutputTreeView()
+{
+   treeViewAdaptedOutputs->setModel(m_adaptedOutputsModel);
 }
 
 void HydroCoupleComposer::initializePropertyGrid()
@@ -631,8 +641,8 @@ void HydroCoupleComposer::initializeSignalSlotConnections()
    connect(graphicsViewHydroCoupleComposer , SIGNAL(customContextMenuRequested(const QPoint&)) , this , SLOT(onGraphicsViewHydroCoupleComposerContextMenuRequested(const QPoint&)));
    
    //graphicsView
-   connect(graphicsViewHydroCoupleComposer, SIGNAL(statusChanged(const QString&)), this->statusBarMain, SLOT(showMessage(const QString&)));
-   connect(graphicsViewHydroCoupleComposer, SIGNAL(modelComponentInfoDropped(const QPointF&, const QString&)), this, SLOT(onModelComponentInfoDropped(const QPointF& , const QString& )));
+//   connect(graphicsViewHydroCoupleComposer, SIGNAL(statusChanged(const QString&)), this->statusBarMain, SLOT(showMessage(const QString&)));
+   connect(graphicsViewHydroCoupleComposer, &GraphicsView::itemDropped, this, &HydroCoupleComposer::onItemDroppedInGraphicsView);
    
    //graphicsScene
    connect(graphicsViewHydroCoupleComposer->scene(), SIGNAL(selectionChanged()), this, SLOT(onSelectionChanged()));
@@ -738,18 +748,17 @@ void HydroCoupleComposer::createConnection(GExchangeItem *producer, GExchangeIte
    actionCreateConnection->setChecked(false);
 }
 
-QStandardItem* HydroCoupleComposer::findStandardItem(const QString& id, QStandardItem* parent,  QVariant::Type userType, Qt::ItemDataRole role, bool recursive)
+QStandardItem* HydroCoupleComposer::findStandardItem(const QString &id, QStandardItem *parent, const QString &key, bool recursive)
 {
    if (!id.isNull() && !id.isEmpty())
    {
       for (int i = 0; i < parent->rowCount(); i++)
       {
          QStandardItem* child = parent->child(i);
+
+         QMap<QString,QVariant> data = child->data(Qt::UserRole).toMap();
          
-         QString cname = child->data(role).toString();
-         QVariant userRole = child->data(Qt::UserRole);
-         
-         if (userRole.userType() == userType && !cname.compare(id, Qt::CaseInsensitive))
+         if (data.contains(key) && !data[key].toString().compare(id, Qt::CaseInsensitive))
          {
             return child;
          }
@@ -759,7 +768,7 @@ QStandardItem* HydroCoupleComposer::findStandardItem(const QString& id, QStandar
             
             if (child->hasChildren())
             {
-               c = findStandardItem(id, child , userType , role , recursive);
+               c = findStandardItem(id, child,key,recursive);
                
                if (c != child)
                {
@@ -1144,7 +1153,7 @@ void HydroCoupleComposer::onRunSimulation()
       }
    }
 
-   m_simulationManager->runSimulation(true);
+   m_simulationManager->runComposition(true);
 }
 
 void HydroCoupleComposer::onAddComponentLibraryDirectory()
@@ -1303,7 +1312,6 @@ void HydroCoupleComposer::onEditSelectedItem()
       if( m_argumentDialog->isHidden())
       {
          GModelComponent *modelComponent = m_selectedModelComponents[0];
-
          if(modelComponent->modelComponent()->status() == HydroCouple::Created || modelComponent->modelComponent()->status() == HydroCouple::Failed)
          {
             m_argumentDialog->show();
@@ -1313,11 +1321,11 @@ void HydroCoupleComposer::onEditSelectedItem()
    }
    else if (m_selectedModelComponents.length() == 0 && m_selectedAdaptedOutputs.length() == 1)
    {
-      //      if(m_connectionDialog->isHidden())
-      //      {
-      //         m_connectionDialog->show();
-      //         m_connectionDialog->setConnection(m_selectModelComponentConnections[0]);
-      //      }
+      if(m_argumentDialog->isHidden())
+      {
+         m_argumentDialog->show();
+         m_argumentDialog->setAdaptedOutput(m_selectedAdaptedOutputs[0]);
+      }
    }
 }
 
@@ -1655,6 +1663,7 @@ void HydroCoupleComposer::onBrowseToComponentLibraryPath()
       }
    }
 }
+
 void HydroCoupleComposer::onLoadComponentLibrary()
 {
 #ifdef _WIN32
@@ -1722,7 +1731,7 @@ void HydroCoupleComposer::onModelComponentInfoLoaded(const IModelComponentInfo* 
    {
       QString category = categories[0];
       
-      QStandardItem* childCategoryItem = findStandardItem(category, parent , QVariant::Bool , Qt::UserRole , true);
+      QStandardItem* childCategoryItem = findStandardItem(category, parent , "ModelComponentInfo" , true);
       
       if (childCategoryItem == parent)
       {
@@ -1730,7 +1739,11 @@ void HydroCoupleComposer::onModelComponentInfoLoaded(const IModelComponentInfo* 
          newCategoryItem->setToolTip(category);
          newCategoryItem->setStatusTip(category);
          newCategoryItem->setWhatsThis(category);
-         newCategoryItem->setData(true, Qt::UserRole);
+
+         QMap<QString,QVariant> data;
+         data["ModelComponentInfo"] = category;
+         newCategoryItem->setData(data, Qt::UserRole);
+
          parent->appendRow(newCategoryItem);
          parent = newCategoryItem;
       }
@@ -1771,7 +1784,9 @@ void HydroCoupleComposer::onModelComponentInfoLoaded(const IModelComponentInfo* 
    
    componentTreeViewItem->setToolTip(html);
    componentTreeViewItem->setWhatsThis(html);
-   componentTreeViewItem->setData(modelComponentInfo->id(), Qt::UserRole);
+   QMap<QString,QVariant> data;
+   data["ModelComponentInfo"] = modelComponentInfo->id();
+   componentTreeViewItem->setData(data, Qt::UserRole);
    
    
    
@@ -1793,11 +1808,11 @@ void HydroCoupleComposer::onModelComponentInfoLoaded(const IModelComponentInfo* 
 
 void HydroCoupleComposer::onModelComponentInfoUnloaded(const QString& id)
 {
-   QStandardItem* childCategoryItem = findStandardItem(id, m_modelComponentInfoStandardItem , QVariant::String , Qt::UserRole , true);
+   QStandardItem* childCategoryItem = findStandardItem(id, m_modelComponentInfoStandardItem , "ModelComponentInfo" , true);
    
    if(childCategoryItem)
    {
-      m_componentTreeViewModel->removeRow(childCategoryItem->index().row() , m_modelComponentInfoStandardItem->index()) ;
+      m_componentInfoModel->removeRow(childCategoryItem->index().row() , m_modelComponentInfoStandardItem->index()) ;
       m_propertyModel->setData(QVariant());
    }
    
@@ -1821,7 +1836,7 @@ void HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoLoaded(const IAdapt
    {
       QString category = categories[0];
 
-      QStandardItem* childCategoryItem = findStandardItem(category, parent , QVariant::Bool , Qt::UserRole , true);
+      QStandardItem* childCategoryItem = findStandardItem(category, parent , "AdaptedOutputFactoryComponentInfo" , true);
 
       if (childCategoryItem == parent)
       {
@@ -1829,7 +1844,10 @@ void HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoLoaded(const IAdapt
          newCategoryItem->setToolTip(category);
          newCategoryItem->setStatusTip(category);
          newCategoryItem->setWhatsThis(category);
-         newCategoryItem->setData(true, Qt::UserRole);
+
+         QMap<QString,QVariant> data;
+         data["AdaptedOutputFactoryComponentInfo"] = category;
+         newCategoryItem->setData(data, Qt::UserRole);
          parent->appendRow(newCategoryItem);
          parent = newCategoryItem;
       }
@@ -1870,7 +1888,9 @@ void HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoLoaded(const IAdapt
 
    componentTreeViewItem->setToolTip(html);
    componentTreeViewItem->setWhatsThis(html);
-   componentTreeViewItem->setData(adaptedOutputFactoryComponentInfo->id(), Qt::UserRole);
+   QMap<QString,QVariant> data;
+   data["AdaptedOutputFactoryComponentInfo"] = adaptedOutputFactoryComponentInfo->id();
+   componentTreeViewItem->setData(data, Qt::UserRole);
 
 
 
@@ -1892,11 +1912,11 @@ void HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoLoaded(const IAdapt
 
 void HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoUnloaded(const QString &id)
 {
-   QStandardItem* childCategoryItem = findStandardItem(id, m_adaptedOutputComponentInfoStandardItem , QVariant::String , Qt::UserRole , true);
+   QStandardItem* childCategoryItem = findStandardItem(id, m_adaptedOutputComponentInfoStandardItem ,"AdaptedOutputFactoryComponentInfo" , true);
 
    if(childCategoryItem)
    {
-      m_componentTreeViewModel->removeRow(childCategoryItem->index().row() , m_adaptedOutputComponentInfoStandardItem->index()) ;
+      m_componentInfoModel->removeRow(childCategoryItem->index().row() , m_adaptedOutputComponentInfoStandardItem->index()) ;
       m_propertyModel->setData(QVariant());
    }
 
@@ -2019,31 +2039,6 @@ void HydroCoupleComposer::onModelComponentStatusItemDoubleClicked(const QModelIn
    }
 }
 
-void HydroCoupleComposer::onModelComponentInfoDropped(const QPointF& scenePos, const QString& id)
-{
-   IModelComponentInfo* foundModelComponentInfo = nullptr;
-   
-   if ((foundModelComponentInfo = m_project->componentManager()->findModelComponentInfoById(id)) != nullptr)
-   {
-      IModelComponent* component = foundModelComponentInfo->createComponentInstance();
-      
-      GModelComponent* gcomponent = new GModelComponent(component, m_project);
-      
-      QPointF f(scenePos);
-      f.setX(f.x() - gcomponent->boundingRect().width() / 2);
-      f.setY(f.y() - gcomponent->boundingRect().height() / 2);
-      
-      gcomponent->setPos(f);
-      
-      if (m_project->modelComponents().count() == 0)
-      {
-         gcomponent->setTrigger(true);
-      }
-      
-      m_project->addComponent(gcomponent);
-   }
-}
-
 void HydroCoupleComposer::onComponentInfoPropertyChanged(const QString& propertyName)
 {
    
@@ -2052,7 +2047,7 @@ void HydroCoupleComposer::onComponentInfoPropertyChanged(const QString& property
 
    if((modelComponentInfo = dynamic_cast<IModelComponentInfo*>(sender())))
    {
-      QStandardItem* componentTreeViewItem = findStandardItem( modelComponentInfo->id(), m_modelComponentInfoStandardItem, QVariant::String , Qt::UserRole , true);
+      QStandardItem* componentTreeViewItem = findStandardItem( modelComponentInfo->id(), m_modelComponentInfoStandardItem, "ModelComponentInfo", true);
       
       if(componentTreeViewItem && componentTreeViewItem != m_modelComponentInfoStandardItem)
       {
@@ -2121,6 +2116,38 @@ void HydroCoupleComposer::onModelComponentDoubleClicked(GModelComponent *modelCo
    {
       m_argumentDialog->show();
       m_argumentDialog->setComponent(modelComponent);
+   }
+}
+
+void HydroCoupleComposer::onItemDroppedInGraphicsView(const QPointF& scenePos, const QPair<QString,QString> &id)
+{
+   if(!id.first.compare("ModelComponentInfo" , Qt::CaseInsensitive))
+   {
+      IModelComponentInfo* foundModelComponentInfo = nullptr;
+
+      if ((foundModelComponentInfo = m_project->componentManager()->findModelComponentInfoById(id.second)) != nullptr)
+      {
+         IModelComponent* component = foundModelComponentInfo->createComponentInstance();
+
+         GModelComponent* gcomponent = new GModelComponent(component, m_project);
+
+         QPointF f(scenePos);
+         f.setX(f.x() - gcomponent->boundingRect().width() / 2);
+         f.setY(f.y() - gcomponent->boundingRect().height() / 2);
+
+         gcomponent->setPos(f);
+
+         if (m_project->modelComponents().count() == 0)
+         {
+            gcomponent->setTrigger(true);
+         }
+
+         m_project->addComponent(gcomponent);
+      }
+   }
+   else  if(id.first.compare("AdaptedOutput" , Qt::CaseInsensitive))
+   {
+
    }
 }
 

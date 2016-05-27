@@ -16,7 +16,9 @@ class ArgumentDialog : public QDialog , public Ui::ArgumentDialog
 
       virtual ~ArgumentDialog();
 
-      void setComponent(GModelComponent* component);
+      void setComponent(GModelComponent *component);
+
+      void setAdaptedOutput(GAdaptedOutput *adaptedOutput);
 
    signals:
 
@@ -39,7 +41,9 @@ class ArgumentDialog : public QDialog , public Ui::ArgumentDialog
       void onClose();
 
    private:
-      GModelComponent* m_component;
+      bool m_isComponent;
+      GModelComponent *m_component;
+      GAdaptedOutput *m_adaptedOutput;
       QHash<QString,HydroCouple::IArgument*> m_arguments;
 
 };

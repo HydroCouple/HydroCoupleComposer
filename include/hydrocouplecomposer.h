@@ -46,7 +46,10 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        */
       HydroCoupleProject* project() const;
 
-
+      /*!
+       * \brief setProject
+       * \param project
+       */
       void setProject(HydroCoupleProject* project);
 
    protected:
@@ -61,8 +64,16 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        */
       void dragMoveEvent(QDragMoveEvent * event) override;
 
+      /*!
+       * \brief dragEnterEvent
+       * \param event
+       */
       void dragEnterEvent(QDragEnterEvent * event) override;
 
+      /*!
+       * \brief dropEvent
+       * \param event
+       */
       void dropEvent(QDropEvent * event) override;
 
       /*!
@@ -99,37 +110,91 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       void initializeGUIComponents();
 
       /*!
-       * \brief initializeSimulationStatusTreeView
-       */
-      void initializeSimulationStatusTreeView();
-
-      /*!
        * \brief initializeComponentInfoTreeView
        */
       void initializeComponentInfoTreeView();
 
+      /*!
+       * \brief initializeSimulationStatusTreeView
+       */
+      void initializeSimulationStatusTreeView();
+
+
+      void initializeAdaptedOutputTreeView();
+
+      /*!
+       * \brief initializePropertyGrid
+       */
       void initializePropertyGrid();
 
+      /*!
+       * \brief initializeActions
+       */
       void initializeActions();
 
+      /*!
+       * \brief initializeSignalSlotConnections
+       */
       void initializeSignalSlotConnections();
 
+      /*!
+       * \brief initializeProjectSignalSlotConnections
+       */
       void initializeProjectSignalSlotConnections();
 
+      /*!
+       * \brief initializeContextMenus
+       */
       void initializeContextMenus();
 
+      /*!
+       * \brief createConnection
+       * \param producer
+       * \param consumer
+       */
       void createConnection(GExchangeItem* producer , GExchangeItem* consumer);
 
-      QStandardItem* findStandardItem(const QString& id, QStandardItem* parent,
-                                      QVariant::Type userType = QVariant::Bool, Qt::ItemDataRole role = Qt::DisplayRole, bool recursive = false);
+      /*!
+       * \brief findStandardItem
+       * \param id
+       * \param parent
+       * \param userType
+       * \param role
+       * \param recursive
+       * \return
+       */
+      QStandardItem* findStandardItem(const QString& id, QStandardItem* parent, const QString & key = "ModelComponentInfo", bool recursive = false);
 
-
+      /*!
+       * \brief addRemoveNodeToGraphicsView
+       * \param node
+       * \param add
+       */
       void addRemoveNodeToGraphicsView(GNode* node, bool add = true);
 
+      /*!
+       * \brief layoutNode
+       * \param graph
+       * \param identifiers
+       * \param node
+       * \param currentIndex
+       * \param addToGraph
+       */
       void layoutNode(Agraph_t* graph, QHash<GNode*,QString> & identifiers, GNode* node, int& currentIndex, bool addToGraph = true);
 
+      /*!
+       * \brief layoutEdges
+       * \param graph
+       * \param identifiers
+       * \param node
+       */
       void layoutEdges(Agraph_t* graph, const QHash<GNode*,QString> & identifiers, GNode* node);
 
+      /*!
+       * \brief stringToCharP
+       * \param text
+       * \param output
+       */
       void stringToCharP(const QString& text, char * & output);
 
       /*!
@@ -139,40 +204,96 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        */
       static void setRight(QGraphicsItem *graphicsItem, double right);
 
-      //!Set vertical center
+      /*!
+       * \brief setHorizontalCenter
+       * \param graphicsItem
+       * \param hcenter
+       */
       static void setHorizontalCenter(QGraphicsItem *graphicsItem, double hcenter);
 
-      //!Set bottom
+      /*!
+       * \brief setBottom
+       * \param graphicsItem
+       * \param bottom
+       */
       static void setBottom(QGraphicsItem *graphicsItem, double bottom);
 
-      //!Set vertical center
+      /*!
+       * \brief setVerticalCenter
+       * \param graphicsItem
+       * \param vcenter
+       */
       static void setVerticalCenter(QGraphicsItem *graphicsItem, double vcenter);
 
-      //!compare left edge
+      /*!
+       * \brief compareLeftEdges
+       * \param a
+       * \param b
+       * \return
+       */
       static bool compareLeftEdges(QGraphicsItem *a, QGraphicsItem *b);
 
-      //!compare horizontal center
+      /*!
+       * \brief compareHorizontalCenters
+       * \param a
+       * \param b
+       * \return
+       */
       static bool compareHorizontalCenters(QGraphicsItem *a, QGraphicsItem *b);
 
-      //!compare right edges
+      /*!
+       * \brief compareRightEdges
+       * \param a
+       * \param b
+       * \return
+       */
       static bool compareRightEdges(QGraphicsItem *a, QGraphicsItem *b);
 
-      //!compare top edges
+      /*!
+       * \brief compareTopEdges
+       * \param a
+       * \param b
+       * \return
+       */
       static bool compareTopEdges(QGraphicsItem *a, QGraphicsItem *b);
 
-      //!compare verticel center
+      /*!
+       * \brief compareVerticalCenters
+       * \param a
+       * \param b
+       * \return
+       */
       static bool compareVerticalCenters(QGraphicsItem *a, QGraphicsItem *b);
 
-      //!compare right edges
+      /*!
+       * \brief compareBottomEdges
+       * \param a
+       * \param b
+       * \return
+       */
       static bool compareBottomEdges(QGraphicsItem *a, QGraphicsItem *b);
 
    public slots:
+
+      /*!
+       * \brief onSetProgress
+       * \param visible
+       * \param progress
+       * \param min
+       * \param max
+       */
       void onSetProgress(bool visible, int progress = 0 , int min = 0 , int max = 100);
 
-      //!Post Output message
+      /*!
+       * \brief onPostMessage
+       * \param message
+       */
       void onPostMessage(const QString& message);
 
-      //!Message
+      /*!
+       * \brief onPostToStatusBar
+       * \param message
+       */
       void onPostToStatusBar(const QString &message);
 
    private slots:
@@ -197,6 +318,9 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        */
       void onSaveAs();
 
+      /*!
+       * \brief onExport
+       */
       void onExport();
 
       /*!
@@ -264,8 +388,14 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        */
       void onSetAsTrigger();
 
+      /*!
+       * \brief onInitializeComponent
+       */
       void onInitializeComponent();
 
+      /*!
+       * \brief onValidateComponent
+       */
       void onValidateComponent();
 
       /*!
@@ -318,8 +448,6 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       void onModelComponentStatusItemDoubleClicked(const QModelIndex& index);
 
-      void onModelComponentInfoDropped(const QPointF& scenePos, const QString& id);
-
       void onComponentInfoPropertyChanged(const QString& propertyName);
 
       void onModelComponentAdded(GModelComponent* modelComponent);
@@ -327,6 +455,8 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       void onModelComponentDeleting(GModelComponent* modelComponent);
 
       void onModelComponentDoubleClicked(GModelComponent* modelComponent);
+
+      void onItemDroppedInGraphicsView(const QPointF& scenePos, const QPair<QString,QString> &id);
 
       void onProjectHasChanges(bool hasChanges);
 
@@ -396,9 +526,9 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
    private:
 
-      HydroCoupleProject* m_project;
-      QPropertyModel* m_propertyModel;
-      QStandardItemModel* m_componentTreeViewModel;
+      HydroCoupleProject *m_project;
+      QPropertyModel *m_propertyModel;
+      QStandardItemModel *m_componentInfoModel, *m_adaptedOutputsModel;
       QProgressBar* m_progressBar;
       static QIcon s_categoryIcon;
       QStringList m_recentFiles;
@@ -423,7 +553,6 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       QStandardItem *m_modelComponentInfoStandardItem, *m_adaptedOutputComponentInfoStandardItem;
       QMenu *m_graphicsContextMenu, *m_treeviewComponentInfoContextMenu;
       SimulationManager *m_simulationManager;
-
 };
 
 #endif // HYDROCOUPLECOMPOSER_H

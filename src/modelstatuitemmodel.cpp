@@ -93,7 +93,7 @@ ModelStatusItemModel::ModelStatusItemModel(QObject *parent)
    connect(m_timer , SIGNAL(timeout()) , this , SLOT(onUpdateStatus()));
 
    if(m_useTimerUpdate)
-   m_timer->start(m_timeOut);
+      m_timer->start(m_timeOut);
 }
 
 ModelStatusItemModel::~ModelStatusItemModel()
@@ -232,10 +232,10 @@ QVariant ModelStatusItemModel::headerData(int section, Qt::Orientation orientati
                break;
          }
          break;
-      default:
-         return QVariant();
-         break;
    }
+
+   return QVariant();
+
 }
 
 void ModelStatusItemModel::addNewModel(HydroCouple::IModelComponent * modelComponent)
@@ -317,7 +317,7 @@ QList<ModelStatusItem*> ModelStatusItemModel::models() const
    return m_models;
 }
 
-void ModelStatusItemModel::onComponentStatusChanged(const std::shared_ptr<IComponentStatusChangeEventArgs> &statusChangedEvent)
+void ModelStatusItemModel::onComponentStatusChanged(const QSharedPointer<IComponentStatusChangeEventArgs> &statusChangedEvent)
 {
    if(!m_useTimerUpdate)
    {
@@ -377,16 +377,16 @@ void ModelStatusItemModel::createSignalSlotConnections(ModelStatusItem *modelSta
 void ModelStatusItemModel::disconnectSignalSlotConnections(ModelStatusItem *modelStatusItem)
 {
    disconnect(modelStatusItem , &ModelStatusItem::componentStatusChanged,
-           this , &ModelStatusItemModel::onComponentStatusChanged);
+              this , &ModelStatusItemModel::onComponentStatusChanged);
 
    disconnect(modelStatusItem , &ModelStatusItem::propertyChanged ,
-           this , &ModelStatusItemModel::onModelStatusItemPropertyChanged);
+              this , &ModelStatusItemModel::onModelStatusItemPropertyChanged);
 
    disconnect(modelStatusItem , &ModelStatusItem::childrenChanging ,
-           this , &ModelStatusItemModel::onChildrenChanging);
+              this , &ModelStatusItemModel::onChildrenChanging);
 
    disconnect(modelStatusItem ,  &ModelStatusItem::childrenChanged ,
-           this , &ModelStatusItemModel::onChildrenChanged);
+              this , &ModelStatusItemModel::onChildrenChanged);
 
    for(ModelStatusItem* item : modelStatusItem->childModelStatusItems())
    {

@@ -48,12 +48,14 @@ void GraphicsView::onCurrentToolChanged(int currentTool)
 
 void GraphicsView::dragEnterEvent(QDragEnterEvent *event)
 {
-   if (event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist") && canAcceptDropAsModelComponentInfo(event->mimeData()))
+   if (event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist") && canAcceptDrop(event->mimeData()))
    {
       event->accept();
    }
    else
+   {
       event->ignore();
+   }
 
 }
 
@@ -72,11 +74,11 @@ void GraphicsView::dragMoveEvent(QDragMoveEvent *event)
 
 void GraphicsView::dropEvent(QDropEvent  *event)
 {
-   QString id;
+   QPair<QString,QString> id = QPair<QString,QString>("","");
 
-   if (canAcceptDropAsModelComponentInfo(event->mimeData(), id))
+   if (canAcceptDrop(event->mimeData(), id))
    {
-      emit modelComponentInfoDropped(mapToScene(event->pos()), id);
+      emit itemDropped(mapToScene(event->pos()), id);
       event->accept();
    }
    else
@@ -271,7 +273,7 @@ bool GraphicsView::viewportEvent(QEvent *event)
    return QGraphicsView::viewportEvent(event);
 }
 
-bool GraphicsView::canAcceptDropAsModelComponentInfo(const QMimeData* data)
+bool GraphicsView::canAcceptDrop(const QMimeData* data)
 {
    if (data->hasFormat("application/x-qabstractitemmodeldatalist"))
    {
@@ -287,13 +289,24 @@ bool GraphicsView::canAcceptDropAsModelComponentInfo(const QMimeData* data)
          /* do something with the data */
          QVariant value = roleDataMap[Qt::UserRole];
 
-         if (value.type() == QVariant::Bool)
+         if (value.type() == QVariant::Map)
          {
+            QMap<QString,QVariant> map = value.toMap();
+
+            if(map.contains("ModelComponentInfo"))
+            {
+               return true;
+            }
+            else if(map.contains("AdaptedOutputComponentInfo"))
+            {
+               return true;
+            }
+            else if(map.contains("AdaptedOutput"))
+            {
+               return true;
+            }
+
             return false;
-         }
-         else
-         {
-            return true;
          }
       }
    }
@@ -301,7 +314,7 @@ bool GraphicsView::canAcceptDropAsModelComponentInfo(const QMimeData* data)
    return false;
 }
 
-bool GraphicsView::canAcceptDropAsModelComponentInfo(const QMimeData* data, QString& id)
+bool GraphicsView::canAcceptDrop(const QMimeData* data, QPair<QString,QString> &id)
 {
    if (data->hasFormat("application/x-qabstractitemmodeldatalist"))
    {
@@ -317,14 +330,33 @@ bool GraphicsView::canAcceptDropAsModelComponentInfo(const QMimeData* data, QStr
          /* do something with the data */
          QVariant value = roleDataMap[Qt::UserRole];
 
-         if (value.type() == QVariant::Bool)
+         if (value.type() == QVariant::Map)
          {
+            QMap<QString,QVariant> map = value.toMap();
+
+            if(map.contains("ModelComponentInfo"))
+            {
+               id.first = "ModelComponentInfo";
+               id.second = map[id.first].toString();
+
+               return true;
+            }
+            else if(map.contains("AdaptedOutputComponentInfo"))
+            {
+               id.first = "AdaptedOutputComponentInfo";
+               id.second = map[id.first].toString();
+
+               return true;
+            }
+            else if(map.contains("AdaptedOutput"))
+            {
+               id.first = "AdaptedOutput";
+               id.second = map[id.first].toString();
+
+               return true;
+            }
+
             return false;
-         }
-         else
-         {
-            id = value.toString();
-            return true;
          }
       }
    }

@@ -32,7 +32,7 @@ HEADERS += ./include/componentmanager.h \
            ./include/custompropertyitems.h \
            ./include/gexchangeitems.h \
            ./include/modelstatusitemmodel.h \
-           ./include/modelstatusitemstatuschangeeventargswrapper.h \
+           ./include/modelstatuschangeeventarg.h \
            ./include/modelstatusitem.h \
            ./include/argumentdialog.h \
            ./include/gnode.h \
@@ -52,7 +52,7 @@ SOURCES += ./src/stdafx.cpp \
            ./src/custompropertyitems.cpp \
            ./src/gexchangeitem.cpp \
            ./src/modelstatuitemmodel.cpp \
-           ./src/modelstatusitemstatuschangeeventargswrapper.cpp \
+           ./src/modelstatuschangeeventarg.cpp \
            ./src/modelstatusitem.cpp \
            ./src/argumentdialog.cpp \
            ./src/gnode.cpp \

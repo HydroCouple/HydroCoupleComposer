@@ -35,8 +35,8 @@ GModelComponent::GModelComponent(IModelComponent* model, HydroCoupleProject *par
    m_parent = parent;
    m_modelComponent = model;
 
-   connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(componentStatusChanged(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &)),
-           this, SLOT(onComponentStatusChanged(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &)));
+   connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(componentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &)),
+           this, SLOT(onComponentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &)));
    connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(propertyChanged(const QString &)), this, SLOT(onPropertyChanged(const QString&)));
 
 
@@ -447,7 +447,7 @@ void GModelComponent::writeComponent(const QFileInfo &fileInfo)
                {
                   xmlWriter.writeAttribute("ArgumentId",argument->id());
 
-                  switch (argument->argumentIOType())
+                  switch (argument->currentArgumentIOType())
                   {
                      case HydroCouple::File:
                         {
@@ -531,7 +531,7 @@ void GModelComponent::writeComponent(QXmlStreamWriter &xmlWriter)
                {
                   xmlWriter.writeAttribute("Id",argument->id());
 
-                  switch (argument->argumentIOType())
+                  switch (argument->currentArgumentIOType())
                   {
                      case HydroCouple::File:
                         {
@@ -717,16 +717,6 @@ void GModelComponent::deleteConnections()
    }
 }
 
-bool GModelComponent::ignoreSignalsFromComponent() const
-{
-   return m_ignoreSignalsFromComponent;
-}
-
-void GModelComponent::setIgnoreSignalsFromComponent(bool ignore)
-{
-   m_ignoreSignalsFromComponent = ignore;
-}
-
 QVariant GModelComponent::itemChange(GraphicsItemChange change, const QVariant &value)
 {
    if(change == QGraphicsItem::ItemPositionChange && m_moveExchangeItemsWhenMoved)
@@ -761,6 +751,10 @@ void GModelComponent::deleteExchangeItems()
 void GModelComponent::createExchangeItems()
 {
 
+   m_inputs.clear();
+   m_outputs.clear();
+
+
    QPointF p = pos();
    QRectF bound = boundingRect();
 
@@ -776,28 +770,53 @@ void GModelComponent::createExchangeItems()
    {
       m_outputs[output->id()] = output;
 
-      GOutput* goutput = new GOutput(output->id(),this);
-      m_outputGraphicObjects[output->id()] = goutput;
+      GOutput* goutput = nullptr;
 
-      if(sign)
+      if(m_outputGraphicObjects.contains(output->id()))
       {
-         goutput->setPos(xl, count * 180 + lc);
-         sign = false;
-         count++;
+         goutput = m_outputGraphicObjects[output->id()];
       }
       else
       {
-         goutput->setPos(xl, -count * 180 + lc);
-         sign = true;
-      }
+         GOutput* goutput = new GOutput(output->id(),this);
+         m_outputGraphicObjects[output->id()] = goutput;
 
-      if(scene())
+         if(sign)
+         {
+            goutput->setPos(xl, count * 180 + lc);
+            sign = false;
+            count++;
+         }
+         else
+         {
+            goutput->setPos(xl, -count * 180 + lc);
+            sign = true;
+         }
+
+         if(scene())
+         {
+            scene()->addItem(goutput);
+         }
+
+         connect(goutput,SIGNAL(hasChanges()),this,SLOT(onChildHasChanges()));
+         createConnection(goutput);
+      }
+   }
+
+   QHash<QString,GOutput*>::iterator it = m_outputGraphicObjects.begin();
+
+   while(it != m_outputGraphicObjects.end())
+   {
+      if(!m_outputs.contains(it.value()->id()))
       {
-         scene()->addItem(goutput);
+         emit postMessage("Output exchangeitem with id " +  it.value()->id() + " could not be found therefore it will be removed");
+         m_outputGraphicObjects.erase(it);
+         deleteConnection(it.value());
       }
-
-      connect(goutput,SIGNAL(hasChanges()),this,SLOT(onChildHasChanges()));
-      createConnection(goutput);
+      else
+      {
+         it++;
+      }
    }
 
    sign = true;
@@ -810,38 +829,61 @@ void GModelComponent::createExchangeItems()
 
       GInput* ginput = nullptr;
 
-      IMultiInput* minput = dynamic_cast<IMultiInput*>(input);
-
-      if(minput)
+      if(m_inputGraphicObjects.contains(input->id()))
       {
-         ginput = new GMultiInput(minput->id(), this);
+         ginput = m_inputGraphicObjects[input->id()];
       }
       else
       {
-         ginput = new GInput(input->id(),this);
+         IMultiInput* minput = dynamic_cast<IMultiInput*>(input);
+
+         if(minput)
+         {
+            ginput = new GMultiInput(minput->id(), this);
+         }
+         else
+         {
+            ginput = new GInput(input->id(),this);
+         }
+
+         m_inputGraphicObjects[ginput->id()] = ginput;
+
+         if(sign)
+         {
+            ginput->setPos(xr, count * 180 + lc);
+            sign = false;
+            count++;
+         }
+         else
+         {
+            ginput->setPos(xr, -count * 180 + lc);
+            sign = true;
+         }
+
+         if(scene())
+         {
+            scene()->addItem(ginput);
+         }
+
+         connect(ginput,SIGNAL(hasChanges()),this,SLOT(onChildHasChanges()));
+         ginput->createConnection(this);
       }
+   }
 
-      m_inputGraphicObjects[ginput->id()] = ginput;
+   QHash<QString,GInput*>::iterator itinp = m_inputGraphicObjects.begin();
 
-      if(sign)
+   while(itinp != m_inputGraphicObjects.end())
+   {
+      if(!m_inputs.contains(itinp.value()->id()))
       {
-         ginput->setPos(xr, count * 180 + lc);
-         sign = false;
-         count++;
+         emit postMessage("Input exchangeitem with id " +  itinp.value()->id() + " could not be found therefore it will be removed");
+         m_inputGraphicObjects.erase(itinp);
+         delete itinp.value();
       }
       else
       {
-         ginput->setPos(xr, -count * 180 + lc);
-         sign = true;
+         itinp++;
       }
-
-      if(scene())
-      {
-         scene()->addItem(ginput);
-      }
-
-      connect(ginput,SIGNAL(hasChanges()),this,SLOT(onChildHasChanges()));
-      ginput->createConnection(this);
    }
 
    emit hasChanges();
@@ -894,44 +936,43 @@ void GModelComponent::readArgument(QXmlStreamReader &xmlReader , IModelComponent
    }
 }
 
-void GModelComponent::onComponentStatusChanged(const std::shared_ptr<IComponentStatusChangeEventArgs> & statusChangedEvent)
+void GModelComponent::onComponentStatusChanged(const QSharedPointer<IComponentStatusChangeEventArgs> & statusChangedEvent)
 {
    //#ifndef QT_DEBUG
-   if(statusChangedEvent->status() == ComponentStatus::Failed || !m_ignoreSignalsFromComponent)
+
+   if(statusChangedEvent->status() ==  ComponentStatus::Initialized)
    {
-      //#endif
-      onCreateTextItem();
-
-      if(statusChangedEvent->status() ==  ComponentStatus::Initialized ||
-            statusChangedEvent->status() == ComponentStatus::Created)
-      {
-         deleteExchangeItems();
-         createExchangeItems();
-      }
-
-      emit componentStatusChanged(statusChangedEvent);
-
-      emit postMessage(statusChangedEvent->message());
-      //#ifndef QT_DEBUG
+      createExchangeItems();
    }
+   else if(statusChangedEvent->status() == ComponentStatus::Created)
+   {
+      m_inputs.clear();
+      m_outputs.clear();
+   }
+
+   if(!signalsBlocked())
+   onCreateTextItem();
+
+   emit componentStatusChanged(statusChangedEvent);
+   emit postMessage(statusChangedEvent->message());
+
    //#endif
 }
 
 void GModelComponent::onPropertyChanged(const QString& propertyName)
 {
-   if(!m_ignoreSignalsFromComponent)
-   {
-      if (!propertyName.compare("Status", Qt::CaseInsensitive) ||
-          !propertyName.compare("Id", Qt::CaseInsensitive) ||
-          !propertyName.compare("Caption", Qt::CaseInsensitive) ||
-          !propertyName.compare("Description", Qt::CaseInsensitive)
-          )
-      {
-         onCreateTextItem();
-      }
 
-      emit propertyChanged(propertyName);
+   if (!propertyName.compare("Status", Qt::CaseInsensitive) ||
+       !propertyName.compare("Id", Qt::CaseInsensitive) ||
+       !propertyName.compare("Caption", Qt::CaseInsensitive) ||
+       !propertyName.compare("Description", Qt::CaseInsensitive)
+       )
+   {
+      onCreateTextItem();
    }
+
+   emit propertyChanged(propertyName);
+
 }
 
 void GModelComponent::onDoubleClicked(GNode *node)

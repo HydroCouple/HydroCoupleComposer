@@ -13,8 +13,8 @@ MAKEFILE      = Makefile
 CC            = /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang
 CXX           = /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++
 DEFINES       = -DQT_PRINTSUPPORT_LIB -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CONCURRENT_LIB -DQT_CORE_LIB
-CFLAGS        = -pipe -g -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk -mmacosx-version-min=10.11.3 -Wall -W -fPIC $(DEFINES)
-CXXFLAGS      = -pipe -stdlib=libc++ -g -std=gnu++11 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk -mmacosx-version-min=10.11.3 -Wall -W -fPIC $(DEFINES)
+CFLAGS        = -pipe -g -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk -mmacosx-version-min=10.7 -Wall -W -fPIC $(DEFINES)
+CXXFLAGS      = -pipe -stdlib=libc++ -g -std=gnu++11 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk -mmacosx-version-min=10.7 -Wall -W -fPIC $(DEFINES)
 INCPATH       = -I. -I. -Iinclude -I../HydroCouple/include -I../../QPropertyModel/QPropertyModel/include -I/usr/local/include -I../../../../Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I../../../../Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -Ibuild/debug/.moc -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk/System/Library/Frameworks/OpenGL.framework/Headers -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk/System/Library/Frameworks/AGL.framework/Headers -Ibuild/debug/.ui -I../../../../Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib
 QMAKE         = /Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/qmake
 DEL_FILE      = rm -f
@@ -35,7 +35,7 @@ COMPRESS      = gzip -9f
 DISTNAME      = HydroCoupleComposer1.0.0
 DISTDIR = /Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/build/debug/.obj/HydroCoupleComposer1.0.0
 LINK          = /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang++
-LFLAGS        = -headerpad_max_install_names -stdlib=libc++ -Wl,-syslibroot,/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk -mmacosx-version-min=10.11.3 -Wl,-rpath,/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib
+LFLAGS        = -headerpad_max_install_names -stdlib=libc++ -Wl,-syslibroot,/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.10.sdk -mmacosx-version-min=10.7 -Wl,-rpath,/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib
 LIBS          = $(SUBLIBS) -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib -L./../../QPropertyModel/QPropertyModel/build/debug -lQPropertyModel.1.0.0 -L/usr/local/lib -lcgraph -lgvc -framework QtPrintSupport -framework QtWidgets -framework QtGui -framework QtConcurrent -framework QtCore -framework OpenGL -framework AGL 
 AR            = /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar cq
 RANLIB        = /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib -s
@@ -60,7 +60,7 @@ SOURCES       = src/stdafx.cpp \
 		src/custompropertyitems.cpp \
 		src/gexchangeitem.cpp \
 		src/modelstatuitemmodel.cpp \
-		src/modelstatusitemstatuschangeeventargswrapper.cpp \
+		src/modelstatuschangeeventarg.cpp \
 		src/modelstatusitem.cpp \
 		src/argumentdialog.cpp \
 		src/gnode.cpp \
@@ -80,7 +80,7 @@ SOURCES       = src/stdafx.cpp \
 		build/debug/.moc/moc_custompropertyitems.cpp \
 		build/debug/.moc/moc_gexchangeitems.cpp \
 		build/debug/.moc/moc_modelstatusitemmodel.cpp \
-		build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp \
+		build/debug/.moc/moc_modelstatuschangeeventarg.cpp \
 		build/debug/.moc/moc_modelstatusitem.cpp \
 		build/debug/.moc/moc_argumentdialog.cpp \
 		build/debug/.moc/moc_gnode.cpp \
@@ -99,7 +99,7 @@ OBJECTS       = build/debug/.obj/stdafx.o \
 		build/debug/.obj/custompropertyitems.o \
 		build/debug/.obj/gexchangeitem.o \
 		build/debug/.obj/modelstatuitemmodel.o \
-		build/debug/.obj/modelstatusitemstatuschangeeventargswrapper.o \
+		build/debug/.obj/modelstatuschangeeventarg.o \
 		build/debug/.obj/modelstatusitem.o \
 		build/debug/.obj/argumentdialog.o \
 		build/debug/.obj/gnode.o \
@@ -120,7 +120,7 @@ OBJECTS       = build/debug/.obj/stdafx.o \
 		build/debug/.obj/moc_custompropertyitems.o \
 		build/debug/.obj/moc_gexchangeitems.o \
 		build/debug/.obj/moc_modelstatusitemmodel.o \
-		build/debug/.obj/moc_modelstatusitemstatuschangeeventargswrapper.o \
+		build/debug/.obj/moc_modelstatuschangeeventarg.o \
 		build/debug/.obj/moc_modelstatusitem.o \
 		build/debug/.obj/moc_argumentdialog.o \
 		build/debug/.obj/moc_gnode.o \
@@ -246,7 +246,6 @@ DIST          = ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/spec_pre.prf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/qt_config.prf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/macx-clang/qmake.conf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/spec_post.prf \
-		.qmake.stash \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/exclusive_builds.prf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/default_pre.prf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/mac/default_pre.prf \
@@ -277,7 +276,7 @@ DIST          = ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/spec_pre.prf \
 		include/custompropertyitems.h \
 		include/gexchangeitems.h \
 		include/modelstatusitemmodel.h \
-		include/modelstatusitemstatuschangeeventargswrapper.h \
+		include/modelstatuschangeeventarg.h \
 		include/modelstatusitem.h \
 		include/argumentdialog.h \
 		include/gnode.h \
@@ -295,7 +294,7 @@ DIST          = ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/spec_pre.prf \
 		src/custompropertyitems.cpp \
 		src/gexchangeitem.cpp \
 		src/modelstatuitemmodel.cpp \
-		src/modelstatusitemstatuschangeeventargswrapper.cpp \
+		src/modelstatuschangeeventarg.cpp \
 		src/modelstatusitem.cpp \
 		src/argumentdialog.cpp \
 		src/gnode.cpp \
@@ -437,7 +436,6 @@ Makefile: HydroCoupleComposer.pro ../../../../Qt5.6.0/5.6/clang_64/mkspecs/macx-
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/qt_config.prf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/macx-clang/qmake.conf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/spec_post.prf \
-		.qmake.stash \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/exclusive_builds.prf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/default_pre.prf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/mac/default_pre.prf \
@@ -585,7 +583,6 @@ Makefile: HydroCoupleComposer.pro ../../../../Qt5.6.0/5.6/clang_64/mkspecs/macx-
 ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/qt_config.prf:
 ../../../../Qt5.6.0/5.6/clang_64/mkspecs/macx-clang/qmake.conf:
 ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/spec_post.prf:
-.qmake.stash:
 ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/exclusive_builds.prf:
 ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/default_pre.prf:
 ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/mac/default_pre.prf:
@@ -648,8 +645,8 @@ distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents resources/hydrocouplecomposer.qrc $(DISTDIR)/
-	$(COPY_FILE) --parents include/componentmanager.h include/gdefaultselectiongraphic.h include/gmodelcomponent.h include/graphicsview.h include/hydrocouplecomposer.h include/hydrocoupleproject.h include/splashscreen.h include/custompropertyitems.h include/gexchangeitems.h include/modelstatusitemmodel.h include/modelstatusitemstatuschangeeventargswrapper.h include/modelstatusitem.h include/argumentdialog.h include/gnode.h include/gconnection.h include/qxmlsyntaxhighlighter.h include/simulationmanager.h $(DISTDIR)/
-	$(COPY_FILE) --parents src/stdafx.cpp src/main.cpp src/hydrocoupleproject.cpp src/componentmanager.cpp src/gdefaultselectiongraphic.cpp src/gmodelcomponent.cpp src/graphicsview.cpp src/hydrocouplecomposer.cpp src/splashscreen.cpp src/custompropertyitems.cpp src/gexchangeitem.cpp src/modelstatuitemmodel.cpp src/modelstatusitemstatuschangeeventargswrapper.cpp src/modelstatusitem.cpp src/argumentdialog.cpp src/gnode.cpp src/gconnection.cpp src/ginput.cpp src/gmultiinput.cpp src/goutput.cpp src/gadaptedoutput.cpp src/qxmlsyntaxhighlighter.cpp src/simulationmanager.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents include/componentmanager.h include/gdefaultselectiongraphic.h include/gmodelcomponent.h include/graphicsview.h include/hydrocouplecomposer.h include/hydrocoupleproject.h include/splashscreen.h include/custompropertyitems.h include/gexchangeitems.h include/modelstatusitemmodel.h include/modelstatuschangeeventarg.h include/modelstatusitem.h include/argumentdialog.h include/gnode.h include/gconnection.h include/qxmlsyntaxhighlighter.h include/simulationmanager.h $(DISTDIR)/
+	$(COPY_FILE) --parents src/stdafx.cpp src/main.cpp src/hydrocoupleproject.cpp src/componentmanager.cpp src/gdefaultselectiongraphic.cpp src/gmodelcomponent.cpp src/graphicsview.cpp src/hydrocouplecomposer.cpp src/splashscreen.cpp src/custompropertyitems.cpp src/gexchangeitem.cpp src/modelstatuitemmodel.cpp src/modelstatuschangeeventarg.cpp src/modelstatusitem.cpp src/argumentdialog.cpp src/gnode.cpp src/gconnection.cpp src/ginput.cpp src/gmultiinput.cpp src/goutput.cpp src/gadaptedoutput.cpp src/qxmlsyntaxhighlighter.cpp src/simulationmanager.cpp $(DISTDIR)/
 	$(COPY_FILE) --parents forms/hydrocouplecomposer.ui forms/argumentdialog.ui $(DISTDIR)/
 
 
@@ -725,9 +722,9 @@ build/debug/.qrc/qrc_hydrocouplecomposer.cpp: resources/hydrocouplecomposer.qrc 
 		resources/Images/pan.png
 	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/rcc -name hydrocouplecomposer resources/hydrocouplecomposer.qrc -o build/debug/.qrc/qrc_hydrocouplecomposer.cpp
 
-compiler_moc_header_make_all: build/debug/.moc/moc_componentmanager.cpp build/debug/.moc/moc_gmodelcomponent.cpp build/debug/.moc/moc_graphicsview.cpp build/debug/.moc/moc_hydrocouplecomposer.cpp build/debug/.moc/moc_hydrocoupleproject.cpp build/debug/.moc/moc_splashscreen.cpp build/debug/.moc/moc_custompropertyitems.cpp build/debug/.moc/moc_gexchangeitems.cpp build/debug/.moc/moc_modelstatusitemmodel.cpp build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp build/debug/.moc/moc_modelstatusitem.cpp build/debug/.moc/moc_argumentdialog.cpp build/debug/.moc/moc_gnode.cpp build/debug/.moc/moc_gconnection.cpp build/debug/.moc/moc_qxmlsyntaxhighlighter.cpp build/debug/.moc/moc_simulationmanager.cpp
+compiler_moc_header_make_all: build/debug/.moc/moc_componentmanager.cpp build/debug/.moc/moc_gmodelcomponent.cpp build/debug/.moc/moc_graphicsview.cpp build/debug/.moc/moc_hydrocouplecomposer.cpp build/debug/.moc/moc_hydrocoupleproject.cpp build/debug/.moc/moc_splashscreen.cpp build/debug/.moc/moc_custompropertyitems.cpp build/debug/.moc/moc_gexchangeitems.cpp build/debug/.moc/moc_modelstatusitemmodel.cpp build/debug/.moc/moc_modelstatuschangeeventarg.cpp build/debug/.moc/moc_modelstatusitem.cpp build/debug/.moc/moc_argumentdialog.cpp build/debug/.moc/moc_gnode.cpp build/debug/.moc/moc_gconnection.cpp build/debug/.moc/moc_qxmlsyntaxhighlighter.cpp build/debug/.moc/moc_simulationmanager.cpp
 compiler_moc_header_clean:
-	-$(DEL_FILE) build/debug/.moc/moc_componentmanager.cpp build/debug/.moc/moc_gmodelcomponent.cpp build/debug/.moc/moc_graphicsview.cpp build/debug/.moc/moc_hydrocouplecomposer.cpp build/debug/.moc/moc_hydrocoupleproject.cpp build/debug/.moc/moc_splashscreen.cpp build/debug/.moc/moc_custompropertyitems.cpp build/debug/.moc/moc_gexchangeitems.cpp build/debug/.moc/moc_modelstatusitemmodel.cpp build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp build/debug/.moc/moc_modelstatusitem.cpp build/debug/.moc/moc_argumentdialog.cpp build/debug/.moc/moc_gnode.cpp build/debug/.moc/moc_gconnection.cpp build/debug/.moc/moc_qxmlsyntaxhighlighter.cpp build/debug/.moc/moc_simulationmanager.cpp
+	-$(DEL_FILE) build/debug/.moc/moc_componentmanager.cpp build/debug/.moc/moc_gmodelcomponent.cpp build/debug/.moc/moc_graphicsview.cpp build/debug/.moc/moc_hydrocouplecomposer.cpp build/debug/.moc/moc_hydrocoupleproject.cpp build/debug/.moc/moc_splashscreen.cpp build/debug/.moc/moc_custompropertyitems.cpp build/debug/.moc/moc_gexchangeitems.cpp build/debug/.moc/moc_modelstatusitemmodel.cpp build/debug/.moc/moc_modelstatuschangeeventarg.cpp build/debug/.moc/moc_modelstatusitem.cpp build/debug/.moc/moc_argumentdialog.cpp build/debug/.moc/moc_gnode.cpp build/debug/.moc/moc_gconnection.cpp build/debug/.moc/moc_qxmlsyntaxhighlighter.cpp build/debug/.moc/moc_simulationmanager.cpp
 build/debug/.moc/moc_componentmanager.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
@@ -735,6 +732,8 @@ build/debug/.moc/moc_componentmanager.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
@@ -757,6 +756,8 @@ build/debug/.moc/moc_gmodelcomponent.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/Q
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
@@ -802,6 +803,8 @@ build/debug/.moc/moc_hydrocouplecomposer.cpp: build/debug/.ui/ui_hydrocouplecomp
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
@@ -842,7 +845,7 @@ build/debug/.moc/moc_hydrocouplecomposer.cpp: build/debug/.ui/ui_hydrocouplecomp
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QTimer \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qtimer.h \
 		include/modelstatusitem.h \
-		include/modelstatusitemstatuschangeeventargswrapper.h \
+		include/modelstatuschangeeventarg.h \
 		include/gmodelcomponent.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
@@ -881,6 +884,8 @@ build/debug/.moc/moc_hydrocoupleproject.cpp: ../../../../Qt5.6.0/5.6/clang_64/li
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
@@ -924,6 +929,8 @@ build/debug/.moc/moc_custompropertyitems.cpp: ../../QPropertyModel/QPropertyMode
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qitemeditorfactory.h \
 		../HydroCouple/include/hydrocoupletemporal.h \
 		../HydroCouple/include/hydrocouple.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		../../QPropertyModel/QPropertyModel/include/qobjectlistpropertyitem.h \
 		include/gnode.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QGraphicsObject \
@@ -939,6 +946,8 @@ build/debug/.moc/moc_gexchangeitems.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/Qt
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/gnode.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QPen \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpen.h \
@@ -962,10 +971,12 @@ build/debug/.moc/moc_modelstatusitemmodel.cpp: ../../../../Qt5.6.0/5.6/clang_64/
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/modelstatusitem.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
-		include/modelstatusitemstatuschangeeventargswrapper.h \
+		include/modelstatuschangeeventarg.h \
 		include/gmodelcomponent.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
@@ -995,7 +1006,7 @@ build/debug/.moc/moc_modelstatusitemmodel.cpp: ../../../../Qt5.6.0/5.6/clang_64/
 		include/modelstatusitemmodel.h
 	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/modelstatusitemmodel.h -o build/debug/.moc/moc_modelstatusitemmodel.cpp
 
-build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp: include/gmodelcomponent.h \
+build/debug/.moc/moc_modelstatuschangeeventarg.cpp: include/gmodelcomponent.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
 		include/gnode.h \
@@ -1011,6 +1022,8 @@ build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp: include/gm
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
@@ -1025,12 +1038,12 @@ build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp: include/gm
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
 		include/gexchangeitems.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
-		include/modelstatusitemstatuschangeeventargswrapper.h
-	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/modelstatusitemstatuschangeeventargswrapper.h -o build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp
+		include/modelstatuschangeeventarg.h
+	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/modelstatuschangeeventarg.h -o build/debug/.moc/moc_modelstatuschangeeventarg.cpp
 
 build/debug/.moc/moc_modelstatusitem.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
-		include/modelstatusitemstatuschangeeventargswrapper.h \
+		include/modelstatuschangeeventarg.h \
 		include/gmodelcomponent.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
@@ -1047,6 +1060,8 @@ build/debug/.moc/moc_modelstatusitem.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/Q
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
@@ -1085,6 +1100,8 @@ build/debug/.moc/moc_argumentdialog.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/Qt
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
@@ -1114,12 +1131,16 @@ build/debug/.moc/moc_gnode.cpp: ../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.f
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/gnode.h
 	/Users/calebbuahin/Qt5.6.0/5.6/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/QPropertyModel/include -I/usr/local/include -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers -F/Users/calebbuahin/Qt5.6.0/5.6/clang_64/lib include/gnode.h -o build/debug/.moc/moc_gnode.cpp
 
 build/debug/.moc/moc_gconnection.cpp: ../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QGraphicsObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qgraphicsitem.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QPen \
@@ -1149,6 +1170,8 @@ build/debug/.moc/moc_simulationmanager.cpp: include/hydrocoupleproject.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
@@ -1468,6 +1491,8 @@ build/debug/.obj/main.o: src/main.cpp include/stdafx.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
@@ -1505,7 +1530,7 @@ build/debug/.obj/main.o: src/main.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QTimer \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qtimer.h \
 		include/modelstatusitem.h \
-		include/modelstatusitemstatuschangeeventargswrapper.h \
+		include/modelstatuschangeeventarg.h \
 		include/gmodelcomponent.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
@@ -1674,6 +1699,8 @@ build/debug/.obj/hydrocoupleproject.o: src/hydrocoupleproject.cpp include/stdafx
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
@@ -1831,6 +1858,8 @@ build/debug/.obj/componentmanager.o: src/componentmanager.cpp include/stdafx.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
@@ -2115,6 +2144,8 @@ build/debug/.obj/gmodelcomponent.o: src/gmodelcomponent.cpp include/stdafx.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
@@ -2281,6 +2312,8 @@ build/debug/.obj/graphicsview.o: src/graphicsview.cpp include/stdafx.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
@@ -2318,7 +2351,7 @@ build/debug/.obj/graphicsview.o: src/graphicsview.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QTimer \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qtimer.h \
 		include/modelstatusitem.h \
-		include/modelstatusitemstatuschangeeventargswrapper.h \
+		include/modelstatuschangeeventarg.h \
 		include/gmodelcomponent.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
@@ -2492,6 +2525,8 @@ build/debug/.obj/hydrocouplecomposer.o: src/hydrocouplecomposer.cpp include/stda
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
@@ -2529,7 +2564,7 @@ build/debug/.obj/hydrocouplecomposer.o: src/hydrocouplecomposer.cpp include/stda
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QTimer \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qtimer.h \
 		include/modelstatusitem.h \
-		include/modelstatusitemstatuschangeeventargswrapper.h \
+		include/modelstatuschangeeventarg.h \
 		include/gmodelcomponent.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
@@ -2868,6 +2903,8 @@ build/debug/.obj/custompropertyitems.o: src/custompropertyitems.cpp include/stda
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QItemEditorFactory \
 		../HydroCouple/include/hydrocoupletemporal.h \
 		../HydroCouple/include/hydrocouple.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		../../QPropertyModel/QPropertyModel/include/qobjectlistpropertyitem.h \
 		include/gnode.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QGraphicsObject \
@@ -3010,6 +3047,8 @@ build/debug/.obj/gexchangeitem.o: src/gexchangeitem.cpp include/stdafx.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/gnode.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QPen \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpen.h \
@@ -3174,10 +3213,12 @@ build/debug/.obj/modelstatuitemmodel.o: src/modelstatuitemmodel.cpp include/stda
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/modelstatusitem.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
-		include/modelstatusitemstatuschangeeventargswrapper.h \
+		include/modelstatuschangeeventarg.h \
 		include/gmodelcomponent.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
@@ -3209,7 +3250,7 @@ build/debug/.obj/modelstatuitemmodel.o: src/modelstatuitemmodel.cpp include/stda
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QProgressBar
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/modelstatuitemmodel.o src/modelstatuitemmodel.cpp
 
-build/debug/.obj/modelstatusitemstatuschangeeventargswrapper.o: src/modelstatusitemstatuschangeeventargswrapper.cpp include/stdafx.h \
+build/debug/.obj/modelstatuschangeeventarg.o: src/modelstatuschangeeventarg.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QtWidgets \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qaccessiblewidget.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qcolordialog.h \
@@ -3338,7 +3379,7 @@ build/debug/.obj/modelstatusitemstatuschangeeventargswrapper.o: src/modelstatusi
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtoolbox.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtoolbutton.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/qtwidgetsversion.h \
-		include/modelstatusitemstatuschangeeventargswrapper.h \
+		include/modelstatuschangeeventarg.h \
 		include/gmodelcomponent.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
@@ -3354,6 +3395,8 @@ build/debug/.obj/modelstatusitemstatuschangeeventargswrapper.o: src/modelstatusi
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
@@ -3368,7 +3411,7 @@ build/debug/.obj/modelstatusitemstatuschangeeventargswrapper.o: src/modelstatusi
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
 		include/gexchangeitems.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter
-	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/modelstatusitemstatuschangeeventargswrapper.o src/modelstatusitemstatuschangeeventargswrapper.cpp
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/modelstatuschangeeventarg.o src/modelstatuschangeeventarg.cpp
 
 build/debug/.obj/modelstatusitem.o: src/modelstatusitem.cpp include/stdafx.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QtWidgets \
@@ -3502,7 +3545,7 @@ build/debug/.obj/modelstatusitem.o: src/modelstatusitem.cpp include/stdafx.h \
 		include/modelstatusitem.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
-		include/modelstatusitemstatuschangeeventargswrapper.h \
+		include/modelstatuschangeeventarg.h \
 		include/gmodelcomponent.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
@@ -3518,6 +3561,8 @@ build/debug/.obj/modelstatusitem.o: src/modelstatusitem.cpp include/stdafx.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
@@ -3683,6 +3728,8 @@ build/debug/.obj/argumentdialog.o: src/argumentdialog.cpp include/stdafx.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/hydrocoupleproject.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
@@ -3840,6 +3887,8 @@ build/debug/.obj/gnode.o: src/gnode.cpp include/stdafx.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/gdefaultselectiongraphic.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QRectF \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qrect.h \
@@ -3982,6 +4031,8 @@ build/debug/.obj/gconnection.o: src/gconnection.cpp include/stdafx.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtWidgets.framework/Headers/QGraphicsObject \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QPen \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpen.h \
@@ -3993,7 +4044,20 @@ build/debug/.obj/gconnection.o: src/gconnection.cpp include/stdafx.h \
 		include/gexchangeitems.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
-		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
+		include/gmodelcomponent.h \
+		include/hydrocoupleproject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QObject \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qobject.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QFileInfo \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qfileinfo.h \
+		include/componentmanager.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QDir \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qdir.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qpluginloader.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/gconnection.o src/gconnection.cpp
 
 build/debug/.obj/ginput.o: src/ginput.cpp include/stdafx.h \
@@ -4130,6 +4194,8 @@ build/debug/.obj/ginput.o: src/ginput.cpp include/stdafx.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/gnode.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QPen \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpen.h \
@@ -4290,6 +4356,8 @@ build/debug/.obj/gmultiinput.o: src/gmultiinput.cpp include/stdafx.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/gnode.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QPen \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpen.h \
@@ -4450,6 +4518,8 @@ build/debug/.obj/goutput.o: src/goutput.cpp include/stdafx.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/gnode.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QPen \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpen.h \
@@ -4610,6 +4680,8 @@ build/debug/.obj/gadaptedoutput.o: src/gadaptedoutput.cpp include/stdafx.h \
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		include/gnode.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/QPen \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtGui.framework/Headers/qpen.h \
@@ -4912,6 +4984,8 @@ build/debug/.obj/simulationmanager.o: src/simulationmanager.cpp include/stdafx.h
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qvariant.h \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
+		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QSet \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.6.0/5.6/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
@@ -4970,8 +5044,8 @@ build/debug/.obj/moc_gexchangeitems.o: build/debug/.moc/moc_gexchangeitems.cpp
 build/debug/.obj/moc_modelstatusitemmodel.o: build/debug/.moc/moc_modelstatusitemmodel.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/moc_modelstatusitemmodel.o build/debug/.moc/moc_modelstatusitemmodel.cpp
 
-build/debug/.obj/moc_modelstatusitemstatuschangeeventargswrapper.o: build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp 
-	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/moc_modelstatusitemstatuschangeeventargswrapper.o build/debug/.moc/moc_modelstatusitemstatuschangeeventargswrapper.cpp
+build/debug/.obj/moc_modelstatuschangeeventarg.o: build/debug/.moc/moc_modelstatuschangeeventarg.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/moc_modelstatuschangeeventarg.o build/debug/.moc/moc_modelstatuschangeeventarg.cpp
 
 build/debug/.obj/moc_modelstatusitem.o: build/debug/.moc/moc_modelstatusitem.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o build/debug/.obj/moc_modelstatusitem.o build/debug/.moc/moc_modelstatusitem.cpp

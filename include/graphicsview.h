@@ -38,12 +38,14 @@ class GraphicsView : public QGraphicsView
       bool viewportEvent(QEvent *event) override;
 
    private:
-      bool canAcceptDropAsModelComponentInfo(const QMimeData* data);
-      bool canAcceptDropAsModelComponentInfo(const QMimeData* data, QString& id);
-      QRectF getRectFrom(const QPointF& p1, const QPointF p2);
+      bool canAcceptDrop(const QMimeData* data);
+
+      bool canAcceptDrop(const QMimeData* data , QPair<QString,QString> &id);
+
+      QRectF getRectFrom(const QPointF &p1, const QPointF p2);
 
    signals:
-      void modelComponentInfoDropped(const QPointF& scenePos, const QString& id);
+      void itemDropped(const QPointF &scenePos, const QPair<QString,QString> &id);
       void statusChanged(const QString& status);
 
    private:

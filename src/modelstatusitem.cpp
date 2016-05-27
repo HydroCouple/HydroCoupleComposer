@@ -9,11 +9,11 @@ ModelStatusItem::ModelStatusItem(HydroCouple::IModelComponent *component, ModelS
    m_component = component;
    m_parent = parent;
 
-   m_status = new ModelStatusItemStatusChangeEventArgsWrapper(this);
+   m_status = new ModelStatusChangeEventArg(this);
    m_status->setStatus(m_component->status());
 
-   connect(dynamic_cast<QObject*>(m_component) , SIGNAL(componentStatusChanged(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &))
-           ,this , SLOT(onComponentStatusChanged(const std::shared_ptr<HydroCouple::IComponentStatusChangeEventArgs> &)));
+   connect(dynamic_cast<QObject*>(m_component) , SIGNAL(componentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &))
+           ,this , SLOT(onComponentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &)));
 
    connect(dynamic_cast<QObject*>(m_component) , SIGNAL(propertyChanged(const QString &))
            ,this , SLOT(onPropertyChanged(const QString &)));
@@ -32,7 +32,7 @@ HydroCouple::IModelComponent* ModelStatusItem::component() const
    return m_component;
 }
 
-ModelStatusItemStatusChangeEventArgsWrapper* ModelStatusItem::status() const
+ModelStatusChangeEventArg* ModelStatusItem::status() const
 {
    return m_status;
 }
@@ -70,7 +70,7 @@ void ModelStatusItem::resetChildren()
    emit childrenChanged();
 }
 
-void ModelStatusItem::onComponentStatusChanged(const std::shared_ptr<IComponentStatusChangeEventArgs> &statusChangedEvent)
+void ModelStatusItem::onComponentStatusChanged(const QSharedPointer<IComponentStatusChangeEventArgs> &statusChangedEvent)
 {
    m_status->setStatus(statusChangedEvent);
    emit componentStatusChanged(statusChangedEvent);

@@ -36,7 +36,6 @@ IExchangeItem* GOutput::exchangeItem() const
    return nullptr;
 }
 
-
 IOutput* GOutput::output() const
 {
    if(m_component->outputs().contains(m_outputId))
@@ -237,20 +236,8 @@ bool GOutput::createConnection(GNode *consumer)
          case AdaptedOutput:
             {
                GAdaptedOutput* adaptedOutput = ( GAdaptedOutput*)consumer;
-               GOutput* output ;
 
-               while (true)
-               {
-                  output = adaptedOutput->adaptee();
-                  GAdaptedOutput* temp = dynamic_cast<GAdaptedOutput*>(output);
-
-                  if(!temp)
-                  {
-                     break;
-                  }
-               }
-
-               if(output->modelComponent() == m_component)
+               if(adaptedOutput->modelComponent() == m_component)
                {
                   return false;
                }
@@ -287,7 +274,7 @@ bool GOutput::createConnection(GNode *consumer)
 
                if(output() && input->input())
                {
-                 output()->addConsumer(input->input());
+                  output()->addConsumer(input->input());
                }
             }
             break;
@@ -298,7 +285,7 @@ bool GOutput::createConnection(GNode *consumer)
 
                if(output() && input->multiInput())
                {
-                 output()->addConsumer(input->multiInput());
+                  output()->addConsumer(input->multiInput());
                }
             }
             break;
@@ -336,6 +323,7 @@ bool GOutput::deleteConnection(GConnection *connection)
       else if(connection->consumer()->nodeType() == GNode::Input)
       {
          GInput *input = (GInput*) connection->consumer();
+
          input->setProvider(nullptr);
 
          if(output() && input->input())
@@ -386,4 +374,60 @@ void GOutput::deleteConnections()
    }
 }
 
+void GOutput::disestablishConnections()
+{
+   if(output())
+   {
+      while (output()->consumers().length())
+      {
+         output()->removeConsumer(output()->consumers()[0]);
+      }
 
+      while (output()->adaptedOutputs().length())
+      {
+        output()->removeAdaptedOutput(output()->adaptedOutputs()[0]);
+      }
+   }
+}
+
+void GOutput::reestablishConnections()
+{
+   if(output())
+   {
+      QObject* object = dynamic_cast<QObject*>(output());
+      connect(object, SIGNAL(propertyChanged(const QString &)),
+              this, SLOT(onPropertyChanged(const QString &)));
+
+      for(GConnection *connection: m_connections)
+      {
+         if(connection->consumer()->nodeType() ==  GNode::Input)
+         {
+            GInput* input = dynamic_cast<GInput*>(connection->consumer());
+
+            if(input && input->input())
+            {
+               output()->addConsumer(input->input());
+            }
+         }
+         else if(connection->consumer()->nodeType() ==  GNode::MultiInput)
+         {
+            GMultiInput* input = dynamic_cast<GMultiInput*>(connection->consumer());
+
+            if(input && input->multiInput())
+            {
+               output()->addConsumer(input->multiInput());
+            }
+         }
+         else if(connection->consumer()->nodeType() ==  GNode::AdaptedOutput)
+         {
+            GAdaptedOutput* adaptedOutput = dynamic_cast<GAdaptedOutput*>(connection->consumer());
+            adaptedOutput->reestablishConnections();
+
+            if(adaptedOutput->adaptedOutput())
+            {
+               output()->addAdaptedOutput(adaptedOutput->adaptedOutput());
+            }
+         }
+      }
+   }
+}

@@ -75,9 +75,13 @@ class GConnection : public QGraphicsObject
 
       QPainterPath shape() const override;
 
+      QHash<HydroCouple::IAdaptedOutputFactory*,QList<HydroCouple::IIdentity*>> adaptedOutputs() const;
+
       virtual void paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0) override;
 
-      bool insertNode(GAdaptedOutput* adaptedOutput);
+      bool insertAdaptedOutput(const QString &factoryId, const QString &adaptedOutputId);
+
+      void retrieveAdaptedOutputs();
 
    signals:
 
@@ -116,7 +120,7 @@ class GConnection : public QGraphicsObject
       static QFont m_font;
       static float m_arrowLength , m_arrowWidth;
       static int s_zindex;
-      QList<GAdaptedOutput*> m_validAdaptedOutputs;
+      QHash<HydroCouple::IAdaptedOutputFactory*,QList<HydroCouple::IIdentity*>> m_validAdaptedOutputs;
 
 };
 

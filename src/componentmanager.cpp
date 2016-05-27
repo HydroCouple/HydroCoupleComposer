@@ -53,10 +53,13 @@ ComponentManager::~ComponentManager()
       pl->unload();
    }
 
-//   qDeleteAll(m_modelComponentInfoHash.keys());
+   //   qDeleteAll(m_modelComponentInfoHash.keys());
    qDeleteAll(m_modelComponentInfoHash.values());
    m_modelComponentInfoHash.clear();
 
+
+   qDeleteAll(m_adaptedOutputFactoriesHash.values());
+   m_adaptedOutputFactoriesHash.clear();
 
    for(IAdaptedOutputFactoryComponentInfo* cinfo : m_adaptedOutputFactoryComponentInfoHash.keys())
    {
@@ -68,7 +71,7 @@ ComponentManager::~ComponentManager()
       pl->unload();
    }
 
-//   qDeleteAll(m_adaptedOutputFactoryComponentInfoHash.keys());
+   //   qDeleteAll(m_adaptedOutputFactoryComponentInfoHash.keys());
    qDeleteAll(m_adaptedOutputFactoryComponentInfoHash.values());
    m_adaptedOutputFactoryComponentInfoHash.clear();
 }
@@ -140,6 +143,11 @@ IAdaptedOutputFactoryComponentInfo* ComponentManager::findAdaptedOutputFactoryCo
    return nullptr;
 }
 
+QHash<IAdaptedOutputFactoryComponentInfo* , IAdaptedOutputFactoryComponent*> ComponentManager::adaptedOutputFactories() const
+{
+   return m_adaptedOutputFactoriesHash;
+}
+
 bool ComponentManager::unloadAdaptedOutputFactoryComponentInfoById(const QString& id)
 {
    IAdaptedOutputFactoryComponentInfo* componentInfo = findAdaptedOutputFactoryComponentInfoById(id);
@@ -148,6 +156,9 @@ bool ComponentManager::unloadAdaptedOutputFactoryComponentInfoById(const QString
    {
       QPluginLoader* plugin = m_adaptedOutputFactoryComponentInfoHash[componentInfo];
       m_adaptedOutputFactoryComponentInfoHash.remove(componentInfo);
+
+      delete m_adaptedOutputFactoriesHash[componentInfo];
+      m_adaptedOutputFactoriesHash.remove(componentInfo);
 
       emit adaptedOutputFactoryComponentUnloaded(componentInfo->id());
       emit postMessage("Adapted output factory component library " + componentInfo->name() + " unloaded");
@@ -183,54 +194,62 @@ IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
 
       if (hasValidExtension(file))
       {
-         QPluginLoader* pluginLoader = new QPluginLoader(file.filePath(), this);
+
+         QPluginLoader* pluginLoader = new QPluginLoader(file.absoluteFilePath(), this);
 
          QObject* component = pluginLoader->instance();
 
          if (component)
          {
-            IModelComponentInfo* mcomponentInfo = qobject_cast<IModelComponentInfo*>(component);
 
-            if (mcomponentInfo)
             {
-               for (IModelComponentInfo* model : m_modelComponentInfoHash.keys())
+               IModelComponentInfo* mcomponentInfo = qobject_cast<IModelComponentInfo*>(component);
+
+               if (mcomponentInfo)
                {
-                  if (!mcomponentInfo->id().compare(model->id()))
+                  for (IModelComponentInfo* model : m_modelComponentInfoHash.keys())
                   {
-                     pluginLoader->unload();
-                     emit postMessage("Model component library " + mcomponentInfo->name() + "has already been loaded");
-                     return model;
+                     if (!mcomponentInfo->id().compare(model->id()))
+                     {
+                        pluginLoader->unload();
+                        emit postMessage("Model component library " + mcomponentInfo->name() + "has already been loaded");
+                        return model;
+                     }
                   }
+
+                  mcomponentInfo->setLibraryFilePath(file.absoluteFilePath());
+                  m_modelComponentInfoHash[mcomponentInfo] = pluginLoader;
+                  emit modelComponentInfoLoaded(mcomponentInfo);
+
+                  return mcomponentInfo;
                }
-
-               mcomponentInfo->setLibraryFilePath(file.absoluteFilePath());
-               m_modelComponentInfoHash[mcomponentInfo] = pluginLoader;
-               emit modelComponentInfoLoaded(mcomponentInfo);
-
-               return mcomponentInfo;
             }
 
-            IAdaptedOutputFactoryComponentInfo* acomponentInfo = qobject_cast<IAdaptedOutputFactoryComponentInfo*>(component);
-
-            if (acomponentInfo)
             {
-               acomponentInfo->setLibraryFilePath(file.absoluteFilePath());
+               IAdaptedOutputFactoryComponentInfo* acomponentInfo = qobject_cast<IAdaptedOutputFactoryComponentInfo*>(component);
 
-               for (IAdaptedOutputFactoryComponentInfo* model : m_adaptedOutputFactoryComponentInfoHash.keys())
+               if (acomponentInfo)
                {
-                  if (!acomponentInfo->id().compare(model->id()))
+                  acomponentInfo->setLibraryFilePath(file.absoluteFilePath());
+
+                  for (IAdaptedOutputFactoryComponentInfo* model : m_adaptedOutputFactoryComponentInfoHash.keys())
                   {
-                     pluginLoader->unload();
-                     emit postMessage("Adapted output factory component library " + mcomponentInfo->name() + "has already been loaded");
-                     return model;
+                     if (!acomponentInfo->id().compare(model->id()))
+                     {
+                        pluginLoader->unload();
+                        emit postMessage("Adapted output factory component library " + acomponentInfo->name() + "has already been loaded");
+                        return model;
+                     }
                   }
+
+
+                  m_adaptedOutputFactoryComponentInfoHash[acomponentInfo] = pluginLoader;
+                  m_adaptedOutputFactoriesHash[acomponentInfo] = acomponentInfo->createComponentInstance();
+
+                  acomponentInfo->setLibraryFilePath(file.absoluteFilePath());
+                  emit adaptedOutputFactoryComponentInfoLoaded(acomponentInfo);
+                  return acomponentInfo;
                }
-
-
-               m_adaptedOutputFactoryComponentInfoHash[acomponentInfo] = pluginLoader;
-               acomponentInfo->setLibraryFilePath(file.absoluteFilePath());
-               emit adaptedOutputFactoryComponentInfoLoaded(acomponentInfo);
-               return acomponentInfo;
             }
 
             delete component;

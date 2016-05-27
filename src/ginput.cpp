@@ -6,8 +6,8 @@ using namespace HydroCouple;
 
 GInput::GInput(const QString &inputId, GModelComponent *parent)
    : GExchangeItem(inputId, NodeType::Input,  parent),
-     m_provider(nullptr),
-     m_input(inputId)
+     m_input(inputId),
+     m_provider(nullptr)
 {
 
    if(m_component->inputs().contains(m_input))
@@ -164,3 +164,28 @@ void GInput::deleteConnections()
    }
 }
 
+void GInput::disestablishConnections()
+{
+   if(input())
+   {
+      input()->setProvider(nullptr);
+   }
+}
+
+void GInput::reestablishConnections()
+{
+   if(input())
+   {
+      setCaption(input()->caption());
+
+      QObject* object = dynamic_cast<QObject*>(input());
+
+      connect(object, SIGNAL(propertyChanged(const QString &)),
+              this, SLOT(onPropertyChanged(const QString &)));
+
+      if(m_provider && m_provider->output())
+      {
+         input()->setProvider(m_provider->output());
+      }
+   }
+}

@@ -2,6 +2,8 @@
 #include "gconnection.h"
 #include "gnode.h"
 #include "gexchangeitems.h"
+#include "hydrocouple.h"
+#include "gmodelcomponent.h"
 
 #pragma region static variables
 
@@ -14,6 +16,7 @@ int GConnection::s_zindex = -1000;
 #pragma endregion
 
 using namespace std;
+using namespace HydroCouple;
 
 GConnection::GConnection(GNode *producer, GNode *consumer , QGraphicsObject* parent)
    :QGraphicsObject(parent),
@@ -64,7 +67,11 @@ GConnection::GConnection(GNode *producer, GNode *consumer , QGraphicsObject* par
 GConnection::~GConnection()
 {
 
-   qDeleteAll(m_validAdaptedOutputs);
+   for(QList<IIdentity*> id : m_validAdaptedOutputs.values())
+   {
+      qDeleteAll(id);
+   }
+
    m_validAdaptedOutputs.clear();
 
    if(scene())
@@ -155,6 +162,11 @@ QPainterPath GConnection::shape() const
    return m_path;
 }
 
+QHash<HydroCouple::IAdaptedOutputFactory*,QList<HydroCouple::IIdentity*>> GConnection::adaptedOutputs() const
+{
+   return m_validAdaptedOutputs;
+}
+
 void GConnection::paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget)
 {
    m_path = QPainterPath(m_start);
@@ -183,6 +195,43 @@ void GConnection::paint(QPainter * painter, const QStyleOptionGraphicsItem * opt
    g.append(m_arrowPoint[2]);
    m_path.addPolygon(g);
 
+}
+
+bool GConnection::insertAdaptedOutput(const QString &factoryId, const QString &adaptedOutputId)
+{
+   return true;
+}
+
+void GConnection::retrieveAdaptedOutputs()
+{
+   m_validAdaptedOutputs.clear();
+
+   if((m_producer->nodeType() == GNode::Output || m_producer->nodeType() == GNode::AdaptedOutput)
+         && (m_consumer->nodeType() == GNode::Input || m_consumer->nodeType() == GNode::MultiInput))
+   {
+      GOutput *output = dynamic_cast<GOutput*>(m_producer);
+      GInput *input = dynamic_cast<GInput*>(m_consumer);
+
+      if(output->output() && input->input())
+      {
+         GModelComponent *component = output->modelComponent();
+
+         for(IAdaptedOutputFactory *factory : component->modelComponent()->adaptedOutputFactories())
+         {
+            m_validAdaptedOutputs[factory] = factory->getAvailableAdaptedOutputIds(output->output() , input->input());
+         }
+
+         ComponentManager* manager = component->project()->componentManager();
+
+         QHash<IAdaptedOutputFactoryComponentInfo*,IAdaptedOutputFactoryComponent*> adaptedOutpuFactories = manager->adaptedOutputFactories();
+
+
+         for(IAdaptedOutputFactoryComponent *factory : adaptedOutpuFactories.values())
+         {
+             m_validAdaptedOutputs[factory] = factory->getAvailableAdaptedOutputIds(output->output() , input->input());
+         }
+      }
+   }
 }
 
 QVariant GConnection::itemChange(GraphicsItemChange change, const QVariant &value)
