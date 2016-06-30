@@ -316,24 +316,24 @@ class ITimeExchangeItemPropertyItem : public QObjectPropertyItem
 };
 
 
-class ITimeIdBasedComponentDataItemPropertyItem : public QObjectPropertyItem
+class ITimeSeriesIdBasedComponentDataItemPropertyItem : public QObjectPropertyItem
 {
       Q_OBJECT
    public:
-      Q_INVOKABLE ITimeIdBasedComponentDataItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+      Q_INVOKABLE ITimeSeriesIdBasedComponentDataItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
 
-      virtual ~ITimeIdBasedComponentDataItemPropertyItem(){}
+      virtual ~ITimeSeriesIdBasedComponentDataItemPropertyItem(){}
 };
 
 
 
-class ITimeIdBasedExchangeItemPropertyItem : public QObjectPropertyItem
+class ITimeSeriesIdBasedExchangeItemPropertyItem : public QObjectPropertyItem
 {
       Q_OBJECT
    public:
-      Q_INVOKABLE ITimeIdBasedExchangeItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+      Q_INVOKABLE ITimeSeriesIdBasedExchangeItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
 
-      virtual ~ITimeIdBasedExchangeItemPropertyItem(){}
+      virtual ~ITimeSeriesIdBasedExchangeItemPropertyItem(){}
 };
 
 //class IUnitPropertyItem : public QObjectPropertyItem

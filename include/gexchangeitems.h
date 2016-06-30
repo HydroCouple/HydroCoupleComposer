@@ -52,6 +52,8 @@ class GExchangeItem : public GNode
 
       virtual void reestablishConnections() = 0;
 
+      virtual void reestablishSignalSlotConnections() = 0;
+
    protected slots:
       void onPropertyChanged(const QString &propertyName);
 
@@ -97,6 +99,8 @@ class GInput: public GExchangeItem
 
       void reestablishConnections() override;
 
+      void reestablishSignalSlotConnections() override;
+
    private:
       QString m_input;
       GOutput* m_provider;
@@ -124,6 +128,8 @@ class GMultiInput : public GInput
       void disestablishConnections() override;
 
       void reestablishConnections() override;
+
+      void reestablishSignalSlotConnections() override;
 
    private:
       QString m_multiInputId;
@@ -162,6 +168,8 @@ class GOutput : public GExchangeItem
 
       void reestablishConnections() override;
 
+      void reestablishSignalSlotConnections() override;
+
    protected:
       QString  m_outputId;
 };
@@ -199,6 +207,12 @@ class GAdaptedOutput : public GOutput
       void disestablishConnections() override;
 
       void reestablishConnections() override;
+
+      void reestablishSignalSlotConnections() override;
+
+  private slots:
+
+      void adapteeOrInputLocationChanged();
 
    private:
 

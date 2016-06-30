@@ -119,7 +119,6 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        */
       void initializeSimulationStatusTreeView();
 
-
       void initializeAdaptedOutputTreeView();
 
       /*!
@@ -146,6 +145,8 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        * \brief initializeContextMenus
        */
       void initializeContextMenus();
+
+      void resetAdaptedOutputFactoryModel();
 
       /*!
        * \brief createConnection
@@ -444,6 +445,12 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       void onComponentInfoDoubleClicked(const QModelIndex& index);
 
+      void onAdaptedOutputClicked(const QModelIndex& index);
+
+      void onAdaptedOutputDoubleClicked(const QModelIndex& index);
+
+      void onNodeDoubleClicked(GNode* node);
+
       void onModelComponentStatusItemClicked(const QModelIndex& index);
 
       void onModelComponentStatusItemDoubleClicked(const QModelIndex& index);
@@ -456,7 +463,7 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       void onModelComponentDoubleClicked(GModelComponent* modelComponent);
 
-      void onItemDroppedInGraphicsView(const QPointF& scenePos, const QPair<QString,QString> &id);
+      void onItemDroppedInGraphicsView(const QPointF& scenePos, const QMap<QString,QVariant>& dropData);
 
       void onProjectHasChanges(bool hasChanges);
 
@@ -528,7 +535,9 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       HydroCoupleProject *m_project;
       QPropertyModel *m_propertyModel;
-      QStandardItemModel *m_componentInfoModel, *m_adaptedOutputsModel;
+      QStandardItem *m_modelComponentInfoStandardItem,
+      *m_adaptedOutputComponentInfoStandardItem;
+      QStandardItemModel *m_componentInfoModel, *m_adaptedOutputFactoriesModel;
       QProgressBar* m_progressBar;
       static QIcon s_categoryIcon;
       QStringList m_recentFiles;
@@ -550,7 +559,6 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       bool m_createConnection;
       ModelStatusItemModel* m_modelStatusItemModel;
       ArgumentDialog* m_argumentDialog;
-      QStandardItem *m_modelComponentInfoStandardItem, *m_adaptedOutputComponentInfoStandardItem;
       QMenu *m_graphicsContextMenu, *m_treeviewComponentInfoContextMenu;
       SimulationManager *m_simulationManager;
 };

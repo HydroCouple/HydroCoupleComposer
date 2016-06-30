@@ -16,19 +16,15 @@ class ComponentManager : public QObject
 
       virtual ~ComponentManager();
 
-      //!Loaded model components
-      QList<HydroCouple::IModelComponentInfo*> modelComponentInfoList() const;
-
-      HydroCouple::IModelComponentInfo* findModelComponentInfoById(const QString& id);
+      QHash<QString, HydroCouple::IModelComponentInfo*> modelComponentInfoById() const;
 
       bool unloadModelComponentInfoById(const QString& id);
 
-      //!Loaded model components
-      QList<HydroCouple::IAdaptedOutputFactoryComponentInfo*> adaptedOutputFactoryComponentInfoList() const;
+      QHash<QString,HydroCouple::IAdaptedOutputFactoryComponentInfo*> adaptedOutputFactoryComponentInfoById() const;
 
-      HydroCouple::IAdaptedOutputFactoryComponentInfo* findAdaptedOutputFactoryComponentInfoById(const QString& id);
+      QHash<QString,HydroCouple::IAdaptedOutputFactoryComponent*> adaptedOutputFactoryComponentById() const;
 
-      QHash<HydroCouple::IAdaptedOutputFactoryComponentInfo*,HydroCouple::IAdaptedOutputFactoryComponent*> adaptedOutputFactories() const;
+      QHash<HydroCouple::IAdaptedOutputFactoryComponentInfo*,HydroCouple::IAdaptedOutputFactoryComponent*> adaptedOutputFactoryComponentByComponentInfo() const;
 
       bool unloadAdaptedOutputFactoryComponentInfoById(const QString& id);
 
@@ -72,9 +68,14 @@ class ComponentManager : public QObject
    private:
       QSet<QString> m_componentFileExtensions;
       QList<QDir> m_componentDirectories;
-      QHash<HydroCouple::IModelComponentInfo* , QPluginLoader*> m_modelComponentInfoHash;
-      QHash<HydroCouple::IAdaptedOutputFactoryComponentInfo* , QPluginLoader*> m_adaptedOutputFactoryComponentInfoHash;
-      QHash<HydroCouple::IAdaptedOutputFactoryComponentInfo* , HydroCouple::IAdaptedOutputFactoryComponent*> m_adaptedOutputFactoriesHash;
+
+      QHash<HydroCouple::IModelComponentInfo*,QPluginLoader*> m_modelComponentInfoHash;
+      QHash<QString,HydroCouple::IModelComponentInfo*> m_modelComponentInfoById;
+
+      QHash<HydroCouple::IAdaptedOutputFactoryComponentInfo*,QPluginLoader*> m_adaptedOutputFactoryComponentInfoHash;
+      QHash<QString,HydroCouple::IAdaptedOutputFactoryComponentInfo*> m_adaptedOutputFactoryComponentInfoById;
+      QHash<HydroCouple::IAdaptedOutputFactoryComponentInfo*,HydroCouple::IAdaptedOutputFactoryComponent*> m_adaptedOutputFactoryComponentByComponentInfo;
+      QHash<QString,HydroCouple::IAdaptedOutputFactoryComponent*> m_adaptedOutputFactoryComponentById;
 };
 
 #endif // COMPONENTMANAGER_H

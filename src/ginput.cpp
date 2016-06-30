@@ -62,15 +62,6 @@ GOutput* GInput::provider() const
 void GInput::setProvider(GOutput *provider)
 {
    m_provider = provider;
-
-   if(m_provider && m_provider->output() && input())
-   {
-      input()->setProvider(m_provider->output());
-   }
-   else if( !m_provider && input())
-   {
-      input()->setProvider(nullptr);
-   }
 }
 
 void GInput::writeExchangeItemConnections(QXmlStreamWriter &xmlWriter)
@@ -176,16 +167,23 @@ void GInput::reestablishConnections()
 {
    if(input())
    {
-      setCaption(input()->caption());
-
-      QObject* object = dynamic_cast<QObject*>(input());
-
-      connect(object, SIGNAL(propertyChanged(const QString &)),
-              this, SLOT(onPropertyChanged(const QString &)));
-
       if(m_provider && m_provider->output())
       {
          input()->setProvider(m_provider->output());
       }
    }
+}
+
+void GInput::reestablishSignalSlotConnections()
+{
+  if(input())
+  {
+     setCaption(input()->caption());
+
+     QObject* object = dynamic_cast<QObject*>(input());
+
+     connect(object, SIGNAL(propertyChanged(const QString &)),
+             this, SLOT(onPropertyChanged(const QString &)));
+
+  }
 }

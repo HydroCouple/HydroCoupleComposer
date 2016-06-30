@@ -9,129 +9,131 @@
 
 class GNode : public QGraphicsObject
 {
+    Q_OBJECT
 
-      Q_OBJECT
+  public:
+    enum NodeType
+    {
+      Input,
+      MultiInput,
+      Output,
+      AdaptedOutput,
+      Component
+    };
 
-   public:
-      enum NodeType
-      {
-         Input,
-         MultiInput,
-         Output,
-         AdaptedOutput,
-         Component
-      };
+    Q_ENUMS(NodeType)
 
-      Q_ENUMS(NodeType)
+    Q_PROPERTY(GNode::NodeType NodeType READ nodeType)
+    Q_PROPERTY(int Size READ size WRITE setSize)
+    Q_PROPERTY(int Margin READ margin WRITE setMargin)
+    Q_PROPERTY(int CornerRadius READ cornerRadius WRITE setCornerRadius)
+    Q_PROPERTY(QPen Pen READ pen WRITE setPen NOTIFY propertyChanged)
+    Q_PROPERTY(QBrush Brush READ brush WRITE setBrush NOTIFY propertyChanged)
+    Q_PROPERTY(QPen SelectedPen READ selectedPen WRITE setSelectedPen NOTIFY propertyChanged)
+    Q_PROPERTY(QBrush SelectedBrush READ selectedBrush WRITE setSelectedBrush NOTIFY propertyChanged)
+    Q_PROPERTY(QFont Font READ font WRITE setFont NOTIFY propertyChanged)
+    Q_PROPERTY(QList<GConnection*> Connections READ connections NOTIFY propertyChanged)
 
-      Q_PROPERTY(GNode::NodeType NodeType READ nodeType)
-      Q_PROPERTY(int Size READ size WRITE setSize)
-      Q_PROPERTY(int Margin READ margin WRITE setMargin)
-      Q_PROPERTY(int CornerRadius READ cornerRadius WRITE setCornerRadius)
-      Q_PROPERTY(QPen Pen READ pen WRITE setPen NOTIFY propertyChanged)
-      Q_PROPERTY(QBrush Brush READ brush WRITE setBrush NOTIFY propertyChanged)
-      Q_PROPERTY(QPen SelectedPen READ selectedPen WRITE setSelectedPen NOTIFY propertyChanged)
-      Q_PROPERTY(QBrush SelectedBrush READ selectedBrush WRITE setSelectedBrush NOTIFY propertyChanged)
-      Q_PROPERTY(QFont Font READ font WRITE setFont NOTIFY propertyChanged)
-      Q_PROPERTY(QList<GConnection*> Connections READ connections NOTIFY propertyChanged)
+  public:
 
-   public:
-      GNode(const QString& id, const QString& caption, NodeType nodeType);
+    GNode(const QString& id, const QString& caption, NodeType nodeType);
 
-      virtual ~GNode();
+    virtual ~GNode();
 
-      QString id() const;
+    QString id() const;
 
-      void setId(const QString & id);
+    void setId(const QString & id);
 
-      QString caption() const;
+    QString caption() const;
 
-      void setCaption(const QString& caption);
+    void setCaption(const QString& caption);
 
-      NodeType nodeType() const;
+    NodeType nodeType() const;
 
-      int size() const;
+    int size() const;
 
-      virtual void setSize(int size);
+    virtual void setSize(int size);
 
-      int margin() const;
+    int margin() const;
 
-      virtual void setMargin(int margin);
+    virtual void setMargin(int margin);
 
-      int cornerRadius() const;
+    int cornerRadius() const;
 
-      virtual void setCornerRadius(int cornerRadius);
+    virtual void setCornerRadius(int cornerRadius);
 
-      QPen pen() const;
+    QPen pen() const;
 
-      virtual void setPen(const QPen& pen);
+    virtual void setPen(const QPen& pen);
 
-      QBrush brush() const;
+    QBrush brush() const;
 
-      virtual void setBrush(const QBrush& brush);
+    virtual void setBrush(const QBrush& brush);
 
-      QPen selectedPen() const;
+    QPen selectedPen() const;
 
-      virtual void setSelectedPen(const QPen& selectedPen);
+    virtual void setSelectedPen(const QPen& selectedPen);
 
-      QBrush selectedBrush() const;
+    QBrush selectedBrush() const;
 
-      virtual void setSelectedBrush(const QBrush& selectedBrush);
+    virtual void setSelectedBrush(const QBrush& selectedBrush);
 
-      QFont font() const;
+    QFont font() const;
 
-      virtual void setFont(const QFont& font);
+    virtual void setFont(const QFont& font);
 
-      virtual QRectF boundingRect() const override;
+    virtual QRectF boundingRect() const override;
 
-       QList<GConnection*> connections() const;
+    QList<GConnection*> connections() const;
 
-      virtual bool createConnection(GNode* consumer) = 0;
+    virtual bool createConnection(GNode* consumer) = 0;
 
-      virtual bool deleteConnection(GConnection* connection) = 0;
+    virtual bool deleteConnection(GConnection* connection) = 0;
 
-      virtual bool deleteConnection(GNode* consumer) = 0;
+    virtual bool deleteConnection(GNode* consumer) = 0;
 
-      virtual void deleteConnections() = 0;
-      
-      void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
+    virtual void deleteConnections() = 0;
 
-   signals:
+    void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
-      void doubleClicked(GNode * component);
+    void retrieveAdaptedOutputsForConnections();
 
-      virtual void propertyChanged(const QString& propertyName);
+  signals:
 
-      virtual void hasChanges();
+    void doubleClicked(GNode * component);
 
-      void connectionAdded(GConnection *connection);
+    virtual void propertyChanged(const QString& propertyName);
 
-   protected:
+    virtual void hasChanges();
 
-      virtual QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
+    void connectionAdded(GConnection *connection);
 
-      void mouseDoubleClickEvent(QGraphicsSceneMouseEvent * event) override;
+  protected:
 
-   private slots:
+    virtual QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
 
-      virtual void onCreateTextItem();
+    void mouseDoubleClickEvent(QGraphicsSceneMouseEvent * event) override;
 
-      virtual void onChildHasChanges();
+  private slots:
 
-   protected:
-      QList<GConnection*> m_connections;
-      int m_margin , m_size, m_cornerRadius , m_xmargin, m_ymargin , m_height , m_width;
-      QString m_id, m_caption;
-      NodeType m_nodeType;
-      QGraphicsTextItem* m_textItem ;
-      QRectF m_boundingRect;
-      QPen m_pen ;
-      static QPen s_selectedPen;
-      QBrush m_brush;
-      static QBrush s_selectedBrush;
-      static const QString sc_captionHtml;
-      QFont m_font;
-      static int s_zindex;
+    virtual void onCreateTextItem();
+
+    virtual void onChildHasChanges();
+
+  protected:
+    QList<GConnection*> m_connections;
+    int m_margin , m_size, m_cornerRadius , m_xmargin, m_ymargin , m_height , m_width;
+    QString m_id, m_caption;
+    NodeType m_nodeType;
+    QGraphicsTextItem* m_textItem ;
+    QRectF m_boundingRect;
+    QPen m_pen ;
+    static QPen s_selectedPen;
+    QBrush m_brush;
+    static QBrush s_selectedBrush;
+    static const QString sc_captionHtml;
+    QFont m_font;
+    static int s_zindex;
 };
 
 Q_DECLARE_METATYPE(GNode*)

@@ -369,7 +369,6 @@ void GModelComponent::readComponentConnections(QXmlStreamReader & xmlReader, QLi
       {
          if(!xmlReader.name().compare("OutputExchangeItem",Qt::CaseInsensitive) && !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement)
          {
-
             QXmlStreamAttributes attributes = xmlReader.attributes();
 
             if(attributes.hasAttribute("OutputExchangeItemId"))
@@ -382,7 +381,6 @@ void GModelComponent::readComponentConnections(QXmlStreamReader & xmlReader, QLi
                {
                   if(!output->output()->id().compare(id.toString()))
                   {
-
                      if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
                      {
                         QString xposS = attributes.value("XPos").toString();
@@ -427,7 +425,7 @@ void GModelComponent::writeComponent(const QFileInfo &fileInfo)
       xmlWriter.writeStartElement("ModelComponent");
       {
          QString relPath = fileInfo.dir().relativeFilePath(m_modelComponent->componentInfo()->libraryFilePath());
-         xmlWriter.writeAttribute("Name",m_modelComponent->componentInfo()->name());
+         xmlWriter.writeAttribute("Name",m_modelComponent->componentInfo()->id());
 
          if(m_isTrigger)
          {
@@ -511,7 +509,7 @@ void GModelComponent::writeComponent(QXmlStreamWriter &xmlWriter)
       else
       {
          QString relPath = projectDir.relativeFilePath(m_modelComponent->componentInfo()->libraryFilePath());
-         xmlWriter.writeAttribute("Name",m_modelComponent->componentInfo()->name());
+         xmlWriter.writeAttribute("Name",m_modelComponent->componentInfo()->id());
 
          if(m_isTrigger)
          {
@@ -684,6 +682,11 @@ bool GModelComponent::deleteConnection(GConnection *connection)
 
       m_outputGraphicObjects.remove(((GOutput*)connection->consumer())->id());
 
+      if(!connection->consumer()->id().compare("6-L-F") && !modelComponent()->id().compare("test1_split1"))
+      {
+        id();
+      }
+
       delete connection->consumer();
       delete connection;
       emit propertyChanged("Connections");
@@ -742,7 +745,16 @@ void GModelComponent::deleteExchangeItems()
    m_inputs.clear();
    m_outputs.clear();
 
-   qDeleteAll(m_inputGraphicObjects.values());
+   qDebug() << m_modelComponent->id();
+
+   for(GInput* input : m_inputGraphicObjects.values())
+   {
+     qDebug() << input->id();
+
+     delete input;
+   }
+
+//   qDeleteAll(m_inputGraphicObjects.values());
    m_inputGraphicObjects.clear();
 
    deleteConnections();
@@ -775,6 +787,7 @@ void GModelComponent::createExchangeItems()
       if(m_outputGraphicObjects.contains(output->id()))
       {
          goutput = m_outputGraphicObjects[output->id()];
+         goutput->reestablishSignalSlotConnections();
       }
       else
       {
@@ -832,6 +845,7 @@ void GModelComponent::createExchangeItems()
       if(m_inputGraphicObjects.contains(input->id()))
       {
          ginput = m_inputGraphicObjects[input->id()];
+         ginput->reestablishSignalSlotConnections();
       }
       else
       {

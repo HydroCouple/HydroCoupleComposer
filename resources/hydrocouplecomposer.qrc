@@ -47,5 +47,7 @@
         <file alias="edit">images/edit.png</file>
         <file alias="exportcomponent">images/exportcomponent.png</file>
         <file alias="reloadconnections">images/reload.png</file>
+        <file alias="adaptedoutput">images/adaptedoutput.png</file>
+        <file alias="adaptedoutputfactory">images/adaptedoutputfactory.png</file>
     </qresource>
 </RCC>
