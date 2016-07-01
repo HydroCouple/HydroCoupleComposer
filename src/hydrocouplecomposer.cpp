@@ -2196,11 +2196,9 @@ void HydroCoupleComposer::onAdaptedOutputDoubleClicked(const QModelIndex& index)
   }
 }
 
-void HydroCoupleComposer::onNodeDoubleClicked(GNode* node)
+void HydroCoupleComposer::onAdaptedOutputDoubleClicked(GAdaptedOutput* adaptedOutput)
 {
-  GAdaptedOutput* adaptedOutput = dynamic_cast<GAdaptedOutput*>(node);
-
-  if(adaptedOutput && m_argumentDialog->isHidden())
+  if(m_argumentDialog->isHidden())
   {
     m_argumentDialog->show();
     m_argumentDialog->setAdaptedOutput(adaptedOutput);
@@ -2301,6 +2299,10 @@ void HydroCoupleComposer::onModelComponentAdded(GModelComponent* modelComponent)
 {
   connect(modelComponent , SIGNAL(doubleClicked(GModelComponent*)),
           this , SLOT(onModelComponentDoubleClicked(GModelComponent*)));
+
+  connect(modelComponent , SIGNAL(doubleClicked(GAdaptedOutput*)),
+          this , SLOT(onAdaptedOutputDoubleClicked(GAdaptedOutput*)));
+
   addRemoveNodeToGraphicsView(modelComponent);
 
   for(GInput* input : modelComponent->inputGraphicObjects().values())

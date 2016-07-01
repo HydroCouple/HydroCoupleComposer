@@ -156,6 +156,8 @@ class GOutput : public GExchangeItem
 
       virtual void readAdaptedOutputExchangeItem(QXmlStreamReader &xmlReader, QList<QString> &errorMessages);
 
+      void readArgument(QXmlStreamReader& xmlReader, HydroCouple::IAdaptedOutput* adaptedOutput);
+
       bool createConnection(GNode *consumer) override;
 
       bool deleteConnection(GConnection *connection) override;

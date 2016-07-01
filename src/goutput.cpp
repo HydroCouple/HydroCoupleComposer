@@ -228,6 +228,35 @@ void GOutput::readAdaptedOutputExchangeItem(QXmlStreamReader &xmlReader, QList<Q
 
               adaptedOutput->readAdaptedOutputExchangeItemConnections(xmlReader,errorMessages);
               createConnection(adaptedOutput);
+
+              //Read arguments
+              while (!(xmlReader.isEndElement() &&
+                       !xmlReader.name().compare("AdaptedOutputExchangeItem", Qt::CaseInsensitive)) &&
+                     !xmlReader.hasError())
+              {
+                if(!xmlReader.name().compare("Arguments", Qt::CaseInsensitive) &&
+                   !xmlReader.hasError()
+                   && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+                {
+                  while (!(xmlReader.isEndElement() &&
+                           !xmlReader.name().compare("Arguments", Qt::CaseInsensitive)) &&
+                         !xmlReader.hasError())
+                  {
+                    if(!xmlReader.name().compare("Argument", Qt::CaseInsensitive) &&
+                       !xmlReader.hasError()  &&
+                       xmlReader.tokenType() == QXmlStreamReader::StartElement)
+                    {
+                      while (!(xmlReader.isEndElement() && !xmlReader.name().compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
+                      {
+                        readArgument(xmlReader,adaptedOutput->adaptedOutput());
+                        xmlReader.readNext();
+                      }
+                    }
+                    xmlReader.readNext();
+                  }
+                }
+                xmlReader.readNext();
+              }
             }
           }
           else
@@ -253,6 +282,51 @@ void GOutput::readAdaptedOutputExchangeItem(QXmlStreamReader &xmlReader, QList<Q
   }
 }
 
+void GOutput::readArgument(QXmlStreamReader &xmlReader, IAdaptedOutput *adaptedOutput)
+{
+  if(!xmlReader.name().compare("Argument", Qt::CaseInsensitive) &&
+     !xmlReader.hasError() &&
+     xmlReader.tokenType() == QXmlStreamReader::StartElement )
+  {
+     QXmlStreamAttributes attributes = xmlReader.attributes();
+
+     if(attributes.hasAttribute("Id") && attributes.hasAttribute("ArgumentIOType"))
+     {
+        QStringRef argumentId = attributes.value("Id");
+        QStringRef argIOType = attributes.value("ArgumentIOType");
+        IArgument* targument = nullptr;
+
+        for(IArgument* argument : adaptedOutput->arguments())
+        {
+           if(!argumentId.toString().compare(argument->id() , Qt::CaseInsensitive))
+           {
+              targument = argument;
+
+              QString value;
+              QXmlStreamWriter writer(&value);
+
+              while(!(xmlReader.isEndElement() && !xmlReader.name().compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
+              {
+                 xmlReader.readNext();
+                 writer.writeCurrentToken(xmlReader);
+              }
+
+              if(!argIOType.toString().compare("File", Qt::CaseInsensitive))
+              {
+                 targument->readValues(value , true);
+              }
+              else
+              {
+                 targument->readValues(value);
+              }
+
+              break;
+           }
+        }
+     }
+  }
+}
+
 bool GOutput::createConnection(GNode *consumer)
 {
   if(consumer->nodeType() == GNode::Input ||
@@ -273,16 +347,12 @@ bool GOutput::createConnection(GNode *consumer)
           }
         }
         break;
-        //      case AdaptedOutput:
-        //        {
-        //          GAdaptedOutput* adaptedOutput = ( GAdaptedOutput*)consumer;
-
-        //          if(adaptedOutput->modelComponent() == m_component)
-        //          {
-        //            return false;
-        //          }
-        //        }
-        //        break;
+      case GNode::AdaptedOutput:
+        {
+          //add connection
+           connect(consumer , SIGNAL(doubleClicked(GNode*)) , modelComponent() , SLOT(onDoubleClicked(GNode*)));
+        }
+        break;
       default:
         break;
     }

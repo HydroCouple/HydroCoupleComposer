@@ -449,7 +449,7 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       void onAdaptedOutputDoubleClicked(const QModelIndex& index);
 
-      void onNodeDoubleClicked(GNode* node);
+      void onAdaptedOutputDoubleClicked(GAdaptedOutput* adaptedOutput);
 
       void onModelComponentStatusItemClicked(const QModelIndex& index);
 

@@ -100,7 +100,7 @@ class GNode : public QGraphicsObject
 
   signals:
 
-    void doubleClicked(GNode * component);
+    void doubleClicked(GNode* component);
 
     virtual void propertyChanged(const QString& propertyName);
 

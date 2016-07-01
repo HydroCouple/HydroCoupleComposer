@@ -222,8 +222,8 @@ bool GConnection::insertAdaptedOutput(IIdentity* adaptedOutputId , IAdaptedOutpu
     GAdaptedOutput* adaptedOutput = new GAdaptedOutput(adaptedOutputId , factory , prod , input);
     QPointF loc = (m_producer->pos() + m_consumer->pos())/2.0;
     adaptedOutput->setPos(loc);
-
     adaptedOutput->modelComponent()->project()->onSetHasChanges();
+    connect(adaptedOutput , SIGNAL(doubleClicked(GNode*)) , adaptedOutput->modelComponent() , SLOT(onDoubleClicked(GNode*)));
 
     if(scene())
     {

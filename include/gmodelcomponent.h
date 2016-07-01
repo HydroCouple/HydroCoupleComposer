@@ -10,138 +10,142 @@
 
 class GModelComponent : public GNode
 {
-      friend class SimulationManager;
+    friend class SimulationManager;
 
-      Q_OBJECT
+    Q_OBJECT
 
-      Q_PROPERTY(HydroCouple::IModelComponent* ModelComponent READ modelComponent)
-      Q_PROPERTY(QString Status READ status)
-      Q_PROPERTY(bool MoveExchangeItemsWithComponent READ moveExchangeItemsWhenMoved WRITE setMoveExchangeItemsWhenMoved)
-      Q_PROPERTY(bool Trigger READ trigger WRITE setTrigger NOTIFY propertyChanged)
-      Q_PROPERTY(QPen TriggerPen READ triggerPen WRITE setTriggerPen NOTIFY propertyChanged)
-      Q_PROPERTY(QBrush TriggerBrush READ triggerBrush WRITE setTriggerBrush NOTIFY propertyChanged)
+    Q_PROPERTY(HydroCouple::IModelComponent* ModelComponent READ modelComponent)
+    Q_PROPERTY(QString Status READ status)
+    Q_PROPERTY(bool MoveExchangeItemsWithComponent READ moveExchangeItemsWhenMoved WRITE setMoveExchangeItemsWhenMoved)
+    Q_PROPERTY(bool Trigger READ trigger WRITE setTrigger NOTIFY propertyChanged)
+    Q_PROPERTY(QPen TriggerPen READ triggerPen WRITE setTriggerPen NOTIFY propertyChanged)
+    Q_PROPERTY(QBrush TriggerBrush READ triggerBrush WRITE setTriggerBrush NOTIFY propertyChanged)
 
-   public:
+  public:
 
-      GModelComponent(HydroCouple::IModelComponent* model,  HydroCoupleProject *parent);
+    GModelComponent(HydroCouple::IModelComponent* model,  HydroCoupleProject *parent);
 
-      virtual ~GModelComponent();
+    virtual ~GModelComponent();
 
-      HydroCoupleProject* project() const;
+    HydroCoupleProject* project() const;
 
-      void setProject(HydroCoupleProject* project);
+    void setProject(HydroCoupleProject* project);
 
-      HydroCouple::IModelComponent* modelComponent() const ;
+    HydroCouple::IModelComponent* modelComponent() const ;
 
-      QString status() const ;
+    QString status() const ;
 
-      void deleteAllConnections();
+    void deleteAllConnections();
 
-      bool trigger() const;
+    bool trigger() const;
 
-      void setTrigger(bool trigger);
+    void setTrigger(bool trigger);
 
-      QPen triggerPen() const;
+    QPen triggerPen() const;
 
-      void setTriggerPen(const QPen& triggerPen);
+    void setTriggerPen(const QPen& triggerPen);
 
-      QBrush triggerBrush() const;
+    QBrush triggerBrush() const;
 
-      void setTriggerBrush(const QBrush& triggerBrush);
+    void setTriggerBrush(const QBrush& triggerBrush);
 
-      bool moveExchangeItemsWhenMoved() const;
+    bool moveExchangeItemsWhenMoved() const;
 
-      void setMoveExchangeItemsWhenMoved(bool move);
+    void setMoveExchangeItemsWhenMoved(bool move);
 
-      QHash<QString,HydroCouple::IInput*> inputs() const;
+    QHash<QString,HydroCouple::IInput*> inputs() const;
 
-      QHash<QString,HydroCouple::IOutput*> outputs() const ;
+    QHash<QString,HydroCouple::IOutput*> outputs() const ;
 
-      QHash<QString, GInput*> inputGraphicObjects() const;
+    QHash<QString, GInput*> inputGraphicObjects() const;
 
-      QHash<QString, GOutput*> outputGraphicObjects() const;
+    QHash<QString, GOutput*> outputGraphicObjects() const;
 
-      static QString modelComponentStatusAsString(HydroCouple::ComponentStatus status);
+    static QString modelComponentStatusAsString(HydroCouple::ComponentStatus status);
 
-      static GModelComponent* readComponentFile(const QFileInfo& file, HydroCoupleProject* project, QList<QString>& errorMessages);
+    static GModelComponent* readComponentFile(const QFileInfo& file, HydroCoupleProject* project, QList<QString>& errorMessages);
 
-      static GModelComponent* readComponent(QXmlStreamReader &xmlReader, HydroCoupleProject* project , QList<QString>& errorMessages);
+    static GModelComponent* readComponent(QXmlStreamReader &xmlReader, HydroCoupleProject* project , QList<QString>& errorMessages);
 
-      void readComponentConnections(QXmlStreamReader& xmlReader, QList<QString>& errorMessages);
+    void readComponentConnections(QXmlStreamReader& xmlReader, QList<QString>& errorMessages);
 
-      void writeComponent(const QFileInfo& fileInfo);
+    void writeComponent(const QFileInfo& fileInfo);
 
-      void writeComponent(QXmlStreamWriter& xmlWriter);
+    void writeComponent(QXmlStreamWriter& xmlWriter);
 
-      void writeComponentConnections(QXmlStreamWriter& xmlWriter);
+    void writeComponentConnections(QXmlStreamWriter& xmlWriter);
 
-      QRectF boundingRect() const override;
+    QRectF boundingRect() const override;
 
-      void paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0) override;
+    void paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0) override;
 
-      bool createConnection(GNode *consumer) override;
+    bool createConnection(GNode *consumer) override;
 
-      bool deleteConnection(GConnection *connection) override;
+    bool deleteConnection(GConnection *connection) override;
 
-      bool deleteConnection(GNode * consumer) override;
+    bool deleteConnection(GNode * consumer) override;
 
-      void deleteConnections() override;
+    void deleteConnections() override;
 
-      void disestablishConnections();
+    void disestablishConnections();
 
-      void reestablishConnections();
+    void reestablishConnections();
 
-//      void removeAdaptedOutputsByComponentInfo(const QString& id);
+    //      void removeAdaptedOutputsByComponentInfo(const QString& id);
 
-   protected:
+  protected:
 
-      virtual QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
+    virtual QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
 
-   private:
+  private:
 
-      void deleteExchangeItems();
+    void deleteExchangeItems();
 
-      void createExchangeItems();
+    void createExchangeItems();
 
-      static void readArgument(QXmlStreamReader& xmlReader, HydroCouple::IModelComponent* component);
+    static void readArgument(QXmlStreamReader& xmlReader, HydroCouple::IModelComponent* component);
 
-   signals:
+  signals:
 
-      void componentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
+    void componentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
 
-      void propertyChanged(const QString& propertyName) override;
+    void propertyChanged(const QString& propertyName) override;
 
-      void setAsTrigger(GModelComponent* component);
+    void setAsTrigger(GModelComponent* component);
 
-      void postMessage(const QString& message);
+    void postMessage(const QString& message);
 
-      void doubleClicked(GModelComponent * component);
+    void doubleClicked(GModelComponent * component);
 
-   private slots:
+    void doubleClicked(GAdaptedOutput* adaptedOutput);
 
-      void onComponentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
+  public slots:
 
-      void onPropertyChanged(const QString& propertyName);
+    void onDoubleClicked(GNode* node);
 
-      void onDoubleClicked(GNode* node);
+  private slots:
 
-      void onCreateTextItem() override;
+    void onComponentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &statusChangedEvent);
 
-   protected:
-      HydroCouple::IModelComponent* m_modelComponent;
-      HydroCoupleProject* m_parent;
+    void onPropertyChanged(const QString& propertyName);
 
-      QHash<QString,HydroCouple::IInput*> m_inputs;
-      QHash<QString,HydroCouple::IOutput*> m_outputs;
+    void onCreateTextItem() override;
 
-      QHash<QString,GOutput*> m_outputGraphicObjects;
-      QHash<QString,GInput*> m_inputGraphicObjects;
+  protected:
+    HydroCouple::IModelComponent* m_modelComponent;
+    HydroCoupleProject* m_parent;
 
-      static const QString sc_descriptionHtml;
-      static QPen s_triggerPen ;
-      static QBrush s_triggerBrush ;
-      bool m_isTrigger, m_moveExchangeItemsWhenMoved, m_readFromFile, m_ignoreSignalsFromComponent;
-      QFileInfo m_exportFile;
+    QHash<QString,HydroCouple::IInput*> m_inputs;
+    QHash<QString,HydroCouple::IOutput*> m_outputs;
+
+    QHash<QString,GOutput*> m_outputGraphicObjects;
+    QHash<QString,GInput*> m_inputGraphicObjects;
+
+    static const QString sc_descriptionHtml;
+    static QPen s_triggerPen ;
+    static QBrush s_triggerBrush ;
+    bool m_isTrigger, m_moveExchangeItemsWhenMoved, m_readFromFile, m_ignoreSignalsFromComponent;
+    QFileInfo m_exportFile;
 };
 
 Q_DECLARE_METATYPE(GModelComponent*)

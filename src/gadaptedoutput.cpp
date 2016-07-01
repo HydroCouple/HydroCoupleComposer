@@ -52,10 +52,10 @@ GAdaptedOutput::GAdaptedOutput(IIdentity *adaptedOutputId,
 
 GAdaptedOutput::~GAdaptedOutput()
 {
-  if(m_adaptedOutput)
-  {
-    delete m_adaptedOutput;
-  }
+//  if(m_adaptedOutput)
+//  {
+//    delete m_adaptedOutput;
+//  }
 }
 
 HydroCouple::IExchangeItem* GAdaptedOutput::exchangeItem() const
@@ -115,6 +115,59 @@ void GAdaptedOutput::writeExchangeItemConnections(QXmlStreamWriter &xmlWriter)
 
     xmlWriter.writeAttribute("XPos" , QString::number(pos().x()));
     xmlWriter.writeAttribute("YPos" , QString::number(pos().y()));
+
+    if(m_adaptedOutput)
+    {
+      xmlWriter.writeStartElement("Arguments");
+      {
+        for(IArgument* argument : adaptedOutput()->arguments())
+        {
+          xmlWriter.writeStartElement("Argument");
+          {
+            xmlWriter.writeAttribute("ArgumentId",argument->id());
+
+            switch (argument->currentArgumentIOType())
+            {
+              case HydroCouple::File:
+                {
+                  xmlWriter.writeAttribute("ArgumentIOType","File");
+                  xmlWriter.writeCharacters(m_component->project()->projectFile().dir().relativeFilePath(argument->toString()));
+                }
+                break;
+              case HydroCouple::String:
+                {
+                  xmlWriter.writeAttribute("ArgumentIOType","String");
+
+                  QString input = argument->toString();
+
+                  if(!input.contains("</"))
+                  {
+                    xmlWriter.writeCharacters(argument->toString());
+                  }
+                  else
+                  {
+                    QXmlStreamReader xmlReader(input);
+
+                    while (xmlReader.name().isEmpty() || xmlReader.name().isNull())
+                    {
+                      xmlReader.readNext();
+                    }
+
+                    while (!xmlReader.atEnd())
+                    {
+                      xmlWriter.writeCurrentToken(xmlReader);
+                      xmlReader.readNext();
+                    }
+                  }
+                }
+                break;
+            }
+          }
+          xmlWriter.writeEndElement();
+        }
+      }
+      xmlWriter.writeEndElement();
+    }
 
     xmlWriter.writeStartElement("Connections");
     {
