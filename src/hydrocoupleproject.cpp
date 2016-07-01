@@ -145,6 +145,16 @@ HydroCoupleProject* HydroCoupleProject::readProjectFile(const QFileInfo &fileInf
                                  errorMessages.append(QString(e.what()));
                                  return nullptr;
                               }
+                              catch(std::string message)
+                              {
+                                errorMessages.append(QString::fromStdString( message));
+                                return nullptr;
+                              }
+                              catch(...)
+                              {
+
+                                return nullptr;
+                              }
                            }
                            else
                            {
@@ -244,14 +254,6 @@ void HydroCoupleProject::onReloadConnections()
    if(m_projectFile.exists())
    {
       QList<QString> errorMessages;
-
-//      for(GModelComponent *component  : m_modelComponents)
-//      {
-//         for(GOutput *output : component->outputExchangeItemGraphicObjects().values())
-//         {
-//            output->deleteConnections();
-//         }
-//      }
 
       QFile file(m_projectFile.absoluteFilePath());
 

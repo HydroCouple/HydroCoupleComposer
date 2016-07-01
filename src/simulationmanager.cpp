@@ -8,9 +8,9 @@ using namespace HydroCouple;
 
 SimulationManager::SimulationManager(HydroCoupleProject *project)
    :QObject(project),
-     m_isBusy(false),
      m_monitorComponentMessages(false),
-     m_monitorExchangeItemMessages(false)
+     m_monitorExchangeItemMessages(false),
+     m_isBusy(false)
 {
    m_project = project;
    m_simFutureWater = new QFutureWatcher<bool>();

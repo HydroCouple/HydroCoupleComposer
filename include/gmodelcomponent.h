@@ -91,6 +91,8 @@ class GModelComponent : public GNode
 
       void reestablishConnections();
 
+//      void removeAdaptedOutputsByComponentInfo(const QString& id);
+
    protected:
 
       virtual QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;

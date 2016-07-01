@@ -232,6 +232,8 @@ QVariant ModelStatusItemModel::headerData(int section, Qt::Orientation orientati
                break;
          }
          break;
+     default:
+       break;
    }
 
    return QVariant();

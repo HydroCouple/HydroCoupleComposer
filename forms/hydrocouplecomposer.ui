@@ -335,7 +335,11 @@
    <widget class="QWidget" name="dockWidgetContents_2">
     <layout class="QHBoxLayout" name="horizontalLayout_5">
      <item>
-      <widget class="QTreeView" name="treeViewAdaptedOutputs"/>
+      <widget class="QTreeView" name="treeViewAdaptedOutputs">
+       <property name="dragDropMode">
+        <enum>QAbstractItemView::DragOnly</enum>
+       </property>
+      </widget>
      </item>
     </layout>
    </widget>

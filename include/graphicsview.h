@@ -22,30 +22,41 @@ class GraphicsView : public QGraphicsView
       Q_ENUMS(Tool)
 
       GraphicsView(QWidget *parent = 0);
+
       virtual ~GraphicsView();
 
    public slots:
+
       void onCurrentToolChanged(int currentTool);
 
    protected:
+
       void dragEnterEvent(QDragEnterEvent * event) override;
+
       void dragMoveEvent(QDragMoveEvent * event) override;
+
       void dropEvent(QDropEvent * event) override;
+
       void wheelEvent(QWheelEvent * event) override;
+
       void mousePressEvent(QMouseEvent * event) override;
+
       void mouseReleaseEvent(QMouseEvent * event) override;
+
       void mouseMoveEvent(QMouseEvent * event) override;
+
       bool viewportEvent(QEvent *event) override;
 
    private:
       bool canAcceptDrop(const QMimeData* data);
 
-      bool canAcceptDrop(const QMimeData* data , QPair<QString,QString> &id);
+      bool canAcceptDrop(const QMimeData* data , QMap<QString,QVariant>& dropData);
 
       QRectF getRectFrom(const QPointF &p1, const QPointF p2);
 
    signals:
-      void itemDropped(const QPointF &scenePos, const QPair<QString,QString> &id);
+      void itemDropped(const QPointF &scenePos, const QMap<QString,QVariant>& data);
+
       void statusChanged(const QString& status);
 
    private:

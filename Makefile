@@ -246,6 +246,7 @@ DIST          = ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/spec_pre.prf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/qt_config.prf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/macx-clang/qmake.conf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/spec_post.prf \
+		.qmake.stash \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/exclusive_builds.prf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/default_pre.prf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/mac/default_pre.prf \
@@ -436,6 +437,7 @@ Makefile: HydroCoupleComposer.pro ../../../../Qt5.6.0/5.6/clang_64/mkspecs/macx-
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/qt_config.prf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/macx-clang/qmake.conf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/spec_post.prf \
+		.qmake.stash \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/exclusive_builds.prf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/default_pre.prf \
 		../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/mac/default_pre.prf \
@@ -583,6 +585,7 @@ Makefile: HydroCoupleComposer.pro ../../../../Qt5.6.0/5.6/clang_64/mkspecs/macx-
 ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/qt_config.prf:
 ../../../../Qt5.6.0/5.6/clang_64/mkspecs/macx-clang/qmake.conf:
 ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/spec_post.prf:
+.qmake.stash:
 ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/exclusive_builds.prf:
 ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/default_pre.prf:
 ../../../../Qt5.6.0/5.6/clang_64/mkspecs/features/mac/default_pre.prf:
@@ -708,12 +711,14 @@ build/debug/.qrc/qrc_hydrocouplecomposer.cpp: resources/hydrocouplecomposer.qrc 
 		resources/Images/hydrocouplecomposersplash.png \
 		resources/Images/distributehorizontalcenters.png \
 		resources/images/execute.png \
+		resources/images/adaptedoutput.png \
 		resources/Images/default.png \
 		resources/Images/addFile.png \
 		resources/Images/distributebottomedges.png \
 		resources/Images/verticalcenters.png \
 		resources/Images/deletecomponent.png \
 		resources/images/reload.png \
+		resources/images/adaptedoutputfactory.png \
 		resources/Images/adaptercomponent.png \
 		resources/Images/close.png \
 		resources/Images/rightedges.png \

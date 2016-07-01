@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QFileInfo>
 #include "componentmanager.h"
+#include <exception>
 
 class GModelComponent;
 

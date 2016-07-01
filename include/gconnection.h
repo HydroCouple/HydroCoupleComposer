@@ -6,6 +6,7 @@
 #include <QPen>
 #include <QBrush>
 #include <QFont>
+#include <QMimeData>
 
 class GNode;
 class GOutput;
@@ -16,111 +17,119 @@ class GModelComponent;
 
 class GConnection : public QGraphicsObject
 {
-      friend class GNode;
-      friend class GModelComponent;
-      friend class GInput;
-      friend class GOutput;
-      friend class GAdaptedOutput;
+    friend class GNode;
+    friend class GModelComponent;
+    friend class GInput;
+    friend class GOutput;
+    friend class GAdaptedOutput;
 
 
-      Q_OBJECT
+    Q_OBJECT
 
-      Q_PROPERTY(GNode* Producer READ producer)
-      Q_PROPERTY(GNode* Consumer READ consumer)
-      Q_PROPERTY(QPen Pen READ pen WRITE setPen)
-      Q_PROPERTY(QBrush Brush READ brush WRITE setBrush)
-      Q_PROPERTY(QPen SelectedPen READ selectedPen WRITE setSelectedPen)
-      Q_PROPERTY(QFont Font READ font WRITE setFont)
-      Q_PROPERTY(float ArrowLength READ arrowLength WRITE setArrowLength)
-      Q_PROPERTY(float ArrowWidth READ arrowWidth WRITE setArrowWidth)
+    Q_PROPERTY(GNode* Producer READ producer)
+    Q_PROPERTY(GNode* Consumer READ consumer)
+    Q_PROPERTY(QPen Pen READ pen WRITE setPen)
+    Q_PROPERTY(QBrush Brush READ brush WRITE setBrush)
+    Q_PROPERTY(QPen SelectedPen READ selectedPen WRITE setSelectedPen)
+    Q_PROPERTY(QFont Font READ font WRITE setFont)
+    Q_PROPERTY(float ArrowLength READ arrowLength WRITE setArrowLength)
+    Q_PROPERTY(float ArrowWidth READ arrowWidth WRITE setArrowWidth)
 
-   private:
+  private:
 
-      GConnection();
+    GConnection();
 
-      GConnection(GNode* producer, GNode* consumer , QGraphicsObject* parent = nullptr);
+    GConnection(GNode* producer, GNode* consumer , QGraphicsObject* parent = nullptr);
 
-   public:
-      virtual ~GConnection();
+  public:
+    virtual ~GConnection();
 
-      GNode* producer() const;
+    GNode* producer() const;
 
-      GNode* consumer() const;
+    GNode* consumer() const;
 
-      float arrowLength() const;
+    float arrowLength() const;
 
-      void setArrowLength(float value);
+    void setArrowLength(float value);
 
-      float arrowWidth() const;
+    float arrowWidth() const;
 
-      void setArrowWidth(float value);
+    void setArrowWidth(float value);
 
-      QPen pen() const;
+    QPen pen() const;
 
-      void setPen(const QPen& pen);
+    void setPen(const QPen& pen);
 
-      QBrush brush() const;
+    QBrush brush() const;
 
-      void setBrush(const QBrush& brush);
+    void setBrush(const QBrush& brush);
 
-      QPen selectedPen() const;
+    QPen selectedPen() const;
 
-      void setSelectedPen(const QPen& pen);
+    void setSelectedPen(const QPen& pen);
 
-      QFont font() const;
+    QFont font() const;
 
-      void setFont(const QFont& font);
+    void setFont(const QFont& font);
 
-      virtual QRectF boundingRect() const override;
+    virtual QRectF boundingRect() const override;
 
-      QPainterPath shape() const override;
+    QPainterPath shape() const override;
 
-      QHash<HydroCouple::IAdaptedOutputFactory*,QList<HydroCouple::IIdentity*>> adaptedOutputs() const;
+    QHash<QString,HydroCouple::IAdaptedOutputFactory*> adaptedOutputFactories() const;
 
-      virtual void paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0) override;
+    QHash<HydroCouple::IAdaptedOutputFactory*,QList<HydroCouple::IIdentity*>> adaptedOutputs() const;
 
-      bool insertAdaptedOutput(const QString &factoryId, const QString &adaptedOutputId);
+    virtual void paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0) override;
 
-      void retrieveAdaptedOutputs();
+    bool insertAdaptedOutput(HydroCouple::IIdentity* adaptedOutputId , HydroCouple::IAdaptedOutputFactory* factory);
 
-   signals:
+    void retrieveAdaptedOutputs();
 
-      void doubleClicked(GConnection* connection);
+  signals:
 
-   protected:
+    void doubleClicked(GConnection* connection);
 
-      QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
+  protected:
 
-      void mouseDoubleClickEvent(QGraphicsSceneMouseEvent * event) override;
+    QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
 
-   private slots:
+    void dragEnterEvent(QGraphicsSceneDragDropEvent *event) override;
 
-      void parentLocationOrSizeChanged();
+    void dragMoveEvent(QGraphicsSceneDragDropEvent *event) override;
 
-   private:
+    void dropEvent(QGraphicsSceneDragDropEvent *event) override;
 
-      void retrieveValidAdaptedOutputArguments();
+    void mouseDoubleClickEvent(QGraphicsSceneMouseEvent * event) override;
 
-      QPointF minPosition(const QList<QPointF> & points);
+  private:
+    bool canAcceptDrop(const QMimeData* data);
 
-      QPointF maxPosition(const QList<QPointF> & points);
+  private slots:
+
+    void parentLocationOrSizeChanged();
+
+    QPointF minPosition(const QList<QPointF> & points);
+
+    QPointF maxPosition(const QList<QPointF> & points);
 
 
-   protected:
-      GNode* m_producer, *m_consumer;
-      QPointF m_start, m_end , m_mid , m_c1, m_c2;
-      QPointF m_arrowPoint[3];
-      QRectF m_boundary;
-      QPainterPath m_path;
-      QPen m_pen;
-      QGraphicsTextItem* m_numConnectionsText;
-      static QPen m_selectedPen;
-      QBrush m_brush;
-      QPointF m_labelLocation;
-      static QFont m_font;
-      static float m_arrowLength , m_arrowWidth;
-      static int s_zindex;
-      QHash<HydroCouple::IAdaptedOutputFactory*,QList<HydroCouple::IIdentity*>> m_validAdaptedOutputs;
+  protected:
+    GNode* m_producer, *m_consumer;
+    QPointF m_start, m_end , m_mid , m_c1, m_c2;
+    QPointF m_arrowPoint[3];
+    QRectF m_boundary;
+    QPainterPath m_path;
+    QPen m_pen;
+    QGraphicsTextItem* m_numConnectionsText;
+    static QPen m_selectedPen;
+    QBrush m_brush;
+    QPointF m_labelLocation;
+    static QFont m_font;
+    static float m_arrowLength , m_arrowWidth;
+    static int s_zindex;
+    QHash<HydroCouple::IAdaptedOutputFactory*,QList<HydroCouple::IIdentity*>> m_adaptedOutputs;
+    QHash<QString, HydroCouple::IAdaptedOutputFactory*> m_adaptedOutputFactories;
 
 };
 

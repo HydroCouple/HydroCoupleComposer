@@ -41,8 +41,8 @@ void CustomPropertyItems::registerCustomPropertyItems(QPropertyModel* propertyMo
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<ITimeSpan*>(), &ITimeSpanListPropertyItem::staticMetaObject);
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<ITimeComponentDataItem*>(), &ITimeComponentDataItemPropertyItem::staticMetaObject);
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<ITimeExchangeItem*>(), &ITimeExchangeItemPropertyItem::staticMetaObject);
-   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<ITimeIdBasedComponentDataItem*>(), &ITimeIdBasedComponentDataItemPropertyItem::staticMetaObject);
-   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<ITimeIdBasedExchangeItem*>(), &ITimeIdBasedExchangeItemPropertyItem::staticMetaObject);
+   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<ITimeSeriesIdBasedComponentDataItem*>(), &ITimeSeriesIdBasedComponentDataItemPropertyItem::staticMetaObject);
+   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<ITimeSeriesIdBasedExchangeItem*>(), &ITimeSeriesIdBasedExchangeItemPropertyItem::staticMetaObject);
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IUnit*>(), &IUnitPropertyItem::staticMetaObject);
    propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IUnitDimensions*>(), &IUnitDimensionsPropertyItem::staticMetaObject);
 
@@ -264,15 +264,15 @@ ITimeExchangeItemPropertyItem::ITimeExchangeItemPropertyItem(const QVariant& val
 }
 
 
-ITimeIdBasedComponentDataItemPropertyItem::ITimeIdBasedComponentDataItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent)
-   : QObjectPropertyItem( dynamic_cast<QObject*>(qvariant_cast<ITimeIdBasedComponentDataItem*>(value)) , prop , parent)
+ITimeSeriesIdBasedComponentDataItemPropertyItem::ITimeSeriesIdBasedComponentDataItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent)
+   : QObjectPropertyItem( dynamic_cast<QObject*>(qvariant_cast<ITimeSeriesIdBasedComponentDataItem*>(value)) , prop , parent)
 {
 
 }
 
 
-ITimeIdBasedExchangeItemPropertyItem::ITimeIdBasedExchangeItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent)
-   : QObjectPropertyItem( dynamic_cast<QObject*>(qvariant_cast<ITimeIdBasedExchangeItem*>(value)) , prop , parent)
+ITimeSeriesIdBasedExchangeItemPropertyItem::ITimeSeriesIdBasedExchangeItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent)
+   : QObjectPropertyItem( dynamic_cast<QObject*>(qvariant_cast<ITimeSeriesIdBasedExchangeItem*>(value)) , prop , parent)
 {
 
 }
