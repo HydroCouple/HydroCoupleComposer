@@ -1,8 +1,7 @@
+QT += core widgets gui printsupport concurrent
+
 TEMPLATE = app
 TARGET = HydroCoupleComposer
-VERSION = 1.0.0
-
-QT += core widgets gui printsupport concurrent
 
 INCLUDEPATH += .\
                ./include \
@@ -22,7 +21,8 @@ win32{
 }
 
 
-HEADERS += ./include/componentmanager.h \
+HEADERS += ./include/stdafx.h \
+           ./include/componentmanager.h \
            ./include/gdefaultselectiongraphic.h \
            ./include/gmodelcomponent.h \
            ./include/graphicsview.h \
@@ -79,16 +79,10 @@ FORMS += ./forms/hydrocouplecomposer.ui \
 
 CONFIG(debug, debug|release) {
 
-   DESTDIR = ./build/debug
-   OBJECTS_DIR = $$DESTDIR/.obj
-   MOC_DIR = $$DESTDIR/.moc
-   RCC_DIR = $$DESTDIR/.qrc
-   UI_DIR = $$DESTDIR/.ui
-   
    macx{
    LIBS += -L./../../QPropertyModel/QPropertyModel/build/debug -lQPropertyModel.1.0.0 \
            -L/usr/local/lib -lcgraph \
-           -L/usr/local/lib -lgvc \
+           -L/usr/local/lib -lgvc
    }
    
    win32{
@@ -96,9 +90,27 @@ CONFIG(debug, debug|release) {
            -L./graphviz/lib -lcgraph \
            -L./graphviz/lib -lgvc
    }
+
+   DESTDIR = ./build/debug
+   OBJECTS_DIR = $$DESTDIR/.obj
+   MOC_DIR = $$DESTDIR/.moc
+   RCC_DIR = $$DESTDIR/.qrc
+   UI_DIR = $$DESTDIR/.ui
 }
 
 CONFIG(release, debug|release){
+
+   macx{
+      LIBS += -L./../../QPropertyModel/QPropertyModel/lib -lQPropertyModel.1.0.0 \
+              -L/usr/local/lib -lcgraph \
+              -L/usr/local/lib -lgvc
+   }
+
+   win32{
+      LIBS += -L./../../QPropertyModel/QPropertyModel/lib -lQPropertyModel1 \
+              -L./graphviz/lib -lcgraph \
+              -L./graphviz/lib -lgvc
+   }
 
     DESTDIR = bin
     RELEASE_EXTRAS = ./build/release 
@@ -106,18 +118,6 @@ CONFIG(release, debug|release){
     MOC_DIR = $$RELEASE_EXTRAS/.moc
     RCC_DIR = $$RELEASE_EXTRAS/.qrc
     UI_DIR = $$RELEASE_EXTRAS/.ui
-    
-   macx{
-      LIBS += -L./../../QPropertyModel/QPropertyModel/lib -lQPropertyModel.1.0.0 \
-              -L/usr/local/lib -lcgraph \
-              -L/usr/local/lib -lgvc
-   }
-   
-   win32{
-      LIBS += -L./../../QPropertyModel/QPropertyModel/lib -lQPropertyModel1 \
-              -L./graphviz/lib -lcgraph \
-              -L./graphviz/lib -lgvc
-   }
 }   
 
 

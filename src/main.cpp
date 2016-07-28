@@ -27,6 +27,7 @@ int main(int argc, char *argv[])
       //set style
       setApplicationStyle(a);
 
+//      QWidget w;
       HydroCoupleComposer w;
 
       //splash screen
