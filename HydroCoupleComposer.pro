@@ -20,6 +20,9 @@ win32{
                  ../../graphviz/lib/pathplan
 }
 
+linux{
+   INCLUDEPATH += /usr/include
+}
 
 HEADERS += ./include/stdafx.h \
            ./include/componentmanager.h \
@@ -73,6 +76,15 @@ macx{
 ICON = ./resources/HydroCoupleComposer.icns
 }
 
+linux{
+ICON = ./resources/HydroCoupleComposer.ico
+}
+
+
+win32{
+ICON = ./resources/HydroCoupleComposer.ico
+}
+
 FORMS += ./forms/hydrocouplecomposer.ui \
          ./forms/argumentdialog.ui
 
@@ -85,6 +97,12 @@ CONFIG(debug, debug|release) {
            -L/usr/local/lib -lgvc
    }
    
+   linux{
+   LIBS += -L./../../QPropertyModel/QPropertyModel/build/debug -lQPropertyModel \
+           -L/usr/lib -lcgraph \
+           -L/usr/lib -lgvc
+   }
+
    win32{
    LIBS += -L./../../QPropertyModel/QPropertyModel/build/debug -lQPropertyModel1 \
            -L./graphviz/lib -lcgraph \
@@ -106,6 +124,12 @@ CONFIG(release, debug|release){
               -L/usr/local/lib -lgvc
    }
 
+   linux{
+      LIBS += -L./../../QPropertyModel/QPropertyModel/lib -lQPropertyModel \
+              -L/usr/lib -lcgraph \
+              -L/usr/lib -lgvc
+   }
+
    win32{
       LIBS += -L./../../QPropertyModel/QPropertyModel/lib -lQPropertyModel1 \
               -L./graphviz/lib -lcgraph \
@@ -119,5 +143,4 @@ CONFIG(release, debug|release){
     RCC_DIR = $$RELEASE_EXTRAS/.qrc
     UI_DIR = $$RELEASE_EXTRAS/.ui
 }   
-
 
