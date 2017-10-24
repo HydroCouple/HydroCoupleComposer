@@ -49,5 +49,6 @@
         <file alias="reloadconnections">images/reload.png</file>
         <file alias="adaptedoutput">images/adaptedoutput.png</file>
         <file alias="adaptedoutputfactory">images/adaptedoutputfactory.png</file>
+        <file alias="stopsim">images/stopsim.png</file>
     </qresource>
 </RCC>

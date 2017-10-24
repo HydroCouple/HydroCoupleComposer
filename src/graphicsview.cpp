@@ -6,6 +6,8 @@ GraphicsView::GraphicsView(QWidget *parent)
   : QGraphicsView(parent), m_mouseIsPressed(false)
 {
   QGraphicsScene* cgs = new QGraphicsScene(-100000000, -100000000, 200000000, 200000000, this);
+  m_isBusy = false;
+  cgs->setBspTreeDepth(8);
   viewport()->setAttribute(Qt::WA_AcceptTouchEvents);
   setScene(cgs);
   setInteractive(true);
@@ -20,6 +22,9 @@ GraphicsView::GraphicsView(QWidget *parent)
   setRubberBandSelectionMode(Qt::ItemSelectionMode::IntersectsItemShape);
   setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
   setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  setCacheMode(QGraphicsView::CacheNone);
+  setFocusPolicy(Qt::WheelFocus);
+  setMouseTracking(true);
 
   QPen selectionPen = QPen();
   selectionPen.setCapStyle(Qt::PenCapStyle::RoundCap);
@@ -32,8 +37,7 @@ GraphicsView::GraphicsView(QWidget *parent)
   m_zoomItem.setVisible(true);
   m_currentTool = Tool::Default;
   totalScaleFactor = 1.0;
-  setCacheMode(QGraphicsView::CacheNone);
-  setFocusPolicy(Qt::FocusPolicy::ClickFocus);
+
 }
 
 GraphicsView::~GraphicsView()
@@ -89,184 +93,208 @@ void GraphicsView::dropEvent(QDropEvent  *event)
 
 void GraphicsView::wheelEvent(QWheelEvent * event)
 {
-  if (event->delta())
-  {
-    double value = event->delta()*0.05 / 120.0;
 
-    setTransformationAnchor(QGraphicsView::ViewportAnchor::AnchorUnderMouse);
 
-    scale(1 + value, 1 + value);
+    if (event->delta())
+    {
+      double value = event->delta() * 0.05 / 120.0;
 
-    setTransformationAnchor(QGraphicsView::ViewportAnchor::NoAnchor);
+      scale(1 + value, 1 + value);
+      centerOn(m_scenePosition);
 
-    event->accept();
-  }
+      QPointF delta_viewport_pos = m_viewportPosition - QPointF(viewport()->width() / 2.0,
+                                                                viewport()->height() / 2.0);
+      QPointF viewport_center = mapFromScene(m_scenePosition) - delta_viewport_pos;
+      centerOn(mapToScene(viewport_center.toPoint()));
+
+      event->accept();
+    }
 }
 
 void GraphicsView::mousePressEvent(QMouseEvent * event)
 {
-  m_mousePressPosition = mapToScene(event->pos());
-  m_mouseIsPressed = true;
 
-  switch (m_currentTool)
-  {
-    case GraphicsView::ZoomIn:
-    case GraphicsView::ZoomOut:
-      {
-        m_zoomItem.setRect(QRectF(0, 0, 0, 0));
-        m_zoomItem.setPos(m_mousePressPosition);
-        scene()->addItem(&m_zoomItem);
-      }
-      break;
-    case GraphicsView::Pan:
-      break;
-    default:
-      {
-        if (event->button() != Qt::LeftButton)
+
+    m_mousePressPosition = mapToScene(event->pos());
+    m_mouseIsPressed = true;
+
+    switch (m_currentTool)
+    {
+      case GraphicsView::ZoomIn:
+      case GraphicsView::ZoomOut:
         {
-          event->accept();
+          m_zoomItem.setRect(QRectF(0, 0, 0, 0));
+          m_zoomItem.setPos(m_mousePressPosition);
+          scene()->addItem(&m_zoomItem);
         }
-        else
+        break;
+      case GraphicsView::Pan:
+        break;
+      default:
         {
-          QGraphicsView::mousePressEvent(event);
+          if (event->button() != Qt::LeftButton)
+          {
+            event->accept();
+          }
+          else
+          {
+            QGraphicsView::mousePressEvent(event);
+          }
         }
-      }
-  }
+    }
+
 }
 
 void GraphicsView::mouseReleaseEvent(QMouseEvent * event)
 {
-  QPointF currentPos = mapToScene(event->pos());
 
-  if (event->buttons().testFlag(Qt::MouseButton::MiddleButton))
-  {
-    QGraphicsView::mouseReleaseEvent(event);
-  }
-  else
-  {
-    switch (m_currentTool)
-    {
-      case GraphicsView::ZoomIn:
-        {
-          QRectF p = getRectFrom(m_mousePressPosition, currentPos);
-          m_zoomItem.setRect(QRectF(0, 0, p.width(), p.height()));
-          m_zoomItem.setPos(p.topLeft());
 
-          if (m_zoomItem.rect().width() > 0 || m_zoomItem.rect().height() > 0)
-            fitInView(&m_zoomItem, Qt::AspectRatioMode::KeepAspectRatio);
-          scene()->removeItem(&m_zoomItem);
-        }
-        break;
-      case GraphicsView::ZoomOut:
-        {
-          QRectF p = getRectFrom(m_mousePressPosition, currentPos);
-          m_zoomItem.setRect(QRectF(0, 0, p.width(), p.height()));
-          m_zoomItem.setPos(p.topLeft());
-          if (m_zoomItem.rect().width() > 0 || m_zoomItem.rect().height() > 0)
-          {
-            centerOn(&m_zoomItem);
-            scale(0.8, 0.8);
-            setTransformationAnchor(QGraphicsView::ViewportAnchor::NoAnchor);
-          }
-          scene()->removeItem(&m_zoomItem);
-        }
-        break;
-      default:
-        QGraphicsView::mouseReleaseEvent(event);
-    }
-  }
+    QPointF currentPos = mapToScene(event->pos());
 
-  m_mouseIsPressed = false;
-}
-
-void GraphicsView::mouseMoveEvent(QMouseEvent * event)
-{
-  QPoint ePos = event->pos();
-  QPointF currentPos = mapToScene(ePos);
-
-  if (m_mouseIsPressed)
-  {
     if (event->buttons().testFlag(Qt::MouseButton::MiddleButton))
     {
-      QPointF t = currentPos - m_previousMousePosition;
-      translate(t.x(), t.y());
+      QGraphicsView::mouseReleaseEvent(event);
     }
     else
     {
       switch (m_currentTool)
       {
         case GraphicsView::ZoomIn:
+          {
+            QRectF p = getRectFrom(m_mousePressPosition, currentPos);
+            m_zoomItem.setRect(QRectF(0, 0, p.width(), p.height()));
+            m_zoomItem.setPos(p.topLeft());
+
+            if (m_zoomItem.rect().width() > 0 || m_zoomItem.rect().height() > 0)
+              fitInView(&m_zoomItem, Qt::AspectRatioMode::KeepAspectRatio);
+            scene()->removeItem(&m_zoomItem);
+          }
+          break;
         case GraphicsView::ZoomOut:
           {
             QRectF p = getRectFrom(m_mousePressPosition, currentPos);
-            m_zoomItem.setPos(p.topLeft());
             m_zoomItem.setRect(QRectF(0, 0, p.width(), p.height()));
-          }
-          break;
-        case GraphicsView::Pan:
-          {
-            QPointF t = currentPos - m_previousMousePosition;
-            translate(t.x(), t.y());
+            m_zoomItem.setPos(p.topLeft());
+            if (m_zoomItem.rect().width() > 0 || m_zoomItem.rect().height() > 0)
+            {
+              centerOn(&m_zoomItem);
+              scale(0.8, 0.8);
+              setTransformationAnchor(QGraphicsView::ViewportAnchor::NoAnchor);
+            }
+            scene()->removeItem(&m_zoomItem);
           }
           break;
         default:
-          {
-            QGraphicsView::mouseMoveEvent(event);
-          }
+          QGraphicsView::mouseReleaseEvent(event);
       }
     }
-  }
-  else
-  {
-    QGraphicsView::mouseMoveEvent(event);
-  }
+
+    m_mouseIsPressed = false;
 
 
-  m_previousMousePosition = mapToScene(ePos);
+}
 
-  QString status = QString("Screen Coordinates : %1 , %2 | Scene Coordinates : %3 , %4").arg(ePos.x()).arg(ePos.y()).arg(currentPos.x()).arg(currentPos.y());
+void GraphicsView::mouseMoveEvent(QMouseEvent * event)
+{
+
+
+    QPoint ePos = event->pos();
+    QPointF currentPos = mapToScene(ePos);
+
+    if (m_mouseIsPressed)
+    {
+      if (event->buttons().testFlag(Qt::MouseButton::MiddleButton))
+      {
+        QPointF t = currentPos - m_scenePosition;
+        translate(t.x(), t.y());
+      }
+      else
+      {
+        switch (m_currentTool)
+        {
+          case GraphicsView::ZoomIn:
+          case GraphicsView::ZoomOut:
+            {
+              QRectF p = getRectFrom(m_mousePressPosition, currentPos);
+              m_zoomItem.setPos(p.topLeft());
+              m_zoomItem.setRect(QRectF(0, 0, p.width(), p.height()));
+            }
+            break;
+          case GraphicsView::Pan:
+            {
+              QPointF t = currentPos - m_scenePosition;
+              translate(t.x(), t.y());
+            }
+            break;
+          default:
+            {
+              QGraphicsView::mouseMoveEvent(event);
+            }
+        }
+      }
+
+      event->accept();
+    }
+    else
+    {
+      QGraphicsView::mouseMoveEvent(event);
+    }
+
+
+    m_viewportPosition = QPointF(ePos);
+    m_scenePosition = mapToScene(ePos);
+
+    QString status = QString("Screen Coordinates : %1 , %2 | Scene Coordinates : %3 , %4").arg(ePos.x()).arg(ePos.y()).arg(currentPos.x()).arg(currentPos.y());
+
 
   //emit statusChanged(status);
 }
 
 bool GraphicsView::viewportEvent(QEvent *event)
 {
-  switch (event->type())
-  {
-    case QEvent::TouchBegin:
-    case QEvent::TouchUpdate:
-    case QEvent::TouchEnd:
-      {
-        QTouchEvent *touchEvent = static_cast<QTouchEvent *>(event);
-        QList<QTouchEvent::TouchPoint> touchPoints = touchEvent->touchPoints();
 
-        if (touchPoints.count() == 2)
+
+    switch (event->type())
+    {
+      case QEvent::TouchBegin:
+      case QEvent::TouchUpdate:
+      case QEvent::TouchEnd:
         {
-          // determine scale factor
-          const QTouchEvent::TouchPoint &touchPoint0 = touchPoints.first();
-          const QTouchEvent::TouchPoint &touchPoint1 = touchPoints.last();
+          QTouchEvent *touchEvent = static_cast<QTouchEvent *>(event);
+          QList<QTouchEvent::TouchPoint> touchPoints = touchEvent->touchPoints();
 
-          qreal currentScaleFactor = QLineF(touchPoint0.pos(), touchPoint1.pos()).length()
-                                     / QLineF(touchPoint0.startPos(), touchPoint1.startPos()).length();
-
-          if (touchEvent->touchPointStates() & Qt::TouchPointReleased)
+          if (touchPoints.count() == 2)
           {
-            // if one of the fingers is released, remember the current scale
-            // factor so that adding another finger later will continue zooming
-            // by adding new scale factor to the existing remembered value.
-            totalScaleFactor *= currentScaleFactor;
-            currentScaleFactor = 1.0;
+            // determine scale factor
+            const QTouchEvent::TouchPoint &touchPoint0 = touchPoints.first();
+            const QTouchEvent::TouchPoint &touchPoint1 = touchPoints.last();
+
+            qreal currentScaleFactor = QLineF(touchPoint0.pos(), touchPoint1.pos()).length()
+                                       / QLineF(touchPoint0.startPos(), touchPoint1.startPos()).length();
+
+            if (touchEvent->touchPointStates() & Qt::TouchPointReleased)
+            {
+              // if one of the fingers is released, remember the current scale
+              // factor so that adding another finger later will continue zooming
+              // by adding new scale factor to the existing remembered value.
+              totalScaleFactor *= currentScaleFactor;
+              currentScaleFactor = 1.0;
+            }
+
+            setTransformationAnchor(QGraphicsView::ViewportAnchor::AnchorUnderMouse);
+            setTransform(QTransform().scale(totalScaleFactor*currentScaleFactor, totalScaleFactor*currentScaleFactor));
+            setTransformationAnchor(QGraphicsView::ViewportAnchor::NoAnchor);
           }
 
-          setTransformationAnchor(QGraphicsView::ViewportAnchor::AnchorUnderMouse);
-          setTransform(QTransform().scale(totalScaleFactor*currentScaleFactor, totalScaleFactor*currentScaleFactor));
-          setTransformationAnchor(QGraphicsView::ViewportAnchor::NoAnchor);
+          m_isBusy = false;
+
+          return true;
         }
-        return true;
-      }
-    default:
-      break;
-  }
+      default:
+        break;
+    }
+
+
   return QGraphicsView::viewportEvent(event);
 }
 

@@ -5,7 +5,7 @@
 using namespace HydroCouple;
 
 GExchangeItem::GExchangeItem(const QString &exchangeItemId, GNode::NodeType type, GModelComponent *parent)
-   : GNode(exchangeItemId, "" , type),
+   : GNode(exchangeItemId, "" , type , parent->project()),
      m_exchangeItemId(exchangeItemId)
 {
    m_component = parent;

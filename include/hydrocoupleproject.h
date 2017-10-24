@@ -18,6 +18,7 @@ class HydroCoupleProject : public QObject
       Q_PROPERTY(QList<GModelComponent*> ModelComponents READ modelComponents)
 
    public:
+
       HydroCoupleProject(QObject *parent);
 
       virtual ~HydroCoupleProject();
@@ -45,13 +46,28 @@ class HydroCoupleProject : public QObject
       bool hasChanges() const;
 
       /*!
+       * \brief hasGraphics
+       * \return
+       */
+      bool hasGraphics() const;
+
+      /*!
        * \brief readProjectFile
        * \param file
        * \return
        */
-      static HydroCoupleProject* readProjectFile(const QFileInfo& file, QList<QString>& errorMessages);
+      static HydroCoupleProject* readProjectFile(const QFileInfo& fileInfo, QList<QString>& errorMessages, bool initializeComponents = true, bool hasGraphics = true);
+
+
+      static GModelComponent* readModelComponent(const QFileInfo &fileInfo, QList<QString> &errorMessages, int componentIndex);
+
+
+      static int mpiProcess;
+
+      static int numMPIProcesses;
 
    signals:
+
       //! emit when component is added to update ui and graphics
       void componentAdded(GModelComponent *component);
 
@@ -107,9 +123,11 @@ class HydroCoupleProject : public QObject
    private:
       QList<GModelComponent*> m_modelComponents;
       QFileInfo m_projectFile;
-      bool m_hasChanges;
+      bool m_hasChanges, m_hasGraphics;
       ComponentManager* m_componentManager;
 };
+
+
 
 Q_DECLARE_METATYPE(HydroCoupleProject*)
 

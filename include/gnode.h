@@ -7,6 +7,8 @@
 #include <QFont>
 #include "gconnection.h"
 
+class HydroCoupleProject;
+
 class GNode : public QGraphicsObject
 {
     Q_OBJECT
@@ -36,7 +38,7 @@ class GNode : public QGraphicsObject
 
   public:
 
-    GNode(const QString& id, const QString& caption, NodeType nodeType);
+    GNode(const QString& id, const QString& caption, NodeType nodeType , HydroCoupleProject* project);
 
     virtual ~GNode();
 
@@ -86,7 +88,7 @@ class GNode : public QGraphicsObject
 
     QList<GConnection*> connections() const;
 
-    virtual bool createConnection(GNode* consumer) = 0;
+    virtual bool createConnection(GNode* consumer, QString &message) = 0;
 
     virtual bool deleteConnection(GConnection* connection) = 0;
 
@@ -134,6 +136,7 @@ class GNode : public QGraphicsObject
     static const QString sc_captionHtml;
     QFont m_font;
     static int s_zindex;
+    HydroCoupleProject *m_project;
 };
 
 Q_DECLARE_METATYPE(GNode*)

@@ -78,7 +78,7 @@ void GInput::writeExchangeItemConnections(QXmlStreamWriter &xmlWriter)
    xmlWriter.writeEndElement();
 }
 
-bool GInput::createConnection(GNode *consumer)
+bool GInput::createConnection(GNode *consumer, QString &message)
 {
    if(consumer->nodeType() == GNode::Component)
    {
@@ -110,6 +110,8 @@ bool GInput::createConnection(GNode *consumer)
          return true;
       }
    }
+
+   message = "An error occurred! Not very explanatory ? Well fu";
 
    return false;
 }

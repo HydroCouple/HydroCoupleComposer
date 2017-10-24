@@ -18,25 +18,25 @@ ComponentManager::ComponentManager(QObject *parent)
 #endif
 
 
-#ifdef _WIN32 // note the underscore: without it, it's not msdn official!
-  // Windows (x64 and x86)
-  addComponentDirectory(QDir("./"));
-  manager->addComponentDirectory(QDir("./Components"));
+//#ifdef _WIN32 // note the underscore: without it, it's not msdn official!
+//  // Windows (x64 and x86)
+//  addComponentDirectory(QDir("./"));
+//  manager->addComponentDirectory(QDir("./Components"));
 
-#elif __unix__ // all unices, not all compilers
-  // Unix
-  addComponentDirectory(QDir("./"));
-  addComponentDirectory(QDir("./Components"));
-#elif __linux__
-  addComponentDirectory(QDir("./"));
-  addComponentDirectory(QDir("./Components"));
-  // linux
-#elif __APPLE__
-  addComponentDirectory(QDir("./"));
-  addComponentDirectory(QDir("./Components"));
-  addComponentDirectory(QDir("./../../../"));
-  addComponentDirectory(QDir("./../../../Components"));
-#endif
+//#elif __unix__ // all unices, not all compilers
+//  // Unix
+//  addComponentDirectory(QDir("./"));
+//  addComponentDirectory(QDir("./Components"));
+//#elif __linux__
+//  addComponentDirectory(QDir("./"));
+//  addComponentDirectory(QDir("./Components"));
+//  // linux
+//#elif __APPLE__
+//  addComponentDirectory(QDir("./"));
+//  addComponentDirectory(QDir("./Components"));
+//  addComponentDirectory(QDir("./../../../"));
+//  addComponentDirectory(QDir("./../../../Components"));
+//#endif
 
 }
 
@@ -193,7 +193,7 @@ IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
 {
   QString message;
 
-  if (file.exists())
+  if (file.isFile() && file.exists())
   {
 
     if (hasValidExtension(file))
@@ -206,6 +206,9 @@ IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
       if (component)
       {
 
+        printf("loading component file: %s\n", qPrintable(file.absoluteFilePath()));
+
+        //IModelComponentInfo
         {
           IModelComponentInfo* mcomponentInfo = qobject_cast<IModelComponentInfo*>(component);
 
@@ -215,8 +218,9 @@ IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
             {
               if (!mcomponentInfo->id().compare(model->id()))
               {
-                pluginLoader->unload();
-                emit postMessage("Model component library " + mcomponentInfo->id() + "has already been loaded");
+                message = "Model component library " + mcomponentInfo->id() + "has already been loaded";
+//                pluginLoader->unload();
+                emit postMessage(message);
                 return model;
               }
             }
@@ -232,6 +236,7 @@ IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
           }
         }
 
+        //IAdaptedOutputFactoryComponentInfo
         {
           IAdaptedOutputFactoryComponentInfo* acomponentInfo = qobject_cast<IAdaptedOutputFactoryComponentInfo*>(component);
 
@@ -243,8 +248,9 @@ IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
             {
               if (!acomponentInfo->id().compare(model->id()))
               {
-                pluginLoader->unload();
-                emit postMessage("Adapted output factory component library " + acomponentInfo->id() + "has already been loaded");
+                message = "Adapted output factory component library " + acomponentInfo->id() + "has already been loaded";
+//                pluginLoader->unload();
+                emit postMessage(message);
                 return model;
               }
             }
@@ -306,7 +312,7 @@ void ComponentManager::addComponentDirectory(const QDir& directory)
 
   QList<QFileInfo> files;
 
-  if (!m_componentDirectories.contains(directory))
+  if (directory.exists() && !m_componentDirectories.contains(directory))
   {
     m_componentDirectories.append(directory);
 
@@ -324,7 +330,6 @@ void ComponentManager::addComponentDirectory(const QDir& directory)
       if (it.fileInfo().isFile() && hasValidExtension(it.fileInfo()))
       {
         files.append(it.fileInfo());
-
       }
     }
 

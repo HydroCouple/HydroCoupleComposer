@@ -23,6 +23,11 @@ class SimulationManager : public QObject
 
       ~SimulationManager();
 
+      /*!
+       *\brief
+       *\details
+       *\todo Check to make sure project file exists and is saved before proceeding
+       */
       Q_INVOKABLE void runComposition(bool background = false);
 
       bool isBusy() const;
@@ -35,6 +40,10 @@ class SimulationManager : public QObject
 
       void setMonitorExchangeItemMessages(bool monitor);
 
+  public slots:
+
+      void onStopSimulation();
+
    signals:
 
       void setProgress(bool visible, int progress, int min, int max);
@@ -45,7 +54,19 @@ class SimulationManager : public QObject
 
       void propertyChanged(const QString &propertyName);
 
+      void simulationCompleted();
+
+      void isBusy(bool isBusy);
+
    private:
+
+      void assignComponentIndexes();
+
+      void assignComputeResources();
+
+      bool createComputeResources();
+
+      bool initializeComputeResources();
 
       bool initializeModels();
 
@@ -59,11 +80,13 @@ class SimulationManager : public QObject
 
       bool validateConnections();
 
-      bool runModels();
+      void run();
 
    private slots:
 
       void onSimulationCompleted();
+
+      void finalizeComputeResources();
 
       void onComponentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> & status);
 
@@ -74,8 +97,8 @@ class SimulationManager : public QObject
       bool m_monitorComponentMessages;
       bool m_monitorExchangeItemMessages;
       bool m_isBusy;
-      QFuture<bool> m_simFuture;
-      QFutureWatcher<bool> *m_simFutureWater;
+      bool m_stopSimulation;
+      bool m_simulationFailed;
       QElapsedTimer m_timer;
       GModelComponent *m_triggerComponent;
 };

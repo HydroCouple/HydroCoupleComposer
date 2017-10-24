@@ -116,7 +116,11 @@ void GOutput::readOutputExchangeItemConnections(QXmlStreamReader &xmlReader, QLi
                       input->setPos(xloc,yloc);
                     }
                   }
-                  createConnection(input);
+                  QString message;
+                  createConnection(input, message);
+
+                  if(!message.isEmpty())
+                    errorMessages.append(message);
                 }
               }
             }
@@ -226,10 +230,13 @@ void GOutput::readAdaptedOutputExchangeItem(QXmlStreamReader &xmlReader, QList<Q
                 }
               }
 
-              adaptedOutput->readAdaptedOutputExchangeItemConnections(xmlReader,errorMessages);
-              createConnection(adaptedOutput);
+              QString message;
+              createConnection(adaptedOutput, message);
 
-              //Read arguments
+              if(!message.isEmpty())
+                errorMessages.append(message);
+
+              //Read arguments and connections
               while (!(xmlReader.isEndElement() &&
                        !xmlReader.name().compare("AdaptedOutputExchangeItem", Qt::CaseInsensitive)) &&
                      !xmlReader.hasError())
@@ -246,17 +253,28 @@ void GOutput::readAdaptedOutputExchangeItem(QXmlStreamReader &xmlReader, QList<Q
                        !xmlReader.hasError()  &&
                        xmlReader.tokenType() == QXmlStreamReader::StartElement)
                     {
+                      readArgument(xmlReader,adaptedOutput->adaptedOutput());
+
                       while (!(xmlReader.isEndElement() && !xmlReader.name().compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
                       {
-                        readArgument(xmlReader,adaptedOutput->adaptedOutput());
                         xmlReader.readNext();
                       }
                     }
                     xmlReader.readNext();
                   }
                 }
+                else if(!xmlReader.name().compare("Connections", Qt::CaseInsensitive) &&
+                        !xmlReader.hasError()
+                        && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+                {
+
+                  adaptedOutput->readAdaptedOutputExchangeItemConnections(xmlReader,errorMessages);
+                }
+
                 xmlReader.readNext();
               }
+
+
             }
           }
           else
@@ -288,46 +306,54 @@ void GOutput::readArgument(QXmlStreamReader &xmlReader, IAdaptedOutput *adaptedO
      !xmlReader.hasError() &&
      xmlReader.tokenType() == QXmlStreamReader::StartElement )
   {
-     QXmlStreamAttributes attributes = xmlReader.attributes();
+    QXmlStreamAttributes attributes = xmlReader.attributes();
+    QString message;
 
-     if(attributes.hasAttribute("Id") && attributes.hasAttribute("ArgumentIOType"))
-     {
-        QStringRef argumentId = attributes.value("Id");
-        QStringRef argIOType = attributes.value("ArgumentIOType");
-        IArgument* targument = nullptr;
+    if(attributes.hasAttribute("Id") && attributes.hasAttribute("ArgumentIOType"))
+    {
+      QStringRef Id = attributes.value("Id");
+      QStringRef argIOType = attributes.value("ArgumentIOType");
+      IArgument* targument = nullptr;
 
-        for(IArgument* argument : adaptedOutput->arguments())
+      for(IArgument* argument : adaptedOutput->arguments())
+      {
+        if(!Id.toString().compare(argument->id() , Qt::CaseInsensitive))
         {
-           if(!argumentId.toString().compare(argument->id() , Qt::CaseInsensitive))
-           {
-              targument = argument;
+          targument = argument;
 
-              QString value;
-              QXmlStreamWriter writer(&value);
+          QString value;
+          QXmlStreamWriter writer(&value);
 
-              while(!(xmlReader.isEndElement() && !xmlReader.name().compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
-              {
-                 xmlReader.readNext();
-                 writer.writeCurrentToken(xmlReader);
-              }
+          while(!(xmlReader.isEndElement() &&
+                !xmlReader.name().compare("Argument", Qt::CaseInsensitive)) &&
+                !xmlReader.hasError())
+          {
+            xmlReader.readNext();
+            writer.writeCurrentToken(xmlReader);
+          }
 
-              if(!argIOType.toString().compare("File", Qt::CaseInsensitive))
-              {
-                 targument->readValues(value , true);
-              }
-              else
-              {
-                 targument->readValues(value);
-              }
+          if(!argIOType.toString().compare("File", Qt::CaseInsensitive))
+          {
+            targument->readValues(value, message, true);
+          }
+          else
+          {
+            targument->readValues(value, message);
+          }
 
-              break;
-           }
+          break;
         }
-     }
+      }
+    }
+
+    while (!(xmlReader.isEndElement() && !xmlReader.name().compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
+    {
+      xmlReader.readNext();
+    }
   }
 }
 
-bool GOutput::createConnection(GNode *consumer)
+bool GOutput::createConnection(GNode *consumer, QString &message)
 {
   if(consumer->nodeType() == GNode::Input ||
      consumer->nodeType() == GNode::MultiInput ||
@@ -341,7 +367,8 @@ bool GOutput::createConnection(GNode *consumer)
         {
           GInput* input = (GInput*) consumer;
 
-          if(m_component == input->modelComponent())
+          if(m_component == input->modelComponent() ||
+             !input->input()->canConsume(output(), message))
           {
             return false;
           }
@@ -350,7 +377,7 @@ bool GOutput::createConnection(GNode *consumer)
       case GNode::AdaptedOutput:
         {
           //add connection
-           connect(consumer , SIGNAL(doubleClicked(GNode*)) , modelComponent() , SLOT(onDoubleClicked(GNode*)));
+          connect(consumer , SIGNAL(doubleClicked(GNode*)) , modelComponent() , SLOT(onDoubleClicked(GNode*)));
         }
         break;
       default:

@@ -5,7 +5,6 @@
 #include "hydrocouple.h"
 #include "gmodelcomponent.h"
 
-#pragma region static variables
 
 float GConnection::m_arrowLength(40.0f);
 float GConnection::m_arrowWidth(30.0f);
@@ -13,7 +12,6 @@ QPen GConnection::m_selectedPen = QPen(QBrush(QColor(255, 99, 71), Qt::BrushStyl
 QFont GConnection::m_font ;
 int GConnection::s_zindex = -1000;
 
-#pragma endregion
 
 using namespace std;
 using namespace HydroCouple;
@@ -236,14 +234,14 @@ bool GConnection::insertAdaptedOutput(IIdentity* adaptedOutputId , IAdaptedOutpu
     disconnect(m_consumer, SIGNAL(scaleChanged()), this, SLOT(parentLocationOrSizeChanged()));
 
     GNode* placeHolderNode = m_consumer;
-    adaptedOutput->createConnection(placeHolderNode);
+    QString message;
+    adaptedOutput->createConnection(placeHolderNode, message);
     m_consumer = adaptedOutput;
 
     connect(m_consumer, SIGNAL(xChanged()), this, SLOT(parentLocationOrSizeChanged()));
     connect(m_consumer, SIGNAL(yChanged()), this, SLOT(parentLocationOrSizeChanged()));
     connect(m_consumer, SIGNAL(zChanged()), this, SLOT(parentLocationOrSizeChanged()));
     connect(m_consumer, SIGNAL(scaleChanged()), this, SLOT(parentLocationOrSizeChanged()));
-
 
     parentLocationOrSizeChanged();
     update();

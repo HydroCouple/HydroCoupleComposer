@@ -52,10 +52,10 @@ GAdaptedOutput::GAdaptedOutput(IIdentity *adaptedOutputId,
 
 GAdaptedOutput::~GAdaptedOutput()
 {
-//  if(m_adaptedOutput)
-//  {
-//    delete m_adaptedOutput;
-//  }
+  //  if(m_adaptedOutput)
+  //  {
+  //    delete m_adaptedOutput;
+  //  }
 }
 
 HydroCouple::IExchangeItem* GAdaptedOutput::exchangeItem() const
@@ -124,17 +124,17 @@ void GAdaptedOutput::writeExchangeItemConnections(QXmlStreamWriter &xmlWriter)
         {
           xmlWriter.writeStartElement("Argument");
           {
-            xmlWriter.writeAttribute("ArgumentId",argument->id());
+            xmlWriter.writeAttribute("Id",argument->id());
 
             switch (argument->currentArgumentIOType())
             {
-              case HydroCouple::File:
+              case IArgument::File:
                 {
                   xmlWriter.writeAttribute("ArgumentIOType","File");
                   xmlWriter.writeCharacters(m_component->project()->projectFile().dir().relativeFilePath(argument->toString()));
                 }
                 break;
-              case HydroCouple::String:
+              case IArgument::String:
                 {
                   xmlWriter.writeAttribute("ArgumentIOType","String");
 
@@ -184,64 +184,62 @@ void GAdaptedOutput::writeExchangeItemConnections(QXmlStreamWriter &xmlWriter)
 
 void GAdaptedOutput::readAdaptedOutputExchangeItemConnections(QXmlStreamReader &xmlReader, QList<QString> &errorMessages)
 {
-  if(!xmlReader.name().compare("AdaptedOutputExchangeItem",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+  if(!xmlReader.name().compare("Connections",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
   {
-    while(!(xmlReader.isEndElement() && !xmlReader.name().compare("AdaptedOutputExchangeItem", Qt::CaseInsensitive)) && !xmlReader.hasError())
+    while(!(xmlReader.isEndElement() && !xmlReader.name().compare("Connections", Qt::CaseInsensitive)) && !xmlReader.hasError())
     {
-      if(!xmlReader.name().compare("Connections",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+      if(!xmlReader.name().compare("AdaptedOutputExchangeItem",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
       {
-        while(!(xmlReader.isEndElement() && !xmlReader.name().compare("Connections", Qt::CaseInsensitive)) && !xmlReader.hasError())
+        readAdaptedOutputExchangeItem(xmlReader,errorMessages);
+      }
+      else if(!xmlReader.name().compare("InputExchangeItem",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+      {
+
+        QXmlStreamAttributes attributes = xmlReader.attributes();
+
+        if(attributes.hasAttribute("InputExchangeItemId") && attributes.hasAttribute("ModelComponentIndex"))
         {
-          if(!xmlReader.name().compare("AdaptedOutputExchangeItem",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
-          {
-            readAdaptedOutputExchangeItem(xmlReader,errorMessages);
-          }
-          else if(!xmlReader.name().compare("InputExchangeItem",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
-          {
+          int index = attributes.value("ModelComponentIndex").toInt();
 
-            QXmlStreamAttributes attributes = xmlReader.attributes();
+          if(index < m_component->project()->modelComponents().length())
+          {
+            GModelComponent* component = m_component->project()->modelComponents()[index];
+            QString id = attributes.value("InputExchangeItemId").toString();
 
-            if(attributes.hasAttribute("InputExchangeItemId") && attributes.hasAttribute("ModelComponentIndex"))
+            if(component->inputGraphicObjects().contains(id))
             {
-              int index = attributes.value("ModelComponentIndex").toInt();
+              GInput* input = component->inputGraphicObjects()[id];
 
-              if(index < m_component->project()->modelComponents().length())
+              if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
               {
-                GModelComponent* component = m_component->project()->modelComponents()[index];
-                QString id = attributes.value("InputExchangeItemId").toString();
+                QString xposS = attributes.value("XPos").toString();
+                QString yposS = attributes.value("YPos").toString();
 
-                if(component->inputGraphicObjects().contains(id))
+                bool ok;
+
+                double xloc = xposS.toDouble(&ok);
+                double yloc = yposS.toDouble(&ok);
+
+                if(ok)
                 {
-                  GInput* input = component->inputGraphicObjects()[id];
-
-                  if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
-                  {
-                    QString xposS = attributes.value("XPos").toString();
-                    QString yposS = attributes.value("YPos").toString();
-
-                    bool ok;
-
-                    double xloc = xposS.toDouble(&ok);
-                    double yloc = yposS.toDouble(&ok);
-
-                    if(ok)
-                    {
-                      input->setPos(xloc,yloc);
-                    }
-                  }
-
-                  createConnection(input);
+                  input->setPos(xloc,yloc);
                 }
               }
+
+              QString message;
+              createConnection(input, message);
+
+              if(!message.isEmpty())
+                errorMessages.append(message);
             }
           }
-          xmlReader.readNext();
         }
       }
       xmlReader.readNext();
     }
   }
 }
+
 
 bool GAdaptedOutput::deleteConnection(GConnection *connection)
 {
@@ -336,19 +334,23 @@ void GAdaptedOutput::reestablishConnections()
   {
     adaptedOutput = m_adaptedOutputFactory->createAdaptedOutput(m_adaptedOutputId , m_adaptee->output() , m_input->input());
 
+    QString message;
+
     for(IArgument *nargument : adaptedOutput->arguments())
     {
       for(IArgument*argument : m_adaptedOutput->arguments())
       {
         if(!nargument->id().compare(argument->id()))
         {
-          nargument->readValues(argument);
+          nargument->readValues(argument, message);
           break;
         }
       }
     }
 
     delete m_adaptedOutput;
+    m_adaptedOutput = nullptr;
+
     m_adaptedOutput = adaptedOutput;
 
     for(GConnection *connection: m_connections)

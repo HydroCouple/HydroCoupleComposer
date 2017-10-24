@@ -60,13 +60,15 @@ class GraphicsView : public QGraphicsView
       void statusChanged(const QString& status);
 
    private:
-      QPointF m_previousMousePosition;
+      QPointF m_scenePosition;
+      QPointF m_viewportPosition;
       QPointF m_mousePressPosition;
-      bool m_mouseIsPressed;
+      bool m_mouseIsPressed, m_isBusy;
       Tool m_currentTool;
       QRectF m_zoomRect;
       QGraphicsRectItem m_zoomItem;
       qreal totalScaleFactor;
+
 
 };
 

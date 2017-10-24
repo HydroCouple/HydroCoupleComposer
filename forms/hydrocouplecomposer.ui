@@ -19,6 +19,9 @@
   <property name="toolTip">
    <string>HydroCouple Composer</string>
   </property>
+  <property name="dockOptions">
+   <set>QMainWindow::AllowNestedDocks|QMainWindow::AllowTabbedDocks|QMainWindow::AnimatedDocks|QMainWindow::ForceTabbedDocks|QMainWindow::GroupedDragging|QMainWindow::VerticalTabs</set>
+  </property>
   <property name="unifiedTitleAndToolBarOnMac">
    <bool>true</bool>
   </property>
@@ -83,6 +86,7 @@
     <property name="title">
      <string>View</string>
     </property>
+    <addaction name="actionHydroCoupleVis"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -94,6 +98,7 @@
      <string>Tools</string>
     </property>
     <addaction name="actionExecute"/>
+    <addaction name="actionCancelSimulation"/>
     <addaction name="actionAddComponentLibraryDirectory"/>
     <addaction name="actionClearAllSettings"/>
    </widget>
@@ -131,6 +136,7 @@
    <addaction name="actionNew"/>
    <addaction name="actionOpen"/>
    <addaction name="actionSave"/>
+   <addaction name="actionSave_As"/>
    <addaction name="actionPrint"/>
    <addaction name="separator"/>
    <addaction name="actionDefaultSelect"/>
@@ -150,6 +156,7 @@
    <addaction name="separator"/>
    <addaction name="actionSetTrigger"/>
    <addaction name="actionExecute"/>
+   <addaction name="actionCancelSimulation"/>
    <addaction name="separator"/>
    <addaction name="actionLayoutComponents"/>
    <addaction name="actionAlignTop"/>
@@ -305,6 +312,11 @@
     <layout class="QHBoxLayout" name="horizontalLayout_3">
      <item>
       <widget class="QTextEdit" name="textEdit">
+       <property name="font">
+        <font>
+         <pointsize>10</pointsize>
+        </font>
+       </property>
        <property name="contextMenuPolicy">
         <enum>Qt::ActionsContextMenu</enum>
        </property>
@@ -326,6 +338,9 @@
    </widget>
   </widget>
   <widget class="QDockWidget" name="dockWidgetAdaptedOutputs">
+   <property name="allowedAreas">
+    <set>Qt::AllDockWidgetAreas</set>
+   </property>
    <property name="windowTitle">
     <string>Adapted Outputs</string>
    </property>
@@ -710,6 +725,21 @@
     <string>Execute Composition</string>
    </property>
   </action>
+  <action name="actionCancelSimulation">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../resources/hydrocouplecomposer.qrc">
+     <normaloff>:/HydroCoupleComposer/stopsim</normaloff>:/HydroCoupleComposer/stopsim</iconset>
+   </property>
+   <property name="text">
+    <string>Cancel Simulation</string>
+   </property>
+   <property name="toolTip">
+    <string>Cancel Simulation</string>
+   </property>
+  </action>
   <action name="actionDistributeTopEdges">
    <property name="enabled">
     <bool>false</bool>
@@ -984,6 +1014,11 @@
    </property>
    <property name="visible">
     <bool>false</bool>
+   </property>
+  </action>
+  <action name="actionHydroCoupleVis">
+   <property name="text">
+    <string>HydroCoupleVis</string>
    </property>
   </action>
  </widget>

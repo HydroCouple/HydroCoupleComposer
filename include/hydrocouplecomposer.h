@@ -12,13 +12,14 @@
 #include "modelstatusitemmodel.h"
 #include "argumentdialog.h"
 
-
-#ifdef _WIN32
-#include "cgraph.h"
-#include "gvc.h"
-#else
-#include <graphviz/cgraph.h>
-#include <graphviz/gvc.h>
+#ifdef GRAPHVIZ_LIBRARY
+  #ifdef _WIN32
+    #include "cgraph.h"
+    #include "gvc.h"
+  #else
+    #include <graphviz/cgraph.h>
+    #include <graphviz/gvc.h>
+  #endif
 #endif
 
 
@@ -51,6 +52,12 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        * \param project
        */
       void setProject(HydroCoupleProject* project);
+
+      /*!
+       * \brief openFile
+       * \param file
+       */
+      bool openFile(const QFileInfo& file);
 
    protected:
 
@@ -88,11 +95,7 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
    private:
 
-      /*!
-       * \brief openFile
-       * \param file
-       */
-      void openFile(const QFileInfo& file);
+
 
       /*!
        * \brief readSettings
@@ -173,6 +176,7 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        */
       void addRemoveNodeToGraphicsView(GNode* node, bool add = true);
 
+#ifdef GRAPHVIZ_LIBRARY
       /*!
        * \brief layoutNode
        * \param graph
@@ -190,7 +194,7 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        * \param node
        */
       void layoutEdges(Agraph_t* graph, const QHash<GNode*,QString> & identifiers, GNode* node);
-
+#endif
       /*!
        * \brief stringToCharP
        * \param text
@@ -523,6 +527,8 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       void onGraphicsViewHydroCoupleComposerContextMenuRequested(const QPoint& pos);
 
+      void onShowHydroCoupleVis();
+
       void onAbout();
       
       void onPreferences();
@@ -561,6 +567,9 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       ArgumentDialog* m_argumentDialog;
       QMenu *m_graphicsContextMenu, *m_treeviewComponentInfoContextMenu;
       SimulationManager *m_simulationManager;
+
+  public:
+      static HydroCoupleComposer *hydroCoupleComposerWindow;
 };
 
 #endif // HYDROCOUPLECOMPOSER_H

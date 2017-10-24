@@ -3,23 +3,25 @@
 #include "gdefaultselectiongraphic.h"
 #include "assert.h"
 #include "gexchangeitems.h"
+#include "gmodelcomponent.h"
 
 const QString GNode::sc_captionHtml =
-    "<h1 align=\"center\">[Id]</h1>"
-    "<h2 align=\"center\"><i>[Caption]</i></h2>";
+    "<h3 align=\"center\">[Id]</h3>"
+    "<h5 align=\"center\"><i>[Caption]</i></h5>";
 
 
 int GNode::s_zindex(1000);
 QBrush GNode::s_selectedBrush(QColor(255, 230, 220), Qt::BrushStyle::SolidPattern);
 QPen GNode::s_selectedPen(QBrush(QColor(255, 0, 0), Qt::BrushStyle::SolidPattern), 4.0, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::RoundJoin);
 
-GNode::GNode(const QString& id, const QString& caption, NodeType type)
+GNode::GNode(const QString& id, const QString& caption, NodeType type, HydroCoupleProject *project)
   :QGraphicsObject(nullptr),
     m_margin(15),
     m_id(id),
     m_caption(caption),
     m_nodeType(type),
-    m_font(QFont())
+    m_font(QFont()),
+    m_project(project)
 {
   m_textItem = new QGraphicsTextItem(this);
   m_textItem->setFlag(GraphicsItemFlag::ItemIsMovable, true);
@@ -48,8 +50,8 @@ GNode::GNode(const QString& id, const QString& caption, NodeType type)
       break;
     case NodeType::Input:
       {
-        m_cornerRadius = 80 ;
-        m_size = 40 ;
+        m_cornerRadius = 60 ;
+        m_size = 30;
         m_brush = QBrush(QColor(0, 150, 255), Qt::BrushStyle::SolidPattern);
         m_pen = QPen(QBrush(QColor(0,150,255), Qt::BrushStyle::SolidPattern),
                      5.0, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::RoundJoin);
@@ -57,8 +59,8 @@ GNode::GNode(const QString& id, const QString& caption, NodeType type)
       break;
     case NodeType::Output:
       {
-        m_cornerRadius = 80 ;
-        m_size = 40 ;
+        m_cornerRadius = 60 ;
+        m_size = 30 ;
         m_brush = QBrush(QColor(255, 0, 0), Qt::SolidPattern);
         m_pen = QPen(QBrush(QColor(255,0,0), Qt::BrushStyle::SolidPattern),
                      5.0, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::RoundJoin);
@@ -66,8 +68,8 @@ GNode::GNode(const QString& id, const QString& caption, NodeType type)
       break;
     case NodeType::AdaptedOutput:
       {
-        m_cornerRadius = 80 ;
-        m_size = 40 ;
+        m_cornerRadius = 60 ;
+        m_size = 30 ;
         m_brush = QBrush(QColor(255, 30, 0), Qt::BrushStyle::SolidPattern);
         m_pen = QPen(QBrush(QColor(0,150,255), Qt::BrushStyle::SolidPattern),
                      5.0, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::RoundJoin);
@@ -313,16 +315,19 @@ void GNode::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
 
 void GNode::onCreateTextItem()
 {
-  m_textItem->setFont(m_font);
-  QString desc(sc_captionHtml);
+  if(m_project && m_project->hasGraphics())
+  {
+    m_textItem->setFont(m_font);
+    QString desc(sc_captionHtml);
 
-  desc.replace("[Id]", m_id)
-      .replace("[Caption]", m_caption);
+    desc.replace("[Id]", m_id)
+        .replace("[Caption]", m_caption);
 
-  setToolTip(desc);
-  m_textItem->setHtml(desc);
-  m_textItem->setPos(-(m_textItem->boundingRect().width() - m_size-2*m_margin) /2.0 , - m_textItem->boundingRect().height() - 2);
-  m_xmargin = m_ymargin = m_margin;
+    setToolTip(desc);
+    m_textItem->setHtml(desc);
+    m_textItem->setPos(-(m_textItem->boundingRect().width() - m_size-2*m_margin) /2.0 , - m_textItem->boundingRect().height() - 2);
+    m_xmargin = m_ymargin = m_margin;
+  }
 }
 
 void GNode::onChildHasChanges()

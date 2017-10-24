@@ -31,14 +31,14 @@ void ModelStatusItemStyledItemDelegate::paint(QPainter *painter, const QStyleOpt
       progressStyle.textVisible = true;
 
 
-      if(item->status()->status() == ComponentStatus::Initializing ||
-            item->status()->status() == ComponentStatus::Validating ||
-            item->status()->status() == ComponentStatus::WaitingForData ||
-            item->status()->status() == ComponentStatus::Preparing ||
-            item->status()->status() == ComponentStatus::Updating ||
-            item->status()->status() == ComponentStatus::Updated ||
-            item->status()->status() == ComponentStatus::Done ||
-            item->status()->status() == ComponentStatus::Finishing
+      if(item->status()->status() == IModelComponent::Initializing ||
+            item->status()->status() == IModelComponent::Validating ||
+            item->status()->status() == IModelComponent::WaitingForData ||
+            item->status()->status() == IModelComponent::Preparing ||
+            item->status()->status() == IModelComponent::Updating ||
+            item->status()->status() == IModelComponent::Updated ||
+            item->status()->status() == IModelComponent::Done ||
+            item->status()->status() == IModelComponent::Finishing
             )
       {
          if(item->status()->hasProgressMonitor())
@@ -98,8 +98,8 @@ ModelStatusItemModel::ModelStatusItemModel(QObject *parent)
 
 ModelStatusItemModel::~ModelStatusItemModel()
 {
-   // qDeleteAll(m_models);
-   // m_models.clear();
+  qDeleteAll(m_models);
+  m_models.clear();
 }
 
 int ModelStatusItemModel::columnCount(const QModelIndex &parent) const
@@ -180,7 +180,7 @@ int ModelStatusItemModel::rowCount(const QModelIndex &parent) const
 {
    ModelStatusItem* item = nullptr;
 
-   qDebug() << parent;
+   //qDebug() << parent;
 
    if(parent.isValid())
    {
@@ -274,8 +274,9 @@ void ModelStatusItemModel::removeModel(IModelComponent *modelComponent)
          beginResetModel();//QModelIndex() , row , row);
 
          m_models.removeAll(item);
-         disconnectSignalSlotConnections(item);
 
+         disconnectSignalSlotConnections(item);
+         delete item;
          endResetModel();
 
          return ;

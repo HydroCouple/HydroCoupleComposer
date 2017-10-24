@@ -25,9 +25,9 @@ class ModelStatusChangeEventArg : public QObject
 
       QString currentStatus() const;
 
-      HydroCouple::ComponentStatus status() const;
+      HydroCouple::IModelComponent::ComponentStatus status() const;
 
-      void setStatus(HydroCouple::ComponentStatus status);
+      void setStatus(HydroCouple::IModelComponent::ComponentStatus status);
 
       QString message() const ;
 
@@ -42,7 +42,7 @@ class ModelStatusChangeEventArg : public QObject
       QString m_message;
       float m_percentProgress;
       HydroCouple::IModelComponent* m_component;
-      HydroCouple::ComponentStatus m_currentStatus , m_previousStatus ;
+      HydroCouple::IModelComponent::ComponentStatus m_currentStatus , m_previousStatus ;
 };
 
 

@@ -45,7 +45,7 @@ void GDefaultSelectionGraphic::paint(const QRectF& rect, QPainter * painter, con
 
 QRectF GDefaultSelectionGraphic::getRectFrom(const QPointF& p1, const QPointF p2)
 {
-   double x1, x2, y1, y2;
+   double x1 = 0, x2 = 0, y1 = 0, y2 = 0;
 
    if (p1.x() < p2.x())
    {

@@ -5,6 +5,7 @@
 #include <QTimer>
 #include "ui_argumentdialog.h"
 #include "gmodelcomponent.h"
+#include <QGenericMatrix>
 
 class ArgumentDialog : public QDialog , public Ui::ArgumentDialog
 {

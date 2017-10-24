@@ -66,9 +66,9 @@ void ArgumentDialog::onReadArgument()
 {
    if(m_isComponent)
    {
-      if(m_component->modelComponent()->status() == HydroCouple::Created ||
-            m_component->modelComponent()->status() == HydroCouple::Failed ||
-            m_component->modelComponent()->status() == HydroCouple::Initialized)
+      if(m_component->modelComponent()->status() == IModelComponent::Created ||
+            m_component->modelComponent()->status() == IModelComponent::Failed ||
+            m_component->modelComponent()->status() == IModelComponent::Initialized)
       {
          int index;
 
@@ -77,26 +77,30 @@ void ArgumentDialog::onReadArgument()
             QVariant arg = comboBoxArguments->itemData(index);
             IArgument* argument = m_arguments[arg.toString()];
 
-            if(radioButtonFileInput->isChecked() && !lineEditFileInput->text().isEmpty() && !lineEditFileInput->text().isNull())
+            QString message;
+
+            if(radioButtonFileInput->isChecked())// dont care maybe clear && !lineEditFileInput->text().isEmpty() && !lineEditFileInput->text().isNull())
             {
-               if(argument->readValues(lineEditFileInput->text(), true))
+
+               if(argument->readValues(lineEditFileInput->text(), message, true))
                {
-                  labelStatus->setText("Input read successfully");
+                  labelStatus->setText("Input read successfully: " + message);
+                  textEditInput->setText(argument->toString());
                }
                else
                {
-                  labelStatus->setText("Input could not be read Successfully");
+                  labelStatus->setText("Input could not be read!: " + message);
                }
             }
-            else if(!textEditInput->toPlainText().isEmpty() && !textEditInput->toPlainText().isNull())
+            else //if(!textEditInput->toPlainText().isEmpty() && !textEditInput->toPlainText().isNull())
             {
-               if(argument->readValues(textEditInput->toPlainText()))
+               if(argument->readValues(textEditInput->toPlainText(), message))
                {
-                  labelStatus->setText("Input read successfully");
+                  labelStatus->setText("Input read successfully: " + message);
                }
                else
                {
-                  labelStatus->setText("Input could not be read Successfully");
+                  labelStatus->setText("Input could not be read!: " + message);
                }
 
                QTimer::singleShot(5000, this , SLOT(onRefreshStatus()));
@@ -113,11 +117,13 @@ void ArgumentDialog::onReadArgument()
          QVariant arg = comboBoxArguments->itemData(index);
          IArgument* argument = m_arguments[arg.toString()];
 
+         QString message;
+
          if(radioButtonFileInput->isChecked() && !lineEditFileInput->text().isEmpty() && !lineEditFileInput->text().isNull())
          {
-            if(argument->readValues(lineEditFileInput->text(), true))
+            if(argument->readValues(lineEditFileInput->text(), message, true))
             {
-               labelStatus->setText("Input read successfully");
+               labelStatus->setText("Input read successfully: " + message);
             }
             else
             {
@@ -126,13 +132,13 @@ void ArgumentDialog::onReadArgument()
          }
          else if(!textEditInput->toPlainText().isEmpty() && !textEditInput->toPlainText().isNull())
          {
-            if(argument->readValues(textEditInput->toPlainText()))
+            if(argument->readValues(textEditInput->toPlainText(), message))
             {
-               labelStatus->setText("Input read successfully");
+               labelStatus->setText("Input read successfully: " + message);
             }
             else
             {
-               labelStatus->setText("Input could not be read Successfully");
+               labelStatus->setText("Input could not be read Successfully: " + message);
             }
 
             QTimer::singleShot(5000, this , SLOT(onRefreshStatus()));
@@ -143,9 +149,9 @@ void ArgumentDialog::onReadArgument()
 
 void ArgumentDialog::onInitializeComponent()
 {
-   if(m_component->modelComponent()->status() == HydroCouple::Created ||
-         m_component->modelComponent()->status() == HydroCouple::Failed ||
-         m_component->modelComponent()->status() == HydroCouple::Initialized
+   if(m_component->modelComponent()->status() == IModelComponent::Created ||
+         m_component->modelComponent()->status() == IModelComponent::Failed ||
+         m_component->modelComponent()->status() == IModelComponent::Initialized
          )
    {
       m_component->modelComponent()->initialize();
@@ -162,7 +168,7 @@ void ArgumentDialog::onBrowseForFile()
 
       QString filter ="";
 
-      for(const QString &cfilter : argument->inputFileTypeFilters())
+      for(const QString &cfilter : argument->fileFilters())
       {
          if(filter.isEmpty())
          {
@@ -192,40 +198,44 @@ void ArgumentDialog::onSelectedArgumentChanged(int index)
 
       if(argument->canReadFromFile() && !argument->canReadFromString())
       {
-         radioButtonFileInput->setChecked(true);
-         groupBoxInputType->setVisible(false);
-         groupBoxTextInput->setVisible(false);
-         groupBoxInputFile->setVisible(true);
+         radioButtonFileInput->setEnabled(true);
+         radioButtonTextInput->setEnabled(false);
+         radioButtonTextInput->setChecked(false);
+
       }
       else if(!argument->canReadFromFile() && argument->canReadFromString())
       {
-         radioButtonFileInput->setChecked(false);
-         groupBoxInputType->setVisible(false);
-         groupBoxTextInput->setVisible(true);
-         groupBoxInputFile->setVisible(false);
+        radioButtonFileInput->setEnabled(false);
+        radioButtonTextInput->setEnabled(true);
+        radioButtonFileInput->setChecked(false);
       }
       else
       {
-         groupBoxInputType->setVisible(true);
-         groupBoxTextInput->setVisible(true);
-         groupBoxInputFile->setVisible(true);
+        radioButtonFileInput->setEnabled(true);
+        radioButtonTextInput->setEnabled(true);
       }
 
-      if(argument->currentArgumentIOType() == HydroCouple::String)
+      if(argument->currentArgumentIOType() == IArgument::String)
       {
          radioButtonTextInput->setChecked(true);
-         textEditInput->setText(argument->toString());
+         QString text = argument->toString();
+         textEditInput->setText(text);
+         lineEditFileInput->setText("");
       }
       else
       {
-         radioButtonTextInput->setChecked(false);
+         radioButtonFileInput->setChecked(true);
          lineEditFileInput->setText(argument->toString());
+         textEditInput->setText("");
       }
+
+      textEditArgumentDescription->setHtml(argument->description());
    }
    else
    {
       lineEditFileInput->clear();
       textEditInput->clear();
+      textEditArgumentDescription->clear();
    }
 }
 

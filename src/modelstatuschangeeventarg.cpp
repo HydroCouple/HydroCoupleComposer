@@ -5,8 +5,8 @@ using namespace HydroCouple;
 
 ModelStatusChangeEventArg::ModelStatusChangeEventArg(QObject* parent)
    :QObject(parent) , m_hasProgress(false), m_message(""), m_percentProgress(0),
-     m_currentStatus(HydroCouple::Created),
-     m_previousStatus(HydroCouple::Created)
+     m_currentStatus(IModelComponent::Created),
+     m_previousStatus(IModelComponent::Created)
 
 {
 
@@ -33,13 +33,13 @@ QString ModelStatusChangeEventArg::currentStatus() const
    return GModelComponent::modelComponentStatusAsString( m_currentStatus);
 }
 
-ComponentStatus ModelStatusChangeEventArg::status() const
+IModelComponent::ComponentStatus ModelStatusChangeEventArg::status() const
 {
    return m_currentStatus;
 }
 
 
-void ModelStatusChangeEventArg::setStatus(ComponentStatus status)
+void ModelStatusChangeEventArg::setStatus(IModelComponent::ComponentStatus status)
 {
    m_currentStatus = status;
 }

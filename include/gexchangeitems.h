@@ -87,7 +87,7 @@ class GInput: public GExchangeItem
 
       void writeExchangeItemConnections(QXmlStreamWriter &xmlWriter) override;
 
-      bool createConnection(GNode* consumer) override;
+      bool createConnection(GNode* consumer, QString &message) override;
 
       bool deleteConnection(GConnection* connection) override;
 
@@ -158,7 +158,7 @@ class GOutput : public GExchangeItem
 
       void readArgument(QXmlStreamReader& xmlReader, HydroCouple::IAdaptedOutput* adaptedOutput);
 
-      bool createConnection(GNode *consumer) override;
+      bool createConnection(GNode *consumer, QString &message) override;
 
       bool deleteConnection(GConnection *connection) override;
 
@@ -190,7 +190,7 @@ class GAdaptedOutput : public GOutput
 
       HydroCouple::IExchangeItem* exchangeItem() const override;
 
-      HydroCouple::IOutput* output() const;
+      HydroCouple::IOutput* output() const override;
 
       HydroCouple::IAdaptedOutput* adaptedOutput() const;
 

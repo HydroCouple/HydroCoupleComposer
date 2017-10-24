@@ -8,6 +8,8 @@
 #include "hydrocoupleproject.h"
 #include "gexchangeitems.h"
 
+class CPUGPUAllocation;
+
 class GModelComponent : public GNode
 {
     friend class SimulationManager;
@@ -20,6 +22,7 @@ class GModelComponent : public GNode
     Q_PROPERTY(bool Trigger READ trigger WRITE setTrigger NOTIFY propertyChanged)
     Q_PROPERTY(QPen TriggerPen READ triggerPen WRITE setTriggerPen NOTIFY propertyChanged)
     Q_PROPERTY(QBrush TriggerBrush READ triggerBrush WRITE setTriggerBrush NOTIFY propertyChanged)
+    Q_PROPERTY(QList<CPUGPUAllocation*> ComputeResources READ allocatedComputeResources WRITE allocateComputeResources NOTIFY propertyChanged)
 
   public:
 
@@ -49,9 +52,15 @@ class GModelComponent : public GNode
 
     void setTriggerBrush(const QBrush& triggerBrush);
 
+    QList<CPUGPUAllocation*> allocatedComputeResources() const;
+
+    void allocateComputeResources(const QList<CPUGPUAllocation*> &allocatedComputeResources);
+
     bool moveExchangeItemsWhenMoved() const;
 
     void setMoveExchangeItemsWhenMoved(bool move);
+
+    bool readFromFile() const;
 
     QHash<QString,HydroCouple::IInput*> inputs() const;
 
@@ -61,11 +70,13 @@ class GModelComponent : public GNode
 
     QHash<QString, GOutput*> outputGraphicObjects() const;
 
-    static QString modelComponentStatusAsString(HydroCouple::ComponentStatus status);
+    static QString modelComponentStatusAsString(HydroCouple::IModelComponent::ComponentStatus status);
 
-    static GModelComponent* readComponentFile(const QFileInfo& file, HydroCoupleProject* project, QList<QString>& errorMessages);
+    static GModelComponent* readComponentFile(const QFileInfo& file, HydroCoupleProject* project,
+                                              QList<QString>& errorMessages, bool initialize = true);
 
-    static GModelComponent* readComponent(QXmlStreamReader &xmlReader, HydroCoupleProject* project , QList<QString>& errorMessages);
+    static GModelComponent* readComponent(QXmlStreamReader &xmlReader, HydroCoupleProject* project,
+                                          const QDir& referenceDir, QList<QString>& errorMessages, bool initialize = true);
 
     void readComponentConnections(QXmlStreamReader& xmlReader, QList<QString>& errorMessages);
 
@@ -79,7 +90,7 @@ class GModelComponent : public GNode
 
     void paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0) override;
 
-    bool createConnection(GNode *consumer) override;
+    bool createConnection(GNode *consumer, QString &message) override;
 
     bool deleteConnection(GConnection *connection) override;
 
@@ -90,8 +101,6 @@ class GModelComponent : public GNode
     void disestablishConnections();
 
     void reestablishConnections();
-
-    //      void removeAdaptedOutputsByComponentInfo(const QString& id);
 
   protected:
 
@@ -134,13 +143,11 @@ class GModelComponent : public GNode
   protected:
     HydroCouple::IModelComponent* m_modelComponent;
     HydroCoupleProject* m_parent;
-
     QHash<QString,HydroCouple::IInput*> m_inputs;
     QHash<QString,HydroCouple::IOutput*> m_outputs;
-
     QHash<QString,GOutput*> m_outputGraphicObjects;
     QHash<QString,GInput*> m_inputGraphicObjects;
-
+    QList<CPUGPUAllocation*> m_computeResourceAllocations;
     static const QString sc_descriptionHtml;
     static QPen s_triggerPen ;
     static QBrush s_triggerBrush ;

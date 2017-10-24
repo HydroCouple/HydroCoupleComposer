@@ -276,7 +276,6 @@ class ITimeListPropertyItem : public QObjectListPropertyItem
       virtual ~ITimeListPropertyItem(){}
 };
 
-
 class ITimeSpanPropertyItem : public QObjectPropertyItem
 {
       Q_OBJECT
@@ -295,7 +294,6 @@ class ITimeSpanListPropertyItem : public QObjectListPropertyItem
       virtual ~ITimeSpanListPropertyItem(){}
 };
 
-
 class ITimeComponentDataItemPropertyItem : public QObjectPropertyItem
 {
       Q_OBJECT
@@ -304,17 +302,6 @@ class ITimeComponentDataItemPropertyItem : public QObjectPropertyItem
 
       virtual ~ITimeComponentDataItemPropertyItem(){}
 };
-
-
-class ITimeExchangeItemPropertyItem : public QObjectPropertyItem
-{
-      Q_OBJECT
-   public:
-      Q_INVOKABLE ITimeExchangeItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
-
-      virtual ~ITimeExchangeItemPropertyItem(){}
-};
-
 
 class ITimeIdBasedComponentDataItemPropertyItem : public QObjectPropertyItem
 {
@@ -325,34 +312,25 @@ class ITimeIdBasedComponentDataItemPropertyItem : public QObjectPropertyItem
       virtual ~ITimeIdBasedComponentDataItemPropertyItem(){}
 };
 
-
-
-class ITimeIdBasedExchangeItemPropertyItem : public QObjectPropertyItem
+class CPUGPUAllocationPropertyItem : public QObjectPropertyItem
 {
       Q_OBJECT
    public:
-      Q_INVOKABLE ITimeIdBasedExchangeItemPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+      Q_INVOKABLE CPUGPUAllocationPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
 
-      virtual ~ITimeIdBasedExchangeItemPropertyItem(){}
+      virtual ~CPUGPUAllocationPropertyItem(){}
 };
 
-//class IUnitPropertyItem : public QObjectPropertyItem
-//{
-//      Q_OBJECT
-//   public:
-//      Q_INVOKABLE IUnitPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
-
-//      virtual ~IUnitPropertyItem(){}
-//};
+class CPUGPUAllocationListPropertyItem : public QObjectListPropertyItem
+{
+      Q_OBJECT
+   public:
+      Q_INVOKABLE CPUGPUAllocationListPropertyItem(const QVariant& value , const QMetaProperty& prop, QObjectClassPropertyItem * parent);
 
 
-//class IUnitDimensionsPropertyItem : public QObjectPropertyItem
-//{
-//      Q_OBJECT
-//   public:
-//      Q_INVOKABLE IUnitDimensionsPropertyItem(const QVariant& value , const QMetaProperty& prop, QPropertyItem * parent);
+      bool setData(const QVariant & value, Qt::ItemDataRole role = Qt::UserRole) override;
 
-//      virtual ~IUnitDimensionsPropertyItem(){}
-//};
+      virtual ~CPUGPUAllocationListPropertyItem(){}
+};
 
 #endif // CUSTOMPROPERTYITEMS_H
