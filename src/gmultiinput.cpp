@@ -13,16 +13,11 @@ GMultiInput::GMultiInput(const QString &multiInputId,  GModelComponent* parent)
 
 GMultiInput::~GMultiInput()
 {
-
   deleteConnections();
 
-  if(!id().compare("6-N-Lat-Inf") && !modelComponent()->modelComponent()->id().compare("test1_split2"))
+  while(m_providers.size())
   {
-    id();
-  }
-
-  for(GOutput* provider : m_providers)
-  {
+    GOutput* provider = m_providers[0];
     provider->deleteConnection(this);
   }
 }
@@ -52,12 +47,21 @@ void GMultiInput::addProvider(GOutput *provider)
 
 void GMultiInput::removeProvider(GOutput *provider)
 {
-  if(m_providers.removeAll(provider))
+  m_providers.removeAll(provider);
+
+  if(provider)
   {
+    IMultiInput *multInput = multiInput();
+    IOutput *output = provider->output();
+
+    if(multInput && output)
+    {
+      output->removeConsumer(multInput);
+    }
   }
 }
 
-void GMultiInput::disestablishConnections()
+void GMultiInput::deEstablishConnections()
 {
   if(multiInput())
   {
@@ -68,7 +72,7 @@ void GMultiInput::disestablishConnections()
   }
 }
 
-void GMultiInput::reestablishConnections()
+void GMultiInput::reEstablishConnections()
 {
   if(multiInput())
   {
@@ -82,7 +86,7 @@ void GMultiInput::reestablishConnections()
   }
 }
 
-void GMultiInput::reestablishSignalSlotConnections()
+void GMultiInput::reEstablishSignalSlotConnections()
 {
   if(multiInput())
   {

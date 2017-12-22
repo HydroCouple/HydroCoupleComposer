@@ -7,10 +7,16 @@
 #include <exception>
 
 class GModelComponent;
+class GConnection;
+class GAdaptedOutput;
+class GNode;
+class GOutput;
+class GInput;
 
 class HydroCoupleProject : public QObject
 {
       friend class GModelComponent;
+      friend class GAdaptedOutput;
 
       Q_OBJECT
       Q_PROPERTY(QFileInfo ProjectFile READ projectFile)
@@ -23,44 +29,33 @@ class HydroCoupleProject : public QObject
 
       virtual ~HydroCoupleProject();
 
-      //!File to save project in
       QFileInfo projectFile() const;
 
       ComponentManager* componentManager() const;
 
-      //!Instantiated model components
       QList<GModelComponent*> modelComponents() const;
+
+      HydroCouple::IWorkflowComponent *workflowComponent() const;
+
+      void setWorkflowComponent(HydroCouple::IWorkflowComponent *workflowComponent);
 
       GModelComponent* findModelComponentById(const QString& id);
 
-      //!add instantiated component to list of components
-      void addComponent(GModelComponent *component);
+      void addModelComponent(GModelComponent *component);
 
-      //!remove component from list of instantiated components
-      bool deleteComponent(GModelComponent *component);
+      bool deleteModelComponent(GModelComponent *component);
 
-      /*!
-       * \brief hasChanges
-       * \return
-       */
+      void deleteModelComponentsAssociatedWithComponentInfo(HydroCouple::IModelComponentInfo *modelComponentInfo);
+
+      void deleteAdaptedOutputsAssociatedWithComponentInfo(HydroCouple::IAdaptedOutputFactoryComponentInfo *adaptedOutputFactoryComponentInfo);
+
       bool hasChanges() const;
 
-      /*!
-       * \brief hasGraphics
-       * \return
-       */
       bool hasGraphics() const;
 
-      /*!
-       * \brief readProjectFile
-       * \param file
-       * \return
-       */
       static HydroCoupleProject* readProjectFile(const QFileInfo& fileInfo, QList<QString>& errorMessages, bool initializeComponents = true, bool hasGraphics = true);
 
-
       static GModelComponent* readModelComponent(const QFileInfo &fileInfo, QList<QString> &errorMessages, int componentIndex);
-
 
       static int mpiProcess;
 
@@ -68,66 +63,47 @@ class HydroCoupleProject : public QObject
 
    signals:
 
-      //! emit when component is added to update ui and graphics
       void componentAdded(GModelComponent *component);
 
-      /*!
-       * \brief emit when component is removed to update UI and graphics.
-       */
       void componentDeleting(GModelComponent *component);
 
-      /*!
-       * \brief stateModified
-       * \param hasChanges
-       */
+      void workflowComponentChanged(HydroCouple::IWorkflowComponent *workflowComponent);
+
       void stateModified(bool hasChanges);
 
-
       void postMessage(const QString& message);
-
 
       void setProgress(bool visible, int progressvalue , int min = 0, int max = 100);
 
    public slots:
 
-      /*!
-       * \brief onTriggerChanged
-       * \param triggerModelComponent
-       */
       void onTriggerChanged(GModelComponent *triggerModelComponent);
 
-      /*!
-       * \brief onSaveProject
-       */
       void onSaveProject();
 
-      /*!
-       * \brief onSaveProjectAs
-       * \param file
-       */
       void onSaveProjectAs(const QFileInfo& file);
 
-
       void onSetHasChanges(bool hasChanges = true);
-
 
       void onReloadConnections();
 
    private:
-      //!Performs deep check to see if component has already been added
+
       bool contains(GModelComponent *component) const;
 
    private slots:
+
       void onPostMessage(const QString& message);
 
    private:
+
       QList<GModelComponent*> m_modelComponents;
       QFileInfo m_projectFile;
       bool m_hasChanges, m_hasGraphics;
       ComponentManager* m_componentManager;
+      HydroCouple::IWorkflowComponent *m_workflowComponent;
+
 };
-
-
 
 Q_DECLARE_METATYPE(HydroCoupleProject*)
 

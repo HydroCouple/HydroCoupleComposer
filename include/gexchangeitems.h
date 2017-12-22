@@ -33,197 +33,218 @@ class GAdaptedOutput;
 
 class GExchangeItem : public GNode
 {
-      Q_OBJECT
-      Q_PROPERTY(HydroCouple::IExchangeItem* ExchangeItem READ exchangeItem)
-      Q_PROPERTY(GModelComponent* ModelComponent READ modelComponent)
+    Q_OBJECT
+    Q_PROPERTY(HydroCouple::IExchangeItem* ExchangeItem READ exchangeItem)
+    Q_PROPERTY(GModelComponent* ModelComponent READ modelComponent)
 
-   public:
-      GExchangeItem(const QString &exchangeItemId, GNode::NodeType type,  GModelComponent *parent);
+  public:
 
-      virtual ~GExchangeItem();
+    GExchangeItem(const QString &exchangeItemId, GNode::NodeType type,  GModelComponent *parent);
 
-      virtual HydroCouple::IExchangeItem* exchangeItem() const = 0;
+    virtual ~GExchangeItem();
 
-      virtual GModelComponent* modelComponent() const;
+    virtual HydroCouple::IExchangeItem* exchangeItem() const = 0;
 
-      virtual void writeExchangeItemConnections(QXmlStreamWriter & xmlWriter) = 0;
+    virtual GModelComponent* modelComponent() const;
 
-      virtual void disestablishConnections() = 0;
+    virtual void writeExchangeItemConnections(QXmlStreamWriter & xmlWriter) = 0;
 
-      virtual void reestablishConnections() = 0;
+    virtual void deEstablishConnections() = 0;
 
-      virtual void reestablishSignalSlotConnections() = 0;
+    virtual void reEstablishConnections() = 0;
 
-   protected slots:
-      void onPropertyChanged(const QString &propertyName);
+    virtual void reEstablishSignalSlotConnections() = 0;
 
-   protected:
-      GModelComponent *m_component;
+  protected slots:
 
-   private:
-      QString m_exchangeItemId;
+    void onPropertyChanged(const QString &propertyName);
+
+  protected:
+
+    GModelComponent *m_component;
+
+  private:
+
+    QString m_exchangeItemId;
 
 };
 
 
 class GInput: public GExchangeItem
 {
-      Q_OBJECT
-      Q_PROPERTY(HydroCouple::IInput* Input READ input)
-      Q_PROPERTY(GOutput* Provider READ provider)
+    Q_OBJECT
+    Q_PROPERTY(HydroCouple::IInput* Input READ input)
+    Q_PROPERTY(GOutput* Provider READ provider)
 
-   public:
-      GInput(const QString &inputId, GModelComponent* parent);
+  public:
 
-      virtual ~GInput();
+    GInput(const QString &inputId, GModelComponent* parent);
 
-      HydroCouple::IExchangeItem* exchangeItem() const override;
+    virtual ~GInput();
 
-      HydroCouple::IInput* input() const;
+    HydroCouple::IExchangeItem* exchangeItem() const override;
 
-      GOutput* provider() const;
+    HydroCouple::IInput* input() const;
 
-      void setProvider(GOutput* provider);
+    GOutput* provider() const;
 
-      void writeExchangeItemConnections(QXmlStreamWriter &xmlWriter) override;
+    void setProvider(GOutput* provider);
 
-      bool createConnection(GNode* consumer, QString &message) override;
+    void writeExchangeItemConnections(QXmlStreamWriter &xmlWriter) override;
 
-      bool deleteConnection(GConnection* connection) override;
+    void deEstablishConnections() override;
 
-      bool deleteConnection(GNode* consumer) override;
+    void reEstablishConnections() override;
 
-      void deleteConnections() override;
+    void reEstablishSignalSlotConnections() override;
 
-      void disestablishConnections() override;
+    bool createConnection(GNode *node) override;
 
-      void reestablishConnections() override;
+    void deleteConnection(GConnection *connection) override;
 
-      void reestablishSignalSlotConnections() override;
+    void deleteConnection(GNode *node) override;
 
-   private:
-      QString m_input;
-      GOutput* m_provider;
+    void deleteConnections() override;
+
+  private:
+
+    QString m_inputId;
+    GOutput* m_provider;
 };
 
 class GMultiInput : public GInput
 {
-      Q_OBJECT
-      Q_PROPERTY(HydroCouple::IMultiInput* MultiInput READ multiInput)
-      Q_PROPERTY(QList<GOutput*> Providers READ providers)
+    Q_OBJECT
+    Q_PROPERTY(HydroCouple::IMultiInput* MultiInput READ multiInput)
+    Q_PROPERTY(QList<GOutput*> Providers READ providers)
 
-   public:
-      GMultiInput(const QString &multiInputId, GModelComponent* parent);
+  public:
 
-      virtual ~GMultiInput();
+    GMultiInput(const QString &multiInputId, GModelComponent* parent);
 
-      HydroCouple::IMultiInput* multiInput() const;
+    virtual ~GMultiInput();
 
-      QList<GOutput*> providers() const;
+    HydroCouple::IMultiInput* multiInput() const;
 
-      void addProvider(GOutput* provider);
+    QList<GOutput*> providers() const;
 
-      void removeProvider(GOutput* provider);
+    void addProvider(GOutput* provider);
 
-      void disestablishConnections() override;
+    void removeProvider(GOutput* provider);
 
-      void reestablishConnections() override;
+    void deEstablishConnections() override;
 
-      void reestablishSignalSlotConnections() override;
+    void reEstablishConnections() override;
 
-   private:
-      QString m_multiInputId;
-      QList<GOutput*> m_providers;
+    void reEstablishSignalSlotConnections() override;
+
+  private:
+
+    QString m_multiInputId;
+    QList<GOutput*> m_providers;
 };
 
 class GOutput : public GExchangeItem
 {
-      Q_OBJECT
-      Q_PROPERTY(HydroCouple::IOutput* Output READ output)
+    Q_OBJECT
+    Q_PROPERTY(HydroCouple::IOutput* Output READ output)
 
-   public:
-      GOutput(const QString &outputId, GModelComponent *parent);
+  public:
 
-      virtual ~GOutput();
+    GOutput(const QString &outputId, GModelComponent *parent);
 
-      HydroCouple::IExchangeItem* exchangeItem() const override;
+    virtual ~GOutput();
 
-      virtual HydroCouple::IOutput* output() const;
+    HydroCouple::IExchangeItem* exchangeItem() const override;
 
-      virtual void writeExchangeItemConnections(QXmlStreamWriter &xmlWriter) override;
+    virtual HydroCouple::IOutput* output() const;
 
-      virtual void readOutputExchangeItemConnections(QXmlStreamReader &xmlReader, QList<QString> &errorMessages);
+    virtual void writeExchangeItemConnections(QXmlStreamWriter &xmlWriter) override;
 
-      virtual void readAdaptedOutputExchangeItem(QXmlStreamReader &xmlReader, QList<QString> &errorMessages);
+    virtual void readOutputExchangeItemConnections(QXmlStreamReader &xmlReader, QList<QString> &errorMessages);
 
-      void readArgument(QXmlStreamReader& xmlReader, HydroCouple::IAdaptedOutput* adaptedOutput);
+    virtual void readAdaptedOutputExchangeItem(QXmlStreamReader &xmlReader, QList<QString> &errorMessages);
 
-      bool createConnection(GNode *consumer, QString &message) override;
+    void readArgument(QXmlStreamReader& xmlReader, HydroCouple::IAdaptedOutput* adaptedOutput);
 
-      bool deleteConnection(GConnection *connection) override;
+    void deEstablishConnections() override;
 
-      bool deleteConnection(GNode *consumer) override;
+    void reEstablishConnections() override;
 
-      void deleteConnections() override;
+    void reEstablishSignalSlotConnections() override;
 
-      void disestablishConnections() override;
+    bool createConnection(GNode *node) override;
 
-      void reestablishConnections() override;
+    void deleteConnection(GConnection *connection) override;
 
-      void reestablishSignalSlotConnections() override;
+    void deleteConnection(GNode *node) override;
 
-   protected:
-      QString  m_outputId;
+    void deleteConnections() override;
+
+  protected:
+
+    QString  m_outputId;
 };
 
 
 class GAdaptedOutput : public GOutput
 {
-      Q_OBJECT
-      Q_PROPERTY(HydroCouple::IAdaptedOutput* AdaptedOutput READ adaptedOutput)
 
-   public:
-      GAdaptedOutput(HydroCouple::IIdentity *adaptedOutputId, HydroCouple::IAdaptedOutputFactory *factory,
-                     GOutput *adaptee, GInput *input);
+    friend class GOutput;
 
-      virtual ~GAdaptedOutput();
+    Q_OBJECT
+    Q_PROPERTY(HydroCouple::IAdaptedOutput* AdaptedOutput READ adaptedOutput)
 
-      HydroCouple::IExchangeItem* exchangeItem() const override;
+  public:
 
-      HydroCouple::IOutput* output() const override;
+    GAdaptedOutput(const QString &adaptedOutputId,
+                   GOutput *adaptee,
+                   GInput *input,
+                   const QString &adaptedOutputFactoryId,
+                   bool fromComponentLibrary);
 
-      HydroCouple::IAdaptedOutput* adaptedOutput() const;
+    virtual ~GAdaptedOutput();
 
-      GOutput* adaptee() const;
+    HydroCouple::IExchangeItem* exchangeItem() const override;
 
-      GInput* input() const;
+    HydroCouple::IOutput* output() const override;
 
-      HydroCouple::IAdaptedOutputFactory* factory() const;
+    HydroCouple::IAdaptedOutput* adaptedOutput() const;
 
-      void writeExchangeItemConnections(QXmlStreamWriter &xmlWriter) override;
+    GOutput* adaptee() const;
 
-      void readAdaptedOutputExchangeItemConnections(QXmlStreamReader &xmlReader, QList<QString> &errorMessages);
+    GInput* input() const;
 
-      bool deleteConnection(GConnection* connection) override;
+    void writeExchangeItemConnections(QXmlStreamWriter &xmlWriter) override;
 
-      void disestablishConnections() override;
+    void readAdaptedOutputExchangeItemConnections(QXmlStreamReader &xmlReader, QList<QString> &errorMessages);
 
-      void reestablishConnections() override;
+    void deEstablishConnections() override;
 
-      void reestablishSignalSlotConnections() override;
+    void reEstablishConnections() override;
+
+    void reEstablishSignalSlotConnections() override;
+
+    void deleteConnection(GConnection *connection) override;
+
+    void deleteConnection(GNode *node) override;
+
+    static void deleteDependentAdaptedOutputs(GInput *input, GAdaptedOutput *adaptedOutput);
 
   private slots:
 
-      void adapteeOrInputLocationChanged();
+    void adapteeOrInputLocationChanged();
 
-   private:
+  private:
 
-      GOutput *m_adaptee;
-      GInput *m_input;
-      HydroCouple::IIdentity *m_adaptedOutputId;
-      HydroCouple::IAdaptedOutput *m_adaptedOutput;
-      HydroCouple::IAdaptedOutputFactory *m_adaptedOutputFactory;
-      QList<HydroCouple::IAdaptedOutput*> m_childAdaptedOutputs;
+    GOutput *m_adaptee;
+    GInput *m_input;
+    QString m_adaptedOutputId;
+    HydroCouple::IAdaptedOutput *m_adaptedOutput;
+    QList<HydroCouple::IAdaptedOutput*> m_childAdaptedOutputs;
+    bool m_fromComponentLibrary = false;
+    QString m_adaptedOutputFactoryId;
+
 };
 
 

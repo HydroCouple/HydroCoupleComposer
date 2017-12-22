@@ -2,6 +2,8 @@
 #include "hydrocoupleproject.h"
 #include "gmodelcomponent.h"
 
+using namespace HydroCouple;
+
 int HydroCoupleProject::mpiProcess = 0;
 int HydroCoupleProject::numMPIProcesses = 1;
 
@@ -9,7 +11,8 @@ HydroCoupleProject::HydroCoupleProject(QObject *parent)
   : QObject(parent),
     m_projectFile("Untitled Project.hcp"),
     m_hasChanges(false),
-    m_hasGraphics(true)
+    m_hasGraphics(true),
+    m_workflowComponent(nullptr)
 {
   m_componentManager = new ComponentManager(this);
 }
@@ -42,6 +45,17 @@ QList<GModelComponent*> HydroCoupleProject::modelComponents() const
   return m_modelComponents;
 }
 
+IWorkflowComponent *HydroCoupleProject::workflowComponent() const
+{
+  return m_workflowComponent;
+}
+
+void HydroCoupleProject::setWorkflowComponent(IWorkflowComponent *workflowComponent)
+{
+  m_workflowComponent = workflowComponent;
+  emit workflowComponentChanged(m_workflowComponent);
+}
+
 GModelComponent* HydroCoupleProject::findModelComponentById(const QString &id)
 {
   for(GModelComponent* modelComponent : m_modelComponents)
@@ -55,7 +69,7 @@ GModelComponent* HydroCoupleProject::findModelComponentById(const QString &id)
   return nullptr;
 }
 
-void HydroCoupleProject::addComponent(GModelComponent *component)
+void HydroCoupleProject::addModelComponent(GModelComponent *component)
 {
   if (!contains(component))
   {
@@ -74,7 +88,7 @@ void HydroCoupleProject::addComponent(GModelComponent *component)
   }
 }
 
-bool HydroCoupleProject::deleteComponent(GModelComponent *component)
+bool HydroCoupleProject::deleteModelComponent(GModelComponent *component)
 {
   if (m_modelComponents.removeAll(component))
   {
@@ -89,6 +103,29 @@ bool HydroCoupleProject::deleteComponent(GModelComponent *component)
   {
     return false;
   }
+}
+
+void HydroCoupleProject::deleteModelComponentsAssociatedWithComponentInfo(IModelComponentInfo *modelComponentInfo)
+{
+  QList<GModelComponent*> componentsToDelete;
+
+  for(GModelComponent *modelComponent : m_modelComponents)
+  {
+    if(!QString::compare(modelComponent->modelComponent()->componentInfo()->id(), modelComponentInfo->id()))
+    {
+      componentsToDelete.push_back(modelComponent);
+    }
+  }
+
+  for(GModelComponent *modelComponent : componentsToDelete)
+  {
+    deleteModelComponent(modelComponent);
+  }
+}
+
+void HydroCoupleProject::deleteAdaptedOutputsAssociatedWithComponentInfo(IAdaptedOutputFactoryComponentInfo *adaptedOutputFactoryComponentInfo)
+{
+
 }
 
 bool HydroCoupleProject::hasChanges() const
@@ -132,7 +169,7 @@ HydroCoupleProject* HydroCoupleProject::readProjectFile(const QFileInfo &fileInf
                 if(modelComponent)
                 {
 
-                  project->addComponent(modelComponent);
+                  project->addModelComponent(modelComponent);
                 }
               }
 
@@ -193,6 +230,45 @@ HydroCoupleProject* HydroCoupleProject::readProjectFile(const QFileInfo &fileInf
               xmlReader.readNext();
             }
           }
+          else if(!xmlReader.name().compare("WorkflowComponent", Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+          {
+            while(!(xmlReader.isEndElement() && !xmlReader.name().compare("WorkflowComponent", Qt::CaseInsensitive)) && !xmlReader.hasError())
+            {
+
+              QXmlStreamAttributes attributes = xmlReader.attributes();
+
+              if(attributes.hasAttribute("WorkflowComponentLibrary"))
+              {
+                QStringRef value = attributes.value("WorkflowComponentLibrary");
+                QFileInfo fileInfo(value.toString().trimmed());
+
+                if(fileInfo.isRelative())
+                {
+                  fileInfo = project->m_projectFile.absoluteDir().absoluteFilePath(fileInfo.filePath());
+                }
+
+                if(fileInfo.exists())
+                {
+                  IComponentInfo *componentInfo = project->componentManager()->loadComponent(fileInfo);
+                  IWorkflowComponentInfo *workflowComponentInfo = nullptr;
+
+                  if(componentInfo && (workflowComponentInfo = dynamic_cast<IWorkflowComponentInfo*>(componentInfo)))
+                  {
+                    IWorkflowComponent *workflowComponent =  project->componentManager()->getWorkflowComponent(workflowComponentInfo->id());
+
+                    if(workflowComponent)
+                    {
+                      project->setWorkflowComponent(workflowComponent);
+                    }
+                  }
+                }
+              }
+
+              xmlReader.readNext();
+            }
+          }
+
+
           xmlReader.readNext();
         }
       }
@@ -294,6 +370,17 @@ void HydroCoupleProject::onSaveProject()
       writer.writeStartElement("HydroCoupleProject");
       {
         writer.writeAttribute("name", m_projectFile.fileName());
+
+        if(m_workflowComponent)
+        {
+          writer.writeStartElement("WorkflowComponent");
+          {
+            writer.writeAttribute("Id", m_workflowComponent->id());
+            writer.writeAttribute("Caption", m_workflowComponent->caption());
+            writer.writeAttribute("WorkflowComponentLibrary", m_projectFile.dir().relativeFilePath(m_workflowComponent->componentInfo()->libraryFilePath()));
+          }
+          writer.writeEndElement();
+        }
 
         writer.writeStartElement("ModelComponents");
         {

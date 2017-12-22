@@ -20,7 +20,6 @@ const QString GModelComponent::sc_descriptionHtml =
 QBrush GModelComponent::s_triggerBrush(QColor(255, 255, 255), Qt::BrushStyle::SolidPattern);
 QPen GModelComponent::s_triggerPen(QBrush(QColor(255, 0, 0), Qt::BrushStyle::SolidPattern), 5.0, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::RoundJoin);
 
-
 GModelComponent::GModelComponent(IModelComponent* model, HydroCoupleProject *parent)
   : GNode(model->id(),model->caption(),GNode::Component, parent), m_isTrigger(false),
     m_moveExchangeItemsWhenMoved(true),
@@ -29,6 +28,7 @@ GModelComponent::GModelComponent(IModelComponent* model, HydroCoupleProject *par
 {
 
   setFlag(GraphicsItemFlag::ItemSendsScenePositionChanges, true);
+
   m_textItem->setFlag(GraphicsItemFlag::ItemIsMovable, false);
   m_textItem->setFlag(GraphicsItemFlag::ItemIsSelectable, false);
   m_textItem->setFlag(GraphicsItemFlag::ItemIsFocusable, false);
@@ -38,12 +38,11 @@ GModelComponent::GModelComponent(IModelComponent* model, HydroCoupleProject *par
 
   connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(componentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &)),
           this, SLOT(onComponentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &)));
-  connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(propertyChanged(const QString &)), this, SLOT(onPropertyChanged(const QString&)));
 
+  connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(propertyChanged(const QString &)), this, SLOT(onPropertyChanged(const QString&)));
 
   connect(this, &GNode::propertyChanged,this, &GModelComponent::onPropertyChanged);
   connect(this, &GNode::doubleClicked,this, &GModelComponent::onDoubleClicked);
-
 
   m_computeResourceAllocations.append(new CPUGPUAllocation(this));
 
@@ -53,6 +52,9 @@ GModelComponent::GModelComponent(IModelComponent* model, HydroCoupleProject *par
 GModelComponent::~GModelComponent()
 {
   deleteExchangeItems();
+
+  project()->componentManager()->removeModelInstance(m_modelComponent->componentInfo()->id(), m_modelComponent);
+
   delete m_modelComponent;
 }
 
@@ -69,6 +71,16 @@ void GModelComponent::setProject(HydroCoupleProject *project)
 IModelComponent* GModelComponent::modelComponent() const
 {
   return m_modelComponent;
+}
+
+QString GModelComponent::id() const
+{
+  return m_modelComponent->id();
+}
+
+QString GModelComponent::caption() const
+{
+  return m_modelComponent->caption();
 }
 
 QString GModelComponent::status() const
@@ -333,6 +345,7 @@ GModelComponent* GModelComponent::readComponent(QXmlStreamReader &xmlReader, Hyd
           {
             IModelComponent* component = modelComponentInfo->createComponentInstance();
             component->setReferenceDirectory(referenceDir.absolutePath());
+            //printf("Process Rank: %i\n", component->mpiProcessRank());
 
             modelComponent = new GModelComponent(component, project);
 
@@ -384,6 +397,7 @@ GModelComponent* GModelComponent::readComponent(QXmlStreamReader &xmlReader, Hyd
 
                 if(initialize)
                 {
+                  //printf("Process Rank: %i\n", component->mpiProcessRank());
                   component->initialize();
                 }
               }
@@ -623,7 +637,7 @@ void GModelComponent::writeComponent(const QFileInfo &fileInfo)
       {
         for(CPUGPUAllocation *computeResourceAllocation : m_computeResourceAllocations)
         {
-           computeResourceAllocation->writeCPUGPUAllocation(xmlWriter);
+          computeResourceAllocation->writeCPUGPUAllocation(xmlWriter);
         }
       }
       xmlWriter.writeEndElement();
@@ -734,7 +748,7 @@ void GModelComponent::writeComponent(QXmlStreamWriter &xmlWriter)
       {
         for(CPUGPUAllocation *computeResourceAllocation : m_computeResourceAllocations)
         {
-           computeResourceAllocation->writeCPUGPUAllocation(xmlWriter);
+          computeResourceAllocation->writeCPUGPUAllocation(xmlWriter);
         }
       }
       xmlWriter.writeEndElement();
@@ -900,85 +914,83 @@ void GModelComponent::paint(QPainter * painter, const QStyleOptionGraphicsItem *
   }
 }
 
-bool GModelComponent::createConnection(GNode *consumer, QString &message)
+bool GModelComponent::createConnection(GNode *node)
 {
-  message = "";
-
-  if(consumer->nodeType() == GNode::Output)
+  if(node->nodeType() == GNode::NodeType::Output && !m_connections.contains(node))
   {
-    for(GConnection *connection : m_connections)
-    {
-      if(connection->consumer() == consumer)
-        return false;
-    }
-
-    GConnection* connection = new GConnection(this,consumer);
-    m_connections.append(connection);
+    GConnection *connection = new GConnection(this, node);
+    m_connections[node] = connection;
 
     emit connectionAdded(connection);
     emit propertyChanged("Connections");
     emit hasChanges();
 
-    if(scene())
-    {
-      scene()->addItem(connection);
-    }
-
     return true;
   }
-
 
   return false;
 }
 
-bool GModelComponent::deleteConnection(GConnection *connection)
+void GModelComponent::deleteConnection(GConnection *connection)
 {
-  if(m_connections.removeAll(connection))
+  if(m_connections.contains(connection->consumer()))
   {
-    if(scene())
-    {
-      scene()->removeItem(connection);
-      scene()->removeItem(connection->consumer());
-    }
-
-    m_outputGraphicObjects.remove(((GOutput*)connection->consumer())->id());
-
-    if(!connection->consumer()->id().compare("6-L-F") && !modelComponent()->id().compare("test1_split1"))
-    {
-      id();
-    }
-
-    delete connection->consumer();
     delete connection;
-    emit propertyChanged("Connections");
-    emit hasChanges();
-    return true;
-  }
-  else
-  {
-    return false;
   }
 }
 
-bool GModelComponent::deleteConnection(GNode *consumer)
+void GModelComponent::deleteConnection(GNode *node)
 {
-  for(GConnection* connection : m_connections)
+  if(m_connections.contains(node))
   {
-    if(connection->consumer() == consumer)
-    {
-      return deleteConnection(connection);
-    }
+    GConnection *connection  = m_connections[node];
+    delete connection;
   }
-
-  return false;
 }
 
 void GModelComponent::deleteConnections()
 {
-  while (m_connections.length())
+  while (m_connections.size())
   {
-    deleteConnection(m_connections[0]);
+    GConnection *connection = m_connections.begin().value();
+    deleteConnection(connection);
   }
+}
+
+IAdaptedOutputFactory *GModelComponent::getAdaptedOutputFactory(const QString &id)
+{
+  for(IAdaptedOutputFactory *adaptedOutputFactory : m_modelComponent->componentInfo()->adaptedOutputFactories())
+  {
+    if(!QString::compare(id, adaptedOutputFactory->id()))
+    {
+      return adaptedOutputFactory;
+    }
+  }
+
+  return nullptr;
+}
+
+IAdaptedOutput *GModelComponent::createAdaptedOutputInstance(const QString &adaptedOutputFactoryId, const QString &identity, IOutput *provider, IInput *consumer)
+{
+
+  for(IAdaptedOutputFactory *adaptedOutputFactory : m_modelComponent->componentInfo()->adaptedOutputFactories())
+  {
+    if(!QString::compare(adaptedOutputFactoryId, adaptedOutputFactory->id()))
+    {
+      QList<IIdentity*> availableAdaptors = adaptedOutputFactory->getAvailableAdaptedOutputIds(provider, consumer);
+
+      for(IIdentity *adaptorId :  availableAdaptors)
+      {
+        if(!QString::compare(identity, adaptorId->id()))
+        {
+          IAdaptedOutput *adaptedOutput = adaptedOutputFactory->createAdaptedOutput(adaptorId, provider, consumer);
+          return adaptedOutput;
+        }
+      }
+    }
+  }
+
+  return nullptr;
 }
 
 QVariant GModelComponent::itemChange(GraphicsItemChange change, const QVariant &value)
@@ -1011,17 +1023,23 @@ void GModelComponent::deleteExchangeItems()
     delete input;
   }
 
-  //   qDeleteAll(m_inputGraphicObjects.values());
   m_inputGraphicObjects.clear();
 
   deleteConnections();
+
+  for(GOutput *output : m_outputGraphicObjects)
+  {
+    delete output;
+  }
+
+  m_outputGraphicObjects.clear();
+
 }
 
 void GModelComponent::createExchangeItems()
 {
   m_inputs.clear();
   m_outputs.clear();
-
 
   QPointF p = pos();
   QRectF bound = boundingRect();
@@ -1033,7 +1051,6 @@ void GModelComponent::createExchangeItems()
   bool sign = true;
   int count = 0;
 
-
   for(IOutput *output : m_modelComponent->outputs())
   {
     m_outputs[output->id()] = output;
@@ -1043,7 +1060,7 @@ void GModelComponent::createExchangeItems()
     if(m_outputGraphicObjects.contains(output->id()))
     {
       goutput = m_outputGraphicObjects[output->id()];
-      goutput->reestablishSignalSlotConnections();
+      goutput->reEstablishSignalSlotConnections();
     }
     else
     {
@@ -1068,8 +1085,7 @@ void GModelComponent::createExchangeItems()
       }
 
       connect(goutput,SIGNAL(hasChanges()),this,SLOT(onChildHasChanges()));
-      QString message;
-      createConnection(goutput, message);
+      createConnection(goutput);
     }
   }
 
@@ -1080,8 +1096,16 @@ void GModelComponent::createExchangeItems()
     if(!m_outputs.contains(it.value()->id()))
     {
       emit postMessage("Output exchangeitem with id " +  it.value()->id() + " could not be found therefore it will be removed");
+
+      for(GConnection *connection : m_connections)
+      {
+        if(connection->consumer() == it.value())
+        {
+          deleteConnection(connection);
+        }
+      }
+
       m_outputGraphicObjects.erase(it);
-      deleteConnection(it.value());
     }
     else
     {
@@ -1102,7 +1126,7 @@ void GModelComponent::createExchangeItems()
     if(m_inputGraphicObjects.contains(input->id()))
     {
       ginput = m_inputGraphicObjects[input->id()];
-      ginput->reestablishSignalSlotConnections();
+      ginput->reEstablishSignalSlotConnections();
     }
     else
     {
@@ -1137,8 +1161,8 @@ void GModelComponent::createExchangeItems()
       }
 
       connect(ginput,SIGNAL(hasChanges()),this,SLOT(onChildHasChanges()));
-      QString message;
-      ginput->createConnection(this, message);
+
+      ginput->createConnection(this);
     }
   }
 

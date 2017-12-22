@@ -43,6 +43,23 @@ void SimulationManager::runComposition(bool background)
 
     try
     {
+      if(m_project->workflowComponent())
+      {
+        QObject *object = dynamic_cast<QObject*>(m_project->workflowComponent());
+        connect(object, SIGNAL(componentStatusChanged(HydroCouple::IWorkflowComponent::WorkflowStatus, const QString&)),
+                this, SLOT(onWorkflowComponentStatusChanged(HydroCouple::IWorkflowComponent::WorkflowStatus, const QString&)));
+
+        while(m_project->workflowComponent()->modelComponents().count())
+        {
+          m_project->workflowComponent()->removeModelComponent(m_project->workflowComponent()->modelComponents().first());
+        }
+
+        for(GModelComponent *modelComponent : m_project->modelComponents())
+        {
+          m_project->workflowComponent()->addModelComponent(modelComponent->modelComponent());
+        }
+      }
+
       assignComponentIndexes();
 
       assignComputeResources();
@@ -53,14 +70,16 @@ void SimulationManager::runComposition(bool background)
 
         establishConnections();
 
+        if(m_project->workflowComponent())
+        {
+          m_project->workflowComponent()->initialize();
+        }
+
         if(validateModels() && prepareModels() && validateConnections())
         {
           if(background)
           {
-
-//            std::thread backgrounThread(&SimulationManager::run, this);
-            //           run();
-            QtConcurrent::run(this,&SimulationManager::run);
+            QtConcurrent::run(this, &SimulationManager::run);
           }
           else
           {
@@ -270,7 +289,8 @@ bool SimulationManager::initializeComputeResources()
       if(process != 0)
       {
         int componentIndex = component->modelComponent()->index();
-        MPI_Send(&componentIndex,1,MPI_INT, process, CommandLineParser::InitializeAndPrepareComponent, MPI_COMM_WORLD);
+        printf("Initializing Compute Resources: %i\n", process);
+        MPI_Send(&componentIndex, 1, MPI_INT, process, CommandLineParser::InitializeAndPrepareComponent, MPI_COMM_WORLD);
       }
     }
   }
@@ -290,7 +310,7 @@ bool SimulationManager::initializeModels()
 
   for(GModelComponent *component : m_project->modelComponents())
   {
-//    if(component->modelComponent()->status() != IModelComponent::Initialized)
+    //    if(component->modelComponent()->status() != IModelComponent::Initialized)
     {
       printf("start initializing\n");
 
@@ -315,7 +335,7 @@ void SimulationManager::disestablishConnections()
   {
     for(GOutput* output : component->outputGraphicObjects().values())
     {
-      output->disestablishConnections();
+      output->deEstablishConnections();
     }
   }
 
@@ -323,7 +343,7 @@ void SimulationManager::disestablishConnections()
   {
     for(GInput* input : component->inputGraphicObjects().values())
     {
-      input->disestablishConnections();
+      input->deEstablishConnections();
     }
   }
 }
@@ -334,7 +354,7 @@ void SimulationManager::establishConnections()
   {
     for(GOutput* output : component->outputGraphicObjects().values())
     {
-      output->reestablishConnections();
+      output->reEstablishConnections();
     }
   }
 
@@ -342,7 +362,7 @@ void SimulationManager::establishConnections()
   {
     for(GInput* input : component->inputGraphicObjects().values())
     {
-      input->reestablishConnections();
+      input->reEstablishConnections();
     }
   }
 }
@@ -427,43 +447,66 @@ void SimulationManager::run()
 {
   try
   {
-    m_triggerComponent = nullptr;
-
-    for(GModelComponent *component : m_project->modelComponents())
+    if(m_project->workflowComponent())
     {
-      if(component->trigger())
+      if(m_project->workflowComponent()->status() == HydroCouple::IWorkflowComponent::Initialized)
       {
-        m_triggerComponent = component;
-
-        QObject *compObj = dynamic_cast<QObject*>(component->modelComponent());
-        connect(compObj, SIGNAL(componentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &)),
-                this, SLOT(onComponentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &)));
-        break;
-      }
-    }
-
-    if(m_triggerComponent)
-    {
-      while (m_triggerComponent->modelComponent()->status() != IModelComponent::Done &&
-             m_triggerComponent->modelComponent()->status() != IModelComponent::Failed)
-      {
-        m_triggerComponent->modelComponent()->update();
-
-        if(m_stopSimulation)
+        while (m_project->workflowComponent()->status() == HydroCouple::IWorkflowComponent::Updated)
         {
-          break;
+          m_project->workflowComponent()->update();
+        }
+
+        if(m_project->workflowComponent()->status() == HydroCouple::IWorkflowComponent::Done)
+        {
+
         }
       }
-
-      for(GModelComponent *component : m_project->modelComponents())
+      else
       {
-        component->modelComponent()->finish();
+        emit postMessage("Workflow component has not beeing initialized");
+        printf("Workflow component has not beeing initialized\n");
       }
     }
     else
     {
-      emit postMessage("Trigger component has not been set");
-      printf("Trigger component has not been set\n");
+      m_triggerComponent = nullptr;
+
+      for(GModelComponent *component : m_project->modelComponents())
+      {
+        if(component->trigger())
+        {
+          m_triggerComponent = component;
+
+          QObject *compObj = dynamic_cast<QObject*>(component->modelComponent());
+          connect(compObj, SIGNAL(componentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &)),
+                  this, SLOT(onComponentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &)));
+          break;
+        }
+      }
+
+      if(m_triggerComponent)
+      {
+        while (m_triggerComponent->modelComponent()->status() != IModelComponent::Done &&
+               m_triggerComponent->modelComponent()->status() != IModelComponent::Failed)
+        {
+          m_triggerComponent->modelComponent()->update();
+
+          if(m_stopSimulation)
+          {
+            break;
+          }
+        }
+      }
+      else
+      {
+        emit postMessage("Trigger component has not been set");
+        printf("Trigger component has not been set\n");
+      }
+    }
+
+    for(GModelComponent *component : m_project->modelComponents())
+    {
+      component->modelComponent()->finish();
     }
   }
   catch(const std::exception &exception)
@@ -505,6 +548,58 @@ void SimulationManager::onSimulationCompleted()
   emit postMessage("Simulation Time (s): " +  QString::number(seconds));
   printf("Simulation Time (s): %f\n", seconds);
 
+}
+
+void SimulationManager::onWorkflowComponentStatusChanged(IWorkflowComponent::WorkflowStatus status, const QString &message)
+{
+  QString simStatus = "";
+
+  switch (status)
+  {
+    case IWorkflowComponent::WorkflowStatus::Created:
+      {
+        simStatus = "Created";
+      }
+      break;
+    case IWorkflowComponent::WorkflowStatus::Initializing:
+      {
+        simStatus = "Initializing";
+      }
+      break;
+    case IWorkflowComponent::WorkflowStatus::Updating:
+      {
+        simStatus = "Updating";
+      }
+      break;
+    case IWorkflowComponent::WorkflowStatus::Updated:
+      {
+        simStatus = "Updated";
+      }
+      break;
+    case IWorkflowComponent::WorkflowStatus::Finishing:
+      {
+        simStatus = "Finishing";
+      }
+      break;
+    case IWorkflowComponent::WorkflowStatus::Done:
+      {
+        simStatus = "Done";
+      }
+      break;
+    case IWorkflowComponent::WorkflowStatus::Finished:
+      {
+        simStatus = "Finished";
+      }
+      break;
+    case IWorkflowComponent::WorkflowStatus::Failed:
+      {
+        simStatus = "Failed";
+      }
+      break;
+  }
+
+  QString printMessage = "Workflow Component Status: " + simStatus + " Message: " + message;
+  emit postMessage(printMessage);
 }
 
 void SimulationManager::finalizeComputeResources()

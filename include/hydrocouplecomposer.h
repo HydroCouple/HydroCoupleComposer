@@ -26,6 +26,7 @@
 
 class GModelComponent;
 class SimulationManager;
+class PreferencesDialog;
 
 class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerClass
 {
@@ -95,8 +96,6 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
    private:
 
-
-
       /*!
        * \brief readSettings
        */
@@ -115,14 +114,16 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       /*!
        * \brief initializeComponentInfoTreeView
        */
-      void initializeComponentInfoTreeView();
+      void initializeModelComponentInfoTreeView();
+
+      void initializeAdaptedOutputFactoryComponentInfoTreeView();
+
+      void initializeWorkflowComponentInfoTreeView();
 
       /*!
        * \brief initializeSimulationStatusTreeView
        */
       void initializeSimulationStatusTreeView();
-
-      void initializeAdaptedOutputTreeView();
 
       /*!
        * \brief initializePropertyGrid
@@ -149,7 +150,7 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        */
       void initializeContextMenus();
 
-      void resetAdaptedOutputFactoryModel();
+      void resetAdaptedOutputFactoryModel(QStandardItem *standardItem);
 
       /*!
        * \brief createConnection
@@ -168,6 +169,8 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
        * \return
        */
       QStandardItem* findStandardItem(const QString& id, QStandardItem* parent, const QString & key = "ModelComponentInfo", bool recursive = false);
+
+      QStandardItem* findStandardItem(const QList<QString> &identifiers, QStandardItem* parent, const QList<QString> &keys, bool recursive = false);
 
       /*!
        * \brief addRemoveNodeToGraphicsView
@@ -414,9 +417,9 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       void onDeleteSelectedConnections();
 
       /*!
-       * \brief onValidateModelComponentLibrary
+       * \brief onValidateComponentLibrary
        */
-      void onValidateModelComponentLibrary();
+      void onValidateComponentLibrary();
 
       /*!
        * \brief onBrowseToComponentLibraryPath
@@ -437,23 +440,39 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       * \brief onModelComponentInfoLoaded
       * \param modelComponentInfo
       */
-      void onModelComponentInfoLoaded(const HydroCouple::IModelComponentInfo* modelComponentInfo);
+      void onModelComponentInfoLoaded(const QString &modelComponentInfoId);
 
-      void onModelComponentInfoUnloaded(const QString& id);
+      void onModelComponentInfoUnloaded(const QString &modelComponentInfoId);
 
-      void onAdaptedOutputFactoryComponentInfoLoaded(const HydroCouple::IAdaptedOutputFactoryComponentInfo* adaptedOutputFactoryComponentInfo);
+      void loadModelComponentInfoAdaptedOutputFactory(const HydroCouple::IModelComponentInfo *modelComponentInfo);
 
-      void onAdaptedOutputFactoryComponentInfoUnloaded(const QString& id);
+      void unloadModelComponentInfoAdaptedOutputFactory(const HydroCouple::IModelComponentInfo *modelComponentInfo);
 
-      void onComponentInfoClicked(const QModelIndex& index);
+      void onAdaptedOutputFactoryComponentInfoLoaded(const QString &adaptedOutputFactoryComponentInfoId);
 
-      void onComponentInfoDoubleClicked(const QModelIndex& index);
+      void onAdaptedOutputFactoryComponentInfoUnloaded(const QString &adaptedOutputFactoryComponentInfoId);
+
+      void onWorkflowComponentInfoLoaded(const QString &workflowComponentInfoId);
+
+      void onWorkflowComponentInfoUnloadedLoaded(const QString &workflowComponentInfoId);
+
+      void onWorkflowComponentCheckStateChanged(QStandardItem *item);
+
+      void onProjectWorkflowComponentChanged(HydroCouple::IWorkflowComponent *workflowComponent);
+
+      void onModelComponentInfoClicked(const QModelIndex& index);
+
+      void onModelComponentInfoDoubleClicked(const QModelIndex& index);
 
       void onAdaptedOutputClicked(const QModelIndex& index);
 
       void onAdaptedOutputDoubleClicked(const QModelIndex& index);
 
       void onAdaptedOutputDoubleClicked(GAdaptedOutput* adaptedOutput);
+
+      void onInsertAdaptedOutput();
+
+      void onWorkflowComponentClicked(const QModelIndex &index);
 
       void onModelComponentStatusItemClicked(const QModelIndex& index);
 
@@ -525,6 +544,10 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       void onTreeViewModelComponentInfoContextMenuRequested(const QPoint& pos);
 
+      void onTreeViewAdaptedOutputFactoryComponentContextMenuRequested(const QPoint& pos);
+
+      void onTreeViewWorkflowComponentContextMenuRequested(const QPoint& pos);
+
       void onGraphicsViewHydroCoupleComposerContextMenuRequested(const QPoint& pos);
 
       void onShowHydroCoupleVis();
@@ -541,18 +564,17 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
 
       HydroCoupleProject *m_project;
       QPropertyModel *m_propertyModel;
-      QStandardItem *m_modelComponentInfoStandardItem,
-      *m_adaptedOutputComponentInfoStandardItem;
-      QStandardItemModel *m_componentInfoModel, *m_adaptedOutputFactoriesModel;
+      QStandardItemModel *m_modelComponentInfoModel, *m_adaptedOutputFactoriesModel, *m_workflowComponentModel;
+      QStandardItem *m_externalAdaptedOutputFactoriesStandardItem, *m_internalAdaptedOutputFactoriesStandardItem;
       QProgressBar* m_progressBar;
-      static QIcon s_categoryIcon;
+      static QIcon s_categoryIcon, s_adaptedOutputFactoryIcon, s_adaptedOutput, s_adaptedOutputComponentIcon, s_workflowIcon, s_modelComponentIcon;
       QStringList m_recentFiles;
       QSettings m_settings;
       QString m_lastOpenedFilePath;
-      QAction* m_recentFilesActions[10];
+      QAction* m_recentFilesActions[20];
       QMenu* m_recentFilesMenu;
       QAction* m_clearRecentFilesAction;
-      static const QString sc_modelComponentInfoHtml;
+      static const QString sc_modelComponentInfoHtml, sc_standardInfoHtml;
       GraphicsView::Tool m_currentTool;
       QList<GModelComponent*> m_selectedModelComponents;
       QList<GExchangeItem*> m_selectedExchangeItems;
@@ -565,10 +587,13 @@ class HydroCoupleComposer : public QMainWindow, public Ui::HydroCoupleComposerCl
       bool m_createConnection;
       ModelStatusItemModel* m_modelStatusItemModel;
       ArgumentDialog* m_argumentDialog;
-      QMenu *m_graphicsContextMenu, *m_treeviewComponentInfoContextMenu;
+      QMenu *m_graphicsContextMenu, *m_treeViewModelComponentInfoContextMenu, *m_treeViewAdaptedOutputFactoryComponentInfoContextMenu,
+      *m_treeViewWorkflowComponentInfoContextMenu;
       SimulationManager *m_simulationManager;
+      PreferencesDialog *m_preferencesDialog;
 
   public:
+
       static HydroCoupleComposer *hydroCoupleComposerWindow;
 };
 

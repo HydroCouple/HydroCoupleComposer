@@ -116,11 +116,7 @@ void GOutput::readOutputExchangeItemConnections(QXmlStreamReader &xmlReader, QLi
                       input->setPos(xloc,yloc);
                     }
                   }
-                  QString message;
-                  createConnection(input, message);
-
-                  if(!message.isEmpty())
-                    errorMessages.append(message);
+                  createConnection(input);
                 }
               }
             }
@@ -141,155 +137,100 @@ void GOutput::readAdaptedOutputExchangeItem(QXmlStreamReader &xmlReader, QList<Q
 
     QXmlStreamAttributes attributes = xmlReader.attributes();
 
-    if(attributes.hasAttribute("AdaptedOutputExchangeItemId")
-       && attributes.hasAttribute("AdaptedOutputFactoryId")
-       && attributes.hasAttribute("InputExchangeItemModelComponentIndex")
-       && attributes.hasAttribute("InputExchangeItemId")
-       )
+    if(attributes.hasAttribute("AdaptedOutputExchangeItemId") &&
+       attributes.hasAttribute("AdaptedOutputFactoryId") &&
+       attributes.hasAttribute("InputExchangeItemModelComponentIndex") &&
+       attributes.hasAttribute("InputExchangeItemId"))
     {
 
+      bool fromComponentLibrary = false;
+
       QString adaptedOutputFactoryId = attributes.value("AdaptedOutputFactoryId").toString();
-      IAdaptedOutputFactory* factory = nullptr;
 
       if(attributes.hasAttribute("AdaptedOutputFactoryComponentLibrary"))
       {
         QString componentFilePath = attributes.value("AdaptedOutputFactoryComponentLibrary").toString();
-
-        if(!m_component->project()->componentManager()->adaptedOutputFactoryComponentById().contains(adaptedOutputFactoryId))
-        {
-          if(!QFileInfo::exists(componentFilePath))
-          {
-            QFileInfo componentFile = m_component->project()->projectFile().dir().absoluteFilePath(componentFilePath);
-
-            if(!componentFile.exists())
-            {
-              throw "Invalid component file exception";
-            }
-            componentFilePath = componentFile.absoluteFilePath();
-          }
-          m_component->project()->componentManager()->loadComponent(QFileInfo(componentFilePath));
-        }
-
-        factory = m_component->project()->componentManager()->adaptedOutputFactoryComponentById()[adaptedOutputFactoryId];
-      }
-      else
-      {
-        for(IAdaptedOutputFactory* afactory : m_component->modelComponent()->adaptedOutputFactories())
-        {
-          if(!afactory->id().compare(adaptedOutputFactoryId))
-          {
-            factory = afactory;
-            break;
-          }
-        }
+        m_project->componentManager()->loadComponent(QFileInfo(componentFilePath));
+        fromComponentLibrary = true;
       }
 
-      if(factory)
+      int inputComponentIndex = attributes.value("InputExchangeItemModelComponentIndex").toInt();
+
+      if(inputComponentIndex < modelComponent()->project()->modelComponents().length())
       {
-        int inputComponentIndex = attributes.value("InputExchangeItemModelComponentIndex").toInt();
+        GModelComponent* inputModelComponent = modelComponent()->project()->modelComponents()[inputComponentIndex];
 
-        if(inputComponentIndex < modelComponent()->project()->modelComponents().length())
+        QString inputExchangeItemId = attributes.value("InputExchangeItemId").toString();
+
+        if(inputModelComponent->inputs().contains(inputExchangeItemId))
         {
-          GModelComponent* inputModelComponent = modelComponent()->project()->modelComponents()[inputComponentIndex];
-          QString inputExchangeItemId = attributes.value("InputExchangeItemId").toString();
 
-          if(inputModelComponent->inputs().contains(inputExchangeItemId))
+          GInput* input = inputModelComponent->inputGraphicObjects()[inputExchangeItemId];
+          QString adaptedOutputId = attributes.value("AdaptedOutputExchangeItemId").toString();
+
+          GAdaptedOutput* gAdaptedOutput = new GAdaptedOutput(adaptedOutputId, this, input, adaptedOutputFactoryId, fromComponentLibrary);
+
+
+          if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
           {
-            QString adaptedOutputId = attributes.value("AdaptedOutputExchangeItemId").toString();
-            IIdentity* adaptedOutputIdentity = nullptr;
+            QString xposS = attributes.value("XPos").toString();
+            QString yposS = attributes.value("YPos").toString();
 
-            GInput* input = inputModelComponent->inputGraphicObjects()[inputExchangeItemId];
-            QList<IIdentity*> identities = factory->getAvailableAdaptedOutputIds(output() , input->input());
+            bool ok;
 
-            for(IIdentity* identity : identities)
+            double xloc = xposS.toDouble(&ok);
+            double yloc = yposS.toDouble(&ok);
+
+            if(ok)
             {
-              if(!identity->id().compare(adaptedOutputId))
-              {
-                adaptedOutputIdentity  = identity;
-                break;
-              }
+              gAdaptedOutput->setPos(xloc,yloc);
             }
+          }
 
-            if(adaptedOutputIdentity)
+          createConnection(gAdaptedOutput);
+
+          //Read arguments and connections
+          while (!(xmlReader.isEndElement() &&
+                   !xmlReader.name().compare("AdaptedOutputExchangeItem", Qt::CaseInsensitive)) &&
+                 !xmlReader.hasError())
+          {
+            if(!xmlReader.name().compare("Arguments", Qt::CaseInsensitive) &&
+               !xmlReader.hasError()
+               && xmlReader.tokenType() == QXmlStreamReader::StartElement)
             {
-              GAdaptedOutput* adaptedOutput = new GAdaptedOutput(adaptedOutputIdentity , factory , this , input);
-
-              if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
-              {
-                QString xposS = attributes.value("XPos").toString();
-                QString yposS = attributes.value("YPos").toString();
-
-                bool ok;
-
-                double xloc = xposS.toDouble(&ok);
-                double yloc = yposS.toDouble(&ok);
-
-                if(ok)
-                {
-                  adaptedOutput->setPos(xloc,yloc);
-                }
-              }
-
-              QString message;
-              createConnection(adaptedOutput, message);
-
-              if(!message.isEmpty())
-                errorMessages.append(message);
-
-              //Read arguments and connections
               while (!(xmlReader.isEndElement() &&
-                       !xmlReader.name().compare("AdaptedOutputExchangeItem", Qt::CaseInsensitive)) &&
+                       !xmlReader.name().compare("Arguments", Qt::CaseInsensitive)) &&
                      !xmlReader.hasError())
               {
-                if(!xmlReader.name().compare("Arguments", Qt::CaseInsensitive) &&
-                   !xmlReader.hasError()
-                   && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+                if(!xmlReader.name().compare("Argument", Qt::CaseInsensitive) &&
+                   !xmlReader.hasError()  &&
+                   xmlReader.tokenType() == QXmlStreamReader::StartElement)
                 {
-                  while (!(xmlReader.isEndElement() &&
-                           !xmlReader.name().compare("Arguments", Qt::CaseInsensitive)) &&
-                         !xmlReader.hasError())
-                  {
-                    if(!xmlReader.name().compare("Argument", Qt::CaseInsensitive) &&
-                       !xmlReader.hasError()  &&
-                       xmlReader.tokenType() == QXmlStreamReader::StartElement)
-                    {
-                      readArgument(xmlReader,adaptedOutput->adaptedOutput());
+                  readArgument(xmlReader,gAdaptedOutput->adaptedOutput());
 
-                      while (!(xmlReader.isEndElement() && !xmlReader.name().compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
-                      {
-                        xmlReader.readNext();
-                      }
-                    }
+                  while (!(xmlReader.isEndElement() && !xmlReader.name().compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
+                  {
                     xmlReader.readNext();
                   }
                 }
-                else if(!xmlReader.name().compare("Connections", Qt::CaseInsensitive) &&
-                        !xmlReader.hasError()
-                        && xmlReader.tokenType() == QXmlStreamReader::StartElement)
-                {
-
-                  adaptedOutput->readAdaptedOutputExchangeItemConnections(xmlReader,errorMessages);
-                }
-
                 xmlReader.readNext();
               }
-
-
             }
-          }
-          else
-          {
-            throw "Input exchangeitem " + inputExchangeItemId + " could not be found in specified component";
+            else if(!xmlReader.name().compare("Connections", Qt::CaseInsensitive) &&
+                    !xmlReader.hasError()
+                    && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+            {
+
+              gAdaptedOutput->readAdaptedOutputExchangeItemConnections(xmlReader,errorMessages);
+            }
+
+            xmlReader.readNext();
           }
         }
         else
         {
-          throw "Input exchange item ";
+          throw "Input exchangeitem " + inputExchangeItemId + " could not be found in specified component";
         }
-      }
-      else
-      {
-        throw "AdaptedOutput Factory was not found";
       }
     }
     else
@@ -324,9 +265,7 @@ void GOutput::readArgument(QXmlStreamReader &xmlReader, IAdaptedOutput *adaptedO
           QString value;
           QXmlStreamWriter writer(&value);
 
-          while(!(xmlReader.isEndElement() &&
-                !xmlReader.name().compare("Argument", Qt::CaseInsensitive)) &&
-                !xmlReader.hasError())
+          while(!(xmlReader.isEndElement() && !xmlReader.name().compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
           {
             xmlReader.readNext();
             writer.writeCurrentToken(xmlReader);
@@ -353,156 +292,7 @@ void GOutput::readArgument(QXmlStreamReader &xmlReader, IAdaptedOutput *adaptedO
   }
 }
 
-bool GOutput::createConnection(GNode *consumer, QString &message)
-{
-  if(consumer->nodeType() == GNode::Input ||
-     consumer->nodeType() == GNode::MultiInput ||
-     consumer->nodeType() == GNode::AdaptedOutput )
-  {
-
-    switch (consumer->nodeType())
-    {
-      case GNode::Input:
-      case GNode::MultiInput:
-        {
-          GInput* input = (GInput*) consumer;
-
-          if(m_component == input->modelComponent() ||
-             !input->input()->canConsume(output(), message))
-          {
-            return false;
-          }
-        }
-        break;
-      case GNode::AdaptedOutput:
-        {
-          //add connection
-          connect(consumer , SIGNAL(doubleClicked(GNode*)) , modelComponent() , SLOT(onDoubleClicked(GNode*)));
-        }
-        break;
-      default:
-        break;
-    }
-
-    for(GConnection *connection : m_connections)
-    {
-      if(connection->consumer() == consumer)
-      {
-        return false;
-        break;
-      }
-    }
-
-    GConnection* connection = new GConnection(this,consumer);
-    m_connections.append(connection);
-
-    switch (consumer->nodeType())
-    {
-
-      case GNode::Input:
-        {
-          GInput *input = (GInput*)consumer;
-
-          if(input->provider())
-          {
-            input->provider()->deleteConnection(input);
-          }
-          input->setProvider(this);
-        }
-        break;
-      case GNode::MultiInput:
-        {
-          GMultiInput *input = (GMultiInput*)consumer;
-          input->addProvider(this);
-        }
-        break;
-      default:
-        break;
-    }
-
-    if(scene())
-    {
-      scene()->addItem(connection);
-    }
-
-    emit connectionAdded(connection);
-    emit propertyChanged("Connections");
-    emit hasChanges();
-
-    return true;
-  }
-
-  return false;
-}
-
-bool GOutput::deleteConnection(GConnection *connection)
-{
-  if(m_connections.removeAll(connection))
-  {
-    if(scene())
-    {
-      scene()->removeItem(connection);
-    }
-
-    if(connection->consumer()->nodeType() == GNode::AdaptedOutput)
-    {
-      delete connection->consumer();
-    }
-    else if(connection->consumer()->nodeType() == GNode::Input)
-    {
-      GInput *input = (GInput*) connection->consumer();
-
-      input->setProvider(nullptr);
-
-      if(output() && input->input())
-      {
-        output()->removeConsumer(input->input());
-      }
-    }
-    else if(connection->consumer()->nodeType() == GNode::MultiInput)
-    {
-      GMultiInput *minput = (GMultiInput*) connection->consumer();
-      minput->removeProvider(this);
-
-      if(output() && minput->multiInput())
-      {
-        output()->removeConsumer(minput->multiInput());
-      }
-    }
-
-    delete connection;
-    emit propertyChanged("Connections");
-    emit hasChanges();
-    return true;
-  }
-  else
-  {
-    return false;
-  }
-}
-
-bool GOutput::deleteConnection(GNode *consumer)
-{
-  for(GConnection* connection : m_connections)
-  {
-    if(connection->consumer() == consumer)
-    {
-      return deleteConnection(connection);
-    }
-  }
-
-  return false;
-}
-
-void GOutput::deleteConnections()
-{
-  while (m_connections.length())
-  {
-    deleteConnection(m_connections[0]);
-  }
-}
-
-void GOutput::disestablishConnections()
+void GOutput::deEstablishConnections()
 {
   if(output())
   {
@@ -518,7 +308,7 @@ void GOutput::disestablishConnections()
   }
 }
 
-void GOutput::reestablishConnections()
+void GOutput::reEstablishConnections()
 {
   if(output())
   {
@@ -546,7 +336,7 @@ void GOutput::reestablishConnections()
       {
         GAdaptedOutput* adaptedOutput = dynamic_cast<GAdaptedOutput*>(connection->consumer());
 
-        adaptedOutput->reestablishConnections();
+        adaptedOutput->reEstablishConnections();
 
         if(adaptedOutput->adaptedOutput())
         {
@@ -557,12 +347,204 @@ void GOutput::reestablishConnections()
   }
 }
 
-void GOutput::reestablishSignalSlotConnections()
+void GOutput::reEstablishSignalSlotConnections()
 {
   if(output())
   {
     QObject* object = dynamic_cast<QObject*>(output());
     connect(object, SIGNAL(propertyChanged(const QString &)),
             this, SLOT(onPropertyChanged(const QString &)));
+  }
+}
+
+bool GOutput::createConnection(GNode *consumer)
+{
+  if(!m_connections.contains(consumer))
+  {
+    if(consumer->nodeType() == GNode::Input ||
+       consumer->nodeType() == GNode::MultiInput ||
+       consumer->nodeType() == GNode::AdaptedOutput )
+    {
+
+      switch (consumer->nodeType())
+      {
+        case GNode::Input:
+        case GNode::MultiInput:
+          {
+            GInput* input = (GInput*) consumer;
+            QString message;
+
+            if(m_component == input->modelComponent() || !input->input()->canConsume(output(), message))
+            {
+              return false;
+            }
+          }
+          break;
+        case GNode::AdaptedOutput:
+          {
+            //add connection
+            connect(consumer , SIGNAL(doubleClicked(GNode*)) , modelComponent() , SLOT(onDoubleClicked(GNode*)));
+          }
+          break;
+        default:
+          break;
+      }
+
+      GConnection* connection = new GConnection(this,consumer);
+      m_connections[consumer] = connection;
+
+      switch (consumer->nodeType())
+      {
+
+        case GNode::Input:
+          {
+            GInput *input = (GInput*)consumer;
+
+            if(input->provider())
+            {
+              for(GConnection *connection : m_connections)
+              {
+                if(connection->consumer() == input)
+                {
+                  input->provider()->deleteConnection(connection);
+                }
+              }
+            }
+
+            input->setProvider(this);
+          }
+          break;
+        case GNode::MultiInput:
+          {
+            GMultiInput *input = (GMultiInput*)consumer;
+            input->addProvider(this);
+          }
+          break;
+        default:
+          break;
+      }
+
+      emit connectionAdded(connection);
+      emit propertyChanged("Connections");
+      emit hasChanges();
+
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void GOutput::deleteConnection(GConnection *connection)
+{
+  GNode *consumer = connection->consumer();
+
+  if(m_connections.contains(consumer))
+  {
+    delete connection;
+    GInput *input = nullptr;
+
+    //consumer <---- adapter <---- adapteee
+    if(consumer->nodeType() == GNode::Input)
+    {
+      input = dynamic_cast<GInput*>(consumer);
+      input->setProvider(nullptr);
+
+      if(output() && input->input())
+      {
+        output()->removeConsumer(input->input());
+        input->input()->setProvider(nullptr);
+      }
+    }
+    else if(consumer->nodeType() == GNode::MultiInput)
+    {
+      GMultiInput *minput = dynamic_cast<GMultiInput*>(consumer);
+      minput->removeProvider(this);
+
+      if(output() && minput->multiInput())
+      {
+        output()->removeConsumer(minput->multiInput());
+        minput->multiInput()->removeProvider(output());
+      }
+
+      input = minput;
+    }
+    else if(consumer->nodeType() == GNode::AdaptedOutput)
+    {
+      GAdaptedOutput *adaptedOutput = dynamic_cast<GAdaptedOutput*>(consumer);
+
+      if(adaptedOutput->adaptedOutput())
+      {
+        output()->removeAdaptedOutput(adaptedOutput->adaptedOutput());
+      }
+
+      delete adaptedOutput;
+    }
+
+    emit propertyChanged("Connections");
+    emit hasChanges();
+  }
+}
+
+void GOutput::deleteConnection(GNode *node)
+{
+  if(m_connections.contains(node))
+  {
+    GConnection *connection = m_connections[node];
+    GNode *consumer = connection->consumer();
+
+    if(m_connections.contains(consumer))
+    {
+      delete connection;
+      GInput *input = nullptr;
+
+      //consumer <---- adapter <---- adapteee
+      if(consumer->nodeType() == GNode::Input)
+      {
+        input = dynamic_cast<GInput*>(consumer);
+        input->setProvider(nullptr);
+
+        if(output() && input->input())
+        {
+          output()->removeConsumer(input->input());
+          input->input()->setProvider(nullptr);
+        }
+      }
+      else if(consumer->nodeType() == GNode::MultiInput)
+      {
+        GMultiInput *minput = dynamic_cast<GMultiInput*>(consumer);
+        minput->removeProvider(this);
+
+        if(output() && minput->multiInput())
+        {
+          output()->removeConsumer(minput->multiInput());
+          minput->multiInput()->removeProvider(output());
+        }
+
+        input = minput;
+      }
+      else if(consumer->nodeType() == GNode::AdaptedOutput)
+      {
+        GAdaptedOutput *adaptedOutput = dynamic_cast<GAdaptedOutput*>(consumer);
+
+        if(adaptedOutput->adaptedOutput())
+        {
+          output()->removeAdaptedOutput(adaptedOutput->adaptedOutput());
+        }
+
+        delete adaptedOutput;
+      }
+
+      emit propertyChanged("Connections");
+      emit hasChanges();
+    }
+  }
+}
+
+void GOutput::deleteConnections()
+{
+  while (m_connections.size())
+  {
+    deleteConnection(m_connections.begin().value());
   }
 }

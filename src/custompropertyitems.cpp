@@ -46,6 +46,7 @@ void CustomPropertyItems::registerCustomPropertyItems(QPropertyModel* propertyMo
   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<IUnitDimensions*>(), &IUnitDimensionsPropertyItem::staticMetaObject);
   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<CPUGPUAllocation*>(), &CPUGPUAllocationPropertyItem::staticMetaObject);
   propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<QList<CPUGPUAllocation*>>(), &CPUGPUAllocationListPropertyItem::staticMetaObject);
+  //propertyModel->registerCustomPropertyItemType((QMetaType::Type) qMetaTypeId<QGraphicsTextItem*>(), &QGraphicsTextItem::staticMetaObject);
 }
 
 void CustomPropertyItems::registerCustomEditor()

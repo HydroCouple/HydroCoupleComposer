@@ -17,12 +17,12 @@ class GModelComponent;
 
 class GConnection : public QGraphicsObject
 {
-    friend class GNode;
+
     friend class GModelComponent;
     friend class GInput;
+    friend class GMultiInput;
     friend class GOutput;
     friend class GAdaptedOutput;
-
 
     Q_OBJECT
 
@@ -42,6 +42,7 @@ class GConnection : public QGraphicsObject
     GConnection(GNode* producer, GNode* consumer , QGraphicsObject* parent = nullptr);
 
   public:
+
     virtual ~GConnection();
 
     GNode* producer() const;
@@ -76,15 +77,9 @@ class GConnection : public QGraphicsObject
 
     QPainterPath shape() const override;
 
-    QHash<QString,HydroCouple::IAdaptedOutputFactory*> adaptedOutputFactories() const;
-
-    QHash<HydroCouple::IAdaptedOutputFactory*,QList<HydroCouple::IIdentity*>> adaptedOutputs() const;
-
     virtual void paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0) override;
 
-    bool insertAdaptedOutput(HydroCouple::IIdentity* adaptedOutputId , HydroCouple::IAdaptedOutputFactory* factory);
-
-    void retrieveAdaptedOutputs();
+    bool insertAdaptedOutput(const QString& adaptedOutputId, const QString& adaptedOutputFactoryId, bool fromComponentLibrary = false);
 
   signals:
 
@@ -103,6 +98,7 @@ class GConnection : public QGraphicsObject
     void mouseDoubleClickEvent(QGraphicsSceneMouseEvent * event) override;
 
   private:
+
     bool canAcceptDrop(const QMimeData* data);
 
   private slots:
@@ -113,8 +109,10 @@ class GConnection : public QGraphicsObject
 
     QPointF maxPosition(const QList<QPointF> & points);
 
+    void onNodePropertyChanged(const QString &propertyName);
 
   protected:
+
     GNode* m_producer, *m_consumer;
     QPointF m_start, m_end , m_mid , m_c1, m_c2;
     QPointF m_arrowPoint[3];
@@ -128,8 +126,6 @@ class GConnection : public QGraphicsObject
     static QFont m_font;
     static float m_arrowLength , m_arrowWidth;
     static int s_zindex;
-    QHash<HydroCouple::IAdaptedOutputFactory*,QList<HydroCouple::IIdentity*>> m_adaptedOutputs;
-    QHash<QString, HydroCouple::IAdaptedOutputFactory*> m_adaptedOutputFactories;
 
 };
 

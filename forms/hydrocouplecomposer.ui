@@ -26,7 +26,7 @@
    <bool>true</bool>
   </property>
   <widget class="QWidget" name="centralWidget">
-   <layout class="QHBoxLayout" name="horizontalLayout_2">
+   <layout class="QHBoxLayout" name="horizontalLayout_5">
     <item>
      <widget class="GraphicsView" name="graphicsViewHydroCoupleComposer" native="true">
       <property name="contextMenuPolicy">
@@ -75,6 +75,7 @@
     </property>
     <addaction name="actionEditSelected"/>
     <addaction name="separator"/>
+    <addaction name="actionAddComponent"/>
     <addaction name="actionDeleteComponent"/>
     <addaction name="actionSetTrigger"/>
     <addaction name="separator"/>
@@ -97,6 +98,7 @@
     <property name="title">
      <string>Tools</string>
     </property>
+    <addaction name="actionInitializeComponent"/>
     <addaction name="actionExecute"/>
     <addaction name="actionCancelSimulation"/>
     <addaction name="actionAddComponentLibraryDirectory"/>
@@ -182,21 +184,21 @@
    </property>
    <property name="minimumSize">
     <size>
-     <width>102</width>
-     <height>124</height>
+     <width>104</width>
+     <height>228</height>
     </size>
    </property>
    <property name="toolTip">
-    <string>Model Components</string>
+    <string>Components</string>
    </property>
    <property name="statusTip">
-    <string>Model Components</string>
+    <string>Components</string>
    </property>
    <property name="whatsThis">
-    <string>Model Components</string>
+    <string>Components</string>
    </property>
    <property name="windowTitle">
-    <string>Model Components</string>
+    <string>Components</string>
    </property>
    <attribute name="dockWidgetArea">
     <number>1</number>
@@ -204,23 +206,96 @@
    <widget class="QWidget" name="dockWidgetContentsModelComponentInfos">
     <layout class="QVBoxLayout" name="verticalLayout">
      <item>
-      <widget class="QSplitter" name="splitter">
-       <property name="orientation">
-        <enum>Qt::Vertical</enum>
+      <widget class="QToolBox" name="toolBoxComponents">
+       <property name="currentIndex">
+        <number>0</number>
        </property>
-       <widget class="QTreeView" name="treeViewModelComponentInfos">
-        <property name="contextMenuPolicy">
-         <enum>Qt::CustomContextMenu</enum>
+       <widget class="QWidget" name="ModelComponentsPage">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>280</width>
+          <height>189</height>
+         </rect>
         </property>
-        <property name="editTriggers">
-         <set>QAbstractItemView::NoEditTriggers</set>
+        <attribute name="label">
+         <string>Model Components</string>
+        </attribute>
+        <layout class="QVBoxLayout" name="verticalLayout_2">
+         <item>
+          <widget class="QTreeView" name="treeViewModelComponentInfos">
+           <property name="contextMenuPolicy">
+            <enum>Qt::CustomContextMenu</enum>
+           </property>
+           <property name="editTriggers">
+            <set>QAbstractItemView::NoEditTriggers</set>
+           </property>
+           <property name="dragDropMode">
+            <enum>QAbstractItemView::DragOnly</enum>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="AdaptedOutputFactoryComponentsPage">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>280</width>
+          <height>189</height>
+         </rect>
         </property>
-        <property name="dragDropMode">
-         <enum>QAbstractItemView::DragOnly</enum>
+        <attribute name="label">
+         <string>AdaptedOutputFactory Components</string>
+        </attribute>
+        <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <item>
+          <widget class="QTreeView" name="treeViewAdaptedOutputFactoryComponents">
+           <property name="contextMenuPolicy">
+            <enum>Qt::CustomContextMenu</enum>
+           </property>
+           <property name="editTriggers">
+            <set>QAbstractItemView::NoEditTriggers</set>
+           </property>
+           <property name="dragDropMode">
+            <enum>QAbstractItemView::DragOnly</enum>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+       <widget class="QWidget" name="WorkflowComponentsPage">
+        <property name="geometry">
+         <rect>
+          <x>0</x>
+          <y>0</y>
+          <width>280</width>
+          <height>189</height>
+         </rect>
         </property>
-        <property name="wordWrap">
-         <bool>true</bool>
-        </property>
+        <attribute name="label">
+         <string>Workflow Components</string>
+        </attribute>
+        <layout class="QHBoxLayout" name="horizontalLayout_8">
+         <item>
+          <widget class="QTreeView" name="treeViewWorkflowComponents">
+           <property name="contextMenuPolicy">
+            <enum>Qt::CustomContextMenu</enum>
+           </property>
+           <property name="editTriggers">
+            <set>QAbstractItemView::NoEditTriggers</set>
+           </property>
+           <property name="dragDropMode">
+            <enum>QAbstractItemView::DragOnly</enum>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </widget>
       </widget>
      </item>
@@ -331,28 +406,6 @@
        </property>
        <property name="acceptRichText">
         <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </widget>
-  </widget>
-  <widget class="QDockWidget" name="dockWidgetAdaptedOutputs">
-   <property name="allowedAreas">
-    <set>Qt::AllDockWidgetAreas</set>
-   </property>
-   <property name="windowTitle">
-    <string>Adapted Outputs</string>
-   </property>
-   <attribute name="dockWidgetArea">
-    <number>8</number>
-   </attribute>
-   <widget class="QWidget" name="dockWidgetContents_2">
-    <layout class="QHBoxLayout" name="horizontalLayout_5">
-     <item>
-      <widget class="QTreeView" name="treeViewAdaptedOutputs">
-       <property name="dragDropMode">
-        <enum>QAbstractItemView::DragOnly</enum>
        </property>
       </widget>
      </item>
@@ -555,6 +608,9 @@
    <property name="checkable">
     <bool>true</bool>
    </property>
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset resource="../resources/hydrocouplecomposer.qrc">
      <normaloff>:/HydroCoupleComposer/createconnection</normaloff>:/HydroCoupleComposer/createconnection</iconset>
@@ -611,7 +667,10 @@
     <string>Delete Component</string>
    </property>
   </action>
-  <action name="actionBrowseComponentInfoFolder">
+  <action name="actionBrowseModelComponentInfoFolder">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset resource="../resources/hydrocouplecomposer.qrc">
      <normaloff>:/HydroCoupleComposer/open</normaloff>:/HydroCoupleComposer/open</iconset>
@@ -842,18 +901,6 @@
     <string>Layout Components</string>
    </property>
   </action>
-  <action name="actionValidateComponentLibrary">
-   <property name="icon">
-    <iconset resource="../resources/hydrocouplecomposer.qrc">
-     <normaloff>:/HydroCoupleComposer/validate</normaloff>:/HydroCoupleComposer/validate</iconset>
-   </property>
-   <property name="text">
-    <string>Validate Library</string>
-   </property>
-   <property name="toolTip">
-    <string>Validate Library</string>
-   </property>
-  </action>
   <action name="actionSetTrigger">
    <property name="enabled">
     <bool>false</bool>
@@ -882,6 +929,9 @@
    </property>
   </action>
   <action name="actionUnloadModelComponentLibrary">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset resource="../resources/hydrocouplecomposer.qrc">
      <normaloff>:/HydroCoupleComposer/unloadlibrary</normaloff>:/HydroCoupleComposer/unloadlibrary</iconset>
@@ -943,6 +993,9 @@
    </property>
   </action>
   <action name="actionCloneModelComponent">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset resource="../resources/hydrocouplecomposer.qrc">
      <normaloff>:/HydroCoupleComposer/clonecomponent</normaloff>:/HydroCoupleComposer/clonecomponent</iconset>
@@ -968,16 +1021,32 @@
    <property name="toolTip">
     <string>Edit Selected Item</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+E</string>
+   </property>
   </action>
   <action name="actionInitializeComponent">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../resources/hydrocouplecomposer.qrc">
+     <normaloff>:/HydroCoupleComposer/initialize</normaloff>:/HydroCoupleComposer/initialize</iconset>
+   </property>
    <property name="text">
     <string>Initialize Component</string>
    </property>
    <property name="toolTip">
     <string>Initialize Component</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+I</string>
+   </property>
   </action>
   <action name="actionValidateComponent">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
    <property name="icon">
     <iconset resource="../resources/hydrocouplecomposer.qrc">
      <normaloff>:/HydroCoupleComposer/validate</normaloff>:/HydroCoupleComposer/validate</iconset>
@@ -1017,8 +1086,132 @@
    </property>
   </action>
   <action name="actionHydroCoupleVis">
+   <property name="icon">
+    <iconset resource="../resources/hydrocouplecomposer.qrc">
+     <normaloff>:/HydroCoupleComposer/hydrocouplecomposer</normaloff>:/HydroCoupleComposer/hydrocouplecomposer</iconset>
+   </property>
    <property name="text">
     <string>HydroCoupleVis</string>
+   </property>
+  </action>
+  <action name="actionBrowseAdaptedOutputFactoryComponentInfoFolder">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../resources/hydrocouplecomposer.qrc">
+     <normaloff>:/HydroCoupleComposer/open</normaloff>:/HydroCoupleComposer/open</iconset>
+   </property>
+   <property name="text">
+    <string>Browse to Component Folder</string>
+   </property>
+   <property name="toolTip">
+    <string>Browse to Enclosing</string>
+   </property>
+  </action>
+  <action name="actionBrowseWorkflowComponentInfoFolder">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../resources/hydrocouplecomposer.qrc">
+     <normaloff>:/HydroCoupleComposer/open</normaloff>:/HydroCoupleComposer/open</iconset>
+   </property>
+   <property name="text">
+    <string>Browse to Component Folder</string>
+   </property>
+   <property name="toolTip">
+    <string>Browse to Enclosing</string>
+   </property>
+  </action>
+  <action name="actionValidateModelComponentInfo">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../resources/hydrocouplecomposer.qrc">
+     <normaloff>:/HydroCoupleComposer/validate</normaloff>:/HydroCoupleComposer/validate</iconset>
+   </property>
+   <property name="text">
+    <string>Validate Component Library</string>
+   </property>
+   <property name="toolTip">
+    <string>Validate Component</string>
+   </property>
+  </action>
+  <action name="actionValidateAdaptedOutputFactoryComponentInfo">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../resources/hydrocouplecomposer.qrc">
+     <normaloff>:/HydroCoupleComposer/validate</normaloff>:/HydroCoupleComposer/validate</iconset>
+   </property>
+   <property name="text">
+    <string>Validate Component Library</string>
+   </property>
+   <property name="toolTip">
+    <string>Validate Component</string>
+   </property>
+  </action>
+  <action name="actionValidateWorkflowComponentInfo">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../resources/hydrocouplecomposer.qrc">
+     <normaloff>:/HydroCoupleComposer/validate</normaloff>:/HydroCoupleComposer/validate</iconset>
+   </property>
+   <property name="text">
+    <string>Validate Component Library</string>
+   </property>
+   <property name="toolTip">
+    <string>Validate Component</string>
+   </property>
+  </action>
+  <action name="actionInsertAdaptedOutput">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../resources/hydrocouplecomposer.qrc">
+     <normaloff>:/HydroCoupleComposer/adaptercomponent</normaloff>:/HydroCoupleComposer/adaptercomponent</iconset>
+   </property>
+   <property name="text">
+    <string>Insert Adapted Output</string>
+   </property>
+   <property name="toolTip">
+    <string>Insert Adapted Output</string>
+   </property>
+  </action>
+  <action name="actionUnloadAdaptedOutputFactoryComponentLibrary">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../resources/hydrocouplecomposer.qrc">
+     <normaloff>:/HydroCoupleComposer/deleteadaptedoutputfactorycomponent</normaloff>:/HydroCoupleComposer/deleteadaptedoutputfactorycomponent</iconset>
+   </property>
+   <property name="text">
+    <string>Unload Component Library</string>
+   </property>
+   <property name="toolTip">
+    <string>Unload Model Component Library</string>
+   </property>
+  </action>
+  <action name="actionUnloadWorkflowComponentLibrary">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="icon">
+    <iconset resource="../resources/hydrocouplecomposer.qrc">
+     <normaloff>:/HydroCoupleComposer/deleteworkflowcomponent</normaloff>:/HydroCoupleComposer/deleteworkflowcomponent</iconset>
+   </property>
+   <property name="text">
+    <string>Unload Component Library</string>
+   </property>
+   <property name="toolTip">
+    <string>Unload Model Component Library</string>
    </property>
   </action>
  </widget>

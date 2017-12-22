@@ -50,5 +50,9 @@
         <file alias="adaptedoutput">images/adaptedoutput.png</file>
         <file alias="adaptedoutputfactory">images/adaptedoutputfactory.png</file>
         <file alias="stopsim">images/stopsim.png</file>
+        <file alias="workflow">images/workflow.png</file>
+        <file alias="initialize">images/initialize.png</file>
+        <file alias="deleteadaptedoutputfactorycomponent">images/deleteadaptedoutputfactory.png</file>
+        <file alias="deleteworkflowcomponent">images/deleteworkflow.png</file>
     </qresource>
 </RCC>

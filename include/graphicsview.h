@@ -55,6 +55,7 @@ class GraphicsView : public QGraphicsView
       QRectF getRectFrom(const QPointF &p1, const QPointF p2);
 
    signals:
+
       void itemDropped(const QPointF &scenePos, const QMap<QString,QVariant>& data);
 
       void statusChanged(const QString& status);

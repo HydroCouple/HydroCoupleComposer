@@ -16,11 +16,36 @@
 
 void CommandLineParser::setApplicationStyle(QApplication* application)
 {
-  application->setStyle("Fusion");
+  application->setStyle("fusion");
   QFile file(":/HydroCoupleComposer/Styles");
   file.open(QFile::ReadOnly);
   QString styleSheet = QLatin1String(file.readAll());
   application->setStyleSheet(styleSheet);
+
+  //  QPalette palette;
+
+  //  palette.setColor(QPalette::Window,QColor(53,53,53));
+  //  palette.setColor(QPalette::WindowText,Qt::white);
+  //  palette.setColor(QPalette::Disabled,QPalette::WindowText,QColor(127,127,127));
+  //  palette.setColor(QPalette::Base,QColor(42,42,42));
+  //  palette.setColor(QPalette::AlternateBase,QColor(66,66,66));
+  //  palette.setColor(QPalette::ToolTipBase,Qt::white);
+  //  palette.setColor(QPalette::ToolTipText,Qt::white);
+  //  palette.setColor(QPalette::Text,Qt::white);
+  //  palette.setColor(QPalette::Disabled,QPalette::Text,QColor(127,127,127));
+  //  palette.setColor(QPalette::Dark,QColor(35,35,35));
+  //  palette.setColor(QPalette::Shadow,QColor(20,20,20));
+  //  palette.setColor(QPalette::Button,QColor(53,53,53));
+  //  palette.setColor(QPalette::ButtonText,Qt::white);
+  //  palette.setColor(QPalette::Disabled,QPalette::ButtonText,QColor(127,127,127));
+  //  palette.setColor(QPalette::BrightText,Qt::red);
+  //  palette.setColor(QPalette::Link,QColor(42,130,218));
+  //  palette.setColor(QPalette::Highlight,QColor(42,130,218));
+  //  palette.setColor(QPalette::Disabled,QPalette::Highlight,QColor(80,80,80));
+  //  palette.setColor(QPalette::HighlightedText,Qt::white);
+  //  palette.setColor(QPalette::Disabled,QPalette::HighlightedText,QColor(127,127,127));
+
+  //  application->setPalette(palette);
 }
 
 QStringList CommandLineParser::applicationArgsToStringList(int argc, char *argv[])
@@ -43,7 +68,12 @@ bool CommandLineParser::initializeMPI(int argc, char *argv[], int &numMPIProcess
   {
     int allowed = 0;
     int mpiStatus = MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &allowed);
-    //    int mpiStatus = MPI_Init(&argc, &argv);
+
+    if(allowed < MPI_THREAD_MULTIPLE)
+    {
+      printf("Warning: This MPI Implementation does not provide sufficient threading support for %i\n", MPI_THREAD_MULTIPLE);
+    }
+
 
     if (mpiStatus != MPI_SUCCESS)
     {
@@ -179,10 +209,8 @@ int CommandLineParser::executeCommandLine(QCommandLineParser &parser, int argc, 
   //version
   if(parser.isSet("version"))
   {
-    printf("Application Name: %s\nApplication Version: %s\n",
-           "HydroCouple Composer",
+    printf("Application Name: %s\nApplication Version: %s\n", "HydroCoupleComposer",
            qPrintable(QCoreApplication::applicationVersion()));
-
   }
   //help
   else if (parser.isSet("help"))
@@ -193,7 +221,6 @@ int CommandLineParser::executeCommandLine(QCommandLineParser &parser, int argc, 
   {
 
     bool isGUI = true;
-
 
     //try to initialize MPI
     initializeMPI(argc, argv, HydroCoupleProject::numMPIProcesses , HydroCoupleProject::mpiProcess);
@@ -220,6 +247,12 @@ int CommandLineParser::executeCommandLine(QCommandLineParser &parser, int argc, 
       if(numThreads > 1 && numThreads < omp_get_max_threads())
         omp_set_num_threads(numThreads);
 
+      printf("OpenMP is enabled with %i Processors and %i Max Threads\n", omp_get_num_procs() , omp_get_max_threads());
+#endif
+    }
+    else
+    {
+#ifdef USE_OPENMP
       printf("OpenMP is enabled with %i Processors and %i Max Threads\n", omp_get_num_procs() , omp_get_max_threads());
 #endif
     }
@@ -374,6 +407,8 @@ void CommandLineParser::enterMPIWorkersLoop()
         case CommandLineParser::InitializeAndPrepareComponent:
           {
 
+            printf("Initializing and Preparing Worker Component on MPI Processor: %i\n", HydroCoupleProject::mpiProcess);
+
             int componentIndex = 0;
             MPI_Recv(&componentIndex,1,MPI_INT,status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status);
 
@@ -421,7 +456,6 @@ void CommandLineParser::enterMPIWorkersLoop()
           break;
       }
 
-      //printf("Worker loop: %i\n", loopCount);
 
       loopCount++;
 

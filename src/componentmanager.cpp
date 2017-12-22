@@ -1,10 +1,13 @@
 #include "stdafx.h"
 #include "componentmanager.h"
+#include "hydrocoupleproject.h"
+#include "gmodelcomponent.h"
 
 using namespace HydroCouple;
 
-ComponentManager::ComponentManager(QObject *parent)
-  : QObject(parent)
+ComponentManager::ComponentManager(HydroCoupleProject *parent)
+  : QObject(parent),
+    m_project(parent)
 {
 
 #ifdef _WIN32 // note the underscore: without it, it's not msdn official!
@@ -17,176 +20,27 @@ ComponentManager::ComponentManager(QObject *parent)
   m_componentFileExtensions.insert("*.dylib");
 #endif
 
-
-//#ifdef _WIN32 // note the underscore: without it, it's not msdn official!
-//  // Windows (x64 and x86)
-//  addComponentDirectory(QDir("./"));
-//  manager->addComponentDirectory(QDir("./Components"));
-
-//#elif __unix__ // all unices, not all compilers
-//  // Unix
-//  addComponentDirectory(QDir("./"));
-//  addComponentDirectory(QDir("./Components"));
-//#elif __linux__
-//  addComponentDirectory(QDir("./"));
-//  addComponentDirectory(QDir("./Components"));
-//  // linux
-//#elif __APPLE__
-//  addComponentDirectory(QDir("./"));
-//  addComponentDirectory(QDir("./Components"));
-//  addComponentDirectory(QDir("./../../../"));
-//  addComponentDirectory(QDir("./../../../Components"));
-//#endif
-
 }
 
 ComponentManager::~ComponentManager()
 {
 
-  for(IModelComponentInfo* cinfo : m_modelComponentInfoHash.keys())
-  {
-    emit modelComponentInfoUnloaded(cinfo->id());
-  }
+  QString message;
+  QList<QString> modelComponents = modelComponentInfoIdentifiers();
 
-  qDeleteAll(m_modelComponentInfoById.values());
-  m_modelComponentInfoById.clear();
+  for(QString identifier: modelComponents)
+    unloadModelComponentInfo(identifier, message);
 
-  for(QPluginLoader* pl : m_modelComponentInfoHash.values())
-  {
-    pl->unload();
-  }
+  QList<QString> adaptedFactoryComponents = adaptedFactoryComponentInfoIdentifiers();
 
-  //   qDeleteAll(m_modelComponentInfoHash.keys());
-  qDeleteAll(m_modelComponentInfoHash.values());
-  m_modelComponentInfoHash.clear();
+  for(QString identifier: adaptedFactoryComponents)
+    unloadAdaptedOutputFactoryComponentInfo(identifier, message);
 
 
-  for(IAdaptedOutputFactoryComponentInfo* cinfo : m_adaptedOutputFactoryComponentInfoHash.keys())
-  {
-    emit adaptedOutputFactoryComponentUnloaded(cinfo->id());
-  }
+  QList<QString> workflowComponents = workflowComponentInfoIdentifiers();
 
-
-  qDeleteAll(m_adaptedOutputFactoryComponentById.values());
-  m_adaptedOutputFactoryComponentById.clear();
-
-
-
-  for(QPluginLoader* pl : m_adaptedOutputFactoryComponentInfoHash.values())
-  {
-    pl->unload();
-  }
-
-//  qDeleteAll(m_adaptedOutputFactoryComponentInfoHash.keys());
-  qDeleteAll(m_adaptedOutputFactoryComponentInfoHash.values());
-  m_adaptedOutputFactoryComponentInfoHash.clear();
-
-}
-
-QHash<QString, IModelComponentInfo*> ComponentManager::modelComponentInfoById() const
-{
-  return m_modelComponentInfoById;
-}
-
-bool ComponentManager::unloadModelComponentInfoById(const QString& id)
-{
-  if(m_modelComponentInfoById.contains(id))
-  {
-    IModelComponentInfo* componentInfo = m_modelComponentInfoById[id];
-
-    if (m_modelComponentInfoHash.contains(componentInfo))
-    {
-      QPluginLoader* plugin = m_modelComponentInfoHash[componentInfo];
-      m_modelComponentInfoHash.remove(componentInfo);
-      m_modelComponentInfoById.remove(id);
-
-      emit modelComponentInfoUnloaded(componentInfo->id());
-      emit postMessage("Model component library " + componentInfo->id() + " unloaded");
-
-      plugin->unload();
-
-      return true;
-    }
-    else
-    {
-      emit postMessage("Unable to unload model component library " + componentInfo->id());
-      return false;
-    }
-  }
-  else
-  {
-    return false;
-  }
-}
-
-QHash<QString,IAdaptedOutputFactoryComponentInfo*> ComponentManager::adaptedOutputFactoryComponentInfoById() const
-{
-  return m_adaptedOutputFactoryComponentInfoById;
-}
-
-QHash<QString,IAdaptedOutputFactoryComponent*> ComponentManager::adaptedOutputFactoryComponentById() const
-{
-  return m_adaptedOutputFactoryComponentById;
-}
-
-QHash<IAdaptedOutputFactoryComponentInfo*,IAdaptedOutputFactoryComponent*> ComponentManager::adaptedOutputFactoryComponentByComponentInfo() const
-{
-  return m_adaptedOutputFactoryComponentByComponentInfo;
-}
-
-bool ComponentManager::unloadAdaptedOutputFactoryComponentInfoById(const QString& id)
-{
-  if(m_adaptedOutputFactoryComponentInfoById.contains(id))
-  {
-    IAdaptedOutputFactoryComponentInfo* componentInfo = m_adaptedOutputFactoryComponentInfoById[id];
-
-    if (m_adaptedOutputFactoryComponentInfoHash.contains(componentInfo))
-    {
-      QPluginLoader* plugin = m_adaptedOutputFactoryComponentInfoHash[componentInfo];
-
-      m_adaptedOutputFactoryComponentInfoHash.remove(componentInfo);
-      m_adaptedOutputFactoryComponentInfoById.remove(id);
-
-      IAdaptedOutputFactoryComponent* factoryComponent = m_adaptedOutputFactoryComponentByComponentInfo[componentInfo];
-      m_adaptedOutputFactoryComponentByComponentInfo.remove(componentInfo);
-
-      m_adaptedOutputFactoryComponentById.remove(factoryComponent->id());
-
-      emit adaptedOutputFactoryComponentUnloaded(componentInfo->id());
-      emit postMessage("Adapted output factory component library " + componentInfo->id() + " unloaded");
-
-      delete factoryComponent;
-
-      plugin->unload();
-
-      return true;
-    }
-    else
-    {
-      emit postMessage("Unable to unload adapted output factory component library " + componentInfo->id());
-      return false;
-    }
-  }
-  else
-  {
-    return false;
-  }
-}
-
-IComponentInfo* ComponentManager::findComponentInfoById(const QString &id)
-{
-  if(m_modelComponentInfoById.contains(id))
-  {
-    return m_modelComponentInfoById[id];
-  }
-  else if(m_adaptedOutputFactoryComponentInfoById.contains(id))
-  {
-    return m_adaptedOutputFactoryComponentInfoById[id];
-  }
-  else
-  {
-    return nullptr;
-  }
+  for(QString identifier: workflowComponents)
+    unloadWorkflowComponentInfo(identifier, message);
 }
 
 IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
@@ -205,66 +59,96 @@ IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
 
       if (component)
       {
+        IComponentInfo *componentInfo =  qobject_cast<IComponentInfo*>(component);
+        QString message;
+        componentInfo->validateLicense(message);
+        emit postMessage(message);
 
-        printf("loading component file: %s\n", qPrintable(file.absoluteFilePath()));
-
-        //IModelComponentInfo
+        if(componentInfo)
         {
-          IModelComponentInfo* mcomponentInfo = qobject_cast<IModelComponentInfo*>(component);
+          printf("loading component file: %s\n", qPrintable(file.absoluteFilePath()));
 
-          if (mcomponentInfo)
+          //IModelComponentInfo
           {
-            for (IModelComponentInfo* model : m_modelComponentInfoHash.keys())
+            IModelComponentInfo* mcomponentInfo = qobject_cast<IModelComponentInfo*>(component);
+
+            if (mcomponentInfo)
             {
-              if (!mcomponentInfo->id().compare(model->id()))
+              IModelComponentInfo *tempComponentInfo ;
+
+              if((tempComponentInfo = findModelComponentInfo(mcomponentInfo->id())))
               {
-                message = "Model component library " + mcomponentInfo->id() + "has already been loaded";
-//                pluginLoader->unload();
+                //              delete mcomponentInfo;
+                message = "Model component library " + tempComponentInfo->id() + "has already been loaded";
                 emit postMessage(message);
-                return model;
+                return tempComponentInfo ;
               }
+
+              mcomponentInfo->setLibraryFilePath(file.absoluteFilePath());
+
+              m_modelComponentInfoHash[mcomponentInfo] = QList<IModelComponent*>();
+              m_modelComponentInfoPluginLoader[mcomponentInfo] = pluginLoader;
+
+              emit modelComponentInfoLoaded(mcomponentInfo->id());
+              return mcomponentInfo;
             }
-
-            mcomponentInfo->setLibraryFilePath(file.absoluteFilePath());
-
-            m_modelComponentInfoHash[mcomponentInfo] = pluginLoader;
-            m_modelComponentInfoById[mcomponentInfo->id()] = mcomponentInfo;
-
-            emit modelComponentInfoLoaded(mcomponentInfo);
-
-            return mcomponentInfo;
           }
-        }
 
-        //IAdaptedOutputFactoryComponentInfo
-        {
-          IAdaptedOutputFactoryComponentInfo* acomponentInfo = qobject_cast<IAdaptedOutputFactoryComponentInfo*>(component);
-
-          if (acomponentInfo)
+          //IAdaptedOutputFactoryComponentInfo
           {
-            acomponentInfo->setLibraryFilePath(file.absoluteFilePath());
+            IAdaptedOutputFactoryComponentInfo* acomponentInfo = qobject_cast<IAdaptedOutputFactoryComponentInfo*>(component);
 
-            for (IAdaptedOutputFactoryComponentInfo* model : m_adaptedOutputFactoryComponentInfoHash.keys())
+            if (acomponentInfo)
             {
-              if (!acomponentInfo->id().compare(model->id()))
+              acomponentInfo->setLibraryFilePath(file.absoluteFilePath());
+
+              IAdaptedOutputFactoryComponentInfo *tempAdaptedOutputComponentInfo = nullptr;
+
+              if ((tempAdaptedOutputComponentInfo = findAdaptedOutputFactoryComponentInfo(acomponentInfo->id())))
               {
-                message = "Adapted output factory component library " + acomponentInfo->id() + "has already been loaded";
-//                pluginLoader->unload();
+                //              delete acomponentInfo;
+
+                message = "Adapted output factory component library " + tempAdaptedOutputComponentInfo->id() + "has already been loaded";
                 emit postMessage(message);
-                return model;
+                return tempAdaptedOutputComponentInfo;
               }
+
+              IAdaptedOutputFactoryComponent* adaptedFactoryComponent = acomponentInfo->createComponentInstance();
+
+              m_adaptedOutputFactoryComponentInfoHash[acomponentInfo] = adaptedFactoryComponent;
+              m_adaptedOutputFactoryComponentInfoPluginLoader[acomponentInfo] = pluginLoader;
+
+              emit adaptedOutputFactoryComponentInfoLoaded(acomponentInfo->id());
+              return acomponentInfo;
             }
+          }
 
+          //IWorkflowComponentInfo
+          {
+            IWorkflowComponentInfo* wcomponentInfo = qobject_cast<IWorkflowComponentInfo*>(component);
 
-            m_adaptedOutputFactoryComponentInfoHash[acomponentInfo] = pluginLoader;
-            m_adaptedOutputFactoryComponentInfoById[acomponentInfo->id()] = acomponentInfo;
-            IAdaptedOutputFactoryComponent* adaptedFactoryComponent = acomponentInfo->createComponentInstance();
-            m_adaptedOutputFactoryComponentByComponentInfo[acomponentInfo] = adaptedFactoryComponent;
-            m_adaptedOutputFactoryComponentById[adaptedFactoryComponent->id()] = adaptedFactoryComponent;
+            if (wcomponentInfo)
+            {
+              wcomponentInfo->setLibraryFilePath(file.absoluteFilePath());
 
-            acomponentInfo->setLibraryFilePath(file.absoluteFilePath());
-            emit adaptedOutputFactoryComponentInfoLoaded(acomponentInfo);
-            return acomponentInfo;
+              IWorkflowComponentInfo *tempWorkflowComponentInfo = nullptr;
+
+              if ((tempWorkflowComponentInfo = findWorkflowComponentInfo(wcomponentInfo->id())))
+              {
+                //              delete wcomponentInfo;
+                message = "Adapted output factory component library " + tempWorkflowComponentInfo->id() + "has already been loaded";
+                emit postMessage(message);
+                return tempWorkflowComponentInfo;
+              }
+
+              IWorkflowComponent *workflowComponent = wcomponentInfo->createComponentInstance();
+
+              m_workflowComponentInfoHash[wcomponentInfo] = workflowComponent;
+              m_workflowComponentInfoPluginLoader[wcomponentInfo] = pluginLoader;
+
+              emit workflowComponentInfoLoaded(wcomponentInfo->id());
+              return wcomponentInfo;
+            }
           }
         }
 
@@ -350,6 +234,297 @@ void ComponentManager::addComponentDirectory(const QDir& directory)
     emit setProgress(false, 0);
 
   }
+}
+
+QList<QString> ComponentManager::modelComponentInfoIdentifiers() const
+{
+  QList<QString> identifiers;
+
+  for(const IModelComponentInfo* modelComponent : m_modelComponentInfoHash.keys())
+  {
+    identifiers.append(modelComponent->id());
+  }
+
+  return identifiers;
+}
+
+QList<QString> ComponentManager::adaptedFactoryComponentInfoIdentifiers() const
+{
+  QList<QString> identifiers;
+
+  for(const IAdaptedOutputFactoryComponentInfo* adaptedOutputFactoryComponentInfo : m_adaptedOutputFactoryComponentInfoHash.keys())
+  {
+    identifiers.append(adaptedOutputFactoryComponentInfo->id());
+  }
+
+  return identifiers;
+}
+
+QList<QString> ComponentManager::workflowComponentInfoIdentifiers() const
+{
+  QList<QString> identifiers;
+
+  for(const IWorkflowComponentInfo* adaptedOutputFactoryComponentInfo : m_workflowComponentInfoHash.keys())
+  {
+    identifiers.append(adaptedOutputFactoryComponentInfo->id());
+  }
+
+  return identifiers;
+}
+
+bool ComponentManager::unloadModelComponentInfo(const QString &componentInfoId, QString &message)
+{
+  IModelComponentInfo *componentInfo = nullptr;
+
+  if ((componentInfo = findModelComponentInfo(componentInfoId)))
+  {
+    QPluginLoader* plugin = m_modelComponentInfoPluginLoader[componentInfo];
+
+    m_modelComponentInfoPluginLoader.remove(componentInfo);
+    m_modelComponentInfoHash.remove(componentInfo);
+
+    if(m_project)
+    {
+      m_project->deleteModelComponentsAssociatedWithComponentInfo(componentInfo);
+    }
+
+    emit modelComponentInfoUnloaded(componentInfo->id());
+    emit postMessage("Model component library " + componentInfo->id() + " unloaded");
+
+    delete componentInfo;
+
+    plugin->unload();
+
+    return true;
+  }
+
+  message = "Model Component: " + componentInfoId + " was not found!";
+  emit postMessage(message);
+  return false;
+}
+
+bool ComponentManager::unloadAdaptedOutputFactoryComponentInfo(const QString& componentInfoId, QString &message)
+{
+  IAdaptedOutputFactoryComponentInfo *componentInfo = nullptr;
+
+  if((componentInfo = findAdaptedOutputFactoryComponentInfo(componentInfoId)))
+  {
+    QPluginLoader* plugin = m_adaptedOutputFactoryComponentInfoPluginLoader[componentInfo];
+
+    m_adaptedOutputFactoryComponentInfoPluginLoader.remove(componentInfo);
+    m_adaptedOutputFactoryComponentInfoHash.remove(componentInfo);
+    m_adaptedFactoryComponentOutputs.remove(componentInfo);
+
+    if(m_project)
+    {
+      m_project->deleteAdaptedOutputsAssociatedWithComponentInfo(componentInfo);
+    }
+
+    emit adaptedOutputFactoryComponentInfoUnloaded(componentInfo->id());
+    emit postMessage("Adapted output factory component library " + componentInfo->id() + " unloaded");
+
+    delete componentInfo;
+
+    plugin->unload();
+
+    return true;
+  }
+
+
+  message = "Adapted Output Factory Componnent: " +  componentInfoId + " was not found!";
+  emit postMessage(message);
+  return false;
+}
+
+bool ComponentManager::unloadWorkflowComponentInfo(const QString &componentInfoId, QString &message)
+{
+  IWorkflowComponentInfo* componentInfo = nullptr;
+
+  if ((componentInfo = findWorkflowComponentInfo(componentInfoId)))
+  {
+    QPluginLoader* plugin = m_workflowComponentInfoPluginLoader[componentInfo];
+
+    m_workflowComponentInfoPluginLoader.remove(componentInfo);
+    IWorkflowComponent *workflowComponent = m_workflowComponentInfoHash[componentInfo];
+    m_workflowComponentInfoHash.remove(componentInfo);
+
+    emit workflowComponentInfoUnloaded(componentInfo->id());
+    emit postMessage("Model component library " + componentInfo->id() + " unloaded");
+
+    delete workflowComponent;
+    delete componentInfo;
+
+    plugin->unload();
+
+    return true;
+  }
+
+  message = "Workflow Component: " + componentInfoId + " was not found!";
+  emit postMessage(message);
+
+  return false;
+}
+
+IModelComponent *ComponentManager::createModelComponentInstance(const QString &componentInfoId, QString &message)
+{
+  IModelComponentInfo *componentInfo = nullptr;
+
+  if((componentInfo = findModelComponentInfo(componentInfoId)))
+  {
+    IModelComponent *component = componentInfo->createComponentInstance();
+    m_modelComponentInfoHash[componentInfo].push_back(component);
+    return component;
+  }
+
+  message = "Component with id: " + componentInfoId + " was not found !";
+
+  return nullptr;
+}
+
+QList<IIdentity*> ComponentManager::getAvailableAdaptedOutputs(const QString &adaptedOutputFactoryComponentInfoId, IOutput *provider, IInput *consumer)
+{
+  QList<IIdentity*> foundAdaptedOutputs;
+  IAdaptedOutputFactoryComponentInfo *componentInfo = nullptr;
+
+  if((componentInfo = findAdaptedOutputFactoryComponentInfo(adaptedOutputFactoryComponentInfoId)))
+  {
+    IAdaptedOutputFactoryComponent *adaptedOutputFactoryComponent = m_adaptedOutputFactoryComponentInfoHash[componentInfo];
+    foundAdaptedOutputs = adaptedOutputFactoryComponent->getAvailableAdaptedOutputIds(provider, consumer);
+    return foundAdaptedOutputs;
+  }
+
+  return foundAdaptedOutputs;
+}
+
+IAdaptedOutput *ComponentManager::createAdaptedOutputInstance(const QString &adaptedOutputFactoryComponentInfoId, const QString &identity, IOutput *provider, IInput *consumer)
+{
+  IAdaptedOutputFactoryComponentInfo *componentInfo = nullptr;
+
+  if((componentInfo = findAdaptedOutputFactoryComponentInfo(adaptedOutputFactoryComponentInfoId)))
+  {
+    IAdaptedOutputFactoryComponent *adaptedOutputFactoryComponent = m_adaptedOutputFactoryComponentInfoHash[componentInfo];
+    QList<IIdentity*> availableAdaptors = adaptedOutputFactoryComponent->getAvailableAdaptedOutputIds(provider, consumer);
+
+    for(IIdentity *adaptorId :  availableAdaptors)
+    {
+      if(!QString::compare(identity, adaptorId->id()))
+      {
+        IAdaptedOutput *adaptedOutput = adaptedOutputFactoryComponent->createAdaptedOutput(adaptorId, provider, consumer);
+        m_adaptedFactoryComponentOutputs[componentInfo].append(adaptedOutput);
+        return adaptedOutput;
+      }
+    }
+  }
+
+  return nullptr;
+}
+
+IWorkflowComponent *ComponentManager::getWorkflowComponent(const QString &componentInfoId)
+{
+  IWorkflowComponentInfo *componentInfo;
+
+  if((componentInfo = findWorkflowComponentInfo(componentInfoId)))
+  {
+    IWorkflowComponent *workflowComponent = m_workflowComponentInfoHash[componentInfo];
+    return workflowComponent;
+  }
+
+  return nullptr;
+}
+
+int ComponentManager::numModelComponentInstances(const QString &componentInfoId)
+{
+  IModelComponentInfo *componentInfo = findModelComponentInfo(componentInfoId);
+
+  if(componentInfo)
+  {
+    return m_modelComponentInfoHash[componentInfo].size();
+  }
+
+  return 0;
+}
+
+int ComponentManager::numAdaptedOutputInstances(const QString &componentInfoId)
+{
+  IAdaptedOutputFactoryComponentInfo *componentInfo = findAdaptedOutputFactoryComponentInfo(componentInfoId);
+
+  if(componentInfo)
+  {
+    return m_adaptedFactoryComponentOutputs[componentInfo].size();
+  }
+
+  return 0;
+}
+
+void ComponentManager::removeModelInstance(const QString &componentInfoId, IModelComponent *modelComponent)
+{
+  IModelComponentInfo *modelComponentInfo = findModelComponentInfo(componentInfoId);
+
+  if(modelComponentInfo)
+  {
+    m_modelComponentInfoHash[modelComponentInfo].removeAll(modelComponent);
+  }
+}
+
+void ComponentManager::removeAdaptedOutputInstance(const QString &componentInfoId, IAdaptedOutput *adaptedOutput)
+{
+  IAdaptedOutputFactoryComponentInfo *componentInfo = findAdaptedOutputFactoryComponentInfo(componentInfoId);
+
+  if(componentInfo)
+  {
+    m_adaptedFactoryComponentOutputs[componentInfo].removeAll(adaptedOutput);
+  }
+}
+
+IModelComponentInfo *ComponentManager::findModelComponentInfo(const QString &componentInfoId)
+{
+  for(IModelComponentInfo *componentInfo : m_modelComponentInfoHash.keys())
+  {
+    if(!QString::compare(componentInfo->id(), componentInfoId))
+    {
+      return componentInfo;
+    }
+  }
+
+  return nullptr;
+}
+
+IAdaptedOutputFactoryComponentInfo *ComponentManager::findAdaptedOutputFactoryComponentInfo(const QString &componentInfoId)
+{
+  for(IAdaptedOutputFactoryComponentInfo *componentInfo : m_adaptedOutputFactoryComponentInfoHash.keys())
+  {
+    if(!QString::compare(componentInfo->id(), componentInfoId))
+    {
+      return componentInfo;
+    }
+  }
+
+  return nullptr;
+}
+
+IAdaptedOutputFactoryComponent *ComponentManager::getAdaptedOutputFactoryComponent(const QString &componentInfoId)
+{
+  IAdaptedOutputFactoryComponentInfo *componentInfo = findAdaptedOutputFactoryComponentInfo(componentInfoId);
+
+  if(componentInfo)
+  {
+    return m_adaptedOutputFactoryComponentInfoHash[componentInfo];
+  }
+
+  return nullptr;
+}
+
+IWorkflowComponentInfo *ComponentManager::findWorkflowComponentInfo(const QString &componentInfoId)
+{
+  for(IWorkflowComponentInfo *componentInfo : m_workflowComponentInfoHash.keys())
+  {
+    if(!QString::compare(componentInfo->id(), componentInfoId))
+    {
+      return componentInfo;
+    }
+  }
+
+  return nullptr;
 }
 
 bool ComponentManager::hasValidExtension(const QFileInfo& file)

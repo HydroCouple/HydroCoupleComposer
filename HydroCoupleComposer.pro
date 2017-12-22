@@ -19,7 +19,7 @@ INCLUDEPATH += .\
                ./include \
                ../HydroCouple/include \
                ../HydroCoupleVis/include \
-               ../../QPropertyModel/QPropertyModel/include
+               ../../QPropertyModel/include
 
 macx{
     INCLUDEPATH += /usr/local/include \
@@ -31,11 +31,7 @@ linux{
 }
 
 win32{
-  INCLUDEPATH += ../../graphviz/lib/cgraph \
-                 ../../graphviz/lib/gvc \
-                 ../../graphviz/lib/cdt \
-                 ../../graphviz/lib/common \
-                 ../../graphviz/lib/pathplan
+  INCLUDEPATH += ../../graphviz/win32/include
 }
 
 HEADERS += ./include/stdafx.h \
@@ -57,7 +53,8 @@ HEADERS += ./include/stdafx.h \
            ./include/qxmlsyntaxhighlighter.h \
            ./include/simulationmanager.h \
            ./include/commandlineparser.h \
-           ./include/cpugpuallocation.h
+           ./include/cpugpuallocation.h \
+           ./include/preferencesdialog.h
 
 SOURCES += ./src/stdafx.cpp \
            ./src/main.cpp \
@@ -83,7 +80,8 @@ SOURCES += ./src/stdafx.cpp \
            ./src/qxmlsyntaxhighlighter.cpp \
            ./src/simulationmanager.cpp \
            ./src/commandlineparser.cpp \
-           ./src/cpugpuallocation.cpp
+           ./src/cpugpuallocation.cpp \
+           ./src/preferencesdialog.cpp
 
 macx{
 
@@ -100,22 +98,25 @@ macx{
         INCLUDEPATH += /usr/local/opt/llvm/lib/clang/5.0.0/include
         LIBS += -L /usr/local/opt/llvm/lib -lomp
 
-      message("OpenMP enabled")
+        message("OpenMP enabled")
 
     } else {
 
-      message("OpenMP disabled")
+        message("OpenMP disabled")
 
     }
 
     contains(DEFINES,USE_MPI){
 
-    # MPI Settings
-    QMAKE_CC = /usr/local/bin/mpicc
-    QMAKE_CXX = /usr/local/bin/mpicxx
-    QMAKE_LINK = $$QMAKE_CXX
+        QMAKE_CC = /usr/local/bin/mpicc
+        QMAKE_CXX = /usr/local/bin/mpicxx
+        QMAKE_LINK = /usr/local/bin/mpicxx
 
-    LIBS += -L/usr/local/lib/ -lmpi
+        QMAKE_CFLAGS += $$system(mpicc --showme:compile)
+        QMAKE_CXXFLAGS += $$system(mpic++ --showme:compile)
+        QMAKE_LFLAGS += $$system(mpic++ --showme:link)
+
+        LIBS += -L/usr/local/lib/ -lmpi
 
     message("MPI enabled")
 
@@ -180,13 +181,14 @@ win32{
 }
 
 FORMS += ./forms/hydrocouplecomposer.ui \
-         ./forms/argumentdialog.ui
+         ./forms/argumentdialog.ui \
+    forms/preferencesdialog.ui
 
 
 CONFIG(debug, debug|release) {
 
    macx{
-   LIBS += -L./../../QPropertyModel/QPropertyModel/build/debug -lQPropertyModel \
+   LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel \
            -L./../HydroCoupleVis/build/debug -lHydroCoupleVis \
            -L/usr/local/lib -lcgraph \
            -L/usr/local/lib -lgvc
@@ -198,7 +200,7 @@ CONFIG(debug, debug|release) {
 
          INCLUDEPATH += /uufs/chpc.utah.edu/common/home/u0660135/Projects/HydroCouple/graphviz/build/usr/local/include
 
-         LIBS += -L./../../QPropertyModel/QPropertyModel/build/debug -lQPropertyModel \
+         LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel \
                  -L./../HydroCoupleVis/build/debug -lHydroCoupleVis \
                  -L./../graphviz/build/usr/local/lib -lcgraph \
                  -L./../graphviz/build/usr/local/lib -lgvc
@@ -208,7 +210,7 @@ CONFIG(debug, debug|release) {
 
         } else {
 
-   LIBS += -L./../../QPropertyModel/QPropertyModel/build/debug -lQPropertyModel \
+   LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel \
            -L./../HydroCoupleVis/build/debug -lHydroCoupleVis \
            -L/usr/lib -lcgraph \
            -L/usr/lib -lgvc
@@ -216,10 +218,10 @@ CONFIG(debug, debug|release) {
    }
 
    win32{
-   LIBS += -L./../../QPropertyModel/QPropertyModel/build/debug -lQPropertyModel1 \
+   LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel1 \
            -L./../HydroCoupleVis/build/debug -lHydroCoupleVis1 \
-           -L./graphviz/lib -lcgraph \
-           -L./graphviz/lib -lgvc
+           -L./graphviz/win32/lib -lcgraph \
+           -L./graphviz/win32/lib -lgvc
    }
 
    DESTDIR = ./build/debug
@@ -232,8 +234,8 @@ CONFIG(debug, debug|release) {
 CONFIG(release, debug|release){
 
    macx{
-      LIBS += -L./../../QPropertyModel/QPropertyModel/lib -lQPropertyModel \
-              -L./../HydroCoupleVis/lib -lHydroCoupleVis \
+      LIBS += -L./../../QPropertyModel/lib/macx -lQPropertyModel \
+              -L./../HydroCoupleVis/lib/macx -lHydroCoupleVis \
               -L/usr/local/lib -lcgraph \
               -L/usr/local/lib -lgvc
    }
@@ -243,8 +245,8 @@ CONFIG(release, debug|release){
 
          INCLUDEPATH += ./../graphviz/build/usr/local/include
 
-         LIBS += -L./../../QPropertyModel/QPropertyModel/lib -lQPropertyModel \
-                 -L./../HydroCoupleVis/lib -lHydroCoupleVis \
+         LIBS += -L./../../QPropertyModel/lib/linux -lQPropertyModel \
+                 -L./../HydroCoupleVis/lib/linux -lHydroCoupleVis \
                  -L./../graphviz/build/usr/local/lib -lcgraph \
                  -L./../graphviz/build/usr/local/lib -lgvc
 
@@ -253,7 +255,7 @@ CONFIG(release, debug|release){
 
         } else {
 
-   LIBS += -L./../../QPropertyModel/QPropertyModel/build/debug -lQPropertyModel \
+   LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel \
            -L./../HydroCoupleVis/build/debug -lHydroCoupleVis \
            -L/usr/lib -lcgraph \
            -L/usr/lib -lgvc
@@ -261,13 +263,27 @@ CONFIG(release, debug|release){
    }
 
    win32{
-      LIBS += -L./../../QPropertyModel/QPropertyModel/lib -lQPropertyModel1 \
-              -L./../HydroCoupleVis/lib -lHydroCoupleVis1 \
-              -L./graphviz/lib -lcgraph \
-              -L./graphviz/lib -lgvc
+      LIBS += -L./../../QPropertyModel/lib/win32 -lQPropertyModel1 \
+              -L./../HydroCoupleVis/lib/win32 -lHydroCoupleVis1 \
+              -L./graphviz/win32/lib -lcgraph \
+              -L./graphviz/win32/lib -lgvc
    }
 
-    DESTDIR = bin
+         #MacOS
+         macx{
+             DESTDIR = bin/macx
+         }
+
+         #Linux
+         linux{
+             DESTDIR = bin/linux
+         }
+
+         #Windows
+         win32{
+             DESTDIR = bin/win32
+         }
+
     RELEASE_EXTRAS = ./build/release
     OBJECTS_DIR = $$RELEASE_EXTRAS/.obj
     MOC_DIR = $$RELEASE_EXTRAS/.moc

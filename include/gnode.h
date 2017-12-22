@@ -11,9 +11,13 @@ class HydroCoupleProject;
 
 class GNode : public QGraphicsObject
 {
+
     Q_OBJECT
 
+    friend class GConnection;
+
   public:
+
     enum NodeType
     {
       Input,
@@ -34,6 +38,7 @@ class GNode : public QGraphicsObject
     Q_PROPERTY(QPen SelectedPen READ selectedPen WRITE setSelectedPen NOTIFY propertyChanged)
     Q_PROPERTY(QBrush SelectedBrush READ selectedBrush WRITE setSelectedBrush NOTIFY propertyChanged)
     Q_PROPERTY(QFont Font READ font WRITE setFont NOTIFY propertyChanged)
+    Q_PROPERTY(QGraphicsTextItem* LabelGraphics READ labeGraphicsObject)
     Q_PROPERTY(QList<GConnection*> Connections READ connections NOTIFY propertyChanged)
 
   public:
@@ -42,11 +47,11 @@ class GNode : public QGraphicsObject
 
     virtual ~GNode();
 
-    QString id() const;
+    virtual QString id() const;
 
     void setId(const QString & id);
 
-    QString caption() const;
+    virtual QString caption() const;
 
     void setCaption(const QString& caption);
 
@@ -84,21 +89,23 @@ class GNode : public QGraphicsObject
 
     virtual void setFont(const QFont& font);
 
+    QGraphicsTextItem  *labeGraphicsObject() const;
+
     virtual QRectF boundingRect() const override;
 
     QList<GConnection*> connections() const;
 
-    virtual bool createConnection(GNode* consumer, QString &message) = 0;
-
-    virtual bool deleteConnection(GConnection* connection) = 0;
-
-    virtual bool deleteConnection(GNode* consumer) = 0;
-
-    virtual void deleteConnections() = 0;
+    HydroCoupleProject *project() const;
 
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
-    void retrieveAdaptedOutputsForConnections();
+    virtual bool createConnection(GNode *node) = 0;
+
+    virtual void deleteConnection(GConnection *connection) = 0;
+
+    virtual void deleteConnection(GNode *node) = 0;
+
+    virtual void deleteConnections() = 0;
 
   signals:
 
@@ -123,7 +130,8 @@ class GNode : public QGraphicsObject
     virtual void onChildHasChanges();
 
   protected:
-    QList<GConnection*> m_connections;
+
+    QHash<GNode*,GConnection*> m_connections;
     int m_margin , m_size, m_cornerRadius , m_xmargin, m_ymargin , m_height , m_width;
     QString m_id, m_caption;
     NodeType m_nodeType;
@@ -140,6 +148,7 @@ class GNode : public QGraphicsObject
 };
 
 Q_DECLARE_METATYPE(GNode*)
+Q_DECLARE_METATYPE(QGraphicsTextItem*)
 
 #endif // GNODE_H
 

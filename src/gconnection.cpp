@@ -18,10 +18,8 @@ using namespace HydroCouple;
 
 GConnection::GConnection(GNode *producer, GNode *consumer , QGraphicsObject* parent)
   :QGraphicsObject(parent),
-    m_pen(QBrush(QColor(0.0, 150.0, 255.0), Qt::BrushStyle::SolidPattern),4, Qt::PenStyle::SolidLine,
-          Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::MiterJoin),
+    m_pen(QBrush(QColor(0.0, 150.0, 255.0), Qt::BrushStyle::SolidPattern),4, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::MiterJoin),
     m_brush (QBrush(Qt::GlobalColor::white))
-
 {
   m_font = QFont();
   m_producer = producer;
@@ -35,11 +33,13 @@ GConnection::GConnection(GNode *producer, GNode *consumer , QGraphicsObject* par
   connect(m_producer, SIGNAL(yChanged()), this, SLOT(parentLocationOrSizeChanged()));
   connect(m_producer, SIGNAL(zChanged()), this, SLOT(parentLocationOrSizeChanged()));
   connect(m_producer, SIGNAL(scaleChanged()), this, SLOT(parentLocationOrSizeChanged()));
+  connect(m_producer, SIGNAL(propertyChanged(const QString &)), this, SLOT(onNodePropertyChanged(const QString &)));
 
   connect(m_consumer, SIGNAL(xChanged()), this, SLOT(parentLocationOrSizeChanged()));
   connect(m_consumer, SIGNAL(yChanged()), this, SLOT(parentLocationOrSizeChanged()));
   connect(m_consumer, SIGNAL(zChanged()), this, SLOT(parentLocationOrSizeChanged()));
   connect(m_consumer, SIGNAL(scaleChanged()), this, SLOT(parentLocationOrSizeChanged()));
+  connect(m_consumer, SIGNAL(propertyChanged(const QString &)), this, SLOT(onNodePropertyChanged(const QString &)));
 
   setFlag(GraphicsItemFlag::ItemIsSelectable, true);
   setFlag(GraphicsItemFlag::ItemIsFocusable, true);
@@ -52,6 +52,7 @@ GConnection::GConnection(GNode *producer, GNode *consumer , QGraphicsObject* par
                                                                                                            "<h4 align=\"left\">Consumer</h4>"
                                                                                                            "<p align=\"center\">" + consumer->caption() +"</p>"
                                                                                                                                                          "<p align=\"center\">" + consumer->id() +"</p>";
+
   setAcceptDrops(true);
   setToolTip(htmltext);
 
@@ -60,12 +61,15 @@ GConnection::GConnection(GNode *producer, GNode *consumer , QGraphicsObject* par
 
   parentLocationOrSizeChanged();
 
-  retrieveAdaptedOutputs();
+  if(producer->scene())
+  {
+    producer->scene()->addItem(this);
+  }
 }
 
 GConnection::~GConnection()
 {
-  m_adaptedOutputs.clear();
+  m_producer->m_connections.remove(m_consumer);
 
   if(scene())
   {
@@ -155,16 +159,6 @@ QPainterPath GConnection::shape() const
   return m_path;
 }
 
-QHash<QString,HydroCouple::IAdaptedOutputFactory*> GConnection::adaptedOutputFactories() const
-{
-  return m_adaptedOutputFactories;
-}
-
-QHash<HydroCouple::IAdaptedOutputFactory*,QList<HydroCouple::IIdentity*>> GConnection::adaptedOutputs() const
-{
-  return m_adaptedOutputs;
-}
-
 void GConnection::paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget)
 {
   m_path = QPainterPath(m_start);
@@ -195,48 +189,43 @@ void GConnection::paint(QPainter * painter, const QStyleOptionGraphicsItem * opt
 
 }
 
-bool GConnection::insertAdaptedOutput(IIdentity* adaptedOutputId , IAdaptedOutputFactory* factory)
+bool GConnection::insertAdaptedOutput(const QString& adaptedOutputId, const QString& adaptedOutputFactoryId, bool fromComponentLibrary)
 {
-
-  GOutput* prod = dynamic_cast<GOutput*>(m_producer);
-  GInput* input =  nullptr;
-
-  if(m_consumer->nodeType() == GNode::Input)
-  {
-    input = dynamic_cast<GInput*>(m_consumer);
-    input->setProvider(nullptr);
-  }
-  else if(m_consumer->nodeType() == GNode::MultiInput)
-  {
-    GMultiInput* minput = dynamic_cast<GMultiInput*>(m_consumer);
-    minput->removeProvider(dynamic_cast<GOutput*>(m_producer));
-    input = minput;
-  }
-
-
-  if(input)
+  if((m_producer->nodeType() ==  GNode::NodeType::Output || m_producer->nodeType() == GNode::NodeType::AdaptedOutput) &&
+     (m_consumer->nodeType() == GNode::NodeType::Input || m_consumer->nodeType() == GNode::NodeType::MultiInput))
   {
 
-    GAdaptedOutput* adaptedOutput = new GAdaptedOutput(adaptedOutputId , factory , prod , input);
+    GOutput* prod = dynamic_cast<GOutput*>(m_producer);
+    GInput* input =  nullptr;
+
+    if(m_consumer->nodeType() == GNode::Input)
+    {
+      input = dynamic_cast<GInput*>(m_consumer);
+      input->setProvider(nullptr);
+    }
+    else if(m_consumer->nodeType() == GNode::MultiInput)
+    {
+      GMultiInput* minput = dynamic_cast<GMultiInput*>(m_consumer);
+      minput->removeProvider(prod);
+      input = minput;
+    }
+
+    prod->m_connections.remove(m_consumer);
+
+    GAdaptedOutput* adaptedOutput = new GAdaptedOutput(adaptedOutputId, prod, input, adaptedOutputFactoryId, fromComponentLibrary);
     QPointF loc = (m_producer->pos() + m_consumer->pos())/2.0;
     adaptedOutput->setPos(loc);
     adaptedOutput->modelComponent()->project()->onSetHasChanges();
     connect(adaptedOutput , SIGNAL(doubleClicked(GNode*)) , adaptedOutput->modelComponent() , SLOT(onDoubleClicked(GNode*)));
-
-    if(scene())
-    {
-      scene()->addItem(adaptedOutput);
-    }
 
     disconnect(m_consumer, SIGNAL(xChanged()), this, SLOT(parentLocationOrSizeChanged()));
     disconnect(m_consumer, SIGNAL(yChanged()), this, SLOT(parentLocationOrSizeChanged()));
     disconnect(m_consumer, SIGNAL(zChanged()), this, SLOT(parentLocationOrSizeChanged()));
     disconnect(m_consumer, SIGNAL(scaleChanged()), this, SLOT(parentLocationOrSizeChanged()));
 
-    GNode* placeHolderNode = m_consumer;
-    QString message;
-    adaptedOutput->createConnection(placeHolderNode, message);
+    adaptedOutput->createConnection(m_consumer);
     m_consumer = adaptedOutput;
+    prod->m_connections[m_consumer] = this;
 
     connect(m_consumer, SIGNAL(xChanged()), this, SLOT(parentLocationOrSizeChanged()));
     connect(m_consumer, SIGNAL(yChanged()), this, SLOT(parentLocationOrSizeChanged()));
@@ -247,45 +236,10 @@ bool GConnection::insertAdaptedOutput(IIdentity* adaptedOutputId , IAdaptedOutpu
     update();
 
     return true;
+
   }
+
   return false;
-}
-
-void GConnection::retrieveAdaptedOutputs()
-{
-  m_adaptedOutputs.clear();
-  m_adaptedOutputFactories.clear();
-
-  if((m_producer->nodeType() == GNode::Output || m_producer->nodeType() == GNode::AdaptedOutput) &&
-     (m_consumer->nodeType() == GNode::Input || m_consumer->nodeType() == GNode::MultiInput))
-  {
-    GOutput *output = dynamic_cast<GOutput*>(m_producer);
-
-    IInput* input = nullptr;
-
-    if(m_consumer->nodeType() == GNode::Input)
-    {
-      input = dynamic_cast<GInput*>(m_consumer)->input();
-    }
-    else if(m_consumer->nodeType() == GNode::MultiInput)
-    {
-      input = dynamic_cast<GMultiInput*>(m_consumer)->multiInput();
-    }
-
-    for(IAdaptedOutputFactoryComponent* factoryComponent : output->modelComponent()->project()->componentManager()->adaptedOutputFactoryComponentById().values())
-    {
-      QList<IIdentity*> identities = factoryComponent->getAvailableAdaptedOutputIds(output->output() , input);
-      m_adaptedOutputs[factoryComponent] = identities;
-      m_adaptedOutputFactories[factoryComponent->id()] = factoryComponent;
-    }
-
-    for(IAdaptedOutputFactory* factory  : output->modelComponent()->modelComponent()->adaptedOutputFactories())
-    {
-      QList<IIdentity*> identities = factory->getAvailableAdaptedOutputIds(output->output() , input);
-      m_adaptedOutputs[factory] = identities;
-      m_adaptedOutputFactories[factory->id()] = factory;
-    }
-  }
 }
 
 QVariant GConnection::itemChange(GraphicsItemChange change, const QVariant &value)
@@ -294,7 +248,7 @@ QVariant GConnection::itemChange(GraphicsItemChange change, const QVariant &valu
   {
     if(isSelected())
     {
-      qreal z =0;
+      qreal z = 0;
 
       for(QGraphicsItem* it : scene()->items())
       {
@@ -311,8 +265,7 @@ QVariant GConnection::itemChange(GraphicsItemChange change, const QVariant &valu
 
 void GConnection::dragEnterEvent(QGraphicsSceneDragDropEvent *event)
 {
-  if (event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist") &&
-      canAcceptDrop(event->mimeData()))
+  if(event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist") && canAcceptDrop(event->mimeData()))
   {
     event->accept();
   }
@@ -324,7 +277,7 @@ void GConnection::dragEnterEvent(QGraphicsSceneDragDropEvent *event)
 
 void GConnection::dragMoveEvent(QGraphicsSceneDragDropEvent *event)
 {
-  if (event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist"))
+  if(event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist"))
   {
     event->accept();
   }
@@ -336,55 +289,47 @@ void GConnection::dragMoveEvent(QGraphicsSceneDragDropEvent *event)
 
 void GConnection::dropEvent(QGraphicsSceneDragDropEvent *event)
 {
-  if (event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist"))
+  if((m_producer->nodeType() == GNode::NodeType::Output || m_producer->nodeType() == GNode::NodeType::AdaptedOutput) &&
+     (m_consumer->nodeType() == GNode::NodeType::Input || m_consumer->nodeType() == GNode::NodeType::MultiInput))
   {
-    QByteArray encoded = event->mimeData()->data("application/x-qabstractitemmodeldatalist");
-    QDataStream stream(&encoded, QIODevice::ReadOnly);
-
-    while (!stream.atEnd())
+    if(event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist"))
     {
-      int row, col;
-      QMap<int, QVariant> roleDataMap;
-      stream >> row >> col >> roleDataMap;
+      QByteArray encoded = event->mimeData()->data("application/x-qabstractitemmodeldatalist");
+      QDataStream stream(&encoded, QIODevice::ReadOnly);
 
-      /* do something with the data */
-      QVariant value = roleDataMap[Qt::UserRole];
-
-      if (value.type() == QVariant::Map)
+      while (!stream.atEnd())
       {
-        QMap<QString,QVariant> map = value.toMap();
+        int row, col;
+        QMap<int, QVariant> roleMapData;
+        stream >> row >> col >> roleMapData;
 
-        if(map.contains("AdaptedOutput") &&
-           map.contains("AdaptedOutputFactory"))
+        /* do something with the data */
+        QVariant value = roleMapData[Qt::UserRole + 1];
+
+        if (value.type() == QVariant::Map)
         {
+          QMap<QString,QVariant> mapData = value.toMap();
 
-          QString factoryId = map["AdaptedOutputFactory"].toString();
-
-          if(m_adaptedOutputFactories.contains(factoryId))
+          if(mapData.contains("AdaptedOutput"))
           {
-            IAdaptedOutputFactory* factory = m_adaptedOutputFactories[factoryId];
 
-            QString adaptedOutputId = map["AdaptedOutput"].toString();
+            QString adaptedOutputId = mapData["AdaptedOutput"].toString();
 
-            if(m_adaptedOutputs.contains(factory))
+            if(mapData.contains("AdaptedOutputFactory"))
             {
-              QList<IIdentity*> identities = m_adaptedOutputs[factory];
-
-              for(IIdentity* identity : identities)
-              {
-                if(!identity->id().compare(adaptedOutputId))
-                {
-                  insertAdaptedOutput(identity,factory);
-                  break;
-                }
-              }
+              this->insertAdaptedOutput(adaptedOutputId, mapData["AdaptedOutputFactory"].toString());
+              event->accept();
             }
+            else if(mapData.contains("AdaptedOutputFactoryComponentInfo"))
+            {
+              this->insertAdaptedOutput(adaptedOutputId, mapData["AdaptedOutputFactoryComponentInfo"].toString(), true);
+            }
+
+            event->accept();
           }
 
-          event->accept();
+          event->ignore();
         }
-
-        event->ignore();
       }
     }
   }
@@ -419,7 +364,7 @@ bool GConnection::canAcceptDrop(const QMimeData *data)
         QMap<QString,QVariant> map = value.toMap();
 
         if(map.contains("AdaptedOutput") &&
-           map.contains("AdaptedOutputFactory"))
+           (map.contains("AdaptedOutputFactory") || map.contains("AdaptedOutputFactoryComponent")))
         {
           return true;
         }
@@ -556,4 +501,21 @@ QPointF GConnection::maxPosition(const QList<QPointF> & points)
       y = p.y();
   }
   return QPointF(x, y);
+}
+
+void GConnection::onNodePropertyChanged(const QString &propertyName)
+{
+  if(scene())
+  {
+    QString htmltext ="<h3 align=\"center\">Connection</h3>"
+                      "<h4 align=\"left\">Producer</h4>"
+                      "<p align=\"center\">" + m_producer->caption() +"</p>"
+                                                                      "<p align=\"center\">" + m_producer->id() +"</p>"
+                                                                                                                 "<h4 align=\"left\">Consumer</h4>"
+                                                                                                                 "<p align=\"center\">" + m_consumer->caption() +"</p>"
+                                                                                                                                                                 "<p align=\"center\">" + m_consumer->id() +"</p>";
+
+    setToolTip(htmltext);
+    update(QRectF());
+  }
 }

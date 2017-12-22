@@ -6,6 +6,7 @@
 #include "ui_argumentdialog.h"
 #include "gmodelcomponent.h"
 #include <QGenericMatrix>
+#include <QSettings>
 
 class ArgumentDialog : public QDialog , public Ui::ArgumentDialog
 {
@@ -13,7 +14,7 @@ class ArgumentDialog : public QDialog , public Ui::ArgumentDialog
 
    public:
 
-      ArgumentDialog(QDialog* parent = nullptr);
+      ArgumentDialog(QWidget* parent = nullptr);
 
       virtual ~ArgumentDialog();
 
@@ -21,9 +22,16 @@ class ArgumentDialog : public QDialog , public Ui::ArgumentDialog
 
       void setAdaptedOutput(GAdaptedOutput *adaptedOutput);
 
+      void readSettings();
+
+      void writeSettings();
+
+      void clearSettings();
+
    signals:
 
       void postValidationMessage(const QString& message);
+
 
   private slots:
 
@@ -46,6 +54,7 @@ class ArgumentDialog : public QDialog , public Ui::ArgumentDialog
       GModelComponent *m_component;
       GAdaptedOutput *m_adaptedOutput;
       QHash<QString,HydroCouple::IArgument*> m_arguments;
+      QSettings m_settings;
 
 };
 

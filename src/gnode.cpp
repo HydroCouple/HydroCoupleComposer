@@ -1,7 +1,6 @@
 #include "stdafx.h"
 #include "gnode.h"
 #include "gdefaultselectiongraphic.h"
-#include "assert.h"
 #include "gexchangeitems.h"
 #include "gmodelcomponent.h"
 
@@ -244,7 +243,17 @@ QRectF GNode::boundingRect() const
 
 QList<GConnection*> GNode::connections() const
 {
-  return m_connections;
+  return m_connections.values();
+}
+
+QGraphicsTextItem *GNode::labeGraphicsObject() const
+{
+  return m_textItem;
+}
+
+HydroCoupleProject *GNode::project() const
+{
+  return m_project;
 }
 
 void GNode::paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget)
@@ -272,21 +281,6 @@ void GNode::paint(QPainter * painter, const QStyleOptionGraphicsItem * option, Q
   }
 }
 
-void GNode::retrieveAdaptedOutputsForConnections()
-{
-  for(GConnection* connection : m_connections)
-  {
-    connection->retrieveAdaptedOutputs();
-    GNode* consumer =  connection->consumer();
-
-    if(consumer->nodeType() == GNode::Output ||
-       consumer->nodeType() == GNode::AdaptedOutput)
-    {
-      connection->consumer()->retrieveAdaptedOutputsForConnections();
-    }
-  }
-}
-
 QVariant GNode::itemChange(GraphicsItemChange change, const QVariant &value)
 {
   if(change == ItemSelectedHasChanged)
@@ -300,6 +294,7 @@ QVariant GNode::itemChange(GraphicsItemChange change, const QVariant &value)
         if(dynamic_cast<GNode*>(it) &&  it->zValue() > z)
           z = it->zValue();
       }
+
       setZValue(z + 0.000000000001);
     }
   }

@@ -12,7 +12,7 @@ class CPUGPUAllocation;
 
 class GModelComponent : public GNode
 {
-    friend class SimulationManager;
+    friend class GAdaptedOutput;
 
     Q_OBJECT
 
@@ -36,9 +36,11 @@ class GModelComponent : public GNode
 
     HydroCouple::IModelComponent* modelComponent() const ;
 
-    QString status() const ;
+    QString id() const override;
 
-    void deleteAllConnections();
+    QString caption() const override;
+
+    QString status() const ;
 
     bool trigger() const;
 
@@ -90,17 +92,17 @@ class GModelComponent : public GNode
 
     void paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0) override;
 
-    bool createConnection(GNode *consumer, QString &message) override;
+    bool createConnection(GNode *node) override;
 
-    bool deleteConnection(GConnection *connection) override;
+    void deleteConnection(GConnection *connection) override;
 
-    bool deleteConnection(GNode * consumer) override;
+    void deleteConnection(GNode *node) override;
 
     void deleteConnections() override;
 
-    void disestablishConnections();
+    HydroCouple::IAdaptedOutputFactory *getAdaptedOutputFactory(const QString & id);
 
-    void reestablishConnections();
+    HydroCouple::IAdaptedOutput *createAdaptedOutputInstance(const QString &adaptedOutputFactoryId, const QString &identity, HydroCouple::IOutput *provider, HydroCouple::IInput *consumer);
 
   protected:
 
@@ -113,6 +115,8 @@ class GModelComponent : public GNode
     void createExchangeItems();
 
     static void readArgument(QXmlStreamReader& xmlReader, HydroCouple::IModelComponent* component);
+
+    HydroCouple::IAdaptedOutput *createAdaptedOutput(const QString &adaptedOutputId, const QString &adaptedOutputFactoryId, GOutput *output, GInput *input);
 
   signals:
 
@@ -141,6 +145,7 @@ class GModelComponent : public GNode
     void onCreateTextItem() override;
 
   protected:
+
     HydroCouple::IModelComponent* m_modelComponent;
     HydroCoupleProject* m_parent;
     QHash<QString,HydroCouple::IInput*> m_inputs;

@@ -6,6 +6,7 @@
 #include "qxmlsyntaxhighlighter.h"
 #include "simulationmanager.h"
 #include "hydrocouplevis.h"
+#include "preferencesdialog.h"
 
 #include <QPolygonF>
 #include <iostream>
@@ -22,69 +23,91 @@
 using namespace HydroCouple;
 using namespace std;
 
-const QString HydroCoupleComposer::sc_modelComponentInfoHtml =
-    "<html>"
-    "<head>"
-    "<title>Component Information</title>"
-    "</head>"
-    "<body>"
-    "<img alt=\"icon\" src='[IconPath]' width=\"50\" align=\"left\" /><h3 align=\"center\">[Component]</h3>"
-    "<h3 align=\"center\">[Version]</h3>"
-    "<h4 align=\"center\">[Caption]</h4>"
-    "<hr>"
-    "<p>[Description]</p>"
-    "<p align=\"center\">[License]</p>"
-    "<p align=\"center\"><a href=\"[Url]\">[Vendor]</a></p>"
-    "<p align=\"center\"><a href=\"mailto:[Email]?Subject=[Component] | [Version] | [License]\">[Email]</a></p>"
-    "<p align=\"center\">[Copyright]</p>"
-    "</body>"
-    "</html>";
+const QString HydroCoupleComposer::sc_modelComponentInfoHtml = "<html>"
+                                                               "<head>"
+                                                               "<title>Component Information</title>"
+                                                               "</head>"
+                                                               "<body>"
+                                                               "<img alt=\"icon\" src='[IconPath]' width=\"50\" align=\"left\" /><h3 align=\"center\"> [Component] </h3>"
+                                                               "<h3 align=\"center\"> [Version] </h3>"
+                                                               "<h4 align=\"center\"> [Caption] </h4>"
+                                                               "<hr>"
+                                                               "<p>[Description]</p>"
+                                                               "<p align=\"center\"> [License] </p>"
+                                                               "<p align=\"center\"><a href=\"[Url]\"> [Vendor] </a></p>"
+                                                               "<p align=\"center\"><a href=\"mailto:[Email]?Subject=[Component] | [Version] | [License]\">[Email]</a></p>"
+                                                               "<p align=\"center\"> [Copyright] </p>"
+                                                               "</body>"
+                                                               "</html>";
+
+const QString HydroCoupleComposer::sc_standardInfoHtml = "<html>"
+                                                         "<head>"
+                                                         "<title>Adapted Output Factory</title>"
+                                                         "</head>"
+                                                         "<h3 align=\"center\">[Component]</h3>"
+                                                         "<body>"
+                                                         "<h4 align=\"center\">[Caption]</h4>"
+                                                         "<hr>"
+                                                         "<p>[Description]</p>"
+                                                         "</body>"
+                                                         "</html>";
 
 QIcon HydroCoupleComposer::s_categoryIcon = QIcon();
+QIcon HydroCoupleComposer::s_adaptedOutput = QIcon();
+QIcon HydroCoupleComposer::s_adaptedOutputFactoryIcon = QIcon();
+QIcon HydroCoupleComposer::s_adaptedOutputComponentIcon = QIcon();
+QIcon HydroCoupleComposer::s_workflowIcon = QIcon();
+QIcon HydroCoupleComposer::s_modelComponentIcon = QIcon();
 
 HydroCoupleComposer *HydroCoupleComposer::hydroCoupleComposerWindow = nullptr;
 
 HydroCoupleComposer::HydroCoupleComposer(QWidget *parent)
   : QMainWindow(parent),
-    m_project(nullptr),
-    m_propertyModel(nullptr),
-    m_modelComponentInfoStandardItem(nullptr),
-    m_adaptedOutputComponentInfoStandardItem(nullptr),
-    m_componentInfoModel(nullptr),
-    m_adaptedOutputFactoriesModel(nullptr),
-    m_progressBar(nullptr),
-    m_recentFilesMenu(nullptr),
-    m_clearRecentFilesAction(nullptr),
-    m_qVariantPropertyHolder(nullptr),
     m_connProd(nullptr),
     m_connCons(nullptr),
-    m_modelStatusItemModel(nullptr),
-    m_argumentDialog(nullptr),
-    m_graphicsContextMenu(nullptr),
-    m_treeviewComponentInfoContextMenu(nullptr),
     m_simulationManager(nullptr)
 {
 
   setupUi(this);
 
+  s_categoryIcon.addFile(":/HydroCoupleComposer/close", QSize(), QIcon::Mode::Normal, QIcon::State::Off);
+  s_categoryIcon.addFile(":/HydroCoupleComposer/open" , QSize(), QIcon::Mode::Normal, QIcon::State::On );
+  s_adaptedOutput = QIcon(":/HydroCoupleComposer/adaptedoutput");
+  s_adaptedOutputFactoryIcon = QIcon(":/HydroCoupleComposer/adaptedoutputfactory");
+  s_adaptedOutputComponentIcon = QIcon(":/HydroCoupleComposer/adaptedoutputcomponent");
+  s_workflowIcon = QIcon(":/HydroCoupleComposer/workflow");
+  s_modelComponentIcon = QIcon(":/HydroCoupleComposer/hydrocouplecomposer");
+
+  m_project = new HydroCoupleProject(this);
+  m_simulationManager = new SimulationManager(m_project);
 
   qRegisterMetaType<QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>>();
   qRegisterMetaType<QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>>("QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>");
 
-  m_argumentDialog = new ArgumentDialog();
+  m_argumentDialog = new ArgumentDialog(this);
+  m_preferencesDialog = new PreferencesDialog(this);
+
   new QXMLSyntaxHighlighter(m_argumentDialog->textEditInput);
+
   m_modelStatusItemModel = new ModelStatusItemModel(this);
-  m_project = new HydroCoupleProject(this);
-  m_componentInfoModel = new QStandardItemModel(this);
+  m_modelComponentInfoModel = new QStandardItemModel(this);
   m_adaptedOutputFactoriesModel = new QStandardItemModel(this);
+  m_workflowComponentModel = new QStandardItemModel(this);
   m_propertyModel = new QPropertyModel(this);
+
   m_qVariantPropertyHolder = new QVariantHolderHelper(QVariant() , this);
+
   m_graphicsContextMenu = new QMenu(this);
-  m_treeviewComponentInfoContextMenu = new QMenu(this);
+  m_treeViewModelComponentInfoContextMenu = new QMenu(this);
+  m_treeViewAdaptedOutputFactoryComponentInfoContextMenu = new QMenu(this);
+  m_treeViewWorkflowComponentInfoContextMenu = new QMenu(this);
 
   initializeGUIComponents();
-  initializeComponentInfoTreeView();
-  initializeAdaptedOutputTreeView();
+
+  initializeModelComponentInfoTreeView();
+  initializeAdaptedOutputFactoryComponentInfoTreeView();
+  initializeWorkflowComponentInfoTreeView();
+
   initializePropertyGrid();
   initializeActions();
   initializeContextMenus();
@@ -97,8 +120,14 @@ HydroCoupleComposer::HydroCoupleComposer(QWidget *parent)
 
 HydroCoupleComposer::~HydroCoupleComposer()
 {
-  m_argumentDialog->close();
-  delete m_argumentDialog;
+  //  m_argumentDialog->close();
+  //  delete m_argumentDialog;
+
+  if(m_simulationManager)
+  {
+    delete m_simulationManager;
+    m_simulationManager = nullptr;
+  }
 }
 
 HydroCoupleProject* HydroCoupleComposer::project() const
@@ -108,13 +137,47 @@ HydroCoupleProject* HydroCoupleComposer::project() const
 
 void HydroCoupleComposer::setProject(HydroCoupleProject *project)
 {
+  QList<QDir> existingDirectories;
+  QList<QFileInfo> existingLibraries;
+
   if(m_project)
   {
+
+    for(QDir dir : m_project->componentManager()->componentDirectories())
+      existingDirectories.append(dir);
+
+    for(QString id : m_project->componentManager()->modelComponentInfoIdentifiers())
+    {
+      IModelComponentInfo *modelComponentInfo = m_project->componentManager()->findModelComponentInfo(id);
+      existingLibraries.append(modelComponentInfo->libraryFilePath());
+    }
+
+    for(QString id : m_project->componentManager()->adaptedFactoryComponentInfoIdentifiers())
+    {
+      IAdaptedOutputFactoryComponentInfo *modelComponentInfo = m_project->componentManager()->findAdaptedOutputFactoryComponentInfo(id);
+      existingLibraries.append(modelComponentInfo->libraryFilePath());
+    }
+
+    for(QString id : m_project->componentManager()->workflowComponentInfoIdentifiers())
+    {
+      IWorkflowComponentInfo *modelComponentInfo = m_project->componentManager()->findWorkflowComponentInfo(id);
+      existingLibraries.append(modelComponentInfo->libraryFilePath());
+    }
+
+
     delete m_project;
+    m_project = nullptr;
+
+
   }
 
   m_project = project;
 
+  for(QDir dir : existingDirectories)
+    project->componentManager()->addComponentDirectory(dir);
+
+  for(QFileInfo file : existingLibraries)
+    project->componentManager()->loadComponent(file);
 
   m_simulationManager = new SimulationManager(m_project);
 
@@ -123,23 +186,32 @@ void HydroCoupleComposer::setProject(HydroCoupleProject *project)
 
   initializeProjectSignalSlotConnections();
 
+
+
   for(GModelComponent* modelComponent : m_project->modelComponents())
   {
     onModelComponentAdded(modelComponent);
   }
 
-  for(IModelComponentInfo* cinfo : m_project->componentManager()->modelComponentInfoById().values())
+  for(const QString &cInfo : m_project->componentManager()->modelComponentInfoIdentifiers())
   {
-    onModelComponentInfoLoaded(cinfo);
+    onModelComponentInfoLoaded(cInfo);
   }
 
-  for(IAdaptedOutputFactoryComponentInfo* cinfo : m_project->componentManager()->adaptedOutputFactoryComponentInfoById().values())
+  for(const QString &adapInfo : m_project->componentManager()->adaptedFactoryComponentInfoIdentifiers())
   {
-    onAdaptedOutputFactoryComponentInfoLoaded(cinfo);
+    onAdaptedOutputFactoryComponentInfoLoaded(adapInfo);
+  }
+
+  for(const QString &workflowInfo : m_project->componentManager()->workflowComponentInfoIdentifiers())
+  {
+    onWorkflowComponentInfoLoaded(workflowInfo);
   }
 
   connect(m_simulationManager, &SimulationManager::postMessage , this , &HydroCoupleComposer::onPostMessage);
   connect(m_simulationManager, &SimulationManager::setProgress , this , &HydroCoupleComposer::onSetProgress);
+
+  onProjectWorkflowComponentChanged(m_project->workflowComponent());
 
   onZoomExtent();
 
@@ -270,7 +342,7 @@ void HydroCoupleComposer::keyPressEvent(QKeyEvent * event)
         {
           QString id = model->modelComponent()->id();
 
-          if (m_project->deleteComponent(model))
+          if (m_project->deleteModelComponent(model))
           {
             setStatusTip(id + " has been removed");
           }
@@ -377,7 +449,7 @@ bool HydroCoupleComposer::openFile(const QFileInfo& file)
     if(modelComponent)
     {
       modelComponent->setProject(m_project);
-      m_project->addComponent(modelComponent);
+      m_project->addModelComponent(modelComponent);
       opened = true;
     }
 
@@ -405,23 +477,16 @@ void HydroCoupleComposer::readSettings()
 
     //!recent files
     m_recentFiles = m_settings.value("HydroCoupleComposer::RecentFiles", m_recentFiles).toStringList();
+    m_lastOpenedFilePath = m_settings.value("HydroCoupleComposer::LastPath", m_lastOpenedFilePath).toString();
 
     onUpdateRecentFiles();
 
   }
   m_settings.endGroup();
 
-
-  m_settings.beginGroup("HydroCoupleComposer::ArgumentDialog::ArgumentDialog");
-  {
-    m_argumentDialog->restoreGeometry(m_settings.value("HydroCoupleComposer::ArgumentDialog::WindowState", m_argumentDialog->saveGeometry()).toByteArray());
-    m_argumentDialog->setWindowState((Qt::WindowState)m_settings.value("HydroCoupleComposer::ArgumentDialog::WindowStateEnum", (int)m_argumentDialog->windowState()).toInt());
-    m_argumentDialog->setGeometry(m_settings.value("HydroCoupleComposer::ArgumentDialog::Geometry", m_argumentDialog->geometry()).toRect());
-  }
-  m_settings.endGroup();
+  m_argumentDialog->readSettings();
 
   //!last path opened
-  m_lastOpenedFilePath = m_settings.value("LastPath", m_lastOpenedFilePath).toString();
 
   onPostMessage("Finished reading settings");
 }
@@ -435,22 +500,11 @@ void HydroCoupleComposer::writeSettings()
   m_settings.setValue("HydroCoupleComposer::WindowStateEnum", (int)this->windowState());
   m_settings.setValue("HydroCoupleComposer::Geometry", geometry());
   m_settings.setValue("HydroCoupleComposer::RecentFiles", m_recentFiles);
+  m_settings.setValue("HydroCoupleComposer::LastPath", m_lastOpenedFilePath);
   m_settings.endGroup();
 
-  //   m_settings.beginGroup("ConnectionDialog");
-  //   m_settings.setValue("WindowState", m_connectionDialog->saveGeometry());
-  //   m_settings.setValue("WindowStateEnum", (int)m_connectionDialog->windowState());
-  //   m_settings.setValue("Geometry", m_connectionDialog->geometry());
-  //   m_settings.endGroup();
 
-  m_settings.beginGroup("HydroCoupleComposer::ArgumentDialog");
-  m_settings.setValue("HydroCoupleComposer::ArgumentDialog::WindowState", m_argumentDialog->saveGeometry());
-  m_settings.setValue("HydroCoupleComposer::ArgumentDialog::WindowStateEnum", (int)m_argumentDialog->windowState());
-  m_settings.setValue("HydroCoupleComposer::ArgumentDialog::Geometry", m_argumentDialog->geometry());
-  m_settings.endGroup();
-
-  m_settings.setValue("LastPath", m_lastOpenedFilePath);
-
+  m_argumentDialog->writeSettings();
   onPostMessage("Finished writing settings");
 }
 
@@ -458,7 +512,7 @@ void HydroCoupleComposer::initializeGUIComponents()
 {
   //Progressbar
 
-  tabifyDockWidget(dockWidgetProperties,dockWidgetAdaptedOutputs);
+  //  tabifyDockWidget(dockWidgetProperties,dockWidgetAdaptedOutputs);
   tabifyDockWidget(dockWidgetSimulationStatus,dockWidgetMessageLogs);
 
   m_progressBar = new QProgressBar(this);
@@ -512,45 +566,78 @@ void HydroCoupleComposer::initializeGUIComponents()
 
 }
 
-void HydroCoupleComposer::initializeComponentInfoTreeView()
+void HydroCoupleComposer::initializeModelComponentInfoTreeView()
 {
-  m_componentInfoModel->clear();
 
-  QStandardItem* rootItem = m_componentInfoModel->invisibleRootItem();
+  m_modelComponentInfoModel->clear();
 
-  s_categoryIcon.addFile(":/HydroCoupleComposer/close", QSize(), QIcon::Mode::Normal, QIcon::State::Off);
-  s_categoryIcon.addFile(":/HydroCoupleComposer/open", QSize(), QIcon::Mode::Normal, QIcon::State::On);
-  rootItem->setIcon(s_categoryIcon);
-
+  QStandardItem* rootItem = m_modelComponentInfoModel->invisibleRootItem();
   rootItem->setText("Model Components");
   rootItem->setToolTip("Model Components");
   rootItem->setStatusTip("Model Components");
   rootItem->setWhatsThis("Model Components");
 
+  rootItem->setIcon(s_categoryIcon);
+
   QStringList temp; temp << "";
-  m_componentInfoModel->setHorizontalHeaderLabels(temp);
-  m_componentInfoModel->setSortRole(Qt::DisplayRole);
+  m_modelComponentInfoModel->setHorizontalHeaderLabels(temp);
+  m_modelComponentInfoModel->setSortRole(Qt::DisplayRole);
 
-  treeViewModelComponentInfos->setModel(m_componentInfoModel);
+  treeViewModelComponentInfos->setModel(m_modelComponentInfoModel);
   treeViewModelComponentInfos->expand(rootItem->index());
+}
 
-  m_modelComponentInfoStandardItem = new QStandardItem("Models");
-  QIcon modelIcon = QIcon(":/HydroCoupleComposer/hydrocouplecomposer");
-  m_modelComponentInfoStandardItem->setIcon(modelIcon);
-  QMap<QString,QVariant> mdata ;
-  mdata["ModelComponentInfo"] = "Models";
-  m_modelComponentInfoStandardItem->setData(mdata, Qt::UserRole);
-  m_componentInfoModel->appendRow(m_modelComponentInfoStandardItem);
+void HydroCoupleComposer::initializeAdaptedOutputFactoryComponentInfoTreeView()
+{
+  m_adaptedOutputFactoriesModel->clear();
 
+  QStringList temp; temp << "";
+  m_adaptedOutputFactoriesModel->setHorizontalHeaderLabels(temp);
+  m_adaptedOutputFactoriesModel->setSortRole(Qt::DisplayRole);
 
-  m_adaptedOutputComponentInfoStandardItem = new QStandardItem("AdaptedOutput Factories");
-  QIcon adaptedOutputFactoryIcon = QIcon(":/HydroCoupleComposer/adaptercomponent");
-  m_adaptedOutputComponentInfoStandardItem->setIcon(adaptedOutputFactoryIcon);
+  QStandardItem* rootItem = m_adaptedOutputFactoriesModel->invisibleRootItem();
+  rootItem->setText("Adapted Outputs");
+  rootItem->setToolTip("Adapted Outputs");
+  rootItem->setStatusTip("Adapted Outputs");
+  rootItem->setWhatsThis("Adapted Outputs");
 
-  QMap<QString,QVariant> adata;
-  adata["AdaptedOutputFactoryComponentInfo"] = "AdaptedOutputFactories";
-  m_adaptedOutputComponentInfoStandardItem->setData(true, Qt::UserRole);
-  m_componentInfoModel->appendRow(m_adaptedOutputComponentInfoStandardItem);
+  rootItem->setIcon(s_adaptedOutputFactoryIcon);
+
+  m_externalAdaptedOutputFactoriesStandardItem = new QStandardItem("AdaptedOutput Factory Components");
+  m_externalAdaptedOutputFactoriesStandardItem->setIcon(s_adaptedOutputFactoryIcon);
+  m_externalAdaptedOutputFactoriesStandardItem->setDragEnabled(false);
+
+  m_internalAdaptedOutputFactoriesStandardItem = new QStandardItem("Internal AdaptedOutput Factories");
+  m_internalAdaptedOutputFactoriesStandardItem->setIcon(s_adaptedOutputFactoryIcon);
+  m_internalAdaptedOutputFactoriesStandardItem->setDragEnabled(false);
+
+  rootItem->appendRow(m_externalAdaptedOutputFactoriesStandardItem);
+  rootItem->appendRow(m_internalAdaptedOutputFactoriesStandardItem);
+
+  treeViewAdaptedOutputFactoryComponents->setModel(m_adaptedOutputFactoriesModel);
+  treeViewAdaptedOutputFactoryComponents->expand(rootItem->index());
+}
+
+void HydroCoupleComposer::initializeWorkflowComponentInfoTreeView()
+{
+  m_workflowComponentModel->clear();
+
+  QStringList temp; temp << "";
+  m_workflowComponentModel->setHorizontalHeaderLabels(temp);
+  m_workflowComponentModel->setSortRole(Qt::DisplayRole);
+
+  QStandardItem *rootItem = m_workflowComponentModel->invisibleRootItem();
+  rootItem->setText("Workflow Components");
+  rootItem->setToolTip("Workflow Components");
+  rootItem->setStatusTip("Workflow Components");
+  rootItem->setWhatsThis("Workflow Components");
+
+  rootItem->setIcon(s_workflowIcon);
+
+  connect(m_workflowComponentModel, SIGNAL(itemChanged(QStandardItem *)), this, SLOT(onWorkflowComponentCheckStateChanged(QStandardItem *)));
+
+  treeViewWorkflowComponents->setModel(m_workflowComponentModel);
+  treeViewWorkflowComponents->expand(rootItem->index());
 
 }
 
@@ -562,24 +649,6 @@ void HydroCoupleComposer::initializeSimulationStatusTreeView()
   treeViewSimulationStatus->header()->resetDefaultSectionSize();
   //  treeViewSimulationStatus->setColumnWidth(3,400);
   //treeViewSimulationStatus->header()->setSectionResizeMode(3, QHeaderView::ResizeToContents);
-}
-
-void HydroCoupleComposer::initializeAdaptedOutputTreeView()
-{
-
-  m_adaptedOutputFactoriesModel->clear();
-  QStringList temp; temp << "";
-  m_adaptedOutputFactoriesModel->setHorizontalHeaderLabels(temp);
-  m_adaptedOutputFactoriesModel->setSortRole(Qt::DisplayRole);
-
-  QStandardItem* rootItem = m_adaptedOutputFactoriesModel->invisibleRootItem();
-  rootItem->setText("Adapted Outputs");
-  rootItem->setToolTip("Adapted Outputs");
-  rootItem->setStatusTip("Adapted Outputs");
-  rootItem->setWhatsThis("Adapted Outputs");
-
-  treeViewAdaptedOutputs->setModel(m_adaptedOutputFactoriesModel);
-  treeViewAdaptedOutputs->expand(rootItem->index());
 }
 
 void HydroCoupleComposer::initializePropertyGrid()
@@ -610,16 +679,14 @@ void HydroCoupleComposer::initializeActions()
   m_recentFilesMenu->setWhatsThis("Recent Files");
   m_recentFilesMenu->setStatusTip("Recent Files");
   m_recentFilesMenu->setIcon(QIcon(":/HydroCoupleComposer/recentfiles"));
-
   menuFile->insertMenu(actionClose, m_recentFilesMenu);
 
-  for (int i = 0; i < 10; i++)
+  for (int i = 0; i < 20; i++)
   {
     QAction* fileAction = m_recentFilesMenu->addAction(QIcon(":/HydroCoupleComposer/addfile"), "Recent File");
     fileAction->setVisible(false);
     connect(fileAction, SIGNAL(triggered()), this, SLOT(onOpenRecentFile()));
     m_recentFilesActions[i] = fileAction;
-
   }
 
   //!Clear Recent Files Action;
@@ -637,9 +704,9 @@ void HydroCoupleComposer::initializeSignalSlotConnections()
 
   connect(actionAddComponentLibraryDirectory, &QAction::triggered, this, &HydroCoupleComposer::onAddComponentLibraryDirectory);
 
-  //ComponentInfoTreeview
-  connect(treeViewModelComponentInfos, SIGNAL(clicked(const QModelIndex&)), this, SLOT(onComponentInfoClicked(const QModelIndex&)));
-  connect(treeViewModelComponentInfos, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(onComponentInfoDoubleClicked(const QModelIndex&)));
+  //ModelComponentInfoTreeview
+  connect(treeViewModelComponentInfos, SIGNAL(clicked(const QModelIndex&)), this, SLOT(onModelComponentInfoClicked(const QModelIndex&)));
+  connect(treeViewModelComponentInfos, SIGNAL(doubleClicked(const QModelIndex&)), this, SLOT(onModelComponentInfoDoubleClicked(const QModelIndex&)));
 
 
   //ModelComponentStatus
@@ -648,8 +715,12 @@ void HydroCoupleComposer::initializeSignalSlotConnections()
 
 
   //Adaptedout factory
-  connect(treeViewAdaptedOutputs , SIGNAL(clicked(const QModelIndex&)) , SLOT(onAdaptedOutputClicked(const QModelIndex&)));
-  connect(treeViewAdaptedOutputs , SIGNAL(doubleClicked(const QModelIndex&)) , SLOT(onAdaptedOutputDoubleClicked(const QModelIndex&)));
+  connect(treeViewAdaptedOutputFactoryComponents , SIGNAL(clicked(const QModelIndex&)) , SLOT(onAdaptedOutputClicked(const QModelIndex&)));
+  connect(treeViewAdaptedOutputFactoryComponents , SIGNAL(doubleClicked(const QModelIndex&)) , SLOT(onAdaptedOutputDoubleClicked(const QModelIndex&)));
+  connect(actionInsertAdaptedOutput, &QAction::toggled, this, &HydroCoupleComposer::onInsertAdaptedOutput);
+
+  //WorkflowComponent
+  connect(treeViewWorkflowComponents, SIGNAL(clicked(const QModelIndex&)), this, SLOT(onWorkflowComponentClicked(const QModelIndex&)));
 
   //Toolbar actions
   connect(actionDefaultSelect, SIGNAL(toggled(bool)), this, SLOT(onSetCurrentTool(bool)));
@@ -657,6 +728,7 @@ void HydroCoupleComposer::initializeSignalSlotConnections()
   connect(actionZoomOut, SIGNAL(toggled(bool)), this, SLOT(onSetCurrentTool(bool)));
   connect(actionPan, SIGNAL(toggled(bool)), this, SLOT(onSetCurrentTool(bool)));
   connect(actionZoomExtent, SIGNAL(triggered()), this, SLOT(onZoomExtent()));
+  connect(actionEditSelected, SIGNAL(triggered()), this, SLOT(onEditSelectedItem()));
 
   connect(actionNew, SIGNAL(triggered()), this, SLOT(onNewProject()));
   connect(actionClose, SIGNAL(triggered()), this, SLOT(close()));
@@ -670,10 +742,18 @@ void HydroCoupleComposer::initializeSignalSlotConnections()
   connect(actionExecute, SIGNAL(triggered()), this, SLOT(onRunSimulation()));
   connect(actionHydroCoupleVis,  SIGNAL(triggered()), this, SLOT(onShowHydroCoupleVis()));
 
-  connect(actionValidateComponentLibrary , SIGNAL ( triggered()) , this , SLOT( onValidateModelComponentLibrary()));
-  connect(actionBrowseComponentInfoFolder , SIGNAL(triggered()) , this , SLOT(onBrowseToComponentLibraryPath()));
+  connect(actionValidateModelComponentInfo , SIGNAL ( triggered()) , this , SLOT( onValidateComponentLibrary()));
+  connect(actionValidateAdaptedOutputFactoryComponentInfo , SIGNAL ( triggered()) , this , SLOT( onValidateComponentLibrary()));
+  connect(actionValidateWorkflowComponentInfo , SIGNAL ( triggered()) , this , SLOT( onValidateComponentLibrary()));
+
+  connect(actionBrowseModelComponentInfoFolder , SIGNAL(triggered()) , this , SLOT(onBrowseToComponentLibraryPath()));
+  connect(actionBrowseAdaptedOutputFactoryComponentInfoFolder , SIGNAL(triggered()) , this , SLOT(onBrowseToComponentLibraryPath()));
+  connect(actionBrowseWorkflowComponentInfoFolder , SIGNAL(triggered()) , this , SLOT(onBrowseToComponentLibraryPath()));
+
   connect(actionLoadModelComponentLibrary , SIGNAL(triggered()) , this , SLOT(onLoadComponentLibrary()));
   connect(actionUnloadModelComponentLibrary , SIGNAL(triggered()) , this , SLOT(onUnloadComponentLibrary()));
+  connect(actionUnloadAdaptedOutputFactoryComponentLibrary, SIGNAL(triggered()) , this , SLOT(onUnloadComponentLibrary()));
+  connect(actionUnloadWorkflowComponentLibrary, SIGNAL(triggered()) , this , SLOT(onUnloadComponentLibrary()));
 
   connect(actionDefaultSelect, SIGNAL(toggled(bool)), actionCreateConnection, SLOT(setEnabled(bool)));
   connect(actionCreateConnection, SIGNAL(toggled(bool)), this, SLOT(onCreateConnection(bool)));
@@ -695,7 +775,11 @@ void HydroCoupleComposer::initializeSignalSlotConnections()
   connect(actionDistributeHorizontalCenters, SIGNAL(triggered()), this, SLOT(onDistributeHorizontalCenters()));
   connect(actionLayoutComponents , SIGNAL(triggered()) , this , SLOT(onLayoutComponents()));
 
+
   connect(treeViewModelComponentInfos , SIGNAL(customContextMenuRequested(const QPoint&)) , this , SLOT(onTreeViewModelComponentInfoContextMenuRequested(const QPoint&)));
+  connect(treeViewAdaptedOutputFactoryComponents , SIGNAL(customContextMenuRequested(const QPoint&)) , this , SLOT(onTreeViewAdaptedOutputFactoryComponentContextMenuRequested(const QPoint&)));
+  connect(treeViewWorkflowComponents , SIGNAL(customContextMenuRequested(const QPoint&)) , this , SLOT(onTreeViewWorkflowComponentContextMenuRequested(const QPoint&)));
+
   connect(graphicsViewHydroCoupleComposer , SIGNAL(customContextMenuRequested(const QPoint&)) , this , SLOT(onGraphicsViewHydroCoupleComposerContextMenuRequested(const QPoint&)));
 
   //graphicsView
@@ -736,29 +820,47 @@ void HydroCoupleComposer::initializeProjectSignalSlotConnections()
   //component manager
   connect(m_project->componentManager(), &ComponentManager::modelComponentInfoLoaded, this, &HydroCoupleComposer::onModelComponentInfoLoaded);
   connect(m_project->componentManager(), &ComponentManager::modelComponentInfoUnloaded, this, &HydroCoupleComposer::onModelComponentInfoUnloaded);
+
   connect(m_project->componentManager(), &ComponentManager::adaptedOutputFactoryComponentInfoLoaded, this, &HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoLoaded);
-  connect(m_project->componentManager(), &ComponentManager::adaptedOutputFactoryComponentUnloaded, this, &HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoUnloaded);
+  connect(m_project->componentManager(), &ComponentManager::adaptedOutputFactoryComponentInfoUnloaded, this, &HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoUnloaded);
+
+  connect(m_project->componentManager(), &ComponentManager::workflowComponentInfoLoaded, this, &HydroCoupleComposer::onWorkflowComponentInfoLoaded);
+  connect(m_project->componentManager(), &ComponentManager::workflowComponentInfoUnloaded, this, &HydroCoupleComposer::onWorkflowComponentInfoUnloadedLoaded);
+
   connect(m_project->componentManager(), &ComponentManager::postMessage, this, &HydroCoupleComposer::onPostMessage);
   connect(m_project->componentManager(), SIGNAL(setProgress(bool,int,int,int)), this, SLOT(onSetProgress(bool,int,int,int)));
 
   connect(actionCancelSimulation, SIGNAL(triggered()), m_simulationManager, SLOT(onStopSimulation()));
   connect(m_simulationManager, SIGNAL(isBusy(bool)), actionCancelSimulation, SLOT(setEnabled(bool)));
+
+  connect(m_project, &HydroCoupleProject::workflowComponentChanged , this, &HydroCoupleComposer::onProjectWorkflowComponentChanged);
 }
 
 void HydroCoupleComposer::initializeContextMenus()
 {
   //Component Info
-  m_treeviewComponentInfoContextMenu->addAction(actionAddComponent);
-  m_treeviewComponentInfoContextMenu->addAction(actionValidateComponentLibrary);
-  m_treeviewComponentInfoContextMenu->addAction(actionBrowseComponentInfoFolder);
-  m_treeviewComponentInfoContextMenu->addAction(actionLoadModelComponentLibrary);
+  m_treeViewModelComponentInfoContextMenu->addAction(actionAddComponent);
+  m_treeViewModelComponentInfoContextMenu->addAction(actionValidateModelComponentInfo);
+  m_treeViewModelComponentInfoContextMenu->addAction(actionLoadModelComponentLibrary);
+  m_treeViewModelComponentInfoContextMenu->addAction(actionUnloadModelComponentLibrary);
+  m_treeViewModelComponentInfoContextMenu->addAction(actionBrowseModelComponentInfoFolder);
 
+  m_treeViewAdaptedOutputFactoryComponentInfoContextMenu->addAction(actionValidateAdaptedOutputFactoryComponentInfo);
+  m_treeViewAdaptedOutputFactoryComponentInfoContextMenu->addAction(actionInsertAdaptedOutput);
+  m_treeViewAdaptedOutputFactoryComponentInfoContextMenu->addAction(actionLoadModelComponentLibrary);
+  m_treeViewAdaptedOutputFactoryComponentInfoContextMenu->addAction(actionUnloadAdaptedOutputFactoryComponentLibrary);
+  m_treeViewAdaptedOutputFactoryComponentInfoContextMenu->addAction(actionBrowseAdaptedOutputFactoryComponentInfoFolder);
 
-  m_graphicsContextMenu->addAction(actionSetTrigger);
-  m_graphicsContextMenu->addAction(actionCloneModelComponent);
-  m_graphicsContextMenu->addAction(actionDeleteComponent);
+  m_treeViewWorkflowComponentInfoContextMenu->addAction(actionValidateWorkflowComponentInfo);
+  m_treeViewWorkflowComponentInfoContextMenu->addAction(actionLoadModelComponentLibrary);
+  m_treeViewWorkflowComponentInfoContextMenu->addAction(actionUnloadWorkflowComponentLibrary);
+  m_treeViewWorkflowComponentInfoContextMenu->addAction(actionBrowseWorkflowComponentInfoFolder);
+
   m_graphicsContextMenu->addAction(actionInitializeComponent);
   m_graphicsContextMenu->addAction(actionValidateComponent);
+  m_graphicsContextMenu->addAction(actionDeleteComponent);
+  m_graphicsContextMenu->addAction(actionSetTrigger);
+  m_graphicsContextMenu->addAction(actionCloneModelComponent);
 
   m_graphicsContextMenu->addSeparator();
 
@@ -767,7 +869,7 @@ void HydroCoupleComposer::initializeContextMenus()
 
   m_graphicsContextMenu->addSeparator();
 
-  QMenu* layout = new QMenu("Layout Components",m_graphicsContextMenu);
+  QMenu* layout = new QMenu("Component Layout Options",m_graphicsContextMenu);
   layout->addAction(actionLayoutComponents);
   layout->addSeparator();
   layout->addAction(actionAlignTop);
@@ -791,76 +893,32 @@ void HydroCoupleComposer::initializeContextMenus()
   m_graphicsContextMenu->addAction(actionPrint);
 }
 
-void HydroCoupleComposer::resetAdaptedOutputFactoryModel()
+void HydroCoupleComposer::resetAdaptedOutputFactoryModel(QStandardItem *standardItem)
 {
-  m_adaptedOutputFactoriesModel->clear();
 
-  QStringList temp; temp << "";
-  m_adaptedOutputFactoriesModel->setHorizontalHeaderLabels(temp);
-  m_adaptedOutputFactoriesModel->setSortRole(Qt::DisplayRole);
+  QMap<QString,QVariant> data = standardItem->data(Qt::UserRole + 1).toMap();
 
-
-  QIcon factoryIcon(":/HydroCoupleComposer/adaptedoutputfactory");
-  QIcon adaptedOutputIcon(":/HydroCoupleComposer/adaptedoutput");
-
-  if(m_selectedConnections.length() == 1 &&
-     dynamic_cast<GOutput*>(m_selectedConnections[0]->producer()) &&
-     dynamic_cast<GInput*>(m_selectedConnections[0]->consumer()) &&
-     m_selectedConnections[0]->adaptedOutputFactories().count())
+  if(data.contains("AdaptedOutputFactoryComponentInfo") )
   {
-    GConnection* connection  = m_selectedConnections[0];
-
-    for(IAdaptedOutputFactory* factory : connection->adaptedOutputFactories())
+    if(standardItem->rowCount())
     {
-      QStandardItem* factoryItem = new QStandardItem(factoryIcon, factory->caption());
-      factoryItem->setStatusTip(factory->id());
+      standardItem->removeRows(0,standardItem->rowCount());
+    }
 
-      IAdaptedOutputFactoryComponent* factoryComponent = dynamic_cast<IAdaptedOutputFactoryComponent*>(factory);
+    GOutput *output = nullptr;
+    GInput  *input = nullptr;
 
-      if(factoryComponent)
+    if(m_selectedConnections.length() == 1 &&
+       (output = dynamic_cast<GOutput*>(m_selectedConnections[0]->producer())) &&
+       (input = dynamic_cast<GInput*>(m_selectedConnections[0]->consumer())))
+    {
+
+      QString adaptedOutputFactoryComponentId = data["AdaptedOutputFactoryComponentInfo"].toString();
+      QList<IIdentity*> availableAdaptors = m_project->componentManager()->getAvailableAdaptedOutputs(adaptedOutputFactoryComponentId,
+                                                                                                      output->output(),input->input());
+      for(IIdentity* identity : availableAdaptors)
       {
-        QString iconPath("");
-        QFileInfo iconFile(QFileInfo(factoryComponent->componentInfo()->libraryFilePath()).dir(),
-                           factoryComponent->componentInfo()->iconFilePath());
-
-        if (iconFile.exists())
-        {
-          iconPath = iconFile.absoluteFilePath();
-        }
-
-        QIcon cIcon = QIcon(iconPath);
-        factoryItem->setIcon(cIcon);
-      }
-
-      QMap<QString,QVariant> data;
-      data["AdaptedOutputFactory"] = factory->id();
-      factoryItem->setData(data, Qt::UserRole);
-
-      QString desc ="<html>"
-                    "<head>"
-                    "<title>Adapted Output Factory</title>"
-                    "</head>"
-                    "<h3 align=\"center\">[Component]</h3>"
-                    "<body>"
-                    "<h4 align=\"center\">[Caption]</h4>"
-                    "<hr>"
-                    "<p>[Description]</p>"
-                    "</body>"
-                    "</html>";
-
-      QString html = QString(desc).replace("[Component]", factory->id())
-                     .replace("[Caption]", factory->caption())
-                     .replace("[Description]", factory->description());
-
-      factoryItem->setToolTip(html);
-      factoryItem->setWhatsThis(html);
-      m_adaptedOutputFactoriesModel->appendRow(factoryItem);
-
-      QList<IIdentity*> identities = connection->adaptedOutputs()[factory];
-
-      for(IIdentity* identity : identities)
-      {
-        QStandardItem* adapterId = new QStandardItem(adaptedOutputIcon,identity->caption());
+        QStandardItem* adapterId = new QStandardItem(s_adaptedOutput,identity->caption());
 
         QString desc ="<html>"
                       "<head>"
@@ -885,17 +943,88 @@ void HydroCoupleComposer::resetAdaptedOutputFactoryModel()
         QMap<QString,QVariant> idData;
 
         idData["AdaptedOutput"] = identity->id();
-        idData["AdaptedOutputFactory"] = factory->id();
+        idData["AdaptedOutputFactoryComponentInfo"] = adaptedOutputFactoryComponentId;
 
-        adapterId->setData(idData, Qt::UserRole);
+        adapterId->setData(idData, Qt::UserRole + 1);
         adapterId->setDragEnabled(true);
 
-        factoryItem->appendRow(adapterId);
+        standardItem->appendRow(adapterId);
       }
+
+      treeViewAdaptedOutputFactoryComponents->expand(standardItem->index());
     }
   }
+  else if(data.contains("AdaptedOutputFactory"))
+  {
+    if(standardItem->rowCount())
+    {
+      standardItem->removeRows(0,standardItem->rowCount());
+    }
 
-  treeViewAdaptedOutputs->expandAll();
+    GOutput *output = nullptr;
+    GInput  *input = nullptr;
+
+    if(m_selectedConnections.length() == 1 &&
+       (output = dynamic_cast<GOutput*>(m_selectedConnections[0]->producer())) &&
+       (input = dynamic_cast<GInput*>(m_selectedConnections[0]->consumer())))
+    {
+
+      GModelComponent *producerModelComponent = output->modelComponent();
+      QString adaptedOutputFactoryId = data["AdaptedOutputFactory"].toString();
+      IAdaptedOutputFactory *adaptedOutputFactory = producerModelComponent->getAdaptedOutputFactory(adaptedOutputFactoryId);
+
+      if(adaptedOutputFactory)
+      {
+        QList<IIdentity*> availableAdaptors = adaptedOutputFactory->getAvailableAdaptedOutputIds(output->output(),input->input());
+
+        for(IIdentity* identity : availableAdaptors)
+        {
+          QStandardItem* adapterId = new QStandardItem(s_adaptedOutput,identity->caption());
+
+          QString desc ="<html>"
+                        "<head>"
+                        "<title>Adapted Output</title>"
+                        "</head>"
+                        "<h3 align=\"center\">[Component]</h3>"
+                        "<body>"
+                        "<h4 align=\"center\">[Caption]</h4>"
+                        "<hr>"
+                        "<p>[Description]</p>"
+                        "</body>"
+                        "</html>";
+
+          QString html = QString(desc).replace("[Component]", identity->id())
+                         .replace("[Caption]", identity->caption())
+                         .replace("[Description]", identity->description());
+
+          adapterId->setToolTip(html);
+          adapterId->setWhatsThis(html);
+          adapterId->setDragEnabled(true);
+
+          QMap<QString,QVariant> idData;
+
+          idData["AdaptedOutput"] = identity->id();
+          idData["AdaptedOutputFactory"] = adaptedOutputFactoryId;
+          idData["AdaptedOutputFactoryModelComponentInfo"] = producerModelComponent->modelComponent()->componentInfo()->id();
+
+          adapterId->setData(idData, Qt::UserRole + 1);
+          adapterId->setDragEnabled(true);
+
+          standardItem->appendRow(adapterId);
+        }
+      }
+
+      treeViewAdaptedOutputFactoryComponents->expand(standardItem->index());
+    }
+  }
+  else
+  {
+    for(int i = 0; i < standardItem->rowCount(); i++)
+    {
+      QStandardItem *item = standardItem->child(i);
+      resetAdaptedOutputFactoryModel(item);
+    }
+  }
 }
 
 void HydroCoupleComposer::createConnection(GExchangeItem *producer, GExchangeItem *consumer)
@@ -906,7 +1035,7 @@ void HydroCoupleComposer::createConnection(GExchangeItem *producer, GExchangeIte
   {
     QString message;
 
-    if(!producer->createConnection(consumer, message))
+    if(!producer->createConnection(consumer))
     {
       QMessageBox::critical(this,"Connection Error",message);
     }
@@ -928,9 +1057,9 @@ QStandardItem* HydroCoupleComposer::findStandardItem(const QString &id, QStandar
     {
       QStandardItem* child = parent->child(i);
 
-      QMap<QString,QVariant> data = child->data(Qt::UserRole).toMap();
+      QMap<QString,QVariant> data = child->data(Qt::UserRole + 1).toMap();
 
-      if (data.contains(key) && !data[key].toString().compare(id, Qt::CaseInsensitive))
+      if(data.contains(key) && !data[key].toString().compare(id, Qt::CaseInsensitive))
       {
         return child;
       }
@@ -951,7 +1080,59 @@ QStandardItem* HydroCoupleComposer::findStandardItem(const QString &id, QStandar
     }
   }
 
-  return parent;
+  return nullptr;
+}
+
+QStandardItem *HydroCoupleComposer::findStandardItem(const QList<QString> &identifiers, QStandardItem* parent, const QList<QString> &keys, bool recursive)
+{
+  if (identifiers.size())
+  {
+    for (int i = 0; i < parent->rowCount(); i++)
+    {
+      QStandardItem* child = parent->child(i);
+
+      QMap<QString,QVariant> data = child->data(Qt::UserRole + 1).toMap();
+
+      bool found = false;
+      int f = 0;
+
+      for(QString key : keys)
+      {
+        if(data.contains(key) && !QString::compare(data[key].toString(), identifiers[f]))
+        {
+          found = true;
+        }
+        else
+        {
+          found = false;
+          break;
+        }
+
+        f++;
+      }
+
+      if(found)
+      {
+        return child;
+      }
+      else if (recursive)
+      {
+        QStandardItem* c;
+
+        if (child->hasChildren())
+        {
+          c = findStandardItem(identifiers, child,keys,recursive);
+
+          if (c != child)
+          {
+            return c;
+          }
+        }
+      }
+    }
+  }
+
+  return nullptr;
 }
 
 void HydroCoupleComposer::addRemoveNodeToGraphicsView(GNode *node, bool add)
@@ -1167,6 +1348,7 @@ void HydroCoupleComposer::onPostMessage(const QString& message)
   this->statusBarMain->showMessage(message ,50000);
   QString intMessage = QDateTime::currentDateTime().toString(Qt::ISODate) + " : " + message;
   textEdit->append(intMessage);
+  textEdit->verticalScrollBar()->setValue(textEdit->verticalScrollBar()->maximum());
   printf("%s\n", intMessage.toStdString().c_str());
 }
 
@@ -1407,7 +1589,7 @@ void HydroCoupleComposer::onUpdateRecentFiles()
   }
 
   //trim
-  while (m_recentFiles.size() > 10)
+  while (m_recentFiles.size() > 20)
   {
     m_recentFiles.removeLast();
   }
@@ -1417,7 +1599,7 @@ void HydroCoupleComposer::onUpdateRecentFiles()
     m_clearRecentFilesAction->setVisible(true);
     m_recentFilesMenu->setEnabled(true);
 
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 20; i++)
     {
       QAction* action = m_recentFilesActions[i];
 
@@ -1425,8 +1607,8 @@ void HydroCoupleComposer::onUpdateRecentFiles()
       {
         QFileInfo file(m_recentFiles[i]);
         QString fullPath(file.absoluteFilePath());
-        QString text = tr("&%1. %2").arg(i + 1).arg(file.fileName());
-        action->setText(text);
+        //        QString text = tr("&%1. %2").arg(i + 1).arg(file.absoluteFilePath());
+        action->setText(file.filePath());
         action->setToolTip(fullPath);
         action->setStatusTip(fullPath);
         action->setWhatsThis(fullPath);
@@ -1446,7 +1628,7 @@ void HydroCoupleComposer::onUpdateRecentFiles()
   }
   else
   {
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 20; i++)
     {
       QAction* action = m_recentFilesActions[i];
       action->setVisible(false);
@@ -1473,82 +1655,28 @@ void HydroCoupleComposer::onClearRecentFiles()
 
 void HydroCoupleComposer::onClearSettings()
 {
+  onPostMessage("Clearing settings");
 
-  IModelComponentInfo* m_comp = m_project->componentManager()->modelComponentInfoById().values()[0];
-  GModelComponent* comp1 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp1->modelComponent()->setCaption("Comp1");
-  GModelComponent* comp2 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp2->modelComponent()->setCaption("Comp2");
-  GModelComponent* comp3 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp3->modelComponent()->setCaption("Comp3");
-  GModelComponent* comp4 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp4->modelComponent()->setCaption("Comp4");
-  GModelComponent* comp5 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp5->modelComponent()->setCaption("Comp5");
-  GModelComponent* comp6 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp6->modelComponent()->setCaption("Comp6");
-  GModelComponent* comp7 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp7->modelComponent()->setCaption("Comp7");
-  GModelComponent* comp8 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp8->modelComponent()->setCaption("Comp8");
-  GModelComponent* comp9 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp9->modelComponent()->setCaption("Comp9");
-  GModelComponent* comp10 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp10->modelComponent()->setCaption("Comp10");
-  GModelComponent* comp11 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp11->modelComponent()->setCaption("Comp11");
-  GModelComponent* comp12 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp12->modelComponent()->setCaption("Comp12");
-  GModelComponent* comp13 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp13->modelComponent()->setCaption("Comp13");
-  GModelComponent* comp14 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp14->modelComponent()->setCaption("Comp14");
-  GModelComponent* comp15 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp15->modelComponent()->setCaption("Comp15");
-  GModelComponent* comp16 = new GModelComponent(m_comp->createComponentInstance(), m_project);
-  comp16->modelComponent()->setCaption("Comp16");
+  m_settings.remove("HydroCoupleComposer::MainWindow");
+  m_argumentDialog->clearSettings();
+  m_preferencesDialog->clearSettings();
 
+  onPostMessage("Finished clearing settings");
 
-  m_project->addComponent(comp1);
-  m_project->addComponent(comp2);
-  m_project->addComponent(comp3);
-  m_project->addComponent(comp4);
-  m_project->addComponent(comp5);
-  m_project->addComponent(comp6);
-  m_project->addComponent(comp7);
-  m_project->addComponent(comp8);
-  m_project->addComponent(comp9);
-  m_project->addComponent(comp10);
-  m_project->addComponent(comp11);
-  m_project->addComponent(comp12);
-  m_project->addComponent(comp13);
-  m_project->addComponent(comp14);
-  m_project->addComponent(comp15);
-  m_project->addComponent(comp16);
-
-  QRectF viewRect = QRectF(graphicsViewHydroCoupleComposer->viewport()->rect());
-  QPolygonF rect = graphicsViewHydroCoupleComposer->mapToScene(viewRect.toRect());
-
-  uniform_real_distribution<qreal> xdist (rect.boundingRect().left() , rect.boundingRect().right());
-  uniform_real_distribution<qreal> ydist (rect.boundingRect().top() , rect.boundingRect().bottom());
-  std::default_random_engine generator;
-
-  for( GModelComponent * p : m_project->modelComponents())
-  {
-    p->setPos( xdist(generator) , ydist(generator));
-  }
-
-  onZoomExtent();
+  readSettings();
 }
 
 void HydroCoupleComposer::onEditSelectedItem()
 {
   if(m_selectedModelComponents.length() == 1 && m_selectedAdaptedOutputs.length() == 0)
   {
-    if( m_argumentDialog->isHidden())
+    if(!m_argumentDialog->isVisible())
     {
       GModelComponent *modelComponent = m_selectedModelComponents[0];
-      if(modelComponent->modelComponent()->status() == IModelComponent::Created || modelComponent->modelComponent()->status() == IModelComponent::Failed)
+
+      if((modelComponent->modelComponent()->status() == IModelComponent::Created
+          || modelComponent->modelComponent()->status() == IModelComponent::Failed
+          || modelComponent->modelComponent()->status() == IModelComponent::Initialized ))
       {
         m_argumentDialog->show();
         m_argumentDialog->setComponent(modelComponent);
@@ -1557,7 +1685,7 @@ void HydroCoupleComposer::onEditSelectedItem()
   }
   else if (m_selectedModelComponents.length() == 0 && m_selectedAdaptedOutputs.length() == 1)
   {
-    if(m_argumentDialog->isHidden())
+    if(!m_argumentDialog->isVisible())
     {
       m_argumentDialog->show();
       m_argumentDialog->setAdaptedOutput(m_selectedAdaptedOutputs[0]);
@@ -1581,26 +1709,26 @@ void HydroCoupleComposer::onAddModelComponent()
       {
         QString id = value.toString();
 
-        if(m_project->componentManager()->modelComponentInfoById().contains(id))
-        {
-          IModelComponentInfo* foundModelComponentInfo = m_project->componentManager()->modelComponentInfoById()[id];
+        //        if(m_project->componentManager()->modelComponentInfoById().contains(id))
+        //        {
+        //          IModelComponentInfo* foundModelComponentInfo = m_project->componentManager()->modelComponentInfoById()[id];
 
-          IModelComponent* component = foundModelComponentInfo->createComponentInstance();
+        //          IModelComponent* component = foundModelComponentInfo->createComponentInstance();
 
-          GModelComponent* gcomponent = new GModelComponent(component, m_project);
+        //          GModelComponent* gcomponent = new GModelComponent(component, m_project);
 
-          QPointF f = graphicsViewHydroCoupleComposer->mapToScene(graphicsViewHydroCoupleComposer->frameRect().center()) - gcomponent->boundingRect().bottomRight()/2;
+        //          QPointF f = graphicsViewHydroCoupleComposer->mapToScene(graphicsViewHydroCoupleComposer->frameRect().center()) - gcomponent->boundingRect().bottomRight()/2;
 
-          gcomponent->setPos(f);
+        //          gcomponent->setPos(f);
 
-          if (m_project->modelComponents().count() == 0)
-          {
-            gcomponent->setTrigger(true);
-          }
+        //          if (m_project->modelComponents().count() == 0)
+        //          {
+        //            gcomponent->setTrigger(true);
+        //          }
 
-          m_project->addComponent(gcomponent);
-          return;
-        }
+        //          m_project->addComponent(gcomponent);
+        //          return;
+        //        }
       }
     }
   }
@@ -1616,7 +1744,7 @@ void HydroCoupleComposer::onCreateConnection(bool create)
     }
     else if (m_selectedExchangeItems.count() == 2)
     {
-      if( m_selectedExchangeItems[0] ->zValue() <  m_selectedExchangeItems[1]->zValue())
+      if( m_selectedExchangeItems[0]->zValue() <  m_selectedExchangeItems[1]->zValue())
       {
         createConnection(m_selectedExchangeItems[0] , m_selectedExchangeItems[1]);
       }
@@ -1815,7 +1943,7 @@ void HydroCoupleComposer::onDeleteSelectedComponents()
 
       QString id = model->modelComponent()->id();
 
-      if (m_project->deleteComponent(model))
+      if (m_project->deleteModelComponent(model))
       {
         setStatusTip(id + " has been removed");
       }
@@ -1826,6 +1954,7 @@ void HydroCoupleComposer::onDeleteSelectedComponents()
     m_selectedModelComponents.clear();
 
     m_propertyModel->setData(QVariant());
+    treeViewProperties->expandToDepth(0);
   }
 }
 
@@ -1845,37 +1974,103 @@ void HydroCoupleComposer::onDeleteSelectedConnections()
     graphicsViewHydroCoupleComposer->scene()->blockSignals(false);
 
     m_propertyModel->setData(QVariant());
-
+    treeViewProperties->expandToDepth(0);
     m_selectedConnections.clear();
   }
 
 }
 
-void HydroCoupleComposer::onValidateModelComponentLibrary()
+void HydroCoupleComposer::onValidateComponentLibrary()
 {
-  QModelIndex index = treeViewModelComponentInfos->currentIndex();
 
-  if (index.isValid())
+  QAction *senderAction = dynamic_cast<QAction*>(sender());
+
+  if(senderAction == actionValidateModelComponentInfo)
   {
-    QVariant value = index.data(Qt::UserRole);
+    QModelIndex index = treeViewModelComponentInfos->currentIndex();
 
-    if (value.type() != QVariant::Bool)
+    if (index.isValid())
     {
-      QString id = value.toString();
+      QMap<QString,QVariant> value = index.data(Qt::UserRole + 1).toMap();
 
-      if ( m_project->componentManager()->modelComponentInfoById().contains(id))
+      if(value.contains("ModelComponentInfo"))
       {
-        IModelComponentInfo* foundComponentInfo = m_project->componentManager()->modelComponentInfoById()[id];
+        QString id = value["ModelComponentInfo"].toString();
+        IModelComponentInfo *modelComponentInfo = m_project->componentManager()->findModelComponentInfo(id);
 
-        QString validationMessage;
-
-        if(foundComponentInfo->validateLicense("",validationMessage))
+        if(modelComponentInfo)
         {
-          onPostMessage("Validation Was Successful ! Message:" + validationMessage);
+          QString validationMessage;
+
+          if(modelComponentInfo->validateLicense(validationMessage))
+          {
+            onPostMessage("Validation Was Successful ! Message:" + validationMessage);
+          }
+          else
+          {
+            onPostMessage("Validation Was Not Successful :( Message:" + validationMessage);
+          }
+
         }
-        else
+      }
+    }
+  }
+  else if(senderAction == actionValidateAdaptedOutputFactoryComponentInfo)
+  {
+    QModelIndex index = treeViewAdaptedOutputFactoryComponents->currentIndex();
+
+    if (index.isValid())
+    {
+      QMap<QString,QVariant> value = index.data(Qt::UserRole + 1).toMap();
+
+      if(value.contains("AdaptedOutputFactoryComponentInfo"))
+      {
+        QString id = value["AdaptedOutputFactoryComponentInfo"].toString();
+        IAdaptedOutputFactoryComponentInfo *componentInfo = m_project->componentManager()->findAdaptedOutputFactoryComponentInfo(id);
+
+        if(componentInfo)
         {
-          onPostMessage("Validation Was Not Successful :( Message:" + validationMessage);
+          QString validationMessage;
+
+          if(componentInfo->validateLicense(validationMessage))
+          {
+            onPostMessage("Validation Was Successful ! Message:" + validationMessage);
+          }
+          else
+          {
+            onPostMessage("Validation Was Not Successful :( Message:" + validationMessage);
+          }
+
+        }
+      }
+    }
+  }
+  else if(senderAction == actionValidateWorkflowComponentInfo)
+  {
+    QModelIndex index = treeViewWorkflowComponents->currentIndex();
+
+    if (index.isValid())
+    {
+      QMap<QString,QVariant> value = index.data(Qt::UserRole + 1).toMap();
+
+      if(value.contains("WorkflowComponentInfo"))
+      {
+        QString id = value["WorkflowComponentInfo"].toString();
+        IWorkflowComponentInfo *componentInfo = m_project->componentManager()->findWorkflowComponentInfo(id);
+
+        if(componentInfo)
+        {
+          QString validationMessage;
+
+          if(componentInfo->validateLicense(validationMessage))
+          {
+            onPostMessage("Validation Was Successful ! Message:" + validationMessage);
+          }
+          else
+          {
+            onPostMessage("Validation Was Not Successful :( Message:" + validationMessage);
+          }
+
         }
       }
     }
@@ -1884,17 +2079,63 @@ void HydroCoupleComposer::onValidateModelComponentLibrary()
 
 void HydroCoupleComposer::onBrowseToComponentLibraryPath()
 {
-  QModelIndex index = treeViewModelComponentInfos->currentIndex();
+  QAction *action = dynamic_cast<QAction*>(sender());
 
-  if (index.isValid())
+  if(actionBrowseModelComponentInfoFolder == action)
   {
-    QVariant value = index.data(Qt::UserRole);
+    QModelIndex index = treeViewModelComponentInfos->currentIndex();
+    QMap<QString,QVariant> value = index.data(Qt::UserRole + 1).toMap();
 
-    if (value.type() != QVariant::Bool)
+    if (value.contains("ModelComponentInfo"))
     {
-      QString id = value.toString();
-      IComponentInfo* foundComponentInfo = NULL;
-      if ((foundComponentInfo = m_project->componentManager()->findComponentInfoById(id)))
+      QString id = value["ModelComponentInfo"].toString();
+      IComponentInfo* foundComponentInfo = m_project->componentManager()->findModelComponentInfo(id);
+
+      if(foundComponentInfo)
+      {
+        QFileInfo file (foundComponentInfo->libraryFilePath());
+
+        if (file.exists())
+        {
+          QDesktopServices::openUrl(QUrl::fromLocalFile(file.absolutePath()));
+          m_lastPath = file.absolutePath();
+        }
+      }
+    }
+  }
+  else if(actionBrowseAdaptedOutputFactoryComponentInfoFolder == action)
+  {
+    QModelIndex index = treeViewAdaptedOutputFactoryComponents->currentIndex();
+    QMap<QString,QVariant> value = index.data(Qt::UserRole + 1).toMap();
+
+    if(value.contains("AdaptedOutputFactoryComponentInfo"))
+    {
+      QString id = value["AdaptedOutputFactoryComponentInfo"].toString();
+      IAdaptedOutputFactoryComponentInfo* foundComponentInfo = m_project->componentManager()->findAdaptedOutputFactoryComponentInfo(id);
+
+      if(foundComponentInfo)
+      {
+        QFileInfo file (foundComponentInfo->libraryFilePath());
+
+        if (file.exists())
+        {
+          QDesktopServices::openUrl(QUrl::fromLocalFile(file.absolutePath()));
+          m_lastPath = file.absolutePath();
+        }
+      }
+    }
+  }
+  else if(actionBrowseWorkflowComponentInfoFolder == action)
+  {
+    QModelIndex index = treeViewWorkflowComponents->currentIndex();
+    QMap<QString,QVariant> value = index.data(Qt::UserRole + 1).toMap();
+
+    if(value.contains("WorkflowComponentInfo"))
+    {
+      QString id = value["WorkflowComponentInfo"].toString();
+      IWorkflowComponentInfo* foundComponentInfo = m_project->componentManager()->findWorkflowComponentInfo(id);
+
+      if(foundComponentInfo)
       {
         QFileInfo file (foundComponentInfo->libraryFilePath());
 
@@ -1945,154 +2186,81 @@ void HydroCoupleComposer::onLoadComponentLibrary()
 
 void HydroCoupleComposer::onUnloadComponentLibrary()
 {
-  if (QMessageBox::question(this, "Unload ?", "All model instances associated with the component library being unloaded will be deleted. Are you sure you want to unload selected component library ? ",
+  if (QMessageBox::question(this, "Unload ?", "All instances associated with the component library being unloaded will be deleted. Are you sure you want to unload selected component library ? ",
                             QMessageBox::StandardButton::Yes | QMessageBox::StandardButton::No , QMessageBox::StandardButton::Yes) == QMessageBox::Yes)
   {
-    QModelIndex index = treeViewModelComponentInfos->currentIndex();
 
-    if (index.isValid())
+    if(dynamic_cast<QAction*>(sender()) == actionUnloadModelComponentLibrary)
     {
-      QVariant value = index.data(Qt::UserRole);
+      QModelIndex index = treeViewModelComponentInfos->currentIndex();
+      QMap<QString,QVariant> value = index.data(Qt::UserRole + 1).toMap();
 
-      if (value.type() != QVariant::Bool)
+      if (value.contains("ModelComponentInfo"))
       {
-        QString id = value.toString();
-        m_project->componentManager()->unloadModelComponentInfoById(id);
+        QString id = value["ModelComponentInfo"].toString();
+        QString message;
+        m_project->componentManager()->unloadModelComponentInfo(id, message);
         treeViewModelComponentInfos->setCurrentIndex(QModelIndex());
-        onComponentInfoClicked(QModelIndex());
+        onModelComponentInfoClicked(QModelIndex());
+      }
+    }
+    else if(dynamic_cast<QAction*>(sender()) == actionUnloadAdaptedOutputFactoryComponentLibrary)
+    {
+      QModelIndex index = treeViewAdaptedOutputFactoryComponents->currentIndex();
+      QMap<QString,QVariant> value = index.data(Qt::UserRole + 1).toMap();
+
+      if (value.contains("AdaptedOutputFactoryComponentInfo"))
+      {
+        QString id = value["AdaptedOutputFactoryComponentInfo"].toString();
+        QString message;
+        m_project->componentManager()->unloadAdaptedOutputFactoryComponentInfo(id, message);
+        treeViewAdaptedOutputFactoryComponents->setCurrentIndex(QModelIndex());
+        onAdaptedOutputClicked(QModelIndex());
+      }
+    }
+    else if(dynamic_cast<QAction*>(sender()) == actionUnloadWorkflowComponentLibrary)
+    {
+      QModelIndex index = treeViewModelComponentInfos->currentIndex();
+      QMap<QString,QVariant> value = index.data(Qt::UserRole + 1).toMap();
+
+      if (value.contains("WorkflowComponentInfo"))
+      {
+        QString id = value["WorkflowComponentInfo"].toString();
+        QString message;
+        m_project->componentManager()->unloadWorkflowComponentInfo(id, message);
+        treeViewWorkflowComponents->setCurrentIndex(QModelIndex());
+        onWorkflowComponentClicked(QModelIndex());
       }
     }
   }
 }
 
-void HydroCoupleComposer::onModelComponentInfoLoaded(const IModelComponentInfo* modelComponentInfo)
+void HydroCoupleComposer::onModelComponentInfoLoaded(const QString &modelComponentInfoId)
 {
-  QStringList categories = modelComponentInfo->category().split('\\', QString::SplitBehavior::SkipEmptyParts);
+  IModelComponentInfo *modelComponentinfo = m_project->componentManager()->findModelComponentInfo(modelComponentInfoId);
 
-  QStandardItem* parent = m_modelComponentInfoStandardItem;
-
-  while (categories.count() > 0)
+  if(modelComponentinfo)
   {
-    QString category = categories[0];
-
-    QStandardItem* childCategoryItem = findStandardItem(category, parent , "ModelComponentInfo" , true);
-
-    if (childCategoryItem == parent)
-    {
-      QStandardItem* newCategoryItem = new QStandardItem(s_categoryIcon, category);
-      newCategoryItem->setToolTip(category);
-      newCategoryItem->setStatusTip(category);
-      newCategoryItem->setWhatsThis(category);
-
-      QMap<QString,QVariant> data;
-      data["ModelComponentInfo"] = category;
-      newCategoryItem->setData(data, Qt::UserRole);
-
-      parent->appendRow(newCategoryItem);
-      parent = newCategoryItem;
-    }
-    else
-    {
-      parent = childCategoryItem;
-    }
-
-    categories.removeAt(0);
-  }
-
-  QString iconPath = ":/HydroCoupleComposer/hydrocouplecomposer";
-
-  QFileInfo iconFile(QFileInfo(modelComponentInfo->libraryFilePath()).dir(), modelComponentInfo->iconFilePath());
-
-  if (iconFile.exists())
-  {
-    iconPath = iconFile.absoluteFilePath();
-  }
-
-  QIcon cIcon = QIcon(iconPath);
-
-  QStandardItem* componentTreeViewItem = new QStandardItem(cIcon, modelComponentInfo->caption());
-  componentTreeViewItem->setStatusTip(modelComponentInfo->caption());
-  componentTreeViewItem->setDragEnabled(true);
-
-  QString html = QString(sc_modelComponentInfoHtml).replace("[Component]", modelComponentInfo->id())
-                 .replace("[Version]", modelComponentInfo->version())
-                 .replace("[Url]", modelComponentInfo->url())
-                 .replace("[Caption]", modelComponentInfo->caption())
-                 .replace("[IconPath]", iconPath)
-                 .replace("[Description]", modelComponentInfo->description())
-                 .replace("[License]", modelComponentInfo->license())
-                 .replace("[Vendor]", modelComponentInfo->vendor())
-                 .replace("[Email]", modelComponentInfo->email())
-                 .replace("[Copyright]", modelComponentInfo->copyright());
-
-
-  componentTreeViewItem->setToolTip(html);
-  componentTreeViewItem->setWhatsThis(html);
-  QMap<QString,QVariant> data;
-  data["ModelComponentInfo"] = modelComponentInfo->id();
-  componentTreeViewItem->setData(data, Qt::UserRole);
-
-  onPostMessage("Component Library Loaded: " + modelComponentInfo->id());
-
-  parent->appendRow(componentTreeViewItem);
-
-  const QObject* modelComponentInfoObject = dynamic_cast<const QObject*>(modelComponentInfo);
-
-  if(modelComponentInfoObject)
-  {
-    connect( modelComponentInfoObject , SIGNAL(propertyChanged(const QString &))
-             , this , SLOT(onComponentInfoPropertyChanged(const QString &)));
-  }
-
-  treeViewModelComponentInfos->expandToDepth(2);
-}
-
-void HydroCoupleComposer::onModelComponentInfoUnloaded(const QString& id)
-{
-  QStandardItem* childCategoryItem = findStandardItem(id, m_modelComponentInfoStandardItem, "ModelComponentInfo" , true);
-
-  if(childCategoryItem)
-  {
-    m_componentInfoModel->removeRow(childCategoryItem->index().row() , m_modelComponentInfoStandardItem->index()) ;
-    m_propertyModel->setData(QVariant());
-  }
-
-  for(GModelComponent* modelComponent :  m_project->modelComponents())
-  {
-    if(!modelComponent->modelComponent()->componentInfo()->id().compare(id))
-    {
-      m_project->deleteComponent(modelComponent);
-    }
-  }
-}
-
-void HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoLoaded(const IAdaptedOutputFactoryComponentInfo *adaptedOutputFactoryComponentInfo)
-{
-  if(adaptedOutputFactoryComponentInfo)
-  {
-
-    QStringList categories = adaptedOutputFactoryComponentInfo->category().split('\\', QString::SplitBehavior::SkipEmptyParts);
-
-    QStandardItem* parent = m_adaptedOutputComponentInfoStandardItem;
-
+    QStringList categories = modelComponentinfo->category().split('\\', QString::SplitBehavior::SkipEmptyParts);
+    QStandardItem* parent = m_modelComponentInfoModel->invisibleRootItem();
 
     while (categories.count() > 0)
     {
       QString category = categories[0];
+      QStandardItem* childCategoryItem = findStandardItem(category, parent, "ModelComponentInfoCategory", false);
 
-      QStandardItem* childCategoryItem = findStandardItem(category, parent , "AdaptedOutputFactoryComponentInfo" , true);
-
-      if (childCategoryItem == parent)
+      if (childCategoryItem == nullptr)
       {
         QStandardItem* newCategoryItem = new QStandardItem(s_categoryIcon, category);
         newCategoryItem->setToolTip(category);
         newCategoryItem->setStatusTip(category);
         newCategoryItem->setWhatsThis(category);
-
+        newCategoryItem->setDragEnabled(false);
         QMap<QString,QVariant> data;
-        data["AdaptedOutputFactoryComponentInfo"] = category;
-        newCategoryItem->setData(data, Qt::UserRole);
+        data["ModelComponentInfoCategory"] = category;
+        newCategoryItem->setData(data, Qt::UserRole + 1);
         parent->appendRow(newCategoryItem);
+        treeViewModelComponentInfos->expand(parent->index());
         parent = newCategoryItem;
       }
       else
@@ -2103,20 +2271,255 @@ void HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoLoaded(const IAdapt
       categories.removeAt(0);
     }
 
-    QString iconPath = ":/HydroCoupleComposer/adaptercomponent";
+    QStandardItem* componentTreeViewItem = findStandardItem(modelComponentInfoId, parent, "ModelComponentInfo");
+    bool found = true;
 
-    QFileInfo iconFile(QFileInfo(adaptedOutputFactoryComponentInfo->libraryFilePath()).dir(), adaptedOutputFactoryComponentInfo->iconFilePath());
+    if(componentTreeViewItem == nullptr)
+    {
+      componentTreeViewItem = new QStandardItem(modelComponentinfo->caption());
+      found = false;
+    }
 
-    if (iconFile.exists())
+    componentTreeViewItem->setText(modelComponentinfo->caption());
+    componentTreeViewItem->setStatusTip(modelComponentinfo->caption());
+    componentTreeViewItem->setDragEnabled(true);
+
+    QString iconPath;
+    QFileInfo iconFile(QFileInfo(modelComponentinfo->libraryFilePath()).dir(), modelComponentinfo->iconFilePath());
+
+    if (iconFile.isFile() && iconFile.exists())
+    {
+      iconPath = iconFile.absoluteFilePath();
+      QIcon cIcon(iconPath);
+      componentTreeViewItem->setIcon(cIcon);
+    }
+    else
+    {
+      iconPath = ":/HydroCoupleComposer/hydrocouplecomposer";
+      componentTreeViewItem->setIcon(s_modelComponentIcon);
+    }
+
+    QString html = QString(sc_modelComponentInfoHtml).replace("[Component]", modelComponentinfo->id())
+                   .replace("[Version]", modelComponentinfo->version())
+                   .replace("[Url]", modelComponentinfo->url())
+                   .replace("[Caption]", modelComponentinfo->caption())
+                   .replace("[IconPath]", iconPath)
+                   .replace("[Description]", modelComponentinfo->description())
+                   .replace("[License]", modelComponentinfo->license())
+                   .replace("[Vendor]", modelComponentinfo->vendor())
+                   .replace("[Email]", modelComponentinfo->email())
+                   .replace("[Copyright]", modelComponentinfo->copyright());
+
+
+    componentTreeViewItem->setToolTip(html);
+    componentTreeViewItem->setWhatsThis(html);
+    componentTreeViewItem->setStatusTip(modelComponentinfo->caption());
+
+    QMap<QString,QVariant> data;
+    data["ModelComponentInfo"] = modelComponentInfoId;
+    componentTreeViewItem->setData(data, Qt::UserRole + 1);
+
+    onPostMessage("Component Library Loaded: " + modelComponentinfo->id());
+
+    if(found == false)
+    {
+      parent->appendRow(componentTreeViewItem);
+    }
+
+    QObject* componentInfoAsObject = dynamic_cast<QObject*>(modelComponentinfo);
+
+    if(componentInfoAsObject)
+    {
+      connect(componentInfoAsObject , SIGNAL(propertyChanged(const QString&)),
+              this,SLOT(onComponentInfoPropertyChanged(const QString&)));
+    }
+
+    loadModelComponentInfoAdaptedOutputFactory(modelComponentinfo);
+
+    treeViewModelComponentInfos->expand(parent->index());
+  }
+}
+
+void HydroCoupleComposer::onModelComponentInfoUnloaded(const QString& modelComponentInfoId)
+{
+  QStandardItem* childCategoryItem = findStandardItem(modelComponentInfoId, m_modelComponentInfoModel->invisibleRootItem(), "ModelComponentInfo" , true);
+
+  if(childCategoryItem)
+  {
+    m_modelComponentInfoModel->removeRow(childCategoryItem->index().row() , childCategoryItem->parent()->index());
+    m_propertyModel->setData(QVariant());
+
+    IModelComponentInfo *modelComponentInfo = m_project->componentManager()->findModelComponentInfo(modelComponentInfoId);
+
+    if(modelComponentInfo)
+    {
+      unloadModelComponentInfoAdaptedOutputFactory(modelComponentInfo);
+    }
+  }
+}
+
+void HydroCoupleComposer::loadModelComponentInfoAdaptedOutputFactory(const IModelComponentInfo *modelComponentInfo)
+{
+  QStandardItem *parent = findStandardItem(modelComponentInfo->id(), m_internalAdaptedOutputFactoriesStandardItem, "ModelComponentInfo");
+
+  if(parent == nullptr)
+  {
+    QString iconPath = ":/HydroCoupleComposer/hydrocouplecomposer";
+
+    QFileInfo iconFile(QFileInfo(modelComponentInfo->libraryFilePath()).dir(), modelComponentInfo->iconFilePath());
+
+    if (iconFile.isFile() && iconFile.exists())
     {
       iconPath = iconFile.absoluteFilePath();
     }
 
     QIcon cIcon = QIcon(iconPath);
 
-    QStandardItem* componentTreeViewItem = new QStandardItem(cIcon, adaptedOutputFactoryComponentInfo->caption());
+    parent = new QStandardItem(cIcon, modelComponentInfo->caption());
+    parent->setStatusTip(modelComponentInfo->caption());
+    parent->setDragEnabled(false);
+
+    QString html = QString(sc_modelComponentInfoHtml).replace("[Component]", modelComponentInfo->id())
+                   .replace("[Version]", modelComponentInfo->version())
+                   .replace("[Url]", modelComponentInfo->url())
+                   .replace("[Caption]", modelComponentInfo->caption())
+                   .replace("[IconPath]", iconPath)
+                   .replace("[Description]", modelComponentInfo->description())
+                   .replace("[License]", modelComponentInfo->license())
+                   .replace("[Vendor]", modelComponentInfo->vendor())
+                   .replace("[Email]", modelComponentInfo->email())
+                   .replace("[Copyright]", modelComponentInfo->copyright());
+
+
+    parent->setToolTip(html);
+    parent->setWhatsThis(html);
+
+    QMap<QString,QVariant> data;
+    data["ModelComponentInfo"] = modelComponentInfo->id();
+    parent->setData(data, Qt::UserRole + 1);
+    m_internalAdaptedOutputFactoriesStandardItem->appendRow(parent);
+    treeViewAdaptedOutputFactoryComponents->expand(m_internalAdaptedOutputFactoriesStandardItem->index());
+  }
+
+  for(int i = 0; i < modelComponentInfo->adaptedOutputFactories().size() ; i++)
+  {
+    IAdaptedOutputFactory *adaptedOutputFactory = modelComponentInfo->adaptedOutputFactories()[i];
+    QStandardItem *factoryStandardItem = findStandardItem(adaptedOutputFactory->id(),parent,"AdaptedOutputFactory");
+
+    if(factoryStandardItem == nullptr)
+    {
+      QIcon factoryIcon(":/HydroCoupleComposer/adaptedoutputfactory");
+      factoryStandardItem = new QStandardItem(factoryIcon,adaptedOutputFactory->caption());
+      factoryStandardItem->setDragEnabled(false);
+
+      QString desc =  QString(sc_standardInfoHtml).replace("[Component]", adaptedOutputFactory->id())
+                      .replace("[Caption]", adaptedOutputFactory->caption())
+                      .replace("[Description]", adaptedOutputFactory->description());
+
+      factoryStandardItem->setToolTip(desc);
+      factoryStandardItem->setWhatsThis(desc);
+      factoryStandardItem->setStatusTip(adaptedOutputFactory->caption());
+      parent->appendRow(factoryStandardItem);
+    }
+
+    QMap<QString,QVariant> data;
+    data["AdaptedOutputFactory"] = adaptedOutputFactory->id();
+    data["AdaptedOutputFactoryModelComponentInfo"] = modelComponentInfo->id();
+    factoryStandardItem->setData(data, Qt::UserRole + 1);
+
+    QObject* componentInfoAsObject = dynamic_cast<QObject*>(adaptedOutputFactory);
+
+    if(componentInfoAsObject)
+    {
+      connect(componentInfoAsObject , SIGNAL(propertyChanged(const QString&)),
+              this,SLOT(onComponentInfoPropertyChanged(const QString&)));
+    }
+  }
+
+  treeViewAdaptedOutputFactoryComponents->expand(parent->index());
+
+  resetAdaptedOutputFactoryModel(m_adaptedOutputFactoriesModel->invisibleRootItem());
+}
+
+void HydroCoupleComposer::unloadModelComponentInfoAdaptedOutputFactory(const IModelComponentInfo *modelComponentInfo)
+{
+  QStandardItem *modelComponentInfoStandardItem = findStandardItem(modelComponentInfo->id(), m_internalAdaptedOutputFactoriesStandardItem, "AdaptedOutputFactoryModelComponentInfo");
+
+  if(modelComponentInfoStandardItem)
+  {
+    m_adaptedOutputFactoriesModel->removeRow(modelComponentInfoStandardItem->row(), modelComponentInfoStandardItem->parent()->index());
+    m_propertyModel->setData(QVariant());
+    resetAdaptedOutputFactoryModel(m_adaptedOutputFactoriesModel->invisibleRootItem());
+  }
+}
+
+void HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoLoaded(const QString &adaptedOutputFactoryComponentInfoId)
+{
+
+  IAdaptedOutputFactoryComponentInfo *adaptedOutputFactoryComponentInfo = m_project->componentManager()->findAdaptedOutputFactoryComponentInfo(adaptedOutputFactoryComponentInfoId);
+
+  if(adaptedOutputFactoryComponentInfo)
+  {
+
+    QStringList categories = adaptedOutputFactoryComponentInfo->category().split('\\', QString::SplitBehavior::SkipEmptyParts);
+    QStandardItem* parent = m_externalAdaptedOutputFactoriesStandardItem;
+
+    while (categories.count() > 0)
+    {
+      QString category = categories[0];
+
+      QStandardItem* childCategoryItem = findStandardItem(category, parent , "AdaptedOutputFactoryComponentInfoCategory" , true);
+
+      if (childCategoryItem == nullptr)
+      {
+        QStandardItem* newCategoryItem = new QStandardItem(s_categoryIcon, category);
+        newCategoryItem->setToolTip(category);
+        newCategoryItem->setStatusTip(category);
+        newCategoryItem->setWhatsThis(category);
+
+        QMap<QString,QVariant> data;
+        data["AdaptedOutputFactoryComponentInfoCategory"] = category;
+        newCategoryItem->setData(data, Qt::UserRole + 1);
+        newCategoryItem->setDragEnabled(false);
+        parent->appendRow(newCategoryItem);
+        treeViewAdaptedOutputFactoryComponents->expand(parent->index());
+        parent = newCategoryItem;
+      }
+      else
+      {
+        parent = childCategoryItem;
+      }
+
+      categories.removeAt(0);
+    }
+
+    QString iconPath = ":/HydroCoupleComposer/adaptedoutputfactory";
+
+    QFileInfo iconFile(QFileInfo(adaptedOutputFactoryComponentInfo->libraryFilePath()).dir(), adaptedOutputFactoryComponentInfo->iconFilePath());
+
+    if (iconFile.isFile() && iconFile.exists())
+    {
+      iconPath = iconFile.absoluteFilePath();
+    }
+
+    bool found = true;
+    QStandardItem* componentTreeViewItem = findStandardItem(adaptedOutputFactoryComponentInfoId, parent, "AdaptedOutputFactoryComponentInfo");
+
+    if(componentTreeViewItem == nullptr)
+    {
+      QIcon cIcon = QIcon(iconPath);
+      componentTreeViewItem = new QStandardItem(cIcon, adaptedOutputFactoryComponentInfo->caption());
+      found = false;
+    }
+    else
+    {
+      QIcon cIcon = QIcon(iconPath);
+      componentTreeViewItem->setIcon(cIcon);
+      componentTreeViewItem->setText(adaptedOutputFactoryComponentInfo->caption());
+    }
+
     componentTreeViewItem->setStatusTip(adaptedOutputFactoryComponentInfo->caption());
-    componentTreeViewItem->setDragEnabled(true);
+    componentTreeViewItem->setDragEnabled(false);
 
     QString html = QString(sc_modelComponentInfoHtml).replace("[Component]", adaptedOutputFactoryComponentInfo->id())
                    .replace("[Version]", adaptedOutputFactoryComponentInfo->version())
@@ -2132,149 +2535,434 @@ void HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoLoaded(const IAdapt
 
     componentTreeViewItem->setToolTip(html);
     componentTreeViewItem->setWhatsThis(html);
+
     QMap<QString,QVariant> data;
     data["AdaptedOutputFactoryComponentInfo"] = adaptedOutputFactoryComponentInfo->id();
-    componentTreeViewItem->setData(data, Qt::UserRole);
+    componentTreeViewItem->setData(data, Qt::UserRole + 1);
 
-
-
-
-    onPostMessage("Component Library Loaded: " + adaptedOutputFactoryComponentInfo->id());
-
-    parent->appendRow(componentTreeViewItem);
-
-    const QObject* modelComponentInfoObject = dynamic_cast<const QObject*>(adaptedOutputFactoryComponentInfo);
-
-    if(modelComponentInfoObject)
+    if(found == false)
     {
-      connect(modelComponentInfoObject , SIGNAL(propertyChanged(const QString&)),
+      parent->appendRow(componentTreeViewItem);
+    }
+
+    QObject* componentInfoAsObject = dynamic_cast<QObject*>(adaptedOutputFactoryComponentInfo);
+
+    if(componentInfoAsObject)
+    {
+      connect(componentInfoAsObject , SIGNAL(propertyChanged(const QString&)),
               this,SLOT(onComponentInfoPropertyChanged(const QString&)));
     }
 
-    treeViewModelComponentInfos->expandToDepth(1);
+    treeViewAdaptedOutputFactoryComponents->expandToDepth(1);
 
-    for(GModelComponent* component : m_project->modelComponents())
-    {
-      component->retrieveAdaptedOutputsForConnections();
-    }
-
-    resetAdaptedOutputFactoryModel();
+    resetAdaptedOutputFactoryModel(m_adaptedOutputFactoriesModel->invisibleRootItem());
   }
 }
 
-void HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoUnloaded(const QString &id)
+void HydroCoupleComposer::onAdaptedOutputFactoryComponentInfoUnloaded(const QString &adaptedOutputFactoryComponentInfoId)
 {
-  QStandardItem* childCategoryItem = findStandardItem(id, m_adaptedOutputComponentInfoStandardItem ,"AdaptedOutputFactoryComponentInfo" , true);
+  QStandardItem* childCategoryItem = findStandardItem(adaptedOutputFactoryComponentInfoId, m_externalAdaptedOutputFactoriesStandardItem ,"AdaptedOutputFactoryComponentInfo", true);
 
   if(childCategoryItem)
   {
-    m_componentInfoModel->removeRow(childCategoryItem->index().row() , m_adaptedOutputComponentInfoStandardItem->index()) ;
+    m_adaptedOutputFactoriesModel->removeRow(childCategoryItem->index().row() , childCategoryItem->parent()->index()) ;
     m_propertyModel->setData(QVariant());
-    resetAdaptedOutputFactoryModel();
+    resetAdaptedOutputFactoryModel(m_adaptedOutputFactoriesModel->invisibleRootItem());
   }
 }
 
-void HydroCoupleComposer::onComponentInfoClicked(const QModelIndex& index)
+void HydroCoupleComposer::onWorkflowComponentInfoLoaded(const QString &workflowComponentInfoId)
 {
-  QMap<QString,QVariant> value = index.data(Qt::UserRole).toMap();
+  IWorkflowComponentInfo *workflowComponentInfo = m_project->componentManager()->findWorkflowComponentInfo(workflowComponentInfoId);
 
+  if(workflowComponentInfo)
+  {
+    QStringList categories = workflowComponentInfo->category().split('\\', QString::SplitBehavior::SkipEmptyParts);
+    QStandardItem* parent = m_workflowComponentModel->invisibleRootItem();
+
+    while (categories.count() > 0)
+    {
+      QString category = categories[0];
+
+      QStandardItem* childCategoryItem = findStandardItem(category, parent , "WorkflowComponentInfoCategory" , true);
+
+      if (childCategoryItem == nullptr)
+      {
+        QStandardItem* newCategoryItem = new QStandardItem(s_categoryIcon, category);
+        newCategoryItem->setToolTip(category);
+        newCategoryItem->setStatusTip(category);
+        newCategoryItem->setWhatsThis(category);
+
+        QMap<QString,QVariant> data;
+        data["WorkflowComponentInfoCategory"] = category;
+        newCategoryItem->setData(data, Qt::UserRole);
+        newCategoryItem->setDragEnabled(false);
+        parent->appendRow(newCategoryItem);
+        treeViewWorkflowComponents->expand(parent->index());
+        parent = newCategoryItem;
+      }
+      else
+      {
+        parent = childCategoryItem;
+      }
+
+      categories.removeAt(0);
+    }
+
+    QString iconPath = ":/HydroCoupleComposer/workflow";
+    QFileInfo iconFile(QFileInfo(workflowComponentInfo->libraryFilePath()).dir(), workflowComponentInfo->iconFilePath());
+
+    if (iconFile.isFile() && iconFile.exists())
+    {
+      iconPath = iconFile.absoluteFilePath();
+    }
+
+    QStandardItem *standardItem = findStandardItem(workflowComponentInfoId, parent, "WorkflowComponentInfo");
+    bool found = true;
+
+    if(standardItem == nullptr)
+    {
+      QIcon wIcon = QIcon(iconPath);
+      standardItem = new QStandardItem(wIcon, workflowComponentInfo->caption());
+      found = false;
+    }
+    else
+    {
+      QIcon wIcon = QIcon(iconPath);
+      standardItem->setIcon(wIcon);
+      standardItem->setText(workflowComponentInfo->caption());
+    }
+
+
+    standardItem->setCheckable(true);
+    standardItem->setDragEnabled(false);
+
+    QString html = QString(sc_modelComponentInfoHtml).replace("[Component]", workflowComponentInfo->id())
+                   .replace("[Version]", workflowComponentInfo->version())
+                   .replace("[Url]", workflowComponentInfo->url())
+                   .replace("[Caption]", workflowComponentInfo->caption())
+                   .replace("[IconPath]", iconPath)
+                   .replace("[Description]", workflowComponentInfo->description())
+                   .replace("[License]", workflowComponentInfo->license())
+                   .replace("[Vendor]", workflowComponentInfo->vendor())
+                   .replace("[Email]", workflowComponentInfo->email())
+                   .replace("[Copyright]", workflowComponentInfo->copyright());
+
+
+    standardItem->setToolTip(html);
+    standardItem->setWhatsThis(html);
+    standardItem->setStatusTip(workflowComponentInfo->caption());
+
+    QMap<QString,QVariant> data;
+    data["WorkflowComponentInfo"] = workflowComponentInfoId;
+    standardItem->setData(data,Qt::UserRole + 1);
+
+    if(found == false)
+    {
+      parent->appendRow(standardItem);
+    }
+
+    treeViewWorkflowComponents->expand(parent->index());
+
+    QObject* componentInfoAsObject = dynamic_cast<QObject*>(workflowComponentInfo);
+
+    if(componentInfoAsObject)
+    {
+      connect(componentInfoAsObject , SIGNAL(propertyChanged(const QString&)),
+              this,SLOT(onComponentInfoPropertyChanged(const QString&)));
+    }
+  }
+}
+
+void HydroCoupleComposer::onWorkflowComponentInfoUnloadedLoaded(const QString &workflowComponentInfoId)
+{
+  IWorkflowComponentInfo *workflowComponentInfo = m_project->componentManager()->findWorkflowComponentInfo(workflowComponentInfoId);
+
+  if(workflowComponentInfo)
+  {
+    QStandardItem *standardItem = findStandardItem(workflowComponentInfoId, m_workflowComponentModel->invisibleRootItem(), "WorkflowComponentInfo", true);
+
+    if(standardItem)
+    {
+      m_workflowComponentModel->removeRow(standardItem->row(), standardItem->parent()->index());
+    }
+
+    IWorkflowComponent *workflowComponent = m_project->componentManager()->getWorkflowComponent(workflowComponentInfoId);
+
+    if(m_project->workflowComponent() == workflowComponent)
+    {
+      m_project->setWorkflowComponent(nullptr);
+    }
+  }
+}
+
+void HydroCoupleComposer::onWorkflowComponentCheckStateChanged(QStandardItem *item)
+{
+  m_workflowComponentModel->blockSignals(true);
+
+  bool checked = item->checkState() == Qt::Checked;
+
+  QMap<QString,QVariant> data = item->data(Qt::UserRole + 1).toMap();
+  QList<QString> identifiers = m_project->componentManager()->workflowComponentInfoIdentifiers();
+
+  if(data.contains("WorkflowComponentInfo"))
+  {
+    QString workflowId = data["WorkflowComponentInfo"].toString();
+    IWorkflowComponent *workflowComponent = m_project->componentManager()->getWorkflowComponent(workflowId);
+
+    if(workflowComponent && checked)
+    {
+      m_project->setWorkflowComponent(workflowComponent);
+    }
+    else
+    {
+      m_project->setWorkflowComponent(nullptr);
+    }
+
+    for(int i = 0; i < identifiers.size(); i++)
+    {
+      QString identifier = identifiers[i];
+
+      if(QString::compare(identifier, workflowId))
+      {
+        QStandardItem *rItem = findStandardItem(identifier, m_workflowComponentModel->invisibleRootItem(), "WorkflowComponentInfo", true);
+
+        if(rItem != item)
+        {
+          rItem->setCheckState(Qt::Unchecked);
+        }
+      }
+    }
+  }
+
+  m_workflowComponentModel->blockSignals(false);
+}
+
+void HydroCoupleComposer::onProjectWorkflowComponentChanged(IWorkflowComponent *workflowComponent)
+{
+  if(workflowComponent)
+  {
+    QStandardItem *childCategoryItem = findStandardItem(workflowComponent->componentInfo()->id(), m_workflowComponentModel->invisibleRootItem() , "WorkflowComponentInfo" , true);
+
+    if(childCategoryItem)
+    {
+      QMap<QString,QVariant> data = childCategoryItem->data(Qt::UserRole + 1).toMap();
+
+      if(data.contains("WorkflowComponentInfo") && !QString::compare(workflowComponent->componentInfo()->id(), data["WorkflowComponentInfo"].toString()))
+      {
+        childCategoryItem->setCheckState(Qt::Checked);
+      }
+    }
+  }
+}
+
+void HydroCoupleComposer::onModelComponentInfoClicked(const QModelIndex& index)
+{
+  QMap<QString,QVariant> value = index.data(Qt::UserRole + 1).toMap();
+  IModelComponentInfo *modelComponentInfo = nullptr;
 
   if (index.isValid() && value.contains("ModelComponentInfo")
-      && m_project->componentManager()->modelComponentInfoById().contains(value["ModelComponentInfo"].toString()))
+      && (modelComponentInfo = m_project->componentManager()->findModelComponentInfo(value["ModelComponentInfo"].toString())))
   {
-    IModelComponentInfo* foundModelComponentInfo = m_project->componentManager()->modelComponentInfoById()[value["ModelComponentInfo"].toString()];
-
-    QVariant variant = QVariant::fromValue(dynamic_cast<QObject*>(foundModelComponentInfo));
+    QVariant variant = QVariant::fromValue(dynamic_cast<QObject*>(modelComponentInfo));
     m_propertyModel->setData(variant);
     treeViewProperties->expandToDepth(0);
     treeViewProperties->resizeColumnToContents(0);
     actionAddComponent->setEnabled(true);
-    actionValidateComponentLibrary->setEnabled(true);
-    actionBrowseComponentInfoFolder->setEnabled(true);
+    actionValidateModelComponentInfo->setEnabled(true);
+    actionBrowseModelComponentInfoFolder->setEnabled(true);
     actionUnloadModelComponentLibrary->setEnabled(true);
   }
   else
   {
     m_propertyModel->setData(QVariant());
     actionAddComponent->setEnabled(false);
-    actionValidateComponentLibrary->setEnabled(false);
-    actionBrowseComponentInfoFolder->setEnabled(false);
+    actionValidateModelComponentInfo->setEnabled(false);
+    actionBrowseModelComponentInfoFolder->setEnabled(false);
     actionUnloadModelComponentLibrary->setEnabled(false);
   }
 }
 
-void HydroCoupleComposer::onComponentInfoDoubleClicked(const QModelIndex& index)
+void HydroCoupleComposer::onModelComponentInfoDoubleClicked(const QModelIndex& index)
 {
-  QMap<QString,QVariant> data = index.data(Qt::UserRole).toMap();
+  QMap<QString,QVariant> data = index.data(Qt::UserRole + 1).toMap();
 
   if (data.contains("ModelComponentInfo"))
   {
     QString id = data["ModelComponentInfo"].toString();
+    QString message;
 
-    if (m_project->componentManager()->modelComponentInfoById().contains(id))
+    IModelComponent *component = m_project->componentManager()->createModelComponentInstance(id, message);
+
+    if(component)
     {
-      IModelComponentInfo* foundModelComponentInfo = m_project->componentManager()->modelComponentInfoById()[id];
-
-      IModelComponent* component = foundModelComponentInfo->createComponentInstance();
-
       GModelComponent* gcomponent = new GModelComponent(component, m_project);
 
       QPointF f = graphicsViewHydroCoupleComposer->mapToScene(graphicsViewHydroCoupleComposer->frameRect().center()) - gcomponent->boundingRect().bottomRight()/2;
 
       gcomponent->setPos(f);
 
-      if (m_project->modelComponents().count() == 0)
+      if(m_project->modelComponents().count() == 0)
       {
         gcomponent->setTrigger(true);
       }
 
-      m_project->addComponent(gcomponent);
+      m_project->addModelComponent(gcomponent);
     }
   }
 }
 
 void HydroCoupleComposer::onAdaptedOutputClicked(const QModelIndex& index)
 {
-  QMap<QString,QVariant> value = index.data(Qt::UserRole).toMap();
+  QMap<QString,QVariant> data = index.data(Qt::UserRole + 1).toMap();
 
-  if(m_selectedConnections.length() == 1 &&
-     index.isValid() && value.contains("AdaptedOutput") &&
-     value.contains("AdaptedOutputFactory"))
+  bool set = false;
+
+  if(!data.contains("AdaptedOutput") && data.contains("AdaptedOutputFactoryComponentInfo"))
   {
+    QString adaptedOutputFactoryComponentInfoId = data["AdaptedOutputFactoryComponentInfo"].toString();
 
-    GConnection* connection = m_selectedConnections[0];
-    QString factoryId = value["AdaptedOutputFactory"].toString();
+    IAdaptedOutputFactoryComponentInfo *adaptedOutputFactoryComponentInfo = m_project->componentManager()->findAdaptedOutputFactoryComponentInfo(adaptedOutputFactoryComponentInfoId);
 
-    if(connection->adaptedOutputFactories().contains(factoryId))
+    if(adaptedOutputFactoryComponentInfo)
     {
-      QString adaptedOutputId = value["AdaptedOutput"].toString();
+      set = true;
+      actionValidateAdaptedOutputFactoryComponentInfo->setEnabled(true);
+      actionUnloadAdaptedOutputFactoryComponentLibrary->setEnabled(true);
+      actionBrowseAdaptedOutputFactoryComponentInfoFolder->setEnabled(true);
+      actionInsertAdaptedOutput->setEnabled(false);
+      QVariant variant = QVariant::fromValue(dynamic_cast<QObject*>(adaptedOutputFactoryComponentInfo));
+      m_propertyModel->setData(variant);
+      treeViewProperties->expandToDepth(0);
+      treeViewProperties->resizeColumnToContents(0);
+    }
+  }
+  else if(!data.contains("AdaptedOutput") && data.contains("AdaptedOutputFactory"))
+  {
+    QString adaptedOutputFactoryId = data["AdaptedOutputFactory"].toString();
+    QString modelComponentInfoId = data["ModelComponentInfo"].toString();
 
-      QList<IIdentity*> identities = connection->adaptedOutputs()[connection->adaptedOutputFactories()[factoryId]];
+    IModelComponentInfo *modelComponentInfo = m_project->componentManager()->findModelComponentInfo(modelComponentInfoId);
 
-      for(IIdentity* identity : identities)
+    if(modelComponentInfo)
+    {
+      for(IAdaptedOutputFactory *adaptedOutputFactory : modelComponentInfo->adaptedOutputFactories())
       {
-        if(identity->id().compare(adaptedOutputId, Qt::CaseInsensitive))
+        if(!QString::compare(adaptedOutputFactory->id(), adaptedOutputFactoryId))
         {
-          QVariant variant = QVariant::fromValue(dynamic_cast<QObject*>(identity));
+
+          set = true;
+
+          actionValidateAdaptedOutputFactoryComponentInfo->setEnabled(false);
+          actionUnloadAdaptedOutputFactoryComponentLibrary->setEnabled(false);
+          actionBrowseAdaptedOutputFactoryComponentInfoFolder->setEnabled(false);
+          actionInsertAdaptedOutput->setEnabled(false);
+
+          QVariant variant = QVariant::fromValue(dynamic_cast<QObject*>(adaptedOutputFactory));
           m_propertyModel->setData(variant);
           treeViewProperties->expandToDepth(0);
           treeViewProperties->resizeColumnToContents(0);
-          actionAddComponent->setEnabled(true);
-          actionValidateComponentLibrary->setEnabled(true);
-          actionBrowseComponentInfoFolder->setEnabled(true);
-          actionUnloadModelComponentLibrary->setEnabled(true);
-          return ;
+
+          break;
+        }
+      }
+    }
+  }
+  else if(m_selectedConnections.length() == 1 && data.contains("AdaptedOutput"))
+  {
+    if(data.contains("AdaptedOutputFactory"))
+    {
+      GConnection *connection = m_selectedConnections[0];
+
+      QString adaptedOutputId = data["AdaptedOutput"].toString();
+      QString adaptedOutputFactoryId = data["AdaptedOutputFactory"].toString();
+      QString modelComponentInfoId = data["ModelComponentInfo"].toString();
+
+      IModelComponentInfo *modelComponentInfo = m_project->componentManager()->findModelComponentInfo(modelComponentInfoId);
+
+      if(modelComponentInfo)
+      {
+        for(IAdaptedOutputFactory *adaptedOutputFactory : modelComponentInfo->adaptedOutputFactories())
+        {
+          if(!QString::compare(adaptedOutputFactory->id(), adaptedOutputFactoryId))
+          {
+            GOutput *output = dynamic_cast<GOutput*>(connection->producer());
+            GInput *input = dynamic_cast<GInput*>(connection->consumer());
+
+            QList<IIdentity*> identities = adaptedOutputFactory->getAvailableAdaptedOutputIds(output->output(), input->input());
+
+            for(IIdentity* identity : identities)
+            {
+              if(!QString::compare(adaptedOutputId, identity->id()))
+              {
+                set = true;
+
+                actionValidateAdaptedOutputFactoryComponentInfo->setEnabled(false);
+                actionUnloadAdaptedOutputFactoryComponentLibrary->setEnabled(false);
+                actionBrowseAdaptedOutputFactoryComponentInfoFolder->setEnabled(false);
+                actionInsertAdaptedOutput->setEnabled(true);
+
+                QVariant variant = QVariant::fromValue(dynamic_cast<QObject*>(identity));
+                m_propertyModel->setData(variant);
+                treeViewProperties->expandToDepth(0);
+                treeViewProperties->resizeColumnToContents(0);
+
+                break;
+              }
+            }
+            break;
+          }
+        }
+      }
+    }
+    else if(data.contains("AdaptedOutputFactoryComponentInfo"))
+    {
+      GConnection *connection = m_selectedConnections[0];
+
+      QString adaptedOutputId = data["AdaptedOutput"].toString();
+      QString adaptedOutputFactoryComponentInfoId = data["AdaptedOutputFactoryComponentInfo"].toString();
+
+      IAdaptedOutputFactoryComponent *adaptedOutputFactoryComponent = m_project->componentManager()->getAdaptedOutputFactoryComponent(adaptedOutputFactoryComponentInfoId);
+
+      if(adaptedOutputFactoryComponent)
+      {
+        GOutput *output = dynamic_cast<GOutput*>(connection->producer());
+        GInput *input = dynamic_cast<GInput*>(connection->consumer());
+
+        QList<IIdentity*> identities = adaptedOutputFactoryComponent->getAvailableAdaptedOutputIds(output->output(), input->input());
+
+        for(IIdentity* identity : identities)
+        {
+          if(!QString::compare(adaptedOutputId, identity->id()))
+          {
+            set = true;
+
+            actionValidateAdaptedOutputFactoryComponentInfo->setEnabled(false);
+            actionUnloadAdaptedOutputFactoryComponentLibrary->setEnabled(false);
+            actionBrowseAdaptedOutputFactoryComponentInfoFolder->setEnabled(false);
+            actionInsertAdaptedOutput->setEnabled(true);
+
+            QVariant variant = QVariant::fromValue(dynamic_cast<QObject*>(identity));
+            m_propertyModel->setData(variant);
+            treeViewProperties->expandToDepth(0);
+            treeViewProperties->resizeColumnToContents(0);
+
+            break;
+          }
         }
       }
     }
   }
 
-  m_propertyModel->setData(QVariant());
-  actionAddComponent->setEnabled(false);
-  actionValidateComponentLibrary->setEnabled(false);
-  actionBrowseComponentInfoFolder->setEnabled(false);
-  actionUnloadModelComponentLibrary->setEnabled(false);
 
+  if(!set)
+  {
+    m_propertyModel->setData(QVariant());
+    actionValidateAdaptedOutputFactoryComponentInfo->setEnabled(false);
+    actionBrowseAdaptedOutputFactoryComponentInfoFolder->setEnabled(false);
+    actionInsertAdaptedOutput->setEnabled(false);
+    actionUnloadAdaptedOutputFactoryComponentLibrary->setEnabled(false);
+  }
 }
 
 void HydroCoupleComposer::onAdaptedOutputDoubleClicked(const QModelIndex& index)
@@ -2283,30 +2971,22 @@ void HydroCoupleComposer::onAdaptedOutputDoubleClicked(const QModelIndex& index)
   {
     GConnection* connection = m_selectedConnections[0];
 
-    QMap<QString,QVariant> mapData = index.data(Qt::UserRole).toMap();
-
-    if(mapData.contains("AdaptedOutput") && mapData.contains("AdaptedOutputFactory"))
+    if(connection->producer()->nodeType() == GNode::NodeType::Output ||
+       connection->producer()->nodeType() == GNode::NodeType::AdaptedOutput)
     {
-      QString factoryId = mapData["AdaptedOutputFactory"].toString();
+      QMap<QString,QVariant> mapData = index.data(Qt::UserRole + 1).toMap();
 
-      if(connection->adaptedOutputFactories().contains(factoryId))
+      if(mapData.contains("AdaptedOutput"))
       {
-        IAdaptedOutputFactory* factory = connection->adaptedOutputFactories()[factoryId];
-
         QString adaptedOutputId = mapData["AdaptedOutput"].toString();
 
-        if(connection->adaptedOutputs().contains(factory))
+        if(mapData.contains("AdaptedOutputFactory"))
         {
-          QList<IIdentity*> identities = connection->adaptedOutputs()[factory];
-
-          for(IIdentity* identity : identities)
-          {
-            if(!identity->id().compare(adaptedOutputId))
-            {
-              connection->insertAdaptedOutput(identity,factory);
-              break;
-            }
-          }
+          connection->insertAdaptedOutput(adaptedOutputId, mapData["AdaptedOutputFactory"].toString());
+        }
+        else if(mapData.contains("AdaptedOutputFactoryComponentInfo"))
+        {
+          connection->insertAdaptedOutput(adaptedOutputId, mapData["AdaptedOutputFactoryComponentInfo"].toString(), true);
         }
       }
     }
@@ -2320,6 +3000,41 @@ void HydroCoupleComposer::onAdaptedOutputDoubleClicked(GAdaptedOutput* adaptedOu
     m_argumentDialog->show();
     m_argumentDialog->setAdaptedOutput(adaptedOutput);
   }
+}
+
+void HydroCoupleComposer::onInsertAdaptedOutput()
+{
+
+}
+
+void HydroCoupleComposer::onWorkflowComponentClicked(const QModelIndex &index)
+{
+  QMap<QString,QVariant> value = index.data(Qt::UserRole + 1).toMap();
+
+  if(value.contains("WorkflowComponentInfo"))
+  {
+    QString workflowComponentInfoId = value["WorkflowComponentInfo"].toString();
+
+    IWorkflowComponentInfo *workflowComponentInfo = m_project->componentManager()->findWorkflowComponentInfo(workflowComponentInfoId);
+
+    if(workflowComponentInfo)
+    {
+      QVariant variant = QVariant::fromValue(dynamic_cast<QObject*>(workflowComponentInfo));
+      m_propertyModel->setData(variant);
+      treeViewProperties->expandToDepth(0);
+      treeViewProperties->resizeColumnToContents(0);
+      actionValidateWorkflowComponentInfo->setEnabled(true);
+      actionBrowseWorkflowComponentInfoFolder->setEnabled(true);
+      actionUnloadWorkflowComponentLibrary->setEnabled(true);
+
+      return;
+    }
+  }
+
+  m_propertyModel->setData(QVariant());
+  actionValidateWorkflowComponentInfo->setEnabled(false);
+  actionBrowseWorkflowComponentInfoFolder->setEnabled(false);
+  actionUnloadWorkflowComponentLibrary->setEnabled(false);
 }
 
 void HydroCoupleComposer::onModelComponentStatusItemClicked(const QModelIndex &index)
@@ -2365,18 +3080,19 @@ void HydroCoupleComposer::onModelComponentStatusItemDoubleClicked(const QModelIn
 void HydroCoupleComposer::onComponentInfoPropertyChanged(const QString& propertyName)
 {
 
-  IModelComponentInfo* modelComponentInfo = nullptr ;
-  IAdaptedOutputFactoryComponentInfo* adapted = nullptr;
+  IModelComponentInfo *modelComponentInfo = nullptr ;
+  IAdaptedOutputFactoryComponentInfo *adaptedOutputFactoryComponentInfo = nullptr;
+  IAdaptedOutputFactory *adaptedOutputFactory = nullptr;
+  IWorkflowComponentInfo *workflowComponentInfo = nullptr;
 
   if((modelComponentInfo = dynamic_cast<IModelComponentInfo*>(sender())))
   {
-    QStandardItem* componentTreeViewItem = findStandardItem( modelComponentInfo->id(), m_componentInfoModel->invisibleRootItem(), "ModelComponentInfo", true);
+    QStandardItem* componentTreeViewItem = findStandardItem(modelComponentInfo->id(), m_modelComponentInfoModel->invisibleRootItem(), "ModelComponentInfo", true);
 
-    if(componentTreeViewItem && componentTreeViewItem != m_componentInfoModel->invisibleRootItem())
+    if(componentTreeViewItem && componentTreeViewItem != m_modelComponentInfoModel->invisibleRootItem())
     {
 
       QString iconPath = ":/HydroCoupleComposer/hydrocouplecomposer";
-
       QFileInfo iconFile(QFileInfo(modelComponentInfo->libraryFilePath()).dir(), modelComponentInfo->iconFilePath());
 
       if (iconFile.exists())
@@ -2387,7 +3103,6 @@ void HydroCoupleComposer::onComponentInfoPropertyChanged(const QString& property
       QIcon cIcon = QIcon(iconPath);
       componentTreeViewItem->setIcon(cIcon);
       componentTreeViewItem->setStatusTip(modelComponentInfo->id());
-      componentTreeViewItem->setDragEnabled(true);
 
       QString html = QString(sc_modelComponentInfoHtml).replace("[Component]", modelComponentInfo->id())
                      .replace("[Version]", modelComponentInfo->version())
@@ -2403,11 +3118,86 @@ void HydroCoupleComposer::onComponentInfoPropertyChanged(const QString& property
 
       componentTreeViewItem->setToolTip(html);
       componentTreeViewItem->setWhatsThis(html);
-      componentTreeViewItem->setData(modelComponentInfo->id(), Qt::UserRole);
     }
   }
-  else if((adapted = dynamic_cast<IAdaptedOutputFactoryComponentInfo*>(sender())))
+  else if((adaptedOutputFactoryComponentInfo = dynamic_cast<IAdaptedOutputFactoryComponentInfo*>(sender())))
   {
+    QStandardItem* componentTreeViewItem = findStandardItem(adaptedOutputFactoryComponentInfo->id(), m_externalAdaptedOutputFactoriesStandardItem , "AdaptedOutputFactoryComponentInfo", true);
+
+    if(componentTreeViewItem)
+    {
+      QString iconPath = ":/HydroCoupleComposer/adaptedoutputfactory";
+
+      QFileInfo iconFile(QFileInfo(adaptedOutputFactoryComponentInfo->libraryFilePath()).dir(), adaptedOutputFactoryComponentInfo->iconFilePath());
+
+      if (iconFile.exists())
+      {
+        iconPath = iconFile.absoluteFilePath();
+      }
+
+      QIcon cIcon = QIcon(iconPath);
+      componentTreeViewItem->setIcon(cIcon);
+
+      QString html = QString(sc_modelComponentInfoHtml).replace("[Component]", adaptedOutputFactoryComponentInfo->id())
+                     .replace("[Version]", adaptedOutputFactoryComponentInfo->version())
+                     .replace("[Url]", adaptedOutputFactoryComponentInfo->url())
+                     .replace("[Caption]", adaptedOutputFactoryComponentInfo->caption())
+                     .replace("[IconPath]", iconPath)
+                     .replace("[Description]", adaptedOutputFactoryComponentInfo->description())
+                     .replace("[License]", adaptedOutputFactoryComponentInfo->license())
+                     .replace("[Vendor]", adaptedOutputFactoryComponentInfo->vendor())
+                     .replace("[Email]", adaptedOutputFactoryComponentInfo->email())
+                     .replace("[Copyright]", adaptedOutputFactoryComponentInfo->copyright());
+
+
+      componentTreeViewItem->setToolTip(html);
+      componentTreeViewItem->setWhatsThis(html);
+    }
+  }
+  else if((adaptedOutputFactory = dynamic_cast<IAdaptedOutputFactory*>(sender())))
+  {
+    QStandardItem* componentTreeViewItem = findStandardItem(adaptedOutputFactory->id(), m_internalAdaptedOutputFactoriesStandardItem , "AdaptedOutputFactory", true);
+
+
+
+    QString desc =  QString(sc_standardInfoHtml).replace("[Component]", adaptedOutputFactory->id())
+                    .replace("[Caption]", adaptedOutputFactory->caption())
+                    .replace("[Description]", adaptedOutputFactory->description());
+
+    componentTreeViewItem->setToolTip(desc);
+    componentTreeViewItem->setWhatsThis(desc);
+    componentTreeViewItem->setStatusTip(adaptedOutputFactory->caption());
+  }
+  else if((workflowComponentInfo = dynamic_cast<IWorkflowComponentInfo*>(sender())))
+  {
+    QStandardItem* standardItem = findStandardItem(workflowComponentInfo->id(), m_workflowComponentModel->invisibleRootItem(), "WorkflowComponentInfo", true);
+
+    QString iconPath = ":/HydroCoupleComposer/workflow";
+    QFileInfo iconFile(QFileInfo(workflowComponentInfo->libraryFilePath()).dir(), workflowComponentInfo->iconFilePath());
+
+    if(iconFile.isFile() && iconFile.exists())
+    {
+      iconPath = iconFile.absoluteFilePath();
+    }
+
+    QIcon wIcon = QIcon(iconPath);
+    standardItem->setIcon(wIcon);
+
+    QString html = QString(sc_modelComponentInfoHtml).replace("[Component]", workflowComponentInfo->id())
+                   .replace("[Version]", workflowComponentInfo->version())
+                   .replace("[Url]", workflowComponentInfo->url())
+                   .replace("[Caption]", workflowComponentInfo->caption())
+                   .replace("[IconPath]", iconPath)
+                   .replace("[Description]", workflowComponentInfo->description())
+                   .replace("[License]", workflowComponentInfo->license())
+                   .replace("[Vendor]", workflowComponentInfo->vendor())
+                   .replace("[Email]", workflowComponentInfo->email())
+                   .replace("[Copyright]", workflowComponentInfo->copyright());
+
+
+    standardItem->setToolTip(html);
+    standardItem->setWhatsThis(html);
+    standardItem->setStatusTip(workflowComponentInfo->caption());
 
   }
 }
@@ -2452,12 +3242,13 @@ void HydroCoupleComposer::onItemDroppedInGraphicsView(const QPointF& scenePos, c
 {
   if(dropData.contains("ModelComponentInfo"))
   {
-    if (m_project->componentManager()->modelComponentInfoById().contains(dropData["ModelComponentInfo"].toString()))
+    QString modelComponentInfoId = dropData["ModelComponentInfo"].toString();
+
+    QString message;
+    IModelComponent* component = m_project->componentManager()->createModelComponentInstance(modelComponentInfoId,message);
+
+    if(component)
     {
-      IModelComponentInfo* foundModelComponentInfo = m_project->componentManager()->modelComponentInfoById()[dropData["ModelComponentInfo"].toString()];
-
-      IModelComponent* component = foundModelComponentInfo->createComponentInstance();
-
       GModelComponent* gcomponent = new GModelComponent(component, m_project);
 
       QPointF f(scenePos);
@@ -2471,7 +3262,12 @@ void HydroCoupleComposer::onItemDroppedInGraphicsView(const QPointF& scenePos, c
         gcomponent->setTrigger(true);
       }
 
-      m_project->addComponent(gcomponent);
+      m_project->addModelComponent(gcomponent);
+    }
+
+    if(!message.isEmpty())
+    {
+      onPostMessage(message);
     }
   }
   else if(dropData.contains("AdaptedOutput"))
@@ -2482,32 +3278,15 @@ void HydroCoupleComposer::onItemDroppedInGraphicsView(const QPointF& scenePos, c
 
       if(connection->sceneBoundingRect().contains(scenePos))
       {
-        QMap<QString,QVariant> mapData = dropData;
-
-        if(mapData.contains("AdaptedOutput") && mapData.contains("AdaptedOutputFactory"))
+        if(dropData.contains("AdaptedOutputFactory") && dropData.contains("AdaptedOutputFactoryModelComponentInfo"))
         {
-          QString factoryId = mapData["AdaptedOutputFactory"].toString();
+          QString adaptedOutputId = dropData["AdaptedOutput"].toString();
+          QString adaptedOutputFactoryId = dropData["AdaptedOutputFactory"].toString();
+          connection->insertAdaptedOutput(adaptedOutputId, adaptedOutputFactoryId);
+        }
+        else if(dropData.contains("AdaptedOutputFactoryComponentInfo"))
+        {
 
-          if(connection->adaptedOutputFactories().contains(factoryId))
-          {
-            IAdaptedOutputFactory* factory = connection->adaptedOutputFactories()[factoryId];
-
-            QString adaptedOutputId = mapData["AdaptedOutput"].toString();
-
-            if(connection->adaptedOutputs().contains(factory))
-            {
-              QList<IIdentity*> identities = connection->adaptedOutputs()[factory];
-
-              for(IIdentity* identity : identities)
-              {
-                if(!identity->id().compare(adaptedOutputId))
-                {
-                  connection->insertAdaptedOutput(identity,factory);
-                  break;
-                }
-              }
-            }
-          }
         }
       }
     }
@@ -2610,7 +3389,6 @@ void HydroCoupleComposer::onSelectionChanged()
     }
   }
 
-
   if(m_selectedNodes.length())
   {
     if(m_selectedModelComponents.length())
@@ -2704,18 +3482,18 @@ void HydroCoupleComposer::onSelectionChanged()
     actionDeleteConnection->setEnabled(false);
   }
 
-  resetAdaptedOutputFactoryModel();
+  resetAdaptedOutputFactoryModel(m_adaptedOutputFactoriesModel->invisibleRootItem());
 
-  if ((m_selectedModelComponents.length() == 1 && m_selectedAdaptedOutputs.length() == 0)
-      || (m_selectedModelComponents.length() == 0 && m_selectedAdaptedOutputs.length() == 1))
+  if ((m_selectedModelComponents.length() == 1 && m_selectedAdaptedOutputs.length() == 0) ||
+      (m_selectedModelComponents.length() == 0 && m_selectedAdaptedOutputs.length() == 1))
   {
     actionEditSelected->setEnabled(true);
-
   }
   else
   {
     actionEditSelected->setEnabled(false);
   }
+
   // property grid
   if(qobjectGraphicItems.length() == 1)
   {
@@ -2728,7 +3506,6 @@ void HydroCoupleComposer::onSelectionChanged()
   {
     m_propertyModel->setData(QVariant());
   }
-
 }
 
 void HydroCoupleComposer::onAlignTop()
@@ -3035,11 +3812,30 @@ void HydroCoupleComposer::onDistributeHorizontalCenters()
 
 void HydroCoupleComposer::onTreeViewModelComponentInfoContextMenuRequested(const QPoint& pos)
 {
-  m_treeviewComponentInfoContextMenu->exec(treeViewModelComponentInfos->viewport()->mapToGlobal(pos));
+  m_treeViewModelComponentInfoContextMenu->exec(treeViewModelComponentInfos->viewport()->mapToGlobal(pos));
+}
+
+void HydroCoupleComposer::onTreeViewAdaptedOutputFactoryComponentContextMenuRequested(const QPoint &pos)
+{
+  m_treeViewAdaptedOutputFactoryComponentInfoContextMenu->exec(treeViewAdaptedOutputFactoryComponents->viewport()->mapToGlobal(pos));
+}
+
+void HydroCoupleComposer::onTreeViewWorkflowComponentContextMenuRequested(const QPoint &pos)
+{
+  m_treeViewWorkflowComponentInfoContextMenu->exec(treeViewWorkflowComponents->viewport()->mapToGlobal(pos));
 }
 
 void HydroCoupleComposer::onGraphicsViewHydroCoupleComposerContextMenuRequested(const QPoint& pos)
 {
+  if(m_project->modelComponents().size() > 1)
+  {
+    actionCreateConnection->setEnabled(true);
+  }
+  else
+  {
+    actionCreateConnection->setEnabled(false);
+  }
+
   m_graphicsContextMenu->exec(graphicsViewHydroCoupleComposer->viewport()->mapToGlobal(pos));
 }
 
@@ -3065,11 +3861,12 @@ void HydroCoupleComposer::onAbout()
                      "<title>Component Information</title>"
                      "</head>"
                      "<body>"
-                     "<img alt=\"icon\" src=':/HydroCoupleComposer/hydrocouplecomposer' width=\"100\" align=\"left\" /><h3 align=\"center\">HydroCouple Composer 1.0.0</h3>"
+                     "<img alt=\"icon\" src=':/HydroCoupleComposer/hydrocouplecomposer' width=\"100\" align=\"left\" />"
+                     "<h3 align=\"center\">HydroCouple Composer 1.0.0</h3>"
                      "<hr>"
-                     "<p>Built on</p>"
-                     "<p align=\"left\">Copyright 2014-2017. The HydroCouple Organization. All rights reserved.</p>"
-                     "<p align=\"left\">This program and its associated libraries is provided AS IS with NO WARRANTY OF ANY KIND, "
+                     "<p>Build Date: 11/30/2017</p>"
+                     "<p align=\"center\">Copyright 2014-2017. The HydroCouple Organization. All rights reserved.</p>"
+                     "<p align=\"center\">This program and its associated libraries is provided AS IS with NO WARRANTY OF ANY KIND, "
                      "INCLUDING THE WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.</p>"
                      "<p align=\"center\"><a href=\"mailto:caleb.buahin@gmail.com?Subject=HydroCouple Composer\">caleb.buahin@gmail.com</a></p>"
                      "<p align=\"center\"><a href=\"www.hydrocouple.org\">www.hydrocouple.org</a></p>"
@@ -3079,5 +3876,5 @@ void HydroCoupleComposer::onAbout()
 
 void HydroCoupleComposer::onPreferences()
 {
-
+  m_preferencesDialog->show();
 }

@@ -4,23 +4,26 @@
 using namespace  HydroCouple ;
 
 
-ArgumentDialog::ArgumentDialog(QDialog *parent)
+ArgumentDialog::ArgumentDialog(QWidget *parent)
    :QDialog(parent),
      m_component(nullptr),
      m_adaptedOutput(nullptr)
 {
    setupUi(this);
 
+
    connect(pushButtonClose , SIGNAL(clicked()) , this , SLOT(close()));
    connect(pushButtonReadValues, SIGNAL(clicked()) , this , SLOT(onReadArgument()));
    connect(pushButtonInitializeComponent, SIGNAL(clicked()), this, SLOT(onInitializeComponent()));
    connect(pushButtonBrowse, SIGNAL(clicked()), this, SLOT(onBrowseForFile()));
    connect(comboBoxArguments, SIGNAL(currentIndexChanged(int)), this, SLOT(onSelectedArgumentChanged(int)));
+
+   readSettings();
 }
 
 ArgumentDialog::~ArgumentDialog()
 {
-
+  writeSettings();
 }
 
 void ArgumentDialog::setComponent(GModelComponent *component)
@@ -60,6 +63,32 @@ void ArgumentDialog::setAdaptedOutput(GAdaptedOutput *adaptedOutput)
       m_arguments[argument->id()] = argument;
       comboBoxArguments->addItem(argument->caption() , argument->id());
    }
+}
+
+void ArgumentDialog::readSettings()
+{
+  m_settings.beginGroup("HydroCoupleComposer::ArgumentDialog");
+  {
+    this->restoreGeometry(m_settings.value("HydroCoupleComposer::ArgumentDialog::WindowState", this->saveGeometry()).toByteArray());
+    this->setWindowState((Qt::WindowState)m_settings.value("HydroCoupleComposer::ArgumentDialog::WindowStateEnum", (int)this->windowState()).toInt());
+    this->setGeometry(m_settings.value("HydroCoupleComposer::ArgumentDialog::Geometry", this->geometry()).toRect());
+  }
+  m_settings.endGroup();
+
+}
+
+void ArgumentDialog::writeSettings()
+{
+  m_settings.beginGroup("HydroCoupleComposer::ArgumentDialog");
+  m_settings.setValue("HydroCoupleComposer::ArgumentDialog::WindowState", this->saveGeometry());
+  m_settings.setValue("HydroCoupleComposer::ArgumentDialog::WindowStateEnum", (int)this->windowState());
+  m_settings.setValue("HydroCoupleComposer::ArgumentDialog::Geometry", this->geometry());
+  m_settings.endGroup();
+}
+
+void ArgumentDialog::clearSettings()
+{
+  m_settings.remove("HydroCoupleComposer::ArgumentDialog");
 }
 
 void ArgumentDialog::onReadArgument()

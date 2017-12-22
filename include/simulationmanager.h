@@ -44,6 +44,12 @@ class SimulationManager : public QObject
 
       void onStopSimulation();
 
+      void run();
+
+      void onSimulationCompleted();
+
+      void onWorkflowComponentStatusChanged(HydroCouple::IWorkflowComponent::WorkflowStatus status, const QString &message);
+
    signals:
 
       void setProgress(bool visible, int progress, int min, int max);
@@ -80,11 +86,7 @@ class SimulationManager : public QObject
 
       bool validateConnections();
 
-      void run();
-
    private slots:
-
-      void onSimulationCompleted();
 
       void finalizeComputeResources();
 
@@ -101,6 +103,8 @@ class SimulationManager : public QObject
       bool m_simulationFailed;
       QElapsedTimer m_timer;
       GModelComponent *m_triggerComponent;
+      QThread m_runThread;
+
 };
 
 #endif // SIMULATIONMANAGER

@@ -312,7 +312,7 @@ bool GraphicsView::canAcceptDrop(const QMimeData* data)
       stream >> row >> col >> roleDataMap;
 
       /* do something with the data */
-      QVariant value = roleDataMap[Qt::UserRole];
+      QVariant value = roleDataMap[Qt::UserRole + 1];
 
       if (value.type() == QVariant::Map)
       {
@@ -346,7 +346,7 @@ bool GraphicsView::canAcceptDrop(const QMimeData* data, QMap<QString,QVariant>& 
       stream >> row >> col >> roleDataMap;
 
       /* do something with the data */
-      QVariant value = roleDataMap[Qt::UserRole];
+      QVariant value = roleDataMap[Qt::UserRole +  1];
 
       if (value.type() == QVariant::Map)
       {
