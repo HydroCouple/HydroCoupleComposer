@@ -27,6 +27,8 @@ bld/
 GeneratedFiles/
 ipch/
 x64/
+graphviz/
+
 ##Resources
 
 # Visual Studo 2015 cache/options directory

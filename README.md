@@ -16,7 +16,7 @@ Type the following command for more help.
 
 ## Depedencies
 
-HydroCoupleComposer can be compiled using the QtCreator project file included with this project or in visual studio using the Qt Visual Studio AddIn. Modify the project file to make sure the point to the appropriate libraries on the target machine. Compilation of HydroCoupleComposer requires the following frameworks and libraries:
+HydroCoupleComposer can be compiled using the QtCreator project file included with this project or in visual studio using the Qt Visual Studio AddIn. Work is ongoing to add a CMake make file. Modify the project file to make sure that it points to the appropriate libraries on the target machine. Compilation of HydroCoupleComposer requires the following frameworks and libraries:
 
 * Qt 5.7.0 or later
 * MPI
