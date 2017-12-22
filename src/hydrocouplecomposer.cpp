@@ -512,7 +512,8 @@ void HydroCoupleComposer::initializeGUIComponents()
 {
   //Progressbar
 
-  //  tabifyDockWidget(dockWidgetProperties,dockWidgetAdaptedOutputs);
+  tabifyDockWidget(dockWidgetModelComponents, dockWidgetAdaptedOutputFactory);
+  tabifyDockWidget(dockWidgetAdaptedOutputFactory, dockWidgetWorkflowComponents);
   tabifyDockWidget(dockWidgetSimulationStatus,dockWidgetMessageLogs);
 
   m_progressBar = new QProgressBar(this);
