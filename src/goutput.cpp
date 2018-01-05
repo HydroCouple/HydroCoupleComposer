@@ -72,19 +72,19 @@ void GOutput::writeExchangeItemConnections(QXmlStreamWriter &xmlWriter)
 
 void GOutput::readOutputExchangeItemConnections(QXmlStreamReader &xmlReader, QList<QString> & errorMessages)
 {
-  if(!xmlReader.name().compare("OutputExchangeItem",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+  if(!xmlReader.name().string()->compare("OutputExchangeItem",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
   {
-    while(!(xmlReader.isEndElement() && !xmlReader.name().compare("OutputExchangeItem", Qt::CaseInsensitive)) && !xmlReader.hasError())
+    while(!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("OutputExchangeItem", Qt::CaseInsensitive)) && !xmlReader.hasError())
     {
-      if(!xmlReader.name().compare("Connections",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+      if(!xmlReader.name().string()->compare("Connections",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
       {
-        while(!(xmlReader.isEndElement() && !xmlReader.name().compare("Connections", Qt::CaseInsensitive)) && !xmlReader.hasError())
+        while(!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("Connections", Qt::CaseInsensitive)) && !xmlReader.hasError())
         {
-          if(!xmlReader.name().compare("AdaptedOutputExchangeItem",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+          if(!xmlReader.name().string()->compare("AdaptedOutputExchangeItem",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
           {
             readAdaptedOutputExchangeItem(xmlReader,errorMessages);
           }
-          else if(!xmlReader.name().compare("InputExchangeItem",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+          else if(!xmlReader.name().string()->compare("InputExchangeItem",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
           {
             QXmlStreamAttributes attributes = xmlReader.attributes();
 
@@ -131,7 +131,7 @@ void GOutput::readOutputExchangeItemConnections(QXmlStreamReader &xmlReader, QLi
 
 void GOutput::readAdaptedOutputExchangeItem(QXmlStreamReader &xmlReader, QList<QString> &errorMessages)
 {
-  if(!xmlReader.name().compare("AdaptedOutputExchangeItem",Qt::CaseInsensitive) &&
+  if(!xmlReader.name().string()->compare("AdaptedOutputExchangeItem",Qt::CaseInsensitive) &&
      xmlReader.tokenType() == QXmlStreamReader::StartElement)
   {
 
@@ -191,24 +191,24 @@ void GOutput::readAdaptedOutputExchangeItem(QXmlStreamReader &xmlReader, QList<Q
 
           //Read arguments and connections
           while (!(xmlReader.isEndElement() &&
-                   !xmlReader.name().compare("AdaptedOutputExchangeItem", Qt::CaseInsensitive)) &&
+                   !xmlReader.name().string()->compare("AdaptedOutputExchangeItem", Qt::CaseInsensitive)) &&
                  !xmlReader.hasError())
           {
-            if(!xmlReader.name().compare("Arguments", Qt::CaseInsensitive) &&
+            if(!xmlReader.name().string()->compare("Arguments", Qt::CaseInsensitive) &&
                !xmlReader.hasError()
                && xmlReader.tokenType() == QXmlStreamReader::StartElement)
             {
               while (!(xmlReader.isEndElement() &&
-                       !xmlReader.name().compare("Arguments", Qt::CaseInsensitive)) &&
+                       !xmlReader.name().string()->compare("Arguments", Qt::CaseInsensitive)) &&
                      !xmlReader.hasError())
               {
-                if(!xmlReader.name().compare("Argument", Qt::CaseInsensitive) &&
+                if(!xmlReader.name().string()->compare("Argument", Qt::CaseInsensitive) &&
                    !xmlReader.hasError()  &&
                    xmlReader.tokenType() == QXmlStreamReader::StartElement)
                 {
                   readArgument(xmlReader,gAdaptedOutput->adaptedOutput());
 
-                  while (!(xmlReader.isEndElement() && !xmlReader.name().compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
+                  while (!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
                   {
                     xmlReader.readNext();
                   }
@@ -216,7 +216,7 @@ void GOutput::readAdaptedOutputExchangeItem(QXmlStreamReader &xmlReader, QList<Q
                 xmlReader.readNext();
               }
             }
-            else if(!xmlReader.name().compare("Connections", Qt::CaseInsensitive) &&
+            else if(!xmlReader.name().string()->compare("Connections", Qt::CaseInsensitive) &&
                     !xmlReader.hasError()
                     && xmlReader.tokenType() == QXmlStreamReader::StartElement)
             {
@@ -243,7 +243,7 @@ void GOutput::readAdaptedOutputExchangeItem(QXmlStreamReader &xmlReader, QList<Q
 
 void GOutput::readArgument(QXmlStreamReader &xmlReader, IAdaptedOutput *adaptedOutput)
 {
-  if(!xmlReader.name().compare("Argument", Qt::CaseInsensitive) &&
+  if(!xmlReader.name().string()->compare("Argument", Qt::CaseInsensitive) &&
      !xmlReader.hasError() &&
      xmlReader.tokenType() == QXmlStreamReader::StartElement )
   {
@@ -265,7 +265,7 @@ void GOutput::readArgument(QXmlStreamReader &xmlReader, IAdaptedOutput *adaptedO
           QString value;
           QXmlStreamWriter writer(&value);
 
-          while(!(xmlReader.isEndElement() && !xmlReader.name().compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
+          while(!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
           {
             xmlReader.readNext();
             writer.writeCurrentToken(xmlReader);
@@ -285,7 +285,7 @@ void GOutput::readArgument(QXmlStreamReader &xmlReader, IAdaptedOutput *adaptedO
       }
     }
 
-    while (!(xmlReader.isEndElement() && !xmlReader.name().compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
+    while (!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
     {
       xmlReader.readNext();
     }

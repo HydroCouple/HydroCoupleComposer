@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "splashscreen.h"
 
+#include <QPainter>
 
 SplashScreen::SplashScreen(const QPixmap & pixmap, Qt::WindowFlags f)
    : QSplashScreen(pixmap, f)

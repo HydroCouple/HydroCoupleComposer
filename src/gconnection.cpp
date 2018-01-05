@@ -5,6 +5,7 @@
 #include "hydrocouple.h"
 #include "gmodelcomponent.h"
 
+#include <QtWidgets>
 
 float GConnection::m_arrowLength(40.0f);
 float GConnection::m_arrowWidth(30.0f);

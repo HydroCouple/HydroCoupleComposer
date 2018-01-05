@@ -1,19 +1,22 @@
 #Author Caleb Amoa Buahin
 #Email caleb.buahin@gmail.com
 #Date 2016
-#License GNU General Public License (see <http://www.gnu.org/licenses/> for details).
+#License GNU General Public License (see <http: //www.gnu.org/licenses/> for details).
 
 TEMPLATE = app
+VERSION = 1.0.0
 TARGET = HydroCoupleComposer
 QT += core widgets gui printsupport concurrent opengl
 
-DEFINES += GRAPHVIZ_LIBRARY
+#DEFINES += GRAPHVIZ_LIBRARY
 DEFINES += UTAH_CHPC
 DEFINES += USE_MPI
 DEFINES += USE_OPENMP
 
 CONFIG += c++11
 CONFIG += debug_and_release
+
+PRECOMPILED_HEADER += ./include/stdafx.h
 
 INCLUDEPATH += .\
                ./include \
@@ -27,11 +30,12 @@ macx{
 }
 
 linux{
-   INCLUDEPATH += /usr/include/
+   INCLUDEPATH += /usr/include
 }
 
 win32{
-  INCLUDEPATH += ../../graphviz/win32/include
+  INCLUDEPATH += $$PWD/graphviz/win32/include \
+                 $$(MSMPI_INC)/
 }
 
 HEADERS += ./include/stdafx.h \
@@ -93,18 +97,16 @@ macx{
 
         QMAKE_CFLAGS+= -fopenmp
         QMAKE_LFLAGS+= -fopenmp
-        QMAKE_CXXFLAGS+= -fopenmp
+        QMAKE_CXXFLAGS+= -fopenmp -g
 
         INCLUDEPATH += /usr/local/opt/llvm/lib/clang/5.0.0/include
         LIBS += -L /usr/local/opt/llvm/lib -lomp
 
         message("OpenMP enabled")
-
-    } else {
+     } else {
 
         message("OpenMP disabled")
-
-    }
+     }
 
     contains(DEFINES,USE_MPI){
 
@@ -119,12 +121,10 @@ macx{
         LIBS += -L/usr/local/lib/ -lmpi
 
     message("MPI enabled")
-
-    } else {
+     } else {
 
       message("MPI disabled")
-
-    }
+     }
 }
 
 
@@ -140,12 +140,10 @@ linux{
         QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS
 
       message("OpenMP enabled")
-
-    } else {
+     } else {
 
       message("OpenMP disabled")
-
-    }
+     }
 
     contains(DEFINES,USE_MPI){
 
@@ -154,16 +152,161 @@ linux{
         QMAKE_LINK = mpic++
 
       message("MPI enabled")
-
-    } else {
+     } else {
 
       message("MPI disabled")
-    }
-
-
+     }
 }
 
-PRECOMPILED_HEADER += ./include/stdafx.h
+
+win32{
+
+    contains(DEFINES,USE_OPENMP){
+
+        QMAKE_CFLAGS += -openmp
+        QMAKE_LFLAGS += -openmp
+        QMAKE_CXXFLAGS += -openmp
+        #QMAKE_LIBS += -liomp5
+        QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS
+        QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS
+
+      message("OpenMP enabled")
+     } else {
+
+      message("OpenMP disabled")
+     }
+
+    contains(DEFINES,USE_MPI){
+
+#        QMAKE_CC = mpicc
+#        QMAKE_CXX = mpic++
+#        QMAKE_LINK = mpic++
+       LIBS += -L$$(MSMPI_LIB64)/ -lmsmpi
+      # message($$(MSMPI_LIB64))
+       message("MPI enabled")
+     } else {
+
+      message("MPI disabled")
+     }
+}
+
+CONFIG(debug, debug|release) {
+
+   macx{
+   LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel.1.0.0 \
+           -L./../HydroCoupleVis/build/debug -lHydroCoupleVis.1.0.0 \
+           -L/usr/local/lib -lcgraph \
+           -L/usr/local/lib -lgvc
+     }
+
+   linux{
+
+    contains(DEFINES,UTAH_CHPC){
+
+         INCLUDEPATH += /uufs/chpc.utah.edu/common/home/u0660135/Projects/HydroCouple/graphviz/build/usr/local/include
+
+         LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel.so.1.0.0 \
+                 -L./../HydroCoupleVis/build/debug -lHydroCoupleVis.so.1.0.0 \
+                 -L./../graphviz/build/usr/local/lib -lcgraph \
+                 -L./../graphviz/build/usr/local/lib -lgvc
+
+         message("Compiling on CHPC")
+          } else {
+
+   LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel.so.1.0.0 \
+           -L./../HydroCoupleVis/build/debug -lHydroCoupleVis.so.1.0.0 \
+           -L/usr/lib -lcgraph \
+           -L/usr/lib -lgvc
+          }
+     }
+
+   win32{
+
+   QMAKE_CXXFLAGS += -MDd
+
+   LIBS += -L$$PWD/../../QPropertyModel/build/debug -lQPropertyModel1 \
+           -L$$PWD/../HydroCoupleVis/build/debug -lHydroCoupleVis1
+
+
+    contains(DEFINES,GRAPHVIZ_LIBRARY){
+
+          LIBS += -L$$PWD/graphviz/win32/lib -lcgraphd \
+                  -L$$PWD/graphviz/win32/lib -lgvcd
+          }
+     }
+
+   DESTDIR = ./build/debug
+   OBJECTS_DIR = $$DESTDIR/.obj
+   MOC_DIR = $$DESTDIR/.moc
+   RCC_DIR = $$DESTDIR/.qrc
+   UI_DIR = $$DESTDIR/.ui
+}
+
+CONFIG(release, debug|release){
+
+   macx{
+      LIBS += -L./../../QPropertyModel/lib/macx -lQPropertyModel.1.0.0 \
+              -L./../HydroCoupleVis/lib/macx -lHydroCoupleVis.1.0.0 \
+              -L/usr/local/lib -lcgraph \
+              -L/usr/local/lib -lgvc
+     }
+
+   linux{
+    contains(DEFINES,UTAH_CHPC){
+
+         INCLUDEPATH += ./../graphviz/build/usr/local/include
+
+         LIBS += -L./../../QPropertyModel/lib/linux -lQPropertyModel.so.1.0.0 \
+                 -L./../HydroCoupleVis/lib/linux -lHydroCoupleVis.so.1.0.0 \
+                 -L./../graphviz/build/usr/local/lib -lcgraph \
+                 -L./../graphviz/build/usr/local/lib -lgvc
+
+         message("Compiling on CHPC")
+          } else {
+
+   LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel \
+           -L./../HydroCoupleVis/build/debug -lHydroCoupleVis \
+           -L/usr/lib -lcgraph \
+           -L/usr/lib -lgvc
+          }
+     }
+
+   win32{
+      
+      QMAKE_CXXFLAGS += -MD
+     
+      LIBS += -L$$PWD/../../QPropertyModel/lib/win32 -lQPropertyModel1 \
+              -L$$PWD/../HydroCoupleVis/lib/win32 -lHydroCoupleVis1
+
+
+    contains(DEFINES,GRAPHVIZ_LIBRARY){
+
+          LIBS += -L$$PWD/graphviz/win32/lib -lcgraph \
+                  -L$$PWD/graphviz/win32/lib -lgvc
+          }
+     }
+
+         #MacOS
+         macx{
+             DESTDIR = $$PWD/bin/macx
+     }
+
+         #Linux
+         linux{
+             DESTDIR = $$PWD/bin/linux
+     }
+
+         #Windows
+         win32{
+             DESTDIR = $$PWD/bin/win32
+     }
+
+    RELEASE_EXTRAS = $$PWD/build/release
+    OBJECTS_DIR = $$RELEASE_EXTRAS/.obj
+    MOC_DIR = $$RELEASE_EXTRAS/.moc
+    RCC_DIR = $$RELEASE_EXTRAS/.qrc
+    UI_DIR = $$RELEASE_EXTRAS/.ui
+}
 
 RESOURCES += ./resources/hydrocouplecomposer.qrc
 RC_FILE = ./resources/HydroCoupleComposer.rc
@@ -182,112 +325,7 @@ win32{
 
 FORMS += ./forms/hydrocouplecomposer.ui \
          ./forms/argumentdialog.ui \
-    forms/preferencesdialog.ui
+         ./forms/preferencesdialog.ui
 
 
-CONFIG(debug, debug|release) {
-
-   macx{
-   LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel \
-           -L./../HydroCoupleVis/build/debug -lHydroCoupleVis \
-           -L/usr/local/lib -lcgraph \
-           -L/usr/local/lib -lgvc
-   }
-   
-   linux{
-
-    contains(DEFINES,UTAH_CHPC){
-
-         INCLUDEPATH += /uufs/chpc.utah.edu/common/home/u0660135/Projects/HydroCouple/graphviz/build/usr/local/include
-
-         LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel \
-                 -L./../HydroCoupleVis/build/debug -lHydroCoupleVis \
-                 -L./../graphviz/build/usr/local/lib -lcgraph \
-                 -L./../graphviz/build/usr/local/lib -lgvc
-
-         message("Compiling on CHPC")
-
-
-        } else {
-
-   LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel \
-           -L./../HydroCoupleVis/build/debug -lHydroCoupleVis \
-           -L/usr/lib -lcgraph \
-           -L/usr/lib -lgvc
-       }
-   }
-
-   win32{
-   LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel1 \
-           -L./../HydroCoupleVis/build/debug -lHydroCoupleVis1 \
-           -L./graphviz/win32/lib -lcgraph \
-           -L./graphviz/win32/lib -lgvc
-   }
-
-   DESTDIR = ./build/debug
-   OBJECTS_DIR = $$DESTDIR/.obj
-   MOC_DIR = $$DESTDIR/.moc
-   RCC_DIR = $$DESTDIR/.qrc
-   UI_DIR = $$DESTDIR/.ui
-}
-
-CONFIG(release, debug|release){
-
-   macx{
-      LIBS += -L./../../QPropertyModel/lib/macx -lQPropertyModel \
-              -L./../HydroCoupleVis/lib/macx -lHydroCoupleVis \
-              -L/usr/local/lib -lcgraph \
-              -L/usr/local/lib -lgvc
-   }
-
-   linux{
-    contains(DEFINES,UTAH_CHPC){
-
-         INCLUDEPATH += ./../graphviz/build/usr/local/include
-
-         LIBS += -L./../../QPropertyModel/lib/linux -lQPropertyModel \
-                 -L./../HydroCoupleVis/lib/linux -lHydroCoupleVis \
-                 -L./../graphviz/build/usr/local/lib -lcgraph \
-                 -L./../graphviz/build/usr/local/lib -lgvc
-
-         message("Compiling on CHPC")
-
-
-        } else {
-
-   LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel \
-           -L./../HydroCoupleVis/build/debug -lHydroCoupleVis \
-           -L/usr/lib -lcgraph \
-           -L/usr/lib -lgvc
-       }
-   }
-
-   win32{
-      LIBS += -L./../../QPropertyModel/lib/win32 -lQPropertyModel1 \
-              -L./../HydroCoupleVis/lib/win32 -lHydroCoupleVis1 \
-              -L./graphviz/win32/lib -lcgraph \
-              -L./graphviz/win32/lib -lgvc
-   }
-
-         #MacOS
-         macx{
-             DESTDIR = bin/macx
-         }
-
-         #Linux
-         linux{
-             DESTDIR = bin/linux
-         }
-
-         #Windows
-         win32{
-             DESTDIR = bin/win32
-         }
-
-    RELEASE_EXTRAS = ./build/release
-    OBJECTS_DIR = $$RELEASE_EXTRAS/.obj
-    MOC_DIR = $$RELEASE_EXTRAS/.moc
-    RCC_DIR = $$RELEASE_EXTRAS/.qrc
-    UI_DIR = $$RELEASE_EXTRAS/.ui
-}   
 

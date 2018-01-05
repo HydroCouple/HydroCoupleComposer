@@ -3,6 +3,9 @@
 #include "hydrocoupleproject.h"
 #include "gmodelcomponent.h"
 
+#include <QApplication>
+#include <QDirIterator>
+
 using namespace HydroCouple;
 
 ComponentManager::ComponentManager(HydroCoupleProject *parent)
@@ -49,11 +52,13 @@ IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
 
   if (file.isFile() && file.exists())
   {
-
     if (hasValidExtension(file))
     {
-
+      QApplication::addLibraryPath(file.absolutePath());
+      QLibrary::LoadHints loadHints = QLibrary::PreventUnloadHint | QLibrary::ResolveAllSymbolsHint;
       QPluginLoader* pluginLoader = new QPluginLoader(file.absoluteFilePath(), this);
+      pluginLoader->setLoadHints(loadHints);
+      pluginLoader->load();
 
       QObject* component = pluginLoader->instance();
 
@@ -78,7 +83,6 @@ IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
 
               if((tempComponentInfo = findModelComponentInfo(mcomponentInfo->id())))
               {
-                //              delete mcomponentInfo;
                 message = "Model component library " + tempComponentInfo->id() + "has already been loaded";
                 emit postMessage(message);
                 return tempComponentInfo ;
@@ -161,6 +165,12 @@ IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
       {
         message = "'/" + file.filePath() + "'/ is not a valid Qt plugin library";
         emit postMessage(message);
+
+        if(pluginLoader->errorString().size())
+        {
+          emit postMessage(pluginLoader->errorString());
+          printf("%s\n", pluginLoader->errorString().toStdString().c_str());
+        }
       }
 
       pluginLoader->unload();
@@ -221,11 +231,19 @@ void ComponentManager::addComponentDirectory(const QDir& directory)
 
     for (QFileInfo file : files)
     {
-      emit postMessage("Loading component library \"" + file.absoluteFilePath() + "\" ...");
-
-      if (loadComponent(file))
+      if(file.isSymLink())
       {
+        QFileInfo tempFile(file.symLinkTarget());
+        emit postMessage("Loading component library \"" + tempFile.absoluteFilePath() + "\" ...");
+        loadComponent(tempFile);
       }
+      else
+      {
+        emit postMessage("Loading component library \"" + file.absoluteFilePath() + "\" ...");
+        loadComponent(file);
+      }
+
+
       count = count + 1;
       int progress = (int)(count * 100.0 / files.length());
       emit setProgress(true, progress);

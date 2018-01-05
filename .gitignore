@@ -27,8 +27,7 @@ bld/
 GeneratedFiles/
 ipch/
 x64/
-graphviz/
-graphviz/win32/
+setup/
 
 ##Resources
 

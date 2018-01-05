@@ -2,6 +2,8 @@
 #include "gexchangeitems.h"
 #include "gmodelcomponent.h"
 
+#include <QGraphicsScene>
+
 using namespace HydroCouple;
 
 GAdaptedOutput::GAdaptedOutput(const QString &adaptedOutputId,
@@ -246,15 +248,15 @@ void GAdaptedOutput::writeExchangeItemConnections(QXmlStreamWriter &xmlWriter)
 
 void GAdaptedOutput::readAdaptedOutputExchangeItemConnections(QXmlStreamReader &xmlReader, QList<QString> &errorMessages)
 {
-  if(!xmlReader.name().compare("Connections",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+  if(!xmlReader.name().string()->compare("Connections",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
   {
-    while(!(xmlReader.isEndElement() && !xmlReader.name().compare("Connections", Qt::CaseInsensitive)) && !xmlReader.hasError())
+    while(!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("Connections", Qt::CaseInsensitive)) && !xmlReader.hasError())
     {
-      if(!xmlReader.name().compare("AdaptedOutputExchangeItem",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+      if(!xmlReader.name().string()->compare("AdaptedOutputExchangeItem",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
       {
         readAdaptedOutputExchangeItem(xmlReader,errorMessages);
       }
-      else if(!xmlReader.name().compare("InputExchangeItem",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+      else if(!xmlReader.name().string()->compare("InputExchangeItem",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
       {
 
         QXmlStreamAttributes attributes = xmlReader.attributes();

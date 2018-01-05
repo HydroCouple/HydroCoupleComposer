@@ -152,17 +152,17 @@ HydroCoupleProject* HydroCoupleProject::readProjectFile(const QFileInfo &fileInf
 
     while(!xmlReader.isEndDocument() && !xmlReader.hasError())
     {
-      if(!xmlReader.name().compare("HydroCoupleProject", Qt::CaseInsensitive) && !xmlReader.hasError() &&
+      if(!xmlReader.name().string()->compare("HydroCoupleProject", Qt::CaseInsensitive) && !xmlReader.hasError() &&
          xmlReader.tokenType() == QXmlStreamReader::StartElement )
       {
-        while (!(xmlReader.isEndElement() && !xmlReader.name().compare("HydroCoupleProject", Qt::CaseInsensitive)) && !xmlReader.hasError())
+        while (!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("HydroCoupleProject", Qt::CaseInsensitive)) && !xmlReader.hasError())
         {
 
-          if(!xmlReader.name().compare("ModelComponents", Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+          if(!xmlReader.name().string()->compare("ModelComponents", Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
           {
-            while(!(xmlReader.isEndElement() && !xmlReader.name().compare("ModelComponents", Qt::CaseInsensitive)) && !xmlReader.hasError())
+            while(!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("ModelComponents", Qt::CaseInsensitive)) && !xmlReader.hasError())
             {
-              if(!xmlReader.name().compare("ModelComponent",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+              if(!xmlReader.name().string()->compare("ModelComponent",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
               {
                 GModelComponent* modelComponent = GModelComponent::readComponent(xmlReader, project, project->m_projectFile.dir(), errorMessages, initializeComponents);
 
@@ -176,11 +176,11 @@ HydroCoupleProject* HydroCoupleProject::readProjectFile(const QFileInfo &fileInf
               xmlReader.readNext();
             }
           }
-          else if(!xmlReader.name().compare("ModelComponentConnections", Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement && initializeComponents)
+          else if(!xmlReader.name().string()->compare("ModelComponentConnections", Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement && initializeComponents)
           {
-            while(!(xmlReader.isEndElement() && !xmlReader.name().compare("ModelComponentConnections", Qt::CaseInsensitive)) && !xmlReader.hasError())
+            while(!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("ModelComponentConnections", Qt::CaseInsensitive)) && !xmlReader.hasError())
             {
-              if(!xmlReader.name().compare("ModelComponentConnection",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+              if(!xmlReader.name().string()->compare("ModelComponentConnection",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
               {
                 QXmlStreamAttributes attributes = xmlReader.attributes();
 
@@ -230,9 +230,9 @@ HydroCoupleProject* HydroCoupleProject::readProjectFile(const QFileInfo &fileInf
               xmlReader.readNext();
             }
           }
-          else if(!xmlReader.name().compare("WorkflowComponent", Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+          else if(!xmlReader.name().string()->compare("WorkflowComponent", Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
           {
-            while(!(xmlReader.isEndElement() && !xmlReader.name().compare("WorkflowComponent", Qt::CaseInsensitive)) && !xmlReader.hasError())
+            while(!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("WorkflowComponent", Qt::CaseInsensitive)) && !xmlReader.hasError())
             {
 
               QXmlStreamAttributes attributes = xmlReader.attributes();
@@ -301,17 +301,17 @@ GModelComponent *HydroCoupleProject::readModelComponent(const QFileInfo &fileInf
 
     while(!xmlReader.isEndDocument() && !xmlReader.hasError())
     {
-      if(!xmlReader.name().compare("HydroCoupleProject", Qt::CaseInsensitive) && !xmlReader.hasError() &&
+      if(!xmlReader.name().string()->compare("HydroCoupleProject", Qt::CaseInsensitive) && !xmlReader.hasError() &&
          xmlReader.tokenType() == QXmlStreamReader::StartElement )
       {
-        while (!(xmlReader.isEndElement() && !xmlReader.name().compare("HydroCoupleProject", Qt::CaseInsensitive)) && !xmlReader.hasError())
+        while (!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("HydroCoupleProject", Qt::CaseInsensitive)) && !xmlReader.hasError())
         {
 
-          if(!xmlReader.name().compare("ModelComponents", Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+          if(!xmlReader.name().string()->compare("ModelComponents", Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
           {
-            while(!(xmlReader.isEndElement() && !xmlReader.name().compare("ModelComponents", Qt::CaseInsensitive)) && !xmlReader.hasError())
+            while(!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("ModelComponents", Qt::CaseInsensitive)) && !xmlReader.hasError())
             {
-              if(!xmlReader.name().compare("ModelComponent",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+              if(!xmlReader.name().string()->compare("ModelComponent",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
               {
 
                 if(count == componentIndex)
@@ -322,7 +322,7 @@ GModelComponent *HydroCoupleProject::readModelComponent(const QFileInfo &fileInf
                 }
                 else
                 {
-                  while(!(xmlReader.isEndElement() && !xmlReader.name().compare("ModelComponent", Qt::CaseInsensitive)) && !xmlReader.hasError())
+                  while(!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("ModelComponent", Qt::CaseInsensitive)) && !xmlReader.hasError())
                   {
                     xmlReader.readNext();
                   }
@@ -440,11 +440,11 @@ void HydroCoupleProject::onReloadConnections()
 
       while(!xmlReader.isEndDocument() && !xmlReader.hasError())
       {
-        if(!xmlReader.name().compare("ModelComponentConnections", Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+        if(!xmlReader.name().string()->compare("ModelComponentConnections", Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
         {
-          while(!(xmlReader.isEndElement() && !xmlReader.name().compare("ModelComponentConnections", Qt::CaseInsensitive)) && !xmlReader.hasError())
+          while(!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("ModelComponentConnections", Qt::CaseInsensitive)) && !xmlReader.hasError())
           {
-            if(!xmlReader.name().compare("ModelComponentConnection",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+            if(!xmlReader.name().string()->compare("ModelComponentConnection",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
             {
               QXmlStreamAttributes attributes = xmlReader.attributes();
 

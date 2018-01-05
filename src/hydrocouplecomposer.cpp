@@ -20,6 +20,10 @@
 #include <mpi.h>
 #endif
 
+#ifdef _WIN32
+
+#endif
+
 using namespace HydroCouple;
 using namespace std;
 
@@ -1257,7 +1261,7 @@ void HydroCoupleComposer::layoutEdges(Agraph_t *graph, const QHash<GNode*, QStri
 void HydroCoupleComposer::stringToCharP(const QString& text, char * & output)
 {
   output = new char[text.length() + 1];
-  stpcpy(output , text.toStdString().c_str());
+  strcpy(output , text.toStdString().c_str());
 }
 
 void HydroCoupleComposer::setRight(QGraphicsItem * graphicsItem, double right)

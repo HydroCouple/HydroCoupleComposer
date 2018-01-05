@@ -4,6 +4,9 @@
 #include "gexchangeitems.h"
 #include "gmodelcomponent.h"
 
+#include <QGraphicsScene>
+#include <QStyleOptionGraphicsItem>
+
 const QString GNode::sc_captionHtml =
     "<h3 align=\"center\">[Id]</h3>"
     "<h5 align=\"center\"><i>[Caption]</i></h5>";

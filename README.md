@@ -1,5 +1,7 @@
 # HydroCoupleComposer
 
+[![AUR](https://img.shields.io/aur/license/yaourt.svg)](https://github.com/HydroCouple/HydroCouple/blob/master/License.md)
+
 HydroCoupleComposer is a cross platform GUI for creating HydroCouple coupled model compositions. It can be launched using MPI for compositions containing components that support MPI.
 
 ```
