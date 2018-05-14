@@ -49,15 +49,15 @@ void SimulationManager::runComposition(bool background)
         connect(object, SIGNAL(componentStatusChanged(HydroCouple::IWorkflowComponent::WorkflowStatus, const QString&)),
                 this, SLOT(onWorkflowComponentStatusChanged(HydroCouple::IWorkflowComponent::WorkflowStatus, const QString&)));
 
-        while(m_project->workflowComponent()->modelComponents().count())
-        {
-          m_project->workflowComponent()->removeModelComponent(m_project->workflowComponent()->modelComponents().first());
-        }
+        //        while(m_project->workflowComponent()->modelComponents().count())
+        //        {
+        //          m_project->workflowComponent()->removeModelComponent(m_project->workflowComponent()->modelComponents().first());
+        //        }
 
-        for(GModelComponent *modelComponent : m_project->modelComponents())
-        {
-          m_project->workflowComponent()->addModelComponent(modelComponent->modelComponent());
-        }
+        //        for(GModelComponent *modelComponent : m_project->modelComponents())
+        //        {
+        //          m_project->workflowComponent()->addModelComponent(modelComponent->modelComponent());
+        //        }
       }
 
       assignComponentIndexes();

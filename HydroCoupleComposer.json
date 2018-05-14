@@ -8,21 +8,11 @@ VERSION = 1.0.0
 TARGET = HydroCoupleComposer
 QT += core widgets gui printsupport concurrent opengl
 
-DEFINES += GRAPHVIZ_LIBRARY
 DEFINES += UTAH_CHPC
 DEFINES += USE_MPI
 DEFINES += USE_OPENMP
 
 CONFIG += c++11
-
-
-*msvc* { # visual studio spec filter
-      QMAKE_CXXFLAGS += /MP /O2
-  }
-
-linux {
-CONFIG += debug_and_release
-}
 
 PRECOMPILED_HEADER += ./include/stdafx.h
 
@@ -33,16 +23,20 @@ INCLUDEPATH += .\
                ../../QPropertyModel/include
 
 macx{
-    INCLUDEPATH += /usr/local/include \
+     DEFINES += GRAPHVIZ_LIBRARY
+     INCLUDEPATH += /usr/local/include \
                    /usr/local/include/libiomp
 }
 
 linux{
-   INCLUDEPATH += /usr/include
+     CONFIG += debug_and_release
+     DEFINES += GRAPHVIZ_LIBRARY
+     INCLUDEPATH += /usr/include
 }
 
 win32{
-  INCLUDEPATH += $$PWD/graphviz/win32/include \
+     CONFIG += debug_and_release
+     INCLUDEPATH += $$PWD/graphviz/win32/include \
                  $$(MSMPI_INC)/
 }
 
@@ -170,30 +164,31 @@ linux{
 win32{
 
     contains(DEFINES,USE_OPENMP){
-
-        QMAKE_CFLAGS += /openmp
-        QMAKE_LFLAGS += /openmp
-        QMAKE_CXXFLAGS += /openmp
+        QMAKE_CFLAGS += -openmp
+        QMAKE_LFLAGS += -openmp
+        QMAKE_CXXFLAGS += -openmp
+        #QMAKE_LIBS += -liomp5
         QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS
         QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS
         message("OpenMP enabled")
      } else {
 
-      message("OpenMP disabled")
+        message("OpenMP disabled")
      }
 
     contains(DEFINES,USE_MPI){
        LIBS += -L$$(MSMPI_LIB64)/ -lmsmpi
        message("MPI enabled")
      } else {
-      message("MPI disabled")
+
+       message("MPI disabled")
      }
 }
 
 CONFIG(debug, debug|release) {
 
    macx{
-   LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel.1.0.0 \
+     LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel.1.0.0 \
            -L./../HydroCoupleVis/build/debug -lHydroCoupleVis.1.0.0 \
            -L/usr/local/lib -lcgraph \
            -L/usr/local/lib -lgvc
@@ -221,6 +216,8 @@ CONFIG(debug, debug|release) {
      }
 
    win32{
+
+   QMAKE_CXXFLAGS += -MDd
 
    LIBS += -L$$PWD/../../QPropertyModel/build/debug -lQPropertyModel1 \
            -L$$PWD/../HydroCoupleVis/build/debug -lHydroCoupleVis1

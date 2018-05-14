@@ -249,10 +249,10 @@ GModelComponent* GModelComponent::readComponentFile(const QFileInfo & fileInfo, 
 
     while(!xmlReader.isEndDocument() && !xmlReader.hasError())
     {
-      if(!xmlReader.name().string()->compare("ModelComponent", Qt::CaseInsensitive) && !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+      if(!xmlReader.name().toString().compare("ModelComponent", Qt::CaseInsensitive) && !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement)
       {
         while (!((xmlReader.isEndElement() || xmlReader.isEndDocument()) &&
-                 !xmlReader.name().string()->compare("ModelComponent", Qt::CaseInsensitive)) && !xmlReader.hasError())
+                 !xmlReader.name().toString().compare("ModelComponent", Qt::CaseInsensitive)) && !xmlReader.hasError())
         {
 
           GModelComponent* modelComponent = readComponent(xmlReader, project, fileInfo.dir(), errorMessages, initialize);
@@ -277,7 +277,7 @@ GModelComponent* GModelComponent::readComponent(QXmlStreamReader &xmlReader, Hyd
 {
   GModelComponent* modelComponent = nullptr;
 
-  if(!xmlReader.name().string()->compare("ModelComponent", Qt::CaseInsensitive) &&
+  if(!xmlReader.name().toString().compare("ModelComponent", Qt::CaseInsensitive) &&
      !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement)
   {
 
@@ -378,19 +378,19 @@ GModelComponent* GModelComponent::readComponent(QXmlStreamReader &xmlReader, Hyd
               }
             }
 
-            while (!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("ModelComponent", Qt::CaseInsensitive)) && !xmlReader.hasError())
+            while (!(xmlReader.isEndElement() && !xmlReader.name().toString().compare("ModelComponent", Qt::CaseInsensitive)) && !xmlReader.hasError())
             {
-              if(!xmlReader.name().string()->compare("Arguments", Qt::CaseInsensitive) &&
+              if(!xmlReader.name().toString().compare("Arguments", Qt::CaseInsensitive) &&
                  !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement)
               {
-                while (!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("Arguments", Qt::CaseInsensitive)) && !xmlReader.hasError())
+                while (!(xmlReader.isEndElement() && !xmlReader.name().toString().compare("Arguments", Qt::CaseInsensitive)) && !xmlReader.hasError())
                 {
-                  if(!xmlReader.name().string()->compare("Argument", Qt::CaseInsensitive) && !xmlReader.hasError()  &&
+                  if(!xmlReader.name().toString().compare("Argument", Qt::CaseInsensitive) && !xmlReader.hasError()  &&
                      xmlReader.tokenType() == QXmlStreamReader::StartElement)
                   {
                     readArgument(xmlReader, component);
 
-                    while (!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
+                    while (!(xmlReader.isEndElement() && !xmlReader.name().toString().compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
                     {
                       xmlReader.readNext();
                     }
@@ -404,12 +404,12 @@ GModelComponent* GModelComponent::readComponent(QXmlStreamReader &xmlReader, Hyd
                   component->initialize();
                 }
               }
-              else if(!xmlReader.name().string()->compare("ComputeResourceAllocations", Qt::CaseInsensitive) &&
+              else if(!xmlReader.name().toString().compare("ComputeResourceAllocations", Qt::CaseInsensitive) &&
                       !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement)
               {
-                while (!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("ComputeResourceAllocations", Qt::CaseInsensitive)) && !xmlReader.hasError())
+                while (!(xmlReader.isEndElement() && !xmlReader.name().toString().compare("ComputeResourceAllocations", Qt::CaseInsensitive)) && !xmlReader.hasError())
                 {
-                  if(!xmlReader.name().string()->compare("ComputeResourceAllocation", Qt::CaseInsensitive) && !xmlReader.hasError()  &&
+                  if(!xmlReader.name().toString().compare("ComputeResourceAllocation", Qt::CaseInsensitive) && !xmlReader.hasError()  &&
                      xmlReader.tokenType() == QXmlStreamReader::StartElement)
                   {
                     CPUGPUAllocation *cpugpuAllocation = CPUGPUAllocation::readCPUGPUAllocation(xmlReader, modelComponent, errorMessages);
@@ -438,27 +438,27 @@ GModelComponent* GModelComponent::readComponent(QXmlStreamReader &xmlReader, Hyd
       }
     }
 
-    while (!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("ModelComponent", Qt::CaseInsensitive)) && !xmlReader.hasError())
+    while (!(xmlReader.isEndElement() && !xmlReader.name().toString().compare("ModelComponent", Qt::CaseInsensitive)) && !xmlReader.hasError())
     {
 
       if(modelComponent)
       {
-        if(!xmlReader.name().string()->compare("ExchangeItemPositions", Qt::CaseInsensitive) &&
+        if(!xmlReader.name().toString().compare("ExchangeItemPositions", Qt::CaseInsensitive) &&
            !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement )
         {
 
           while (!(xmlReader.isEndElement() &&
-                   !xmlReader.name().string()->compare("ExchangeItemPositions", Qt::CaseInsensitive)) && !xmlReader.hasError())
+                   !xmlReader.name().toString().compare("ExchangeItemPositions", Qt::CaseInsensitive)) && !xmlReader.hasError())
           {
 
-            if(!xmlReader.name().string()->compare("Outputs", Qt::CaseInsensitive) &&
+            if(!xmlReader.name().toString().compare("Outputs", Qt::CaseInsensitive) &&
                !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement )
             {
               while (!(xmlReader.isEndElement() &&
-                       !xmlReader.name().string()->compare("Outputs", Qt::CaseInsensitive)) && !xmlReader.hasError())
+                       !xmlReader.name().toString().compare("Outputs", Qt::CaseInsensitive)) && !xmlReader.hasError())
               {
 
-                if(!xmlReader.name().string()->compare("Output", Qt::CaseInsensitive) &&
+                if(!xmlReader.name().toString().compare("Output", Qt::CaseInsensitive) &&
                    !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement )
                 {
                   attributes = xmlReader.attributes();
@@ -493,14 +493,14 @@ GModelComponent* GModelComponent::readComponent(QXmlStreamReader &xmlReader, Hyd
                 xmlReader.readNext();
               }
             }
-            else if(!xmlReader.name().string()->compare("Inputs", Qt::CaseInsensitive) &&
+            else if(!xmlReader.name().toString().compare("Inputs", Qt::CaseInsensitive) &&
                     !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement )
             {
               while (!(xmlReader.isEndElement() &&
-                       !xmlReader.name().string()->compare("Inputs", Qt::CaseInsensitive)) && !xmlReader.hasError())
+                       !xmlReader.name().toString().compare("Inputs", Qt::CaseInsensitive)) && !xmlReader.hasError())
               {
 
-                if(!xmlReader.name().string()->compare("Input", Qt::CaseInsensitive) &&
+                if(!xmlReader.name().toString().compare("Input", Qt::CaseInsensitive) &&
                    !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement )
                 {
                   attributes = xmlReader.attributes();
@@ -550,11 +550,11 @@ GModelComponent* GModelComponent::readComponent(QXmlStreamReader &xmlReader, Hyd
 
 void GModelComponent::readComponentConnections(QXmlStreamReader & xmlReader, QList<QString>& errorMessages)
 {
-  if(!xmlReader.name().string()->compare("ModelComponentConnection",Qt::CaseInsensitive) && !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement )
+  if(!xmlReader.name().toString().compare("ModelComponentConnection",Qt::CaseInsensitive) && !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement )
   {
-    while(!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("ModelComponentConnection", Qt::CaseInsensitive)) && !xmlReader.hasError())
+    while(!(xmlReader.isEndElement() && !xmlReader.name().toString().compare("ModelComponentConnection", Qt::CaseInsensitive)) && !xmlReader.hasError())
     {
-      if(!xmlReader.name().string()->compare("OutputExchangeItem",Qt::CaseInsensitive) && !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement)
+      if(!xmlReader.name().toString().compare("OutputExchangeItem",Qt::CaseInsensitive) && !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement)
       {
         QXmlStreamAttributes attributes = xmlReader.attributes();
 
@@ -1190,7 +1190,7 @@ void GModelComponent::createExchangeItems()
 
 void GModelComponent::readArgument(QXmlStreamReader &xmlReader , IModelComponent* component)
 {
-  if(!xmlReader.name().string()->compare("Argument", Qt::CaseInsensitive) && !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement )
+  if(!xmlReader.name().toString().compare("Argument", Qt::CaseInsensitive) && !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement )
   {
     QXmlStreamAttributes attributes = xmlReader.attributes();
 
@@ -1210,7 +1210,7 @@ void GModelComponent::readArgument(QXmlStreamReader &xmlReader , IModelComponent
           QString value;
           QXmlStreamWriter writer(&value);
 
-          while(!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
+          while(!(xmlReader.isEndElement() && !xmlReader.name().toString().compare("Argument", Qt::CaseInsensitive)) && !xmlReader.hasError())
           {
             xmlReader.readNext();
             writer.writeCurrentToken(xmlReader);

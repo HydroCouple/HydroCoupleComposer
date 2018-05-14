@@ -3,8 +3,11 @@
 #include "hydrocoupleproject.h"
 #include "gmodelcomponent.h"
 
+#include <stdlib.h>
 #include <QApplication>
 #include <QDirIterator>
+
+#include <QtDebug>
 
 using namespace HydroCouple;
 
@@ -30,18 +33,14 @@ ComponentManager::~ComponentManager()
 
   QString message;
   QList<QString> modelComponents = modelComponentInfoIdentifiers();
-
   for(QString identifier: modelComponents)
     unloadModelComponentInfo(identifier, message);
 
   QList<QString> adaptedFactoryComponents = adaptedFactoryComponentInfoIdentifiers();
-
   for(QString identifier: adaptedFactoryComponents)
     unloadAdaptedOutputFactoryComponentInfo(identifier, message);
 
-
   QList<QString> workflowComponents = workflowComponentInfoIdentifiers();
-
   for(QString identifier: workflowComponents)
     unloadWorkflowComponentInfo(identifier, message);
 }
@@ -54,13 +53,20 @@ IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
   {
     if (hasValidExtension(file))
     {
-      QApplication::addLibraryPath(file.absolutePath());
-      QLibrary::LoadHints loadHints = QLibrary::PreventUnloadHint | QLibrary::ResolveAllSymbolsHint;
-      QPluginLoader* pluginLoader = new QPluginLoader(file.absoluteFilePath(), this);
-      pluginLoader->setLoadHints(loadHints);
-      pluginLoader->load();
 
+#ifdef __APPLE__
+#elif __unix__
+#elif __linux__
+#elif _WIN32
+#endif
+
+      QString current = QDir::currentPath();
+      QDir::setCurrent(file.absolutePath());
+
+      QPluginLoader* pluginLoader = new QPluginLoader(file.absoluteFilePath(), this);
       QObject* component = pluginLoader->instance();
+
+      QDir::setCurrent(current);
 
       if (component)
       {

@@ -55,7 +55,7 @@ CPUGPUAllocation *CPUGPUAllocation::readCPUGPUAllocation(QXmlStreamReader &xmlRe
 {
   CPUGPUAllocation *allocation = nullptr;
 
-  if(!xmlReader.name().string()->compare("ComputeResourceAllocation",Qt::CaseInsensitive) && !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement )
+  if(!xmlReader.name().toString().compare("ComputeResourceAllocation",Qt::CaseInsensitive) && !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement )
   {
     int tempValue = 0;
     bool convertible = false;
@@ -113,7 +113,7 @@ CPUGPUAllocation *CPUGPUAllocation::readCPUGPUAllocation(QXmlStreamReader &xmlRe
       errorMessages.append("MPI_Process needs to be specified");
     }
 
-    while(!(xmlReader.isEndElement() && !xmlReader.name().string()->compare("ComputeResourceAllocation", Qt::CaseInsensitive)) && !xmlReader.hasError())
+    while(!(xmlReader.isEndElement() && !xmlReader.name().toString().compare("ComputeResourceAllocation", Qt::CaseInsensitive)) && !xmlReader.hasError())
     {
       xmlReader.readNext();
     }
