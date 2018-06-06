@@ -293,10 +293,8 @@ GModelComponent* GModelComponent::readComponent(QXmlStreamReader &xmlReader, Hyd
         fileInfo = referenceDir.absoluteFilePath(fileInfo.filePath());
       }
 
-      if(fileInfo.exists())
+      if(fileInfo.exists() && (modelComponent = readComponentFile(fileInfo, project, errorMessages, initialize)))
       {
-        modelComponent = readComponentFile(fileInfo, project, errorMessages, initialize);
-
         if(attributes.hasAttribute("IsTrigger"))
         {
           QString trigVal = attributes.value("IsTrigger").toString();
