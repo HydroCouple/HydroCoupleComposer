@@ -30,7 +30,7 @@ INCLUDEPATH += .\
                ./include \
                ../HydroCouple/include \
                ../HydroCoupleVis/include \
-               ../../QPropertyModel/include
+               ../QPropertyModel/include
 
 macx{
     INCLUDEPATH += /usr/local/include \
@@ -193,7 +193,7 @@ win32{
 CONFIG(debug, debug|release) {
 
    macx{
-   LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel.1.0.0 \
+   LIBS += -L./../QPropertyModel/build/debug -lQPropertyModel.1.0.0 \
            -L./../HydroCoupleVis/build/debug -lHydroCoupleVis.1.0.0 \
            -L/usr/local/lib -lcgraph \
            -L/usr/local/lib -lgvc
@@ -205,7 +205,7 @@ CONFIG(debug, debug|release) {
 
          INCLUDEPATH += /uufs/chpc.utah.edu/common/home/u0660135/Projects/HydroCouple/graphviz/build/usr/local/include
 
-         LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel.so.1.0.0 \
+         LIBS += -L./../QPropertyModel/build/debug -lQPropertyModel.so.1.0.0 \
                  -L./../HydroCoupleVis/build/debug -lHydroCoupleVis.so.1.0.0 \
                  -L./../graphviz/build/usr/local/lib -lcgraph \
                  -L./../graphviz/build/usr/local/lib -lgvc
@@ -213,7 +213,7 @@ CONFIG(debug, debug|release) {
          message("Compiling on CHPC")
           } else {
 
-   LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel.so.1.0.0 \
+   LIBS += -L./../QPropertyModel/build/debug -lQPropertyModel.so.1.0.0 \
            -L./../HydroCoupleVis/build/debug -lHydroCoupleVis.so.1.0.0 \
            -L/usr/lib -lcgraph \
            -L/usr/lib -lgvc
@@ -222,7 +222,7 @@ CONFIG(debug, debug|release) {
 
    win32{
 
-   LIBS += -L$$PWD/../../QPropertyModel/build/debug -lQPropertyModel1 \
+   LIBS += -L$$PWD/../QPropertyModel/build/debug -lQPropertyModel1 \
            -L$$PWD/../HydroCoupleVis/build/debug -lHydroCoupleVis1
 
 
@@ -243,7 +243,7 @@ CONFIG(debug, debug|release) {
 CONFIG(release, debug|release){
 
    macx{
-      LIBS += -L./../../QPropertyModel/lib/macx -lQPropertyModel.1.0.0 \
+      LIBS += -L./../QPropertyModel/lib/macx -lQPropertyModel.1.0.0 \
               -L./../HydroCoupleVis/lib/macx -lHydroCoupleVis.1.0.0 \
               -L/usr/local/lib -lcgraph \
               -L/usr/local/lib -lgvc
@@ -254,7 +254,7 @@ CONFIG(release, debug|release){
 
          INCLUDEPATH += ./../graphviz/build/usr/local/include
 
-         LIBS += -L./../../QPropertyModel/lib/linux -lQPropertyModel.so.1.0.0 \
+         LIBS += -L./../QPropertyModel/lib/linux -lQPropertyModel.so.1.0.0 \
                  -L./../HydroCoupleVis/lib/linux -lHydroCoupleVis.so.1.0.0 \
                  -L./../graphviz/build/usr/local/lib -lcgraph \
                  -L./../graphviz/build/usr/local/lib -lgvc
@@ -262,7 +262,7 @@ CONFIG(release, debug|release){
          message("Compiling on CHPC")
           } else {
 
-   LIBS += -L./../../QPropertyModel/build/debug -lQPropertyModel \
+   LIBS += -L./../QPropertyModel/build/debug -lQPropertyModel \
            -L./../HydroCoupleVis/build/debug -lHydroCoupleVis \
            -L/usr/lib -lcgraph \
            -L/usr/lib -lgvc
@@ -273,7 +273,7 @@ CONFIG(release, debug|release){
       
       QMAKE_CXXFLAGS += -MD
      
-      LIBS += -L$$PWD/../../QPropertyModel/lib/win32 -lQPropertyModel1 \
+      LIBS += -L$$PWD/../QPropertyModel/lib/win32 -lQPropertyModel1 \
               -L$$PWD/../HydroCoupleVis/lib/win32 -lHydroCoupleVis1
 
 

@@ -15,7 +15,7 @@ CXX           = /usr/local/bin/mpicxx
 DEFINES       = -DGRAPHVIZ_LIBRARY -DUTAH_CHPC -DUSE_MPI -DUSE_OPENMP -DQT_QML_DEBUG -DQT_PRINTSUPPORT_LIB -DQT_OPENGL_LIB -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CONCURRENT_LIB -DQT_CORE_LIB
 CFLAGS        = -pipe -fopenmp -g -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk -mmacosx-version-min=10.12.6 -Wall -W -fPIC $(DEFINES)
 CXXFLAGS      = -pipe -stdlib=libc++ -fopenmp -g -g -std=gnu++11 -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk -mmacosx-version-min=10.12.6 -Wall -W -fPIC $(DEFINES)
-INCPATH       = -I. -I. -Iinclude -I../HydroCouple/include -I../HydroCoupleVis/include -I../../QPropertyModel/include -isystem /usr/local/include -isystem /usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I../../../../Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I../../../../Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I../../../../Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -Ibuild/debug/.moc -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/System/Library/Frameworks/OpenGL.framework/Headers -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/System/Library/Frameworks/AGL.framework/Headers -Ibuild/debug/.ui -I../../../../Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib
+INCPATH       = -I. -I. -Iinclude -I../HydroCouple/include -I../HydroCoupleVis/include -I../QPropertyModel/include -isystem /usr/local/include -isystem /usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I../../../../Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I../../../../Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I../../../../Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -Ibuild/debug/.moc -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/System/Library/Frameworks/OpenGL.framework/Headers -I/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk/System/Library/Frameworks/AGL.framework/Headers -Ibuild/debug/.ui -I../../../../Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib
 QMAKE         = /Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/qmake
 DEL_FILE      = rm -f
 CHK_DIR_EXISTS= test -d
@@ -36,7 +36,7 @@ DISTNAME      = HydroCoupleComposer1.0.0
 DISTDIR = /Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/build/debug/.obj/HydroCoupleComposer1.0.0
 LINK          = /usr/local/bin/mpicxx
 LFLAGS        = -headerpad_max_install_names -stdlib=libc++ -fopenmp -Wl,-syslibroot,/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.13.sdk -mmacosx-version-min=10.12.6 -Wl,-rpath,/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib
-LIBS          = $(SUBLIBS) -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib -L /usr/local/opt/llvm/lib -lomp -L/usr/local/lib/ -lmpi -L./../../QPropertyModel/build/debug -lQPropertyModel.1.0.0 -L./../HydroCoupleVis/build/debug -lHydroCoupleVis.1.0.0 -L/usr/local/lib -lcgraph -lgvc -framework QtPrintSupport -framework QtWidgets -framework QtGui -framework QtCore -framework DiskArbitration -framework IOKit -framework QtOpenGL -framework QtConcurrent -framework OpenGL -framework AGL 
+LIBS          = $(SUBLIBS) -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib -L /usr/local/opt/llvm/lib -lomp -L/usr/local/lib/ -lmpi -L./../QPropertyModel/build/debug -lQPropertyModel.1.0.0 -L./../HydroCoupleVis/build/debug -lHydroCoupleVis.1.0.0 -L/usr/local/lib -lcgraph -lgvc -framework QtPrintSupport -framework QtWidgets -framework QtGui -framework QtCore -framework DiskArbitration -framework IOKit -framework QtOpenGL -framework QtConcurrent -framework OpenGL -framework AGL 
 AR            = /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ar cq
 RANLIB        = /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ranlib -s
 SED           = sed
@@ -829,7 +829,7 @@ build/debug/.moc/moc_componentmanager.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
 		include/componentmanager.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/componentmanager.h -o build/debug/.moc/moc_componentmanager.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/componentmanager.h -o build/debug/.moc/moc_componentmanager.cpp
 
 build/debug/.moc/moc_gmodelcomponent.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
@@ -866,7 +866,7 @@ build/debug/.moc/moc_gmodelcomponent.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/Q
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		include/gmodelcomponent.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/gmodelcomponent.h -o build/debug/.moc/moc_gmodelcomponent.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/gmodelcomponent.h -o build/debug/.moc/moc_gmodelcomponent.cpp
 
 build/debug/.moc/moc_graphicsview.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QGraphicsView \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/qgraphicsview.h \
@@ -876,7 +876,7 @@ build/debug/.moc/moc_graphicsview.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/QtWi
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qmimedata.h \
 		include/graphicsview.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/graphicsview.h -o build/debug/.moc/moc_graphicsview.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/graphicsview.h -o build/debug/.moc/moc_graphicsview.cpp
 
 build/debug/.moc/moc_hydrocouplecomposer.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QtWidgets \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/qaccessiblewidget.h \
@@ -1030,14 +1030,14 @@ build/debug/.moc/moc_hydrocouplecomposer.cpp: ../../../../Qt5.7.0/5.7/clang_64/l
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
-		../../QPropertyModel/include/qpropertymodel.h \
+		../QPropertyModel/include/qpropertymodel.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qabstractitemmodel.h \
-		../../QPropertyModel/include/qpropertymodel_global.h \
-		../../QPropertyModel/include/qvariantpropertyItem.h \
+		../QPropertyModel/include/qpropertymodel_global.h \
+		../QPropertyModel/include/qvariantpropertyItem.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QMetaProperty \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qmetaobject.h \
-		../../QPropertyModel/include/qobjectclasspropertyitem.h \
-		../../QPropertyModel/include/qpropertyitem.h \
+		../QPropertyModel/include/qobjectclasspropertyitem.h \
+		../QPropertyModel/include/qpropertyitem.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QModelIndex \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/QBrush \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/qbrush.h \
@@ -1047,9 +1047,9 @@ build/debug/.moc/moc_hydrocouplecomposer.cpp: ../../../../Qt5.7.0/5.7/clang_64/l
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/qicon.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QMetaObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qobjectdefs.h \
-		../../QPropertyModel/include/qvariantholderhelper.h \
-		../../QPropertyModel/include/qobjectpropertyitem.h \
-		../../QPropertyModel/include/qpropertyitemdelegate.h \
+		../QPropertyModel/include/qvariantholderhelper.h \
+		../QPropertyModel/include/qobjectpropertyitem.h \
+		../QPropertyModel/include/qpropertyitemdelegate.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QStyledItemDelegate \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QItemEditorFactory \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/QStandardItem \
@@ -1080,7 +1080,7 @@ build/debug/.moc/moc_hydrocouplecomposer.cpp: ../../../../Qt5.7.0/5.7/clang_64/l
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/qgenericmatrix.h \
 		include/hydrocouplecomposer.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/hydrocouplecomposer.h -o build/debug/.moc/moc_hydrocouplecomposer.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/hydrocouplecomposer.h -o build/debug/.moc/moc_hydrocouplecomposer.cpp
 
 build/debug/.moc/moc_hydrocoupleproject.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qobject.h \
@@ -1100,17 +1100,17 @@ build/debug/.moc/moc_hydrocoupleproject.cpp: ../../../../Qt5.7.0/5.7/clang_64/li
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
 		include/hydrocoupleproject.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/hydrocoupleproject.h -o build/debug/.moc/moc_hydrocoupleproject.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/hydrocoupleproject.h -o build/debug/.moc/moc_hydrocoupleproject.cpp
 
 build/debug/.moc/moc_splashscreen.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QSplashScreen \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/qsplashscreen.h \
 		include/splashscreen.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/splashscreen.h -o build/debug/.moc/moc_splashscreen.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/splashscreen.h -o build/debug/.moc/moc_splashscreen.cpp
 
-build/debug/.moc/moc_custompropertyitems.cpp: ../../QPropertyModel/include/qobjectpropertyitem.h \
-		../../QPropertyModel/include/qpropertyitem.h \
-		../../QPropertyModel/include/qpropertymodel_global.h \
+build/debug/.moc/moc_custompropertyitems.cpp: ../QPropertyModel/include/qobjectpropertyitem.h \
+		../QPropertyModel/include/qpropertyitem.h \
+		../QPropertyModel/include/qpropertymodel_global.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qobject.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QModelIndex \
@@ -1123,15 +1123,15 @@ build/debug/.moc/moc_custompropertyitems.cpp: ../../QPropertyModel/include/qobje
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/qicon.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QMetaProperty \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qmetaobject.h \
-		../../QPropertyModel/include/qpropertymodel.h \
-		../../QPropertyModel/include/qvariantpropertyItem.h \
-		../../QPropertyModel/include/qobjectclasspropertyitem.h \
+		../QPropertyModel/include/qpropertymodel.h \
+		../QPropertyModel/include/qvariantpropertyItem.h \
+		../QPropertyModel/include/qobjectclasspropertyitem.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QMetaObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qobjectdefs.h \
-		../../QPropertyModel/include/qvariantholderhelper.h \
+		../QPropertyModel/include/qvariantholderhelper.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qvariant.h \
-		../../QPropertyModel/include/qpropertyitemdelegate.h \
+		../QPropertyModel/include/qpropertyitemdelegate.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QStyledItemDelegate \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/qstyleditemdelegate.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QItemEditorFactory \
@@ -1140,7 +1140,7 @@ build/debug/.moc/moc_custompropertyitems.cpp: ../../QPropertyModel/include/qobje
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
-		../../QPropertyModel/include/qobjectlistpropertyitem.h \
+		../QPropertyModel/include/qobjectlistpropertyitem.h \
 		include/gnode.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QGraphicsObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/qgraphicsitem.h \
@@ -1151,7 +1151,7 @@ build/debug/.moc/moc_custompropertyitems.cpp: ../../QPropertyModel/include/qobje
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qmimedata.h \
 		include/custompropertyitems.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/custompropertyitems.h -o build/debug/.moc/moc_custompropertyitems.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/custompropertyitems.h -o build/debug/.moc/moc_custompropertyitems.cpp
 
 build/debug/.moc/moc_gexchangeitems.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QGraphicsObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/qgraphicsitem.h \
@@ -1175,7 +1175,7 @@ build/debug/.moc/moc_gexchangeitems.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/Qt
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		include/gexchangeitems.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/gexchangeitems.h -o build/debug/.moc/moc_gexchangeitems.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/gexchangeitems.h -o build/debug/.moc/moc_gexchangeitems.cpp
 
 build/debug/.moc/moc_modelstatusitemmodel.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QAbstractItemModel \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qabstractitemmodel.h \
@@ -1222,7 +1222,7 @@ build/debug/.moc/moc_modelstatusitemmodel.cpp: ../../../../Qt5.7.0/5.7/clang_64/
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QModelIndex \
 		include/modelstatusitemmodel.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/modelstatusitemmodel.h -o build/debug/.moc/moc_modelstatusitemmodel.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/modelstatusitemmodel.h -o build/debug/.moc/moc_modelstatusitemmodel.cpp
 
 build/debug/.moc/moc_modelstatuschangeeventarg.cpp: include/gmodelcomponent.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QXmlStreamReader \
@@ -1260,7 +1260,7 @@ build/debug/.moc/moc_modelstatuschangeeventarg.cpp: include/gmodelcomponent.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QXmlStreamWriter \
 		include/modelstatuschangeeventarg.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/modelstatuschangeeventarg.h -o build/debug/.moc/moc_modelstatuschangeeventarg.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/modelstatuschangeeventarg.h -o build/debug/.moc/moc_modelstatuschangeeventarg.cpp
 
 build/debug/.moc/moc_modelstatusitem.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qobject.h \
@@ -1301,7 +1301,7 @@ build/debug/.moc/moc_modelstatusitem.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/Q
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qabstractitemmodel.h \
 		include/modelstatusitem.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/modelstatusitem.h -o build/debug/.moc/moc_modelstatusitem.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/modelstatusitem.h -o build/debug/.moc/moc_modelstatusitem.cpp
 
 build/debug/.moc/moc_argumentdialog.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QDialog \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/qdialog.h \
@@ -1348,7 +1348,7 @@ build/debug/.moc/moc_argumentdialog.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/Qt
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qsettings.h \
 		include/argumentdialog.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/argumentdialog.h -o build/debug/.moc/moc_argumentdialog.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/argumentdialog.h -o build/debug/.moc/moc_argumentdialog.cpp
 
 build/debug/.moc/moc_gnode.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QGraphicsObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/qgraphicsitem.h \
@@ -1368,7 +1368,7 @@ build/debug/.moc/moc_gnode.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.f
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qmimedata.h \
 		include/gnode.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/gnode.h -o build/debug/.moc/moc_gnode.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/gnode.h -o build/debug/.moc/moc_gnode.cpp
 
 build/debug/.moc/moc_gconnection.cpp: ../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QVariant \
@@ -1387,7 +1387,7 @@ build/debug/.moc/moc_gconnection.cpp: ../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qmimedata.h \
 		include/gconnection.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/gconnection.h -o build/debug/.moc/moc_gconnection.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/gconnection.h -o build/debug/.moc/moc_gconnection.cpp
 
 build/debug/.moc/moc_qxmlsyntaxhighlighter.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/QSyntaxHighlighter \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/qsyntaxhighlighter.h \
@@ -1395,7 +1395,7 @@ build/debug/.moc/moc_qxmlsyntaxhighlighter.cpp: ../../../../Qt5.7.0/5.7/clang_64
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/qtextedit.h \
 		include/qxmlsyntaxhighlighter.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/qxmlsyntaxhighlighter.h -o build/debug/.moc/moc_qxmlsyntaxhighlighter.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/qxmlsyntaxhighlighter.h -o build/debug/.moc/moc_qxmlsyntaxhighlighter.cpp
 
 build/debug/.moc/moc_simulationmanager.cpp: include/hydrocoupleproject.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QObject \
@@ -1420,7 +1420,7 @@ build/debug/.moc/moc_simulationmanager.cpp: include/hydrocoupleproject.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qelapsedtimer.h \
 		include/simulationmanager.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/simulationmanager.h -o build/debug/.moc/moc_simulationmanager.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/simulationmanager.h -o build/debug/.moc/moc_simulationmanager.cpp
 
 build/debug/.moc/moc_cpugpuallocation.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qobject.h \
@@ -1428,7 +1428,7 @@ build/debug/.moc/moc_cpugpuallocation.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qxmlstream.h \
 		include/cpugpuallocation.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/cpugpuallocation.h -o build/debug/.moc/moc_cpugpuallocation.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/cpugpuallocation.h -o build/debug/.moc/moc_cpugpuallocation.cpp
 
 build/debug/.moc/moc_preferencesdialog.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QDialog \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/qdialog.h \
@@ -1438,7 +1438,7 @@ build/debug/.moc/moc_preferencesdialog.cpp: ../../../../Qt5.7.0/5.7/clang_64/lib
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qsettings.h \
 		include/preferencesdialog.h \
 		../../../../Qt5.7.0/5.7/clang_64/bin/moc
-	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/preferencesdialog.h -o build/debug/.moc/moc_preferencesdialog.cpp
+	/Users/calebbuahin/Qt5.7.0/5.7/clang_64/bin/moc $(DEFINES) -D__APPLE__ -D__GNUC__=4 -D__APPLE_CC__ -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/mkspecs/macx-clang -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleComposer/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCouple/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/HydroCoupleVis/include -I/Users/calebbuahin/Documents/Projects/HydroCouple/QPropertyModel/include -I/usr/local/include -I/usr/local/include/libiomp -I/usr/local/opt/llvm/lib/clang/5.0.0/include -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtPrintSupport.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtOpenGL.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtConcurrent.framework/Headers -I/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers -I/usr/local/Cellar/llvm/5.0.0/include/c++/v1 -I/usr/local/include -I/usr/local/Cellar/llvm/5.0.0/lib/clang/5.0.0/include -I'/System/Library/Frameworks (framework directory)' -I'/Library/Frameworks (framework directory)' -F/Users/calebbuahin/Qt5.7.0/5.7/clang_64/lib include/preferencesdialog.h -o build/debug/.moc/moc_preferencesdialog.cpp
 
 compiler_moc_source_make_all:
 compiler_moc_source_clean:
@@ -1634,14 +1634,14 @@ build/debug/.obj/main.o: src/main.cpp include/stdafx.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
-		../../QPropertyModel/include/qpropertymodel.h \
+		../QPropertyModel/include/qpropertymodel.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qabstractitemmodel.h \
-		../../QPropertyModel/include/qpropertymodel_global.h \
-		../../QPropertyModel/include/qvariantpropertyItem.h \
+		../QPropertyModel/include/qpropertymodel_global.h \
+		../QPropertyModel/include/qvariantpropertyItem.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QMetaProperty \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qmetaobject.h \
-		../../QPropertyModel/include/qobjectclasspropertyitem.h \
-		../../QPropertyModel/include/qpropertyitem.h \
+		../QPropertyModel/include/qobjectclasspropertyitem.h \
+		../QPropertyModel/include/qpropertyitem.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QModelIndex \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/QBrush \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/qbrush.h \
@@ -1651,9 +1651,9 @@ build/debug/.obj/main.o: src/main.cpp include/stdafx.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/qicon.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QMetaObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qobjectdefs.h \
-		../../QPropertyModel/include/qvariantholderhelper.h \
-		../../QPropertyModel/include/qobjectpropertyitem.h \
-		../../QPropertyModel/include/qpropertyitemdelegate.h \
+		../QPropertyModel/include/qvariantholderhelper.h \
+		../QPropertyModel/include/qobjectpropertyitem.h \
+		../QPropertyModel/include/qpropertyitemdelegate.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QStyledItemDelegate \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QItemEditorFactory \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/QStandardItem \
@@ -1987,14 +1987,14 @@ build/debug/.obj/graphicsview.o: src/graphicsview.cpp include/stdafx.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
-		../../QPropertyModel/include/qpropertymodel.h \
+		../QPropertyModel/include/qpropertymodel.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qabstractitemmodel.h \
-		../../QPropertyModel/include/qpropertymodel_global.h \
-		../../QPropertyModel/include/qvariantpropertyItem.h \
+		../QPropertyModel/include/qpropertymodel_global.h \
+		../QPropertyModel/include/qvariantpropertyItem.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QMetaProperty \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qmetaobject.h \
-		../../QPropertyModel/include/qobjectclasspropertyitem.h \
-		../../QPropertyModel/include/qpropertyitem.h \
+		../QPropertyModel/include/qobjectclasspropertyitem.h \
+		../QPropertyModel/include/qpropertyitem.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QModelIndex \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/QBrush \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/qbrush.h \
@@ -2004,9 +2004,9 @@ build/debug/.obj/graphicsview.o: src/graphicsview.cpp include/stdafx.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/qicon.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QMetaObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qobjectdefs.h \
-		../../QPropertyModel/include/qvariantholderhelper.h \
-		../../QPropertyModel/include/qobjectpropertyitem.h \
-		../../QPropertyModel/include/qpropertyitemdelegate.h \
+		../QPropertyModel/include/qvariantholderhelper.h \
+		../QPropertyModel/include/qobjectpropertyitem.h \
+		../QPropertyModel/include/qpropertyitemdelegate.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QStyledItemDelegate \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QItemEditorFactory \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/QStandardItem \
@@ -2191,14 +2191,14 @@ build/debug/.obj/hydrocouplecomposer.o: src/hydrocouplecomposer.cpp include/stda
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qset.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QPluginLoader \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qpluginloader.h \
-		../../QPropertyModel/include/qpropertymodel.h \
+		../QPropertyModel/include/qpropertymodel.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qabstractitemmodel.h \
-		../../QPropertyModel/include/qpropertymodel_global.h \
-		../../QPropertyModel/include/qvariantpropertyItem.h \
+		../QPropertyModel/include/qpropertymodel_global.h \
+		../QPropertyModel/include/qvariantpropertyItem.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QMetaProperty \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qmetaobject.h \
-		../../QPropertyModel/include/qobjectclasspropertyitem.h \
-		../../QPropertyModel/include/qpropertyitem.h \
+		../QPropertyModel/include/qobjectclasspropertyitem.h \
+		../QPropertyModel/include/qpropertyitem.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QModelIndex \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/QBrush \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/qbrush.h \
@@ -2208,9 +2208,9 @@ build/debug/.obj/hydrocouplecomposer.o: src/hydrocouplecomposer.cpp include/stda
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/qicon.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QMetaObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qobjectdefs.h \
-		../../QPropertyModel/include/qvariantholderhelper.h \
-		../../QPropertyModel/include/qobjectpropertyitem.h \
-		../../QPropertyModel/include/qpropertyitemdelegate.h \
+		../QPropertyModel/include/qvariantholderhelper.h \
+		../QPropertyModel/include/qobjectpropertyitem.h \
+		../QPropertyModel/include/qpropertyitemdelegate.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QStyledItemDelegate \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QItemEditorFactory \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/QStandardItem \
@@ -2241,7 +2241,7 @@ build/debug/.obj/hydrocouplecomposer.o: src/hydrocouplecomposer.cpp include/stda
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/qgenericmatrix.h \
 		include/custompropertyitems.h \
 		../HydroCouple/include/hydrocoupletemporal.h \
-		../../QPropertyModel/include/qobjectlistpropertyitem.h \
+		../QPropertyModel/include/qobjectlistpropertyitem.h \
 		include/qxmlsyntaxhighlighter.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/QSyntaxHighlighter \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/qsyntaxhighlighter.h \
@@ -2281,9 +2281,9 @@ build/debug/.obj/splashscreen.o: src/splashscreen.cpp ../HydroCoupleVis/include/
 
 build/debug/.obj/custompropertyitems.o: src/custompropertyitems.cpp ../HydroCoupleVis/include/stdafx.h \
 		include/custompropertyitems.h \
-		../../QPropertyModel/include/qobjectpropertyitem.h \
-		../../QPropertyModel/include/qpropertyitem.h \
-		../../QPropertyModel/include/qpropertymodel_global.h \
+		../QPropertyModel/include/qobjectpropertyitem.h \
+		../QPropertyModel/include/qpropertyitem.h \
+		../QPropertyModel/include/qpropertymodel_global.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qobject.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QModelIndex \
@@ -2296,15 +2296,15 @@ build/debug/.obj/custompropertyitems.o: src/custompropertyitems.cpp ../HydroCoup
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/qicon.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QMetaProperty \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qmetaobject.h \
-		../../QPropertyModel/include/qpropertymodel.h \
-		../../QPropertyModel/include/qvariantpropertyItem.h \
-		../../QPropertyModel/include/qobjectclasspropertyitem.h \
+		../QPropertyModel/include/qpropertymodel.h \
+		../QPropertyModel/include/qvariantpropertyItem.h \
+		../QPropertyModel/include/qobjectclasspropertyitem.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QMetaObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qobjectdefs.h \
-		../../QPropertyModel/include/qvariantholderhelper.h \
+		../QPropertyModel/include/qvariantholderhelper.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QVariant \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qvariant.h \
-		../../QPropertyModel/include/qpropertyitemdelegate.h \
+		../QPropertyModel/include/qpropertyitemdelegate.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QStyledItemDelegate \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/qstyleditemdelegate.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QItemEditorFactory \
@@ -2313,7 +2313,7 @@ build/debug/.obj/custompropertyitems.o: src/custompropertyitems.cpp ../HydroCoup
 		../HydroCouple/include/hydrocouple.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QSharedPointer \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qsharedpointer.h \
-		../../QPropertyModel/include/qobjectlistpropertyitem.h \
+		../QPropertyModel/include/qobjectlistpropertyitem.h \
 		include/gnode.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QGraphicsObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/qgraphicsitem.h \
@@ -3267,22 +3267,22 @@ build/debug/.obj/commandlineparser.o: src/commandlineparser.cpp ../HydroCoupleVi
 		include/graphicsview.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QGraphicsView \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QGraphicsRectItem \
-		../../QPropertyModel/include/qpropertymodel.h \
+		../QPropertyModel/include/qpropertymodel.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qabstractitemmodel.h \
-		../../QPropertyModel/include/qpropertymodel_global.h \
-		../../QPropertyModel/include/qvariantpropertyItem.h \
+		../QPropertyModel/include/qpropertymodel_global.h \
+		../QPropertyModel/include/qvariantpropertyItem.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QMetaProperty \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qmetaobject.h \
-		../../QPropertyModel/include/qobjectclasspropertyitem.h \
-		../../QPropertyModel/include/qpropertyitem.h \
+		../QPropertyModel/include/qobjectclasspropertyitem.h \
+		../QPropertyModel/include/qpropertyitem.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QModelIndex \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/QIcon \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/qicon.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/QMetaObject \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtCore.framework/Headers/qobjectdefs.h \
-		../../QPropertyModel/include/qvariantholderhelper.h \
-		../../QPropertyModel/include/qobjectpropertyitem.h \
-		../../QPropertyModel/include/qpropertyitemdelegate.h \
+		../QPropertyModel/include/qvariantholderhelper.h \
+		../QPropertyModel/include/qobjectpropertyitem.h \
+		../QPropertyModel/include/qpropertyitemdelegate.h \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QStyledItemDelegate \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtWidgets.framework/Headers/QItemEditorFactory \
 		../../../../Qt5.7.0/5.7/clang_64/lib/QtGui.framework/Headers/QStandardItem \
