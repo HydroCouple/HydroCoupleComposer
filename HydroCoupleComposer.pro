@@ -8,21 +8,19 @@ VERSION = 1.0.0
 TARGET = HydroCoupleComposer
 QT += core widgets gui printsupport concurrent opengl
 
-DEFINES += GRAPHVIZ_LIBRARY
+#DEFINES += GRAPHVIZ_LIBRARY
 DEFINES += UTAH_CHPC
 DEFINES += USE_MPI
 DEFINES += USE_OPENMP
 
+CONFIG += debug_and_release
 CONFIG += c++11
-
 
 *msvc* { # visual studio spec filter
       QMAKE_CXXFLAGS += /MP /O2
   }
 
-linux {
-CONFIG += debug_and_release
-}
+
 
 PRECOMPILED_HEADER += ./include/stdafx.h
 
@@ -172,10 +170,10 @@ win32{
     contains(DEFINES,USE_OPENMP){
 
         QMAKE_CFLAGS += /openmp
-        QMAKE_LFLAGS += /openmp
+        #QMAKE_LFLAGS += /openmp
         QMAKE_CXXFLAGS += /openmp
-        QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS
-        QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS
+        QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS /MD
+        QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS /MDd
         message("OpenMP enabled")
      } else {
 
@@ -262,8 +260,8 @@ CONFIG(release, debug|release){
          message("Compiling on CHPC")
           } else {
 
-   LIBS += -L./../QPropertyModel/build/debug -lQPropertyModel \
-           -L./../HydroCoupleVis/build/debug -lHydroCoupleVis \
+   LIBS += -L./../QPropertyModel/lib/linux -lQPropertyModel \
+           -L./../HydroCoupleVis/lib/linux -lHydroCoupleVis \
            -L/usr/lib -lcgraph \
            -L/usr/lib -lgvc
           }
@@ -271,8 +269,6 @@ CONFIG(release, debug|release){
 
    win32{
       
-      QMAKE_CXXFLAGS += -MD
-     
       LIBS += -L$$PWD/../QPropertyModel/lib/win32 -lQPropertyModel1 \
               -L$$PWD/../HydroCoupleVis/lib/win32 -lHydroCoupleVis1
 

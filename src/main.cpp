@@ -1,3 +1,7 @@
+#ifdef _WIN32
+//  #define _ITERATOR_DEBUG_LEVEL 0
+#endif
+
 #include "stdafx.h"
 #include "hydrocouplecomposer.h"
 #include "splashscreen.h"
@@ -7,6 +11,8 @@
 #include <iostream>
 #include <QCoreApplication>
 #include <QtWidgets/QApplication>
+
+
 
 int main(int argc, char *argv[])
 {
