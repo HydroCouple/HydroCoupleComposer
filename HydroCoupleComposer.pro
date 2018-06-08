@@ -13,14 +13,12 @@ DEFINES += UTAH_CHPC
 DEFINES += USE_MPI
 DEFINES += USE_OPENMP
 
-CONFIG += debug_and_release
 CONFIG += c++11
+CONFIG += debug_and_release
 
 *msvc* { # visual studio spec filter
-      QMAKE_CXXFLAGS += /MP /O2
-  }
-
-
+    QMAKE_CXXFLAGS += /MP /O2
+}
 
 PRECOMPILED_HEADER += ./include/stdafx.h
 
@@ -36,12 +34,11 @@ macx{
 }
 
 linux{
-   INCLUDEPATH += /usr/include
+    INCLUDEPATH += /usr/include
 }
 
 win32{
-  INCLUDEPATH += $$PWD/graphviz/win32/include \
-                 $$(MSMPI_INC)/
+    CONFIG-=app_bundle
 }
 
 HEADERS += ./include/stdafx.h \
@@ -170,22 +167,44 @@ win32{
     contains(DEFINES,USE_OPENMP){
 
         QMAKE_CFLAGS += /openmp
-        #QMAKE_LFLAGS += /openmp
         QMAKE_CXXFLAGS += /openmp
-        QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS /MD
-        QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS /MDd
+
         message("OpenMP enabled")
+
      } else {
 
       message("OpenMP disabled")
      }
 
-    contains(DEFINES,USE_MPI){
-       LIBS += -L$$(MSMPI_LIB64)/ -lmsmpi
-       message("MPI enabled")
-     } else {
-      message("MPI disabled")
-     }
+    QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS /MD
+    QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS /MDd
+
+    #Windows vspkg package manager installation path
+    VSPKGDIR = C:/vcpkg/installed/x64-windows
+
+    INCLUDEPATH += $${VSPKGDIR}/include \
+                   $${VSPKGDIR}/include/gdal
+
+    message ($$(VSPKGDIR))
+
+    CONFIG(debug, debug|release) {
+
+            contains(DEFINES,USE_MPI){
+               LIBS += -L$${VSPKGDIR}/debug/lib -lmsmpi
+               message("MPI enabled")
+            } else {
+              message("MPI disabled")
+            }
+
+        } else {
+
+            contains(DEFINES,USE_MPI){
+               LIBS += -L$${VSPKGDIR}/lib -lmsmpi
+               message("MPI enabled")
+            } else {
+              message("MPI disabled")
+            }
+    }
 }
 
 CONFIG(debug, debug|release) {
