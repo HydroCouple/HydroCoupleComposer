@@ -216,7 +216,10 @@ FakesAssemblies/
 *.so
 *.dll
 *.dylib
-
+*.exe 
+*.app 
+*.ilk
+*.pdb
 # Qt-es
 *.qmake.cache
 *.qmake.stash
