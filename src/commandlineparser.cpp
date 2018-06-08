@@ -484,6 +484,9 @@ void CommandLineParser::enterMPIWorkersLoop()
 
 void CommandLineParser::processMPIStatus(int status)
 {
+
+#ifdef USE_MPI
+  {
   switch (status)
   {
     case MPI_SUCCESS:
@@ -762,6 +765,8 @@ void CommandLineParser::processMPIStatus(int status)
       }
       break;
   }
+    }
+    #endif
 }
 
 void CommandLineParser::applicationExiting()

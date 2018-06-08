@@ -1,7 +1,3 @@
-#ifdef _WIN32
-//  #define _ITERATOR_DEBUG_LEVEL 0
-#endif
-
 #include "stdafx.h"
 #include "hydrocouplecomposer.h"
 #include "splashscreen.h"
