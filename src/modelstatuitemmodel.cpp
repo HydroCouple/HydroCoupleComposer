@@ -116,10 +116,10 @@ QVariant ModelStatusItemModel::data(const QModelIndex &index, int role) const
       switch (index.column())
       {
          case 0:
-            return status->component()->id();
+            return status->componenentId();
             break;
          case 1:
-            return status->component()->caption();
+            return status->componentCaption();
             break;
          case 2:
             return status->status()->currentStatus();

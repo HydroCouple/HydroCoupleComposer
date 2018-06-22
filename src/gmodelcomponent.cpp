@@ -11,8 +11,8 @@ using namespace HydroCouple;
 
 const QString GModelComponent::sc_descriptionHtml =
     "<h2>[Caption]</h2>"
-    "<h4>[Id]</h4>"
-    "<h5><i>Status : [Status]</i></h5>"
+    "<h3>[Id]</h3>"
+    "<h4><i>Status : [Status]</i></h4>"
     "<hr>"
     "<div>"
     "<img alt=\"icon\" src='[IconPath]' width=\"60\" align=\"left\" />"

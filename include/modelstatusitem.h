@@ -40,6 +40,10 @@ class ModelStatusItem : public QObject
 
       virtual ~ModelStatusItem();
 
+      QString componenentId() const;
+
+      QString componentCaption() const;
+
       HydroCouple::IModelComponent* component() const;
 
       ModelStatusChangeEventArg* status() const;
@@ -81,6 +85,8 @@ class ModelStatusItem : public QObject
       QList<ModelStatusItem*> m_children;
       ModelStatusChangeEventArg * m_status;
       ModelStatusItem* m_parent;
+      QString m_componentId;
+      QString m_componentCaption;
 };
 
 

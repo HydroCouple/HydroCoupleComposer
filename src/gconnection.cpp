@@ -28,7 +28,7 @@ GConnection::GConnection(GNode *producer, GNode *consumer , QGraphicsObject* par
   m_numConnectionsText = new QGraphicsTextItem(this);
 
   m_font.setBold(true);
-  m_font.setPointSizeF(25);
+  m_font.setPointSizeF(30);
 
   connect(m_producer, SIGNAL(xChanged()), this, SLOT(parentLocationOrSizeChanged()));
   connect(m_producer, SIGNAL(yChanged()), this, SLOT(parentLocationOrSizeChanged()));

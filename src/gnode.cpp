@@ -8,8 +8,8 @@
 #include <QStyleOptionGraphicsItem>
 
 const QString GNode::sc_captionHtml =
-    "<h3 align=\"center\">[Id]</h3>"
-    "<h5 align=\"center\"><i>[Caption]</i></h5>";
+    "<h2 align=\"center\"><i>[Caption]</i></h2>"
+    "<h3 align=\"center\">[Id]</h3>";
 
 
 int GNode::s_zindex(1000);

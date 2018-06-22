@@ -18,13 +18,29 @@ ModelStatusItem::ModelStatusItem(HydroCouple::IModelComponent *component, ModelS
   connect(dynamic_cast<QObject*>(m_component) , SIGNAL(propertyChanged(const QString &))
           ,this , SLOT(onPropertyChanged(const QString &)));
 
+
+  m_componentId = m_component->id();
+  m_componentCaption = m_component->caption();
+
   resetChildren();
+
+
 
 }
 
 ModelStatusItem::~ModelStatusItem()
-{
+{ 
   delete m_status;
+}
+
+QString ModelStatusItem::componenentId() const
+{
+  return m_componentId;
+}
+
+QString ModelStatusItem::componentCaption() const
+{
+  return m_componentCaption;
 }
 
 HydroCouple::IModelComponent* ModelStatusItem::component() const
@@ -87,8 +103,12 @@ void ModelStatusItem::onPropertyChanged(const QString & propertyName)
   {
     resetChildren();
   }
-  else
+  else if(!propertyName.compare("Id", Qt::CaseInsensitive) &&
+          !propertyName.compare("Caption", Qt::CaseSensitive))
   {
+
+    m_componentId = m_component->id();
+    m_componentCaption = m_component->caption();
     emit propertyChanged();
   }
 }
