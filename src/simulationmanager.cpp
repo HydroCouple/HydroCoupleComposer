@@ -9,7 +9,7 @@
 #include <tuple>
 #include <thread>
 #include <cstring>
-
+#include <QThread>
 #ifdef USE_MPI
 #include <mpi.h>
 #endif
@@ -29,7 +29,6 @@ SimulationManager::SimulationManager(HydroCoupleProject *project)
 
 SimulationManager::~SimulationManager()
 {
-  //  delete m_simFutureWater;
 }
 
 void SimulationManager::runComposition(bool background)
@@ -79,7 +78,7 @@ void SimulationManager::runComposition(bool background)
         {
           if(background)
           {
-            QtConcurrent::run(this, &SimulationManager::run);
+            m_thread = std::thread(SimulationManager::runManagerThread, this);
           }
           else
           {
@@ -130,6 +129,11 @@ bool SimulationManager::monitorComponentMessages() const
 void SimulationManager::setMonitorComponentMessages(bool monitor)
 {
   m_monitorComponentMessages = monitor;
+}
+
+void SimulationManager::runManagerThread(SimulationManager *simManager)
+{
+  simManager->run();
 }
 
 bool SimulationManager::monitorExchangeItemMessages() const
@@ -548,6 +552,7 @@ void SimulationManager::onSimulationCompleted()
   emit postMessage("Simulation Time (s): " +  QString::number(seconds));
   printf("Simulation Time (s): %f\n", seconds);
 
+  m_thread.join();
 }
 
 void SimulationManager::onWorkflowComponentStatusChanged(IWorkflowComponent::WorkflowStatus status, const QString &message)

@@ -28,8 +28,11 @@
 #include <QtConcurrentRun>
 #include <QElapsedTimer>
 
+#include <thread>
+
 class GOutput;
 class GModelComponent;
+class SimulationManager;
 
 
 class SimulationManager : public QObject
@@ -61,6 +64,8 @@ class SimulationManager : public QObject
       bool monitorExchangeItemMessages() const;
 
       void setMonitorExchangeItemMessages(bool monitor);
+
+      static void runManagerThread(SimulationManager *simManager);
 
   public slots:
 
@@ -125,7 +130,7 @@ class SimulationManager : public QObject
       bool m_simulationFailed;
       QElapsedTimer m_timer;
       GModelComponent *m_triggerComponent;
-      QThread m_runThread;
+      std::thread m_thread;
 
 };
 
