@@ -337,7 +337,7 @@ bool GraphicsView::canAcceptDrop(const QMimeData* data, QMap<QString,QVariant>& 
   if (data->hasFormat("application/x-qabstractitemmodeldatalist"))
   {
     QByteArray encoded = data->data("application/x-qabstractitemmodeldatalist");
-    QDataStream stream(&encoded, QIODevice::ReadOnly);
+    QDataStream stream(&encoded, QIODevice::ReadWrite);
 
     while (!stream.atEnd())
     {

@@ -5,6 +5,7 @@
 #include "gmodelcomponent.h"
 #include "hydrocouplecomposer.h"
 #include "splashscreen.h"
+#include "experimentalsimulation.h"
 
 #ifdef USE_MPI
 #include <mpi.h>
@@ -193,6 +194,9 @@ void CommandLineParser::initializeCommandLineParser(QCommandLineParser &parser)
   const QCommandLineOption GUIOption({"ng","nogui"},"A flag to indicate whether to show GUI or not.", "");
   parser.addOption(GUIOption);
 
+  const QCommandLineOption ExpSimOption({"ex","exp"},"A flag to indicate whether to execute supplied file in parallel as experimental simulation. The no gui option must be set", "");
+  parser.addOption(ExpSimOption);
+
   const QCommandLineOption OpenMPOption({"nt","numthreads"},"The maximum number of threads to use with OpenMP", "maxNumThreads");
   parser.addOption(OpenMPOption);
 
@@ -308,38 +312,71 @@ int CommandLineParser::executeCommandLine(QCommandLineParser &parser, int argc, 
     }
     else
     {
-
-      if(HydroCoupleProject::mpiProcess == 0)
+      if(parser.isSet("ex"))
       {
-        QList<QString> messages;
-
-        HydroCoupleProject* project = HydroCoupleProject::readProjectFile(inputFile, messages,true,false);
-
-        if(messages.length())
+        if(inputFile.exists())
         {
-          printf("Error messages.\n");
-
-          for(QString message : messages)
+          if(HydroCoupleProject::mpiProcess == 0)
           {
-            printf("%s\n", qPrintable(message));
+            ExperimentalSimulation *experimentalSimulation = new ExperimentalSimulation(inputFile, nullptr);
+
+            QList<QString> errors;
+
+            if(experimentalSimulation->initialize(errors))
+            {
+              experimentalSimulation->execute();
+            }
+            else
+            {
+              for(QString error : errors)
+              {
+                printf("%s\n", error.toStdString().c_str());
+              }
+            }
+          }
+          else
+          {
+            executeMPIExperimentalSimulation();
           }
         }
-
-        printf("Creating simulation manager...\n");
-        SimulationManager simulationManager(project);
-        simulationManager.setMonitorComponentMessages(true);
-        printf("Running composition...\n");
-        simulationManager.runComposition();
-
       }
       else
       {
-        printf("Entering worker MPI process loop...\n");
-        enterMPIWorkersLoop();
-        printf("Quiting worker MPI process loop...\n");
+        if(HydroCoupleProject::mpiProcess == 0)
+        {
+          QList<QString> messages;
+
+          HydroCoupleProject* project = HydroCoupleProject::readProjectFile(inputFile, messages,true,false);
+
+          if(messages.length())
+          {
+            printf("Error messages.\n");
+
+            for(QString message : messages)
+            {
+              printf("%s\n", qPrintable(message));
+            }
+          }
+
+          printf("Creating simulation manager...\n");
+          SimulationManager simulationManager(project);
+          simulationManager.setMonitorComponentMessages(true);
+          printf("Running composition...\n");
+          simulationManager.runComposition();
+
+        }
+        else
+        {
+          printf("Entering worker MPI process loop...\n");
+          enterMPIWorkersLoop();
+          printf("Quiting worker MPI process loop...\n");
+        }
+
+        applicationExiting();
+
       }
 
-      applicationExiting();
+
       application->quit();
     }
   }
@@ -482,291 +519,358 @@ void CommandLineParser::enterMPIWorkersLoop()
 #endif
 }
 
+void CommandLineParser::executeMPIExperimentalSimulation()
+{
+#ifdef USE_MPI
+  {
+    int result = 0;
+    bool finalize = false;
+    MPI_Status status;
+
+    while ((result = MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status)) == MPI_SUCCESS)
+    {
+      switch (status.MPI_TAG)
+      {
+        case CommandLineParser::Finalize:
+          {
+            finalize = true;
+          }
+          break;
+        default:
+          {
+            printf("Recieved message to execute\n");
+
+            int dataSize = 0;
+            MPI_Get_count(&status, MPI_CHAR, &dataSize);
+
+            if(dataSize)
+            {
+              char* inputArgs = new char[dataSize];
+              MPI_Recv(&inputArgs[0],dataSize,MPI_CHAR,status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status);
+
+              QString file(inputArgs);
+              QFileInfo inputFile(file);
+
+              QList<QString> messages;
+
+              HydroCoupleProject* project = HydroCoupleProject::readProjectFile(inputFile, messages,true,false);
+
+              if(messages.length())
+              {
+                printf("Error messages.\n");
+
+                for(QString message : messages)
+                {
+                  printf("%s\n", qPrintable(message));
+                }
+              }
+
+              printf("Creating simulation manager...\n");
+              SimulationManager simulationManager(project);
+              simulationManager.setMonitorComponentMessages(true);
+              printf("Running composition...\n");
+              simulationManager.runComposition();
+
+              delete[] inputArgs;
+            }
+          }
+          break;
+      }
+
+      if(finalize)
+      {
+        break;
+      }
+    }
+  }
+#endif
+}
+
 void CommandLineParser::processMPIStatus(int status)
 {
 
 #ifdef USE_MPI
   {
-  switch (status)
-  {
-    case MPI_SUCCESS:
-      {
+    switch (status)
+    {
+      case MPI_SUCCESS:
+        {
 
-      }
-      break;
-    case MPI_ERR_BUFFER:
-      {
-        printf("Invalid buffer pointer\n");
-      }
-      break;
-    case MPI_ERR_COUNT:
-      {
-        printf("Invalid count argument\n");
-      }
-      break;
-    case MPI_ERR_TYPE:
-      {
-        printf("Invalid datatype argument\n");
-      }
-      break;
-    case  MPI_ERR_TAG:
-      {
-        printf("Invalid tag argument\n");
-      }
-      break;
-    case  MPI_ERR_COMM:
-      {
-        printf("Invalid communicator\n");
-      }
-      break;
-    case  MPI_ERR_RANK:
-      {
-        printf("Invalid rank\n");
-      }
-      break;
-    case  MPI_ERR_ROOT:
-      {
-        printf("Invalid root\n");
-      }
-      break;
-    case  MPI_ERR_GROUP:
-      {
-        printf("Invalid group\n");
-      }
-      break;
-    case  MPI_ERR_OP:
-      {
-        printf("Invalid operation\n");
-      }
-      break;
-    case   MPI_ERR_TOPOLOGY:
-      {
-        printf("Invalid topology\n");
-      }
-      break;
-    case  MPI_ERR_DIMS:
-      {
-        printf("Invalid dimension argument\n");
-      }
-      break;
-    case  MPI_ERR_ARG:
-      {
-        printf("Invalid argument\n");
-      }
-      break;
-    case  MPI_ERR_UNKNOWN:
-      {
-        printf("Unknown error\n");
-      }
-      break;
-    case  MPI_ERR_TRUNCATE:
-      {
-        printf("Message truncated on receive\n");
-      }
-      break;
-    case  MPI_ERR_OTHER:
-      {
-        printf("Other error; use Error_string\n");
-      }
-      break;
-    case  MPI_ERR_INTERN:
-      {
-        printf("Internal error code\n");
-      }
-      break;
-    case  MPI_ERR_IN_STATUS:
-      {
-        printf("Error code is in status\n");
-      }
-      break;
-    case   MPI_ERR_PENDING:
-      {
-        printf("Pending request\n");
-      }
-      break;
-    case  MPI_ERR_REQUEST:
-      {
-        printf("Invalid request (handle)\n");
-      }
-      break;
-    case  MPI_ERR_ACCESS:
-      {
-        printf("Permission denied\n");
-      }
-      break;
-    case   MPI_ERR_AMODE:
-      {
-        printf("Error related to amode passed to MPI_File_open\n");
-      }
-      break;
-    case   MPI_ERR_BAD_FILE:
-      {
-        printf("Invalid file name (e.g., path name too long)\n");
-      }
-      break;
-    case   MPI_ERR_CONVERSION:
-      {
-        printf("Error in user data conversion function\n");
-      }
-      break;
-    case   MPI_ERR_DUP_DATAREP:
-      {
-        printf("Data representation identifier already registered\n");
-      }
-      break;
-    case   MPI_ERR_FILE_EXISTS:
-      {
-        printf("File exists\n");
-      }
-      break;
-    case   MPI_ERR_FILE_IN_USE:
-      {
-        printf("File operation could not be completed, file in use\n");
-      }
-      break;
-    case    MPI_ERR_FILE:
-      {
-        printf("Invalid file handle\n");
-      }
-      break;
-    case    MPI_ERR_INFO:
-      {
-        printf("Invalid info argument\n");
-      }
-      break;
-    case   MPI_ERR_INFO_KEY:
-      {
-        printf("Key longer than MPI_MAX_INFO_KEY\n");
-      }
-      break;
-    case  MPI_ERR_INFO_VALUE:
-      {
-        printf("Value longer than MPI_MAX_INFO_VAL\n");
-      }
-      break;
-    case   MPI_ERR_INFO_NOKEY:
-      {
-        printf("Invalid key passed to MPI_Info_delete\n");
-      }
-      break;
-    case   MPI_ERR_IO:
-      {
-        printf("Other I/O error\n");
-      }
-      break;
-    case   MPI_ERR_NAME:
-      {
-        printf("Invalid service name in MPI_Lookup_name\n");
-      }
-      break;
-    case   MPI_ERR_NO_MEM:
-      {
-        printf("Alloc_mem could not allocate memory\n");
-      }
-      break;
-    case   MPI_ERR_NOT_SAME:
-      {
-        printf("Collective argument/sequence not the same on all processes\n");
-      }
-      break;
-    case   MPI_ERR_NO_SPACE:
-      {
-        printf("Not enough space\n");
-      }
-      break;
-    case   MPI_ERR_NO_SUCH_FILE:
-      {
-        printf("File does not exist\n");
-      }
-      break;
-    case   MPI_ERR_PORT:
-      {
-        printf("Invalid port name in MPI_comm_connect\n");
-      }
-      break;
-    case    MPI_ERR_QUOTA:
-      {
-        printf("Quota exceeded\n");
-      }
-      break;
-    case   MPI_ERR_READ_ONLY:
-      {
-        printf("Read-only file or file system\n");
-      }
-      break;
-    case   MPI_ERR_SERVICE:
-      {
-        printf("Invalid service name in MPI_Unpublish_name\n");
-      }
-      break;
-    case   MPI_ERR_SPAWN:
-      {
-        printf("Error in spawning processes\n");
-      }
-      break;
-    case     MPI_ERR_UNSUPPORTED_DATAREP:
-      {
-        printf("Unsupported dararep in MPI_File_set_view\n");
-      }
-      break;
-    case    MPI_ERR_UNSUPPORTED_OPERATION:
-      {
-        printf("Unsupported operation on file\n");
-      }
-      break;
-    case    MPI_ERR_WIN:
-      {
-        printf("Invalid win argument\n");
-      }
-      break;
-    case    MPI_ERR_BASE:
-      {
-        printf("Invalid base passed to MPI_Free_mem\n");
-      }
-      break;
-    case    MPI_ERR_LOCKTYPE:
-      {
-        printf("Invalid locktype argument\n");
-      }
-      break;
-    case    MPI_ERR_KEYVAL:
-      {
-        printf("Invalid keyval\n");
-      }
-      break;
-    case   MPI_ERR_RMA_CONFLICT:
-      {
-        printf("Conflicting accesses to window\n");
-      }
-      break;
-    case    MPI_ERR_RMA_SYNC:
-      {
-        printf("Wrong synchronization of RMA calls\n");
-      }
-      break;
-    case    MPI_ERR_SIZE:
-      {
-        printf("Invalid size argument\n");
-      }
-      break;
-    case    MPI_ERR_DISP:
-      {
-        printf("Invalid disp argument\n");
-      }
-      break;
-    case    MPI_ERR_ASSERT:
-      {
-        printf("Invalid assert argument\n");
-      }
-      break;
-    case    MPI_ERR_LASTCODE:
-      {
-        printf("Last valid error code for a predefined error class.\n");
-      }
-      break;
-  }
+        }
+        break;
+      case MPI_ERR_BUFFER:
+        {
+          printf("Invalid buffer pointer\n");
+        }
+        break;
+      case MPI_ERR_COUNT:
+        {
+          printf("Invalid count argument\n");
+        }
+        break;
+      case MPI_ERR_TYPE:
+        {
+          printf("Invalid datatype argument\n");
+        }
+        break;
+      case  MPI_ERR_TAG:
+        {
+          printf("Invalid tag argument\n");
+        }
+        break;
+      case  MPI_ERR_COMM:
+        {
+          printf("Invalid communicator\n");
+        }
+        break;
+      case  MPI_ERR_RANK:
+        {
+          printf("Invalid rank\n");
+        }
+        break;
+      case  MPI_ERR_ROOT:
+        {
+          printf("Invalid root\n");
+        }
+        break;
+      case  MPI_ERR_GROUP:
+        {
+          printf("Invalid group\n");
+        }
+        break;
+      case  MPI_ERR_OP:
+        {
+          printf("Invalid operation\n");
+        }
+        break;
+      case   MPI_ERR_TOPOLOGY:
+        {
+          printf("Invalid topology\n");
+        }
+        break;
+      case  MPI_ERR_DIMS:
+        {
+          printf("Invalid dimension argument\n");
+        }
+        break;
+      case  MPI_ERR_ARG:
+        {
+          printf("Invalid argument\n");
+        }
+        break;
+      case  MPI_ERR_UNKNOWN:
+        {
+          printf("Unknown error\n");
+        }
+        break;
+      case  MPI_ERR_TRUNCATE:
+        {
+          printf("Message truncated on receive\n");
+        }
+        break;
+      case  MPI_ERR_OTHER:
+        {
+          printf("Other error; use Error_string\n");
+        }
+        break;
+      case  MPI_ERR_INTERN:
+        {
+          printf("Internal error code\n");
+        }
+        break;
+      case  MPI_ERR_IN_STATUS:
+        {
+          printf("Error code is in status\n");
+        }
+        break;
+      case   MPI_ERR_PENDING:
+        {
+          printf("Pending request\n");
+        }
+        break;
+      case  MPI_ERR_REQUEST:
+        {
+          printf("Invalid request (handle)\n");
+        }
+        break;
+      case  MPI_ERR_ACCESS:
+        {
+          printf("Permission denied\n");
+        }
+        break;
+      case   MPI_ERR_AMODE:
+        {
+          printf("Error related to amode passed to MPI_File_open\n");
+        }
+        break;
+      case   MPI_ERR_BAD_FILE:
+        {
+          printf("Invalid file name (e.g., path name too long)\n");
+        }
+        break;
+      case   MPI_ERR_CONVERSION:
+        {
+          printf("Error in user data conversion function\n");
+        }
+        break;
+      case   MPI_ERR_DUP_DATAREP:
+        {
+          printf("Data representation identifier already registered\n");
+        }
+        break;
+      case   MPI_ERR_FILE_EXISTS:
+        {
+          printf("File exists\n");
+        }
+        break;
+      case   MPI_ERR_FILE_IN_USE:
+        {
+          printf("File operation could not be completed, file in use\n");
+        }
+        break;
+      case    MPI_ERR_FILE:
+        {
+          printf("Invalid file handle\n");
+        }
+        break;
+      case    MPI_ERR_INFO:
+        {
+          printf("Invalid info argument\n");
+        }
+        break;
+      case   MPI_ERR_INFO_KEY:
+        {
+          printf("Key longer than MPI_MAX_INFO_KEY\n");
+        }
+        break;
+      case  MPI_ERR_INFO_VALUE:
+        {
+          printf("Value longer than MPI_MAX_INFO_VAL\n");
+        }
+        break;
+      case   MPI_ERR_INFO_NOKEY:
+        {
+          printf("Invalid key passed to MPI_Info_delete\n");
+        }
+        break;
+      case   MPI_ERR_IO:
+        {
+          printf("Other I/O error\n");
+        }
+        break;
+      case   MPI_ERR_NAME:
+        {
+          printf("Invalid service name in MPI_Lookup_name\n");
+        }
+        break;
+      case   MPI_ERR_NO_MEM:
+        {
+          printf("Alloc_mem could not allocate memory\n");
+        }
+        break;
+      case   MPI_ERR_NOT_SAME:
+        {
+          printf("Collective argument/sequence not the same on all processes\n");
+        }
+        break;
+      case   MPI_ERR_NO_SPACE:
+        {
+          printf("Not enough space\n");
+        }
+        break;
+      case   MPI_ERR_NO_SUCH_FILE:
+        {
+          printf("File does not exist\n");
+        }
+        break;
+      case   MPI_ERR_PORT:
+        {
+          printf("Invalid port name in MPI_comm_connect\n");
+        }
+        break;
+      case    MPI_ERR_QUOTA:
+        {
+          printf("Quota exceeded\n");
+        }
+        break;
+      case   MPI_ERR_READ_ONLY:
+        {
+          printf("Read-only file or file system\n");
+        }
+        break;
+      case   MPI_ERR_SERVICE:
+        {
+          printf("Invalid service name in MPI_Unpublish_name\n");
+        }
+        break;
+      case   MPI_ERR_SPAWN:
+        {
+          printf("Error in spawning processes\n");
+        }
+        break;
+      case     MPI_ERR_UNSUPPORTED_DATAREP:
+        {
+          printf("Unsupported dararep in MPI_File_set_view\n");
+        }
+        break;
+      case    MPI_ERR_UNSUPPORTED_OPERATION:
+        {
+          printf("Unsupported operation on file\n");
+        }
+        break;
+      case    MPI_ERR_WIN:
+        {
+          printf("Invalid win argument\n");
+        }
+        break;
+      case    MPI_ERR_BASE:
+        {
+          printf("Invalid base passed to MPI_Free_mem\n");
+        }
+        break;
+      case    MPI_ERR_LOCKTYPE:
+        {
+          printf("Invalid locktype argument\n");
+        }
+        break;
+      case    MPI_ERR_KEYVAL:
+        {
+          printf("Invalid keyval\n");
+        }
+        break;
+      case   MPI_ERR_RMA_CONFLICT:
+        {
+          printf("Conflicting accesses to window\n");
+        }
+        break;
+      case    MPI_ERR_RMA_SYNC:
+        {
+          printf("Wrong synchronization of RMA calls\n");
+        }
+        break;
+      case    MPI_ERR_SIZE:
+        {
+          printf("Invalid size argument\n");
+        }
+        break;
+      case    MPI_ERR_DISP:
+        {
+          printf("Invalid disp argument\n");
+        }
+        break;
+      case    MPI_ERR_ASSERT:
+        {
+          printf("Invalid assert argument\n");
+        }
+        break;
+      case    MPI_ERR_LASTCODE:
+        {
+          printf("Last valid error code for a predefined error class.\n");
+        }
+        break;
     }
-    #endif
+  }
+#endif
 }
 
 void CommandLineParser::applicationExiting()

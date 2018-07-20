@@ -1,24 +1,22 @@
 #Author Caleb Amoa Buahin
 #Email caleb.buahin@gmail.com
 #Date 2016
-#License GNU General Public License (see <http: //www.gnu.org/licenses/> for details).
+#License GNU Lesser General Public License (see <http: //www.gnu.org/licenses/> for details).
 
 TEMPLATE = app
 VERSION = 1.0.0
 TARGET = HydroCoupleComposer
 QT += core widgets gui printsupport concurrent opengl
 
-#DEFINES += GRAPHVIZ_LIBRARY
-DEFINES += UTAH_CHPC
+DEFINES += GRAPHVIZ_LIBRARY
+DEFINES += USE_CHPC
 DEFINES += USE_MPI
 DEFINES += USE_OPENMP
+#DEFINES += QT_NO_VERSION_TAGGING
 
 CONFIG += c++11
 CONFIG += debug_and_release
-
-*msvc* { # visual studio spec filter
-    QMAKE_CXXFLAGS += /MP /O2
-}
+CONFIG += optimize_full
 
 PRECOMPILED_HEADER += ./include/stdafx.h
 
@@ -31,10 +29,6 @@ INCLUDEPATH += .\
 macx{
     INCLUDEPATH += /usr/local/include \
                    /usr/local/include/libiomp
-}
-
-linux{
-    INCLUDEPATH += /usr/include
 }
 
 win32{
@@ -61,7 +55,8 @@ HEADERS += ./include/stdafx.h \
            ./include/simulationmanager.h \
            ./include/commandlineparser.h \
            ./include/cpugpuallocation.h \
-           ./include/preferencesdialog.h
+           ./include/preferencesdialog.h \
+           ./include/experimentalsimulation.h
 
 SOURCES += ./src/stdafx.cpp \
            ./src/main.cpp \
@@ -88,7 +83,8 @@ SOURCES += ./src/stdafx.cpp \
            ./src/simulationmanager.cpp \
            ./src/commandlineparser.cpp \
            ./src/cpugpuallocation.cpp \
-           ./src/preferencesdialog.cpp
+           ./src/preferencesdialog.cpp \
+           ./src/experimentalsimulation.cpp
 
 macx{
 
@@ -100,7 +96,7 @@ macx{
 
         QMAKE_CFLAGS+= -fopenmp
         QMAKE_LFLAGS+= -fopenmp
-        QMAKE_CXXFLAGS+= -fopenmp -g
+        QMAKE_CXXFLAGS+= -fopenmp
 
         INCLUDEPATH += /usr/local/opt/llvm/lib/clang/5.0.0/include
         LIBS += -L /usr/local/opt/llvm/lib -lomp
@@ -137,15 +133,14 @@ linux{
 
         QMAKE_CFLAGS += -fopenmp
         QMAKE_LFLAGS += -fopenmp
-        QMAKE_CXXFLAGS += -fopenmp -g
-        QMAKE_LIBS += -liomp5
-        QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS
-        QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS
+        QMAKE_CXXFLAGS += -fopenmp
+#        QMAKE_LIBS += -liomp5
 
-      message("OpenMP enabled")
-     } else {
+        message("OpenMP enabled")
 
-      message("OpenMP disabled")
+        } else {
+
+        message("OpenMP disabled")
      }
 
     contains(DEFINES,USE_MPI){
@@ -154,10 +149,18 @@ linux{
         QMAKE_CXX = mpic++
         QMAKE_LINK = mpic++
 
-      message("MPI enabled")
-     } else {
+        QMAKE_CFLAGS += $$system(mpicc --showme:compile)
+        QMAKE_CXXFLAGS += $$system(mpic++ --showme:compile)
+        QMAKE_LFLAGS += $$system(mpic++ --showme:link)
 
-      message("MPI disabled")
+        LIBS += -L/usr/local/lib/ -lmpi
+
+        message("MPI enabled")
+
+        } else {
+
+        message("MPI disabled")
+
      }
 }
 
@@ -171,9 +174,10 @@ win32{
 
         message("OpenMP enabled")
 
-     } else {
+        } else {
 
-      message("OpenMP disabled")
+        message("OpenMP disabled")
+
      }
 
     QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS /MD
@@ -205,9 +209,26 @@ win32{
               message("MPI disabled")
             }
     }
+
+    QMAKE_CXXFLAGS += /MP
 }
 
 CONFIG(debug, debug|release) {
+
+    win32 {
+       QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS /MDd  /O2
+    }
+
+    macx {
+       QMAKE_CFLAGS_DEBUG = $$QMAKE_CFLAGS -g -O3
+       QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS -g -O3
+    }
+
+    linux {
+       QMAKE_CFLAGS_DEBUG = $$QMAKE_CFLAGS -g -O3
+       QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS -g -O3
+    }
+
 
    macx{
    LIBS += -L./../QPropertyModel/build/debug -lQPropertyModel.1.0.0 \
@@ -218,23 +239,31 @@ CONFIG(debug, debug|release) {
 
    linux{
 
-    contains(DEFINES,UTAH_CHPC){
+    contains(DEFINES,USE_CHPC){
 
-         INCLUDEPATH += /uufs/chpc.utah.edu/common/home/u0660135/Projects/HydroCouple/graphviz/build/usr/local/include
+              contains(DEFINES,GRAPHVIZ_LIBRARY){
 
-         LIBS += -L./../QPropertyModel/build/debug -lQPropertyModel.so.1.0.0 \
-                 -L./../HydroCoupleVis/build/debug -lHydroCoupleVis.so.1.0.0 \
-                 -L./../graphviz/build/usr/local/lib -lcgraph \
-                 -L./../graphviz/build/usr/local/lib -lgvc
+                   INCLUDEPATH += ../graphviz/build/usr/local/include
 
-         message("Compiling on CHPC")
-          } else {
+                   LIBS += -L../graphviz/build/usr/local/lib -lcgraph \
+                           -L../graphviz/build/usr/local/lib -lgvc
+              }
 
-   LIBS += -L./../QPropertyModel/build/debug -lQPropertyModel.so.1.0.0 \
-           -L./../HydroCoupleVis/build/debug -lHydroCoupleVis.so.1.0.0 \
-           -L/usr/lib -lcgraph \
-           -L/usr/lib -lgvc
+              message("Compiling on CHPC")
+
+           } else {
+
+                contains(DEFINES,GRAPHVIZ_LIBRARY){
+                           LIBS += -L/usr/lib -lcgraph \
+                                   -L/usr/lib -lgvc
+                }
+
+                message("Not on CHPC")
           }
+
+           LIBS += -L../QPropertyModel/build/debug -lQPropertyModel \
+                   -L../HydroCoupleVis/build/debug -lHydroCoupleVis
+
      }
 
    win32{
@@ -259,31 +288,46 @@ CONFIG(debug, debug|release) {
 
 CONFIG(release, debug|release){
 
+   win32 {
+    QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS /MD
+   }
+
+
    macx{
-      LIBS += -L./../QPropertyModel/lib/macx -lQPropertyModel.1.0.0 \
+
+        LIBS += -L./../QPropertyModel/lib/macx -lQPropertyModel.1.0.0 \
               -L./../HydroCoupleVis/lib/macx -lHydroCoupleVis.1.0.0 \
               -L/usr/local/lib -lcgraph \
               -L/usr/local/lib -lgvc
      }
 
    linux{
-    contains(DEFINES,UTAH_CHPC){
 
-         INCLUDEPATH += ./../graphviz/build/usr/local/include
+    contains(DEFINES,USE_CHPC){
 
-         LIBS += -L./../QPropertyModel/lib/linux -lQPropertyModel.so.1.0.0 \
-                 -L./../HydroCoupleVis/lib/linux -lHydroCoupleVis.so.1.0.0 \
-                 -L./../graphviz/build/usr/local/lib -lcgraph \
-                 -L./../graphviz/build/usr/local/lib -lgvc
+             contains(DEFINES,GRAPHVIZ_LIBRARY){
 
-         message("Compiling on CHPC")
+                 INCLUDEPATH += ./../graphviz/build/usr/local/include
+                 LIBS += -L./../graphviz/build/usr/local/lib -lcgraph \
+                         -L./../graphviz/build/usr/local/lib -lgvc
+             }
+
+             message("Compiling on CHPC")
+
           } else {
 
-   LIBS += -L./../QPropertyModel/lib/linux -lQPropertyModel \
-           -L./../HydroCoupleVis/lib/linux -lHydroCoupleVis \
-           -L/usr/lib -lcgraph \
-           -L/usr/lib -lgvc
-          }
+             contains(DEFINES,GRAPHVIZ_LIBRARY){
+
+                 LIBS += -L/usr/lib -lcgraph \
+                         -L/usr/lib -lgvc
+
+             }
+
+             message("Not on CHPC")
+         }
+
+           LIBS += -L./../QPropertyModel/lib/linux -lQPropertyModel \
+                   -L./../HydroCoupleVis/lib/linux -lHydroCoupleVis
      }
 
    win32{
@@ -325,6 +369,7 @@ RESOURCES += ./resources/hydrocouplecomposer.qrc
 RC_FILE = ./resources/HydroCoupleComposer.rc
 
 macx{
+#  QMAKE_INFO_PLIST = Info.plist
   ICON = ./resources/HydroCoupleComposer.icns
 }
 

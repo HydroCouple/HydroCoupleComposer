@@ -78,10 +78,12 @@ void SimulationManager::runComposition(bool background)
         {
           if(background)
           {
+            m_isBackground = true;
             m_thread = std::thread(SimulationManager::runManagerThread, this);
           }
           else
           {
+            m_isBackground = false;
             run();
           }
         }
@@ -534,6 +536,11 @@ void SimulationManager::run()
 
 void SimulationManager::onSimulationCompleted()
 {
+  if(m_isBackground)
+  {
+    m_thread.join();
+  }
+
   finalizeComputeResources();
 
   float seconds = m_timer.elapsed() * 1.0 / 1000.0;
@@ -546,13 +553,14 @@ void SimulationManager::onSimulationCompleted()
     m_stopSimulation = false;
   }
 
-
   emit isBusy(false);
   emit setProgress(false,0,0,100);
   emit postMessage("Simulation Time (s): " +  QString::number(seconds));
   printf("Simulation Time (s): %f\n", seconds);
 
-  m_thread.join();
+
+
+
 }
 
 void SimulationManager::onWorkflowComponentStatusChanged(IWorkflowComponent::WorkflowStatus status, const QString &message)

@@ -63,7 +63,15 @@ IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
       QString current = QDir::currentPath();
       QDir::setCurrent(file.absolutePath());
 
-      QPluginLoader* pluginLoader = new QPluginLoader(file.absoluteFilePath(), this);
+      QPluginLoader* pluginLoader = nullptr;
+
+#ifdef USE_OPENMP
+#pragma omp critical (ComponentManager)
+#endif
+      {
+        pluginLoader = new QPluginLoader(file.absoluteFilePath(), this);
+      }
+
       QObject* component = pluginLoader->instance();
 
       QDir::setCurrent(current);

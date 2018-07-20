@@ -355,7 +355,7 @@ bool GConnection::canAcceptDrop(const QMimeData *data)
     {
       int row, col;
       QMap<int, QVariant> roleDataMap;
-      stream >> row >> col >> roleDataMap;
+//      stream >> row >> col >> roleDataMap;
 
       /* do something with the data */
       QVariant value = roleDataMap[Qt::UserRole];
