@@ -191,13 +191,13 @@ void CommandLineParser::initializeCommandLineParser(QCommandLineParser &parser)
   const QCommandLineOption verboseOption({"vb","verbose"},"Verbose mode. Print out details of simulation.");
   parser.addOption(verboseOption);
 
-  const QCommandLineOption GUIOption({"ng","nogui"},"A flag to indicate whether to show GUI or not.", "");
+  const QCommandLineOption GUIOption({"g", "ng","nogui"},"A flag to indicate whether to show GUI or not.", "");
   parser.addOption(GUIOption);
 
-  const QCommandLineOption ExpSimOption({"ex","exp"},"A flag to indicate whether to execute supplied file in parallel as experimental simulation. The no gui option must be set", "");
+  const QCommandLineOption ExpSimOption({"x", "ex","exp"},"A flag to indicate whether to execute supplied file in parallel as experimental simulation. The no gui option must be set", "file");
   parser.addOption(ExpSimOption);
 
-  const QCommandLineOption OpenMPOption({"nt","numthreads"},"The maximum number of threads to use with OpenMP", "maxNumThreads");
+  const QCommandLineOption OpenMPOption({"t", "nt"},"The maximum number of threads to use with OpenMP", "number of threads");
   parser.addOption(OpenMPOption);
 
 }
@@ -210,62 +210,98 @@ int CommandLineParser::executeCommandLine(QCommandLineParser &parser, int argc, 
   QStringList applicationArguments = applicationArgsToStringList(argc, argv);
   parser.parse(applicationArguments);
 
+  bool isGUI = true;
+
+  //try to initialize MPI
+  initializeMPI(argc, argv, HydroCoupleProject::numMPIProcesses , HydroCoupleProject::mpiProcess);
+
+  QCoreApplication *application = nullptr;
+
+  //Check if GUI and initialize application
+  if(!parser.isSet("ng") && HydroCoupleProject::mpiProcess == 0)
+  {
+    application = new QApplication(argc, argv);
+    isGUI = true;
+  }
+  else
+  {
+    application = new QCoreApplication(argc, argv);
+    isGUI = false;
+  }
+
+  //Set application identifiers
+  application->setOrganizationName("hydrocouple");
+  application->setOrganizationDomain("hydrocouple.org");
+  application->setApplicationName("hydrocouplecomposer");
+  application->setApplicationVersion("1.0.0");
+
+  if(parser.isSet("nt"))
+  {
+    int numThreads = parser.value("nt").toInt();
+
+    //check for openmp
+#ifdef USE_OPENMP
+    if(numThreads >= 1 && numThreads <= omp_get_max_threads())
+      omp_set_num_threads(numThreads);
+
+    printf("OpenMP is enabled with %i Processors and %i Max Threads\n", omp_get_num_procs() , omp_get_max_threads());
+
+#endif
+  }
+  else
+  {
+#ifdef USE_OPENMP
+    printf("OpenMP is enabled with %i Processors and %i Max Threads\n", omp_get_num_procs() , omp_get_max_threads());
+#endif
+  }
+
+
   //version
   if(parser.isSet("version"))
   {
-    printf("Application Name: %s\nApplication Version: %s\n", "HydroCoupleComposer",
-           qPrintable(QCoreApplication::applicationVersion()));
+    if(HydroCoupleProject::mpiProcess == 0)
+    {
+      printf("Application Name: %s\nApplication Version: %s\n", "HydroCoupleComposer",
+             qPrintable(QCoreApplication::applicationVersion()));
+
+#ifdef USE_MPI
+        MPI_Finalize();
+#endif
+
+    }
+    else
+    {
+#ifdef USE_MPI
+      MPI_Finalize();
+#endif
+    }
+
+    application->quit();
   }
   //help
   else if (parser.isSet("help"))
   {
-    parser.showHelp();
+    if(HydroCoupleProject::mpiProcess == 0)
+    {
+
+#ifdef USE_MPI
+        MPI_Finalize();
+#endif
+
+      parser.showHelp();
+    }
+    else
+    {
+#ifdef USE_MPI
+        MPI_Finalize();
+#endif
+    }
+
+    application->quit();
+
   }
   else
   {
-
-    bool isGUI = true;
-
-    //try to initialize MPI
-    initializeMPI(argc, argv, HydroCoupleProject::numMPIProcesses , HydroCoupleProject::mpiProcess);
-
-    QCoreApplication *application = nullptr;
-
-    //Check if GUI and initialize application
-    if(!parser.isSet("ng") && HydroCoupleProject::mpiProcess == 0)
-    {
-      application = new QApplication(argc, argv);
-      isGUI = true;
-    }
-    else
-    {
-      application = new QCoreApplication(argc, argv);
-      isGUI = false;
-    }
-
-    if(parser.isSet("nt"))
-    {
-      int numThreads = parser.value("nt").toInt();
-      //check for openmp
-#ifdef USE_OPENMP
-      if(numThreads > 1 && numThreads < omp_get_max_threads())
-        omp_set_num_threads(numThreads);
-
-      printf("OpenMP is enabled with %i Processors and %i Max Threads\n", omp_get_num_procs() , omp_get_max_threads());
-#endif
-    }
-    else
-    {
-#ifdef USE_OPENMP
-      printf("OpenMP is enabled with %i Processors and %i Max Threads\n", omp_get_num_procs() , omp_get_max_threads());
-#endif
-    }
-
-    //Set application identifiers
-    application->setOrganizationName("hydrocouple");
-    application->setOrganizationDomain("hydrocouple.org");
-    application->setApplicationName("hydrocouplecomposer");
-    application->setApplicationVersion("1.0.0");
 
     //Catch when quitting
     QObject::connect(application, &QCoreApplication::aboutToQuit,&CommandLineParser::applicationExiting);
@@ -280,10 +316,27 @@ int CommandLineParser::executeCommandLine(QCommandLineParser &parser, int argc, 
       fileSpecified = true;
     }
     //Otherwise check if run argument file has been specified
-    else if(parser.isSet("r") && parser.value("r").size())
+    else if(parser.isSet("r") && parser.value("r").size() )
     {
 
       QFileInfo file = QFileInfo(parser.value("r"));
+
+      if(file.isRelative())
+      {
+        QDir dir(QDir::currentPath());
+        file = dir.absoluteFilePath(file.filePath());
+      }
+
+      if(file.isFile() && file.exists())
+      {
+        inputFile = file;
+        fileSpecified = true;
+      }
+    }
+    else if(parser.isSet("ex") && parser.value("ex").size() )
+    {
+
+      QFileInfo file = QFileInfo(parser.value("ex"));
 
       if(file.isRelative())
       {
@@ -339,6 +392,8 @@ int CommandLineParser::executeCommandLine(QCommandLineParser &parser, int argc, 
             executeMPIExperimentalSimulation();
           }
         }
+
+        applicationExiting();
       }
       else
       {
@@ -376,8 +431,8 @@ int CommandLineParser::executeCommandLine(QCommandLineParser &parser, int argc, 
 
       }
 
-
       application->quit();
+
     }
   }
 
@@ -486,13 +541,11 @@ void CommandLineParser::enterMPIWorkersLoop()
           {
             if(component)
             {
-              //printf("Sender: %i | Sender Tag: %i \n", status.MPI_SOURCE, status.MPI_TAG);
               component->modelComponent()->update();
             }
           }
           break;
       }
-
 
       loopCount++;
 

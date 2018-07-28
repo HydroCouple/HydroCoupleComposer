@@ -12,6 +12,7 @@
 
 int main(int argc, char *argv[])
 {
+  setbuf(stdout, NULL);
   QCommandLineParser parser;
   parser.setApplicationDescription("HydroCoupleComposer CommandLine");
   CommandLineParser::initializeCommandLineParser(parser);

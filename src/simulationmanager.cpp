@@ -5,13 +5,18 @@
 #include "cpugpuallocation.h"
 
 #include <QDebug>
-//#include <QFutureWatcher>
 #include <tuple>
 #include <thread>
 #include <cstring>
 #include <QThread>
+
+
 #ifdef USE_MPI
 #include <mpi.h>
+#endif
+
+#ifdef USE_OPENMP
+#include <omp.h>
 #endif
 
 using namespace HydroCouple;
@@ -39,6 +44,10 @@ void SimulationManager::runComposition(bool background)
     emit isBusy(true);
 
     m_timer.start();
+
+#ifdef USE_OPENMP
+      printf("OpenMP is enabled with %i Processors and %i Max Threads\n", omp_get_num_procs() , omp_get_max_threads());
+#endif
 
     try
     {

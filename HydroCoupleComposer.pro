@@ -4,7 +4,7 @@
 #License GNU Lesser General Public License (see <http: //www.gnu.org/licenses/> for details).
 
 TEMPLATE = app
-VERSION = 1.0.0
+VERSION = 1.1.0
 TARGET = HydroCoupleComposer
 QT += core widgets gui printsupport concurrent opengl
 
@@ -12,7 +12,6 @@ DEFINES += GRAPHVIZ_LIBRARY
 DEFINES += USE_CHPC
 DEFINES += USE_MPI
 DEFINES += USE_OPENMP
-#DEFINES += QT_NO_VERSION_TAGGING
 
 CONFIG += c++11
 CONFIG += debug_and_release
@@ -94,9 +93,9 @@ macx{
         QMAKE_CXX = /usr/local/opt/llvm/bin/clang++
         QMAKE_LINK = /usr/local/opt/llvm/bin/clang++
 
-        QMAKE_CFLAGS+= -fopenmp
-        QMAKE_LFLAGS+= -fopenmp
-        QMAKE_CXXFLAGS+= -fopenmp
+        QMAKE_CFLAGS += -fopenmp
+        QMAKE_LFLAGS += -fopenmp
+        QMAKE_CXXFLAGS += -fopenmp
 
         INCLUDEPATH += /usr/local/opt/llvm/lib/clang/5.0.0/include
         LIBS += -L /usr/local/opt/llvm/lib -lomp
@@ -113,16 +112,13 @@ macx{
         QMAKE_CXX = /usr/local/bin/mpicxx
         QMAKE_LINK = /usr/local/bin/mpicxx
 
-        QMAKE_CFLAGS += $$system(mpicc --showme:compile)
-        QMAKE_CXXFLAGS += $$system(mpic++ --showme:compile)
-        QMAKE_LFLAGS += $$system(mpic++ --showme:link)
-
         LIBS += -L/usr/local/lib/ -lmpi
 
-    message("MPI enabled")
+        message("MPI enabled")
+
      } else {
 
-      message("MPI disabled")
+        message("MPI disabled")
      }
 }
 
@@ -134,7 +130,6 @@ linux{
         QMAKE_CFLAGS += -fopenmp
         QMAKE_LFLAGS += -fopenmp
         QMAKE_CXXFLAGS += -fopenmp
-#        QMAKE_LIBS += -liomp5
 
         message("OpenMP enabled")
 
@@ -148,10 +143,6 @@ linux{
         QMAKE_CC = mpicc
         QMAKE_CXX = mpic++
         QMAKE_LINK = mpic++
-
-        QMAKE_CFLAGS += $$system(mpicc --showme:compile)
-        QMAKE_CXXFLAGS += $$system(mpic++ --showme:compile)
-        QMAKE_LFLAGS += $$system(mpic++ --showme:link)
 
         LIBS += -L/usr/local/lib/ -lmpi
 
@@ -180,59 +171,60 @@ win32{
 
      }
 
-    QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS /MD
-    QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS /MDd
+    # Windows vspkg package manager installation path
+    # VCPKGDIR = C:/vcpkg/installed/x64-windows
+    # message ($$(VCPKGDIR))
 
-    #Windows vspkg package manager installation path
-    VSPKGDIR = C:/vcpkg/installed/x64-windows
+    INCLUDEPATH += $${VCPKGDIR}/include
 
-    INCLUDEPATH += $${VSPKGDIR}/include \
-                   $${VSPKGDIR}/include/gdal
-
-    message ($$(VSPKGDIR))
 
     CONFIG(debug, debug|release) {
 
-            contains(DEFINES,USE_MPI){
-               LIBS += -L$${VSPKGDIR}/debug/lib -lmsmpi
-               message("MPI enabled")
-            } else {
-              message("MPI disabled")
-            }
+        contains(DEFINES,USE_MPI){
+
+           message("MPI enabled")
+           LIBS += -L$${VCPKGDIR}/debug/lib -lmsmpi
+
+           } else {
+
+           message("MPI disabled")
+        }
+
+     } else {
+
+        contains(DEFINES,USE_MPI){
+
+           LIBS += -L$${VCPKGDIR}/lib -lmsmpi
+           message("MPI enabled")
 
         } else {
 
-            contains(DEFINES,USE_MPI){
-               LIBS += -L$${VSPKGDIR}/lib -lmsmpi
-               message("MPI enabled")
-            } else {
-              message("MPI disabled")
-            }
+          message("MPI disabled")
+        }
     }
 
     QMAKE_CXXFLAGS += /MP
+    QMAKE_LFLAGS += /MP /incremental /debug:fastlink
 }
 
 CONFIG(debug, debug|release) {
 
     win32 {
-       QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS /MDd  /O2
+       QMAKE_CXXFLAGS += /MDd /O2
     }
 
     macx {
-       QMAKE_CFLAGS_DEBUG = $$QMAKE_CFLAGS -g -O3
-       QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS -g -O3
+       QMAKE_CXXFLAGS += -O3
     }
 
     linux {
-       QMAKE_CFLAGS_DEBUG = $$QMAKE_CFLAGS -g -O3
-       QMAKE_CXXFLAGS_DEBUG = $$QMAKE_CXXFLAGS -g -O3
+       QMAKE_CXXFLAGS += -O3
     }
 
 
    macx{
-   LIBS += -L./../QPropertyModel/build/debug -lQPropertyModel.1.0.0 \
-           -L./../HydroCoupleVis/build/debug -lHydroCoupleVis.1.0.0 \
+   LIBS += -L./../QPropertyModel/build/debug -lQPropertyModel \
+           -L./../HydroCoupleVis/build/debug -lHydroCoupleVis \
            -L/usr/local/lib -lcgraph \
            -L/usr/local/lib -lgvc
      }
@@ -289,14 +281,14 @@ CONFIG(debug, debug|release) {
 CONFIG(release, debug|release){
 
    win32 {
-    QMAKE_CXXFLAGS_RELEASE = $$QMAKE_CXXFLAGS /MD
+    QMAKE_CXXFLAGS += /MD
    }
 
 
    macx{
 
-        LIBS += -L./../QPropertyModel/lib/macx -lQPropertyModel.1.0.0 \
-              -L./../HydroCoupleVis/lib/macx -lHydroCoupleVis.1.0.0 \
+        LIBS += -L./../QPropertyModel/lib/macx -lQPropertyModel \
+              -L./../HydroCoupleVis/lib/macx -lHydroCoupleVis \
               -L/usr/local/lib -lcgraph \
               -L/usr/local/lib -lgvc
      }
