@@ -8,7 +8,7 @@ VERSION = 1.1.0
 TARGET = HydroCoupleComposer
 QT += core widgets gui printsupport concurrent opengl
 
-DEFINES += GRAPHVIZ_LIBRARY
+#DEFINES += GRAPHVIZ_LIBRARY
 DEFINES += USE_CHPC
 DEFINES += USE_MPI
 DEFINES += USE_OPENMP
@@ -158,6 +158,8 @@ linux{
 
 win32{
 
+    CONFIG += console
+
     contains(DEFINES,USE_OPENMP){
 
         QMAKE_CFLAGS += /openmp
@@ -172,8 +174,8 @@ win32{
      }
 
     # Windows vspkg package manager installation path
-    # VCPKGDIR = C:/vcpkg/installed/x64-windows
-    # message ($$(VCPKGDIR))
+    VCPKGDIR = C:/vcpkg/installed/x64-windows
+    message ($$(VCPKGDIR))
 
     INCLUDEPATH += $${VCPKGDIR}/include
 
@@ -204,7 +206,7 @@ win32{
     }
 
     QMAKE_CXXFLAGS += /MP
-    QMAKE_LFLAGS += /MP /incremental /debug:fastlink
+    QMAKE_LFLAGS += /incremental /debug:fastlink
 }
 
 CONFIG(debug, debug|release) {

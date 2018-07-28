@@ -191,7 +191,7 @@ void CommandLineParser::initializeCommandLineParser(QCommandLineParser &parser)
   const QCommandLineOption verboseOption({"vb","verbose"},"Verbose mode. Print out details of simulation.");
   parser.addOption(verboseOption);
 
-  const QCommandLineOption GUIOption({"g", "ng","nogui"},"A flag to indicate whether to show GUI or not.", "");
+  const QCommandLineOption GUIOption({"ng","nogui"},"A flag to indicate whether to show GUI or not.", "");
   parser.addOption(GUIOption);
 
   const QCommandLineOption ExpSimOption({"x", "ex","exp"},"A flag to indicate whether to execute supplied file in parallel as experimental simulation. The no gui option must be set", "file");
@@ -218,7 +218,9 @@ int CommandLineParser::executeCommandLine(QCommandLineParser &parser, int argc, 
   QCoreApplication *application = nullptr;
 
   //Check if GUI and initialize application
-  if(!parser.isSet("ng") && HydroCoupleProject::mpiProcess == 0)
+  if(!parser.isSet("ng") && HydroCoupleProject::mpiProcess == 0 &&
+          !parser.isSet("version") && !parser.isSet("help") &&
+          !parser.isSet("ex"))
   {
     application = new QApplication(argc, argv);
     isGUI = true;
