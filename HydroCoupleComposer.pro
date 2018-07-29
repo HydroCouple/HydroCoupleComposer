@@ -158,6 +158,7 @@ linux{
 
 win32{
 
+
     CONFIG += console
 
     contains(DEFINES,USE_OPENMP){
@@ -212,7 +213,7 @@ win32{
 CONFIG(debug, debug|release) {
 
     win32 {
-       QMAKE_CXXFLAGS += /MDd /O2
+       QMAKE_CXXFLAGS += /MDd #/O2
     }
 
     macx {

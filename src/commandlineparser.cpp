@@ -146,6 +146,10 @@ void CommandLineParser::initializeGUIApplication(QApplication *application, cons
   }
 #endif
 
+  componentManager->addComponentDirectory(QDir("./components"));
+  componentManager->addComponentDirectory(QDir("./../components"));
+  componentManager->addComponentDirectory(QDir("./../"));
+
   splashScreen->finish(mainWindow);
   mainWindow->show();
 

@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <QApplication>
 #include <QDirIterator>
+#include <QJsonDocument>
 
 #include <QtDebug>
 
@@ -71,6 +72,13 @@ IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
       {
         pluginLoader = new QPluginLoader(file.absoluteFilePath(), this);
       }
+
+
+      QJsonDocument jdoc(pluginLoader->metaData());
+
+      QString strJSON(jdoc.toJson(QJsonDocument::Compact));
+
+      printf("Component JSON: %s\n", strJSON.toStdString().c_str());
 
       QObject* component = pluginLoader->instance();
 
@@ -182,8 +190,9 @@ IComponentInfo* ComponentManager::loadComponent(const QFileInfo& file)
 
         if(pluginLoader->errorString().size())
         {
-          emit postMessage(pluginLoader->errorString());
-          printf("%s\n", pluginLoader->errorString().toStdString().c_str());
+          QString pluginError = pluginLoader->errorString();
+          emit postMessage(pluginError);
+          printf("%s\n", pluginError.toStdString().c_str());
         }
       }
 
