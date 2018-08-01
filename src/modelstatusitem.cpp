@@ -12,6 +12,9 @@ ModelStatusItem::ModelStatusItem(HydroCouple::IModelComponent *component, ModelS
   m_status = new ModelStatusChangeEventArg(this);
   m_status->setStatus(m_component->status());
 
+  qRegisterMetaType<QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>>();
+  qRegisterMetaType<QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>>("QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>");
+
   connect(dynamic_cast<QObject*>(m_component) , SIGNAL(componentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &))
           ,this , SLOT(onComponentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &)));
 

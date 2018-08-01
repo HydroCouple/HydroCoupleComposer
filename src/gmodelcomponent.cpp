@@ -39,6 +39,9 @@ GModelComponent::GModelComponent(IModelComponent* model, HydroCoupleProject *par
   m_parent = parent;
   m_modelComponent = model;
 
+  qRegisterMetaType<QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>>();
+  qRegisterMetaType<QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>>("QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>");
+
   connect(dynamic_cast<QObject*>(m_modelComponent), SIGNAL(componentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &)),
           this, SLOT(onComponentStatusChanged(const QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs> &)));
 
