@@ -462,6 +462,8 @@ void SimulationManager::run()
 {
   qRegisterMetaType<QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>>();
   qRegisterMetaType<QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>>("QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>");
+
+
   try
   {
     if(m_project->workflowComponent())
