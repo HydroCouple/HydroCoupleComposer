@@ -378,9 +378,8 @@ void ExperimentalSimulationIndividual::execute(int mpiProcess)
     printf("Creating simulation manager...\n");
     SimulationManager *simulationManager = new SimulationManager(hydroCoupleProject);
     simulationManager->setMonitorComponentMessages(true);
-
     printf("Running composition...\n");
-    simulationManager->runComposition();
+    simulationManager->runComposition(false);
   }
   else
   {

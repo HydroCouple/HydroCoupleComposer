@@ -8,7 +8,7 @@ VERSION = 1.1.0
 TARGET = HydroCoupleComposer
 QT += core widgets gui printsupport concurrent opengl
 
-#DEFINES += GRAPHVIZ_LIBRARY
+DEFINES += GRAPHVIZ_LIBRARY
 DEFINES += USE_CHPC
 DEFINES += USE_MPI
 DEFINES += USE_OPENMP
@@ -89,15 +89,19 @@ macx{
 
     contains(DEFINES,USE_OPENMP){
 
-        QMAKE_CC = /usr/local/opt/llvm/bin/clang
-        QMAKE_CXX = /usr/local/opt/llvm/bin/clang++
-        QMAKE_LINK = /usr/local/opt/llvm/bin/clang++
+#        QMAKE_CC = /usr/local/opt/llvm/bin/clang
+#        QMAKE_CXX = /usr/local/opt/llvm/bin/clang++
+#        QMAKE_LINK = /usr/local/opt/llvm/bin/clang++
+
+        QMAKE_CC = gcc-8
+        QMAKE_CXX = g++8
+        QMAKE_LINK = g++8
 
         QMAKE_CFLAGS += -fopenmp
         QMAKE_LFLAGS += -fopenmp
         QMAKE_CXXFLAGS += -fopenmp
 
-        INCLUDEPATH += /usr/local/opt/llvm/lib/clang/5.0.0/include
+#        INCLUDEPATH += /usr/local/opt/llvm/lib/clang/5.0.0/include
         LIBS += -L /usr/local/opt/llvm/lib -lomp
 
         message("OpenMP enabled")

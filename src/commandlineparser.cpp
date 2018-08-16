@@ -423,7 +423,7 @@ int CommandLineParser::executeCommandLine(QCommandLineParser &parser, int argc, 
           SimulationManager simulationManager(project);
           simulationManager.setMonitorComponentMessages(true);
           printf("Running composition...\n");
-          simulationManager.runComposition();
+          simulationManager.runComposition(false);
 
         }
         else

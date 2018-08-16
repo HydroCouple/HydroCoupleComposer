@@ -46,7 +46,7 @@ void SimulationManager::runComposition(bool background)
     m_timer.start();
 
 #ifdef USE_OPENMP
-      printf("OpenMP is enabled with %i Processors and %i Max Threads\n", omp_get_num_procs() , omp_get_max_threads());
+    printf("OpenMP is enabled with %i Processors and %i Max Threads\n", omp_get_num_procs() , omp_get_max_threads());
 #endif
 
     try
@@ -323,20 +323,25 @@ bool SimulationManager::initializeModels()
 {
   bool initialized = true;
 
-  for(GModelComponent *component : m_project->modelComponents())
+#ifdef USE_OPENMP
+#pragma omp critical (ReadingHydroCoupleProject)
+#endif
   {
-    //    if(component->modelComponent()->status() != IModelComponent::Initialized)
+    for(GModelComponent *component : m_project->modelComponents())
     {
-      printf("start initializing\n");
-
-      component->modelComponent()->initialize();
-
-      printf("finished initializing\n");
-
-      if(component->modelComponent()->status() == IModelComponent::Failed)
+      //    if(component->modelComponent()->status() != IModelComponent::Initialized)
       {
-        initialized = false;
-        emit postMessage("Model component with id => " + component->modelComponent()->id() + " failed to initialize");
+        printf("start initializing\n");
+
+        component->modelComponent()->initialize();
+
+        printf("finished initializing\n");
+
+        if(component->modelComponent()->status() == IModelComponent::Failed)
+        {
+          initialized = false;
+          emit postMessage("Model component with id => " + component->modelComponent()->id() + " failed to initialize");
+        }
       }
     }
   }
@@ -415,6 +420,7 @@ bool SimulationManager::prepareModels()
 {
   bool prepared = true;
 
+
   for(GModelComponent *component : m_project->modelComponents())
   {
     if(component->modelComponent()->status() == IModelComponent::Initialized ||
@@ -431,6 +437,7 @@ bool SimulationManager::prepareModels()
       }
     }
   }
+
 
   return prepared;
 }
