@@ -15,7 +15,7 @@ const QString GModelComponent::sc_descriptionHtml =
     "<h4><i>Status : [Status]</i></h4>"
     "<hr>"
     "<div>"
-    "<img alt=\"icon\" src='[IconPath]' width=\"60\" align=\"left\" />"
+    "<img alt=\"icon\" src='[IconPath]' width=\"100\" align=\"left\" />"
     "<p>[Description]</p>"
     "</div>";
 
@@ -1064,6 +1064,7 @@ void GModelComponent::createExchangeItems()
     if(m_outputGraphicObjects.contains(output->id()))
     {
       goutput = m_outputGraphicObjects[output->id()];
+      output->setCaption(goutput->caption());
       goutput->reEstablishSignalSlotConnections();
     }
     else
@@ -1131,6 +1132,7 @@ void GModelComponent::createExchangeItems()
     {
       ginput = m_inputGraphicObjects[input->id()];
       ginput->reEstablishSignalSlotConnections();
+      input->setCaption(ginput->caption());
     }
     else
     {

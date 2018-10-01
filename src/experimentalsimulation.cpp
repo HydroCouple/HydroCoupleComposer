@@ -385,7 +385,7 @@ void ExperimentalSimulationIndividual::execute(int mpiProcess)
   {
 #ifdef USE_MPI
     std::vector<char>initializeArgs(m_inputFile.absoluteFilePath().size() + 1);
-    std::strcpy (initializeArgs.data(), m_inputFile.absoluteFilePath().toStdString().c_str());
+    strcpy (initializeArgs.data(), m_inputFile.absoluteFilePath().toStdString().c_str());
     MPI_Send(initializeArgs.data(), initializeArgs.size() + 1,MPI_CHAR, mpiProcess, -1, MPI_COMM_WORLD);
 #endif
   }

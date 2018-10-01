@@ -585,6 +585,7 @@ void HydroCoupleComposer::initializeModelComponentInfoTreeView()
   rootItem->setIcon(s_categoryIcon);
 
   QStringList temp; temp << "";
+//  treeViewModelComponentInfos->setIconSize(QSize(25,25));
   m_modelComponentInfoModel->setHorizontalHeaderLabels(temp);
   m_modelComponentInfoModel->setSortRole(Qt::DisplayRole);
 
@@ -3848,6 +3849,7 @@ void HydroCoupleComposer::onShowHydroCoupleVis()
 {
   if(!HydroCoupleVis::getInstance()->isVisible())
   {
+    HydroCoupleVis::getInstance()->setFont(this->font());
     HydroCoupleVis::getInstance()->show();
 
     for(GModelComponent* component : m_project->modelComponents())

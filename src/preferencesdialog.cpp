@@ -83,7 +83,7 @@ void PreferencesDialog::clearSettings()
 void PreferencesDialog::onClosing()
 {
 
-  qApp->setFont(ui->fontDialog->currentFont());
+//  qApp->setFont(ui->fontDialog->currentFont());
 
   if(ui->radioButtonDark->isChecked())
   {

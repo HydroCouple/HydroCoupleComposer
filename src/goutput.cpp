@@ -76,6 +76,14 @@ void GOutput::readOutputExchangeItemConnections(QXmlStreamReader &xmlReader, QLi
   {
     while(!(xmlReader.isEndElement() && !xmlReader.name().toString().compare("OutputExchangeItem", Qt::CaseInsensitive)) && !xmlReader.hasError())
     {
+      QXmlStreamAttributes attributesOutput = xmlReader.attributes();
+
+      if(attributesOutput.hasAttribute("OutputExchangeItemCaption"))
+      {
+        output()->setCaption(attributesOutput.value("OutputExchangeItemCaption").toString());
+        setCaption(attributesOutput.value("OutputExchangeItemCaption").toString());
+      }
+
       if(!xmlReader.name().toString().compare("Connections",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
       {
         while(!(xmlReader.isEndElement() && !xmlReader.name().toString().compare("Connections", Qt::CaseInsensitive)) && !xmlReader.hasError())
@@ -100,6 +108,12 @@ void GOutput::readOutputExchangeItemConnections(QXmlStreamReader &xmlReader, QLi
                 if(component->inputGraphicObjects().contains(id))
                 {
                   GInput* input = component->inputGraphicObjects()[id];
+
+                  if(attributes.hasAttribute("InputExchangeItemCaption"))
+                  {
+                    input->input()->setCaption(attributes.value("InputExchangeItemCaption").toString());
+                    input->setCaption(attributes.value("InputExchangeItemCaption").toString());
+                  }
 
                   if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
                   {

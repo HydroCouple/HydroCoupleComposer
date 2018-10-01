@@ -267,7 +267,7 @@ bool SimulationManager::createComputeResources()
         std::string message = m_project->projectFile().absoluteFilePath().toStdString() + "," + std::to_string(component->modelComponent()->index());
 
         char *initializeArgs = new char[message.size() + 1] ;
-        std::strcpy (initializeArgs, message.c_str());
+        strcpy (initializeArgs, message.c_str());
 
         MPI_Send(&initializeArgs[0],message.size() + 1,MPI_CHAR, process, CommandLineParser::CreateComponent, MPI_COMM_WORLD);
 

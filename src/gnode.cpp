@@ -38,12 +38,14 @@ GNode::GNode(const QString& id, const QString& caption, NodeType type, HydroCoup
   setZValue(s_zindex);
   s_zindex ++;
 
+//  m_font.setPointSizeF(18);
+
   switch (type)
   {
     case NodeType::Component:
       {
         m_cornerRadius = 15 ;
-        m_size = 250 ;
+        m_size = 300 ;
         m_brush = QBrush(QColor(255, 255, 255), Qt::BrushStyle::SolidPattern);
         m_pen = QPen(QBrush(QColor(0,150,255), Qt::BrushStyle::SolidPattern),
                      5.0, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::RoundJoin);
