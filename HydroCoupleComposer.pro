@@ -4,11 +4,11 @@
 #License GNU Lesser General Public License (see <http: //www.gnu.org/licenses/> for details).
 
 TEMPLATE = app
-VERSION = 1.1.0
+VERSION = 1.2.0
 TARGET = HydroCoupleComposer
 QT += core widgets gui printsupport concurrent opengl
 
-DEFINES += GRAPHVIZ_LIBRARY
+#DEFINES += GRAPHVIZ_LIBRARY
 DEFINES += USE_CHPC
 DEFINES += USE_MPI
 DEFINES += USE_OPENMP

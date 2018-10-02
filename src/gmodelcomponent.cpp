@@ -5,7 +5,7 @@
 
 #include <QGraphicsScene>
 #include <QStyleOptionGraphicsItem>
-
+#include <QTextDocument>
 
 using namespace HydroCouple;
 
@@ -16,7 +16,7 @@ const QString GModelComponent::sc_descriptionHtml =
     "<hr>"
     "<div>"
     "<img alt=\"icon\" src='[IconPath]' width=\"100\" align=\"left\" />"
-    "<p>[Description]</p>"
+    "<p align=\"center\">[Description]</p>"
     "</div>";
 
 
@@ -1294,6 +1294,13 @@ void GModelComponent::onCreateTextItem()
 {
   if(m_project && m_project->hasGraphics())
   {
+//    m_textItem->document()->setDefaultStyleSheet("img "
+//                                                 "{"
+//                                                 "margin-top: 10px;"
+//                                                 "margin-bottom: 10px;"
+//                                                 "margin-left: 10px;"
+//                                                 "margin-right: 10px;"
+//                                                 "}");
     m_textItem->setFont(m_font);
     m_textItem->setScale(1.0);
     QString desc(sc_descriptionHtml);
@@ -1304,6 +1311,8 @@ void GModelComponent::onCreateTextItem()
         .replace("[Description]", m_modelComponent->description())
         .replace("[Status]", modelComponentStatusAsString(m_modelComponent->status()))
         .replace("[IconPath]", iconFile.absoluteFilePath());
+
+//    desc = "\t" + desc;
 
     setToolTip(desc);
 
