@@ -54,5 +54,8 @@
         <file alias="initialize">images/initialize.png</file>
         <file alias="deleteadaptedoutputfactorycomponent">images/deleteadaptedoutputfactory.png</file>
         <file alias="deleteworkflowcomponent">images/deleteworkflow.png</file>
+        <file alias="error_symbol">images/error_symbol.png</file>
+        <file alias="attributetagicon">images/attributetagicon.png</file>
+        <file alias="elementtagicon">images/elementtagicon.png</file>
     </qresource>
 </RCC>

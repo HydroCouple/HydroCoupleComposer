@@ -19,7 +19,6 @@ const QString GModelComponent::sc_descriptionHtml =
     "<p align=\"center\">[Description]</p>"
     "</div>";
 
-
 QBrush GModelComponent::s_triggerBrush(QColor(255, 255, 255), Qt::BrushStyle::SolidPattern);
 QPen GModelComponent::s_triggerPen(QBrush(QColor(255, 0, 0), Qt::BrushStyle::SolidPattern), 5.0, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::RoundJoin);
 
@@ -323,6 +322,11 @@ GModelComponent* GModelComponent::readComponent(QXmlStreamReader &xmlReader, Hyd
             modelComponent->setPos(xloc,yloc);
           }
         }
+
+        if(attributes.hasAttribute("Caption"))
+        {
+          modelComponent->setCaption(attributes.value("Caption").toString());
+        }
       }
       else
       {
@@ -379,6 +383,11 @@ GModelComponent* GModelComponent::readComponent(QXmlStreamReader &xmlReader, Hyd
               }
             }
 
+            if(attributes.hasAttribute("Caption"))
+            {
+              modelComponent->setCaption(attributes.value("Caption").toString());
+            }
+
             while (!(xmlReader.isEndElement() && !xmlReader.name().toString().compare("ModelComponent", Qt::CaseInsensitive)) && !xmlReader.hasError())
             {
               if(!xmlReader.name().toString().compare("Arguments", Qt::CaseInsensitive) &&
@@ -399,11 +408,11 @@ GModelComponent* GModelComponent::readComponent(QXmlStreamReader &xmlReader, Hyd
                   xmlReader.readNext();
                 }
 
-                if(initialize)
-                {
-                  //printf("Process Rank: %i\n", component->mpiProcessRank());
-                  component->initialize();
-                }
+                //                if(initialize)
+                //                {
+                //                  //printf("Process Rank: %i\n", component->mpiProcessRank());
+                //                  component->initialize();
+                //                }
               }
               else if(!xmlReader.name().toString().compare("ComputeResourceAllocations", Qt::CaseInsensitive) &&
                       !xmlReader.hasError() && xmlReader.tokenType() == QXmlStreamReader::StartElement)
@@ -487,6 +496,40 @@ GModelComponent* GModelComponent::readComponent(QXmlStreamReader &xmlReader, Hyd
                           output->setPos(xloc,yloc);
                         }
                       }
+
+                      if(attributes.hasAttribute("Caption"))
+                      {
+                        output->setCaption(attributes.value("Caption").toString());
+                      }
+                    }
+                    else
+                    {
+                      GOutput* output = new GOutput(id, modelComponent);
+                      modelComponent->m_outputGraphicObjects[id] = output;
+                      QString err;
+                      if(!modelComponent->createConnection(output, err))
+                        errorMessages.push_back(err);
+
+                      if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
+                      {
+                        QString xposS = attributes.value("XPos").toString();
+                        QString yposS = attributes.value("YPos").toString();
+
+                        bool ok;
+
+                        double xloc = xposS.toDouble(&ok);
+                        double yloc = yposS.toDouble(&ok);
+
+                        if(ok)
+                        {
+                          output->setPos(xloc,yloc);
+                        }
+                      }
+
+                      if(attributes.hasAttribute("Caption"))
+                      {
+                        output->setCaption(attributes.value("Caption").toString());
+                      }
                     }
                   }
                 }
@@ -529,6 +572,40 @@ GModelComponent* GModelComponent::readComponent(QXmlStreamReader &xmlReader, Hyd
                           input->setPos(xloc,yloc);
                         }
                       }
+
+                      if(attributes.hasAttribute("Caption"))
+                      {
+                        input->setCaption(attributes.value("Caption").toString());
+                      }
+                    }
+                    else
+                    {
+                      GInput* input = new GInput(id, modelComponent);
+                      modelComponent->m_inputGraphicObjects[id] = input;
+                      QString err;
+                      if(!input->createConnection(modelComponent, err))
+                        errorMessages.push_back(err);
+
+                      if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
+                      {
+                        QString xposS = attributes.value("XPos").toString();
+                        QString yposS = attributes.value("YPos").toString();
+
+                        bool ok;
+
+                        double xloc = xposS.toDouble(&ok);
+                        double yloc = yposS.toDouble(&ok);
+
+                        if(ok)
+                        {
+                          input->setPos(xloc,yloc);
+                        }
+                      }
+
+                      if(attributes.hasAttribute("Caption"))
+                      {
+                        input->setCaption(attributes.value("Caption").toString());
+                      }
                     }
                   }
                 }
@@ -563,35 +640,38 @@ void GModelComponent::readComponentConnections(QXmlStreamReader & xmlReader, QLi
         {
           QStringRef id = attributes.value("OutputExchangeItemId");
 
-          GOutput* outputExchangeItem = nullptr;
-
-          for(GOutput* output : m_outputGraphicObjects.values())
+          if(m_outputGraphicObjects.contains(id.toString()))
           {
-            if(!output->output()->id().compare(id.toString()))
-            {
-              if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
-              {
-                QString xposS = attributes.value("XPos").toString();
-                QString yposS = attributes.value("YPos").toString();
+            GOutput* outputExchangeItem = m_outputGraphicObjects[id.toString()];
 
-                bool ok;
+            //            if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
+            //            {
+            //              QString xposS = attributes.value("XPos").toString();
+            //              QString yposS = attributes.value("YPos").toString();
 
-                double xloc = xposS.toDouble(&ok);
-                double yloc = yposS.toDouble(&ok);
+            //              bool ok;
 
-                if(ok)
-                {
-                  output->setPos(xloc,yloc);
-                }
-              }
+            //              double xloc = xposS.toDouble(&ok);
+            //              double yloc = yposS.toDouble(&ok);
 
-              outputExchangeItem = output;
-              break;
-            }
+            //              if(ok)
+            //              {
+            //                outputExchangeItem->setPos(xloc,yloc);
+            //              }
+            //            }
+
+            outputExchangeItem->readOutputExchangeItemConnections(xmlReader, errorMessages);
+
           }
-
-          if(outputExchangeItem)
+          else
           {
+            GOutput* outputExchangeItem = new GOutput(id.toString(), this);
+            m_outputGraphicObjects[id.toString()] = outputExchangeItem;
+
+            QString err;
+            if(!this->createConnection(outputExchangeItem, err))
+              errorMessages.push_back(err);
+
             outputExchangeItem->readOutputExchangeItemConnections(xmlReader, errorMessages);
           }
         }
@@ -634,7 +714,8 @@ void GModelComponent::writeComponent(const QFileInfo &fileInfo)
         relPath = fileInfo.dir().relativeFilePath(libFile.absoluteFilePath());
       }
 
-      xmlWriter.writeAttribute("Name",m_modelComponent->componentInfo()->id());
+      xmlWriter.writeAttribute("Name", m_modelComponent->componentInfo()->id());
+      xmlWriter.writeAttribute("Caption", m_modelComponent->caption());
       xmlWriter.writeAttribute("ModelComponentLibrary",relPath);
 
       xmlWriter.writeStartElement("ComputeResourceAllocations");
@@ -821,6 +902,7 @@ void GModelComponent::writeComponent(QXmlStreamWriter &xmlWriter)
             xmlWriter.writeAttribute("Id", output->id());
             xmlWriter.writeAttribute("XPos", QString::number(output->pos().x()));
             xmlWriter.writeAttribute("YPos", QString::number(output->pos().y()));
+            xmlWriter.writeAttribute("Caption", output->caption());
           }
           xmlWriter.writeEndElement();
         }
@@ -837,6 +919,7 @@ void GModelComponent::writeComponent(QXmlStreamWriter &xmlWriter)
             xmlWriter.writeAttribute("Id", input->id());
             xmlWriter.writeAttribute("XPos", QString::number(input->pos().x()));
             xmlWriter.writeAttribute("YPos", QString::number(input->pos().y()));
+            xmlWriter.writeAttribute("Caption", input->caption());
           }
           xmlWriter.writeEndElement();
         }
@@ -918,7 +1001,7 @@ void GModelComponent::paint(QPainter * painter, const QStyleOptionGraphicsItem *
   }
 }
 
-bool GModelComponent::createConnection(GNode *node)
+bool GModelComponent::createConnection(GNode *node, QString &message)
 {
   if(node->nodeType() == GNode::NodeType::Output && !m_connections.contains(node))
   {
@@ -931,6 +1014,8 @@ bool GModelComponent::createConnection(GNode *node)
 
     return true;
   }
+
+  message = "Connection is not valid!";
 
   return false;
 }
@@ -1064,12 +1149,19 @@ void GModelComponent::createExchangeItems()
     if(m_outputGraphicObjects.contains(output->id()))
     {
       goutput = m_outputGraphicObjects[output->id()];
-      output->setCaption(goutput->caption());
+
+      if(!goutput->caption().isEmpty())
+        output->setCaption(goutput->caption());
+      else
+        goutput->setCaption(output->caption());
+
       goutput->reEstablishSignalSlotConnections();
     }
     else
     {
       GOutput* goutput = new GOutput(output->id(),this);
+      goutput->setCaption(output->caption());
+
       m_outputGraphicObjects[output->id()] = goutput;
 
       if(sign)
@@ -1090,7 +1182,9 @@ void GModelComponent::createExchangeItems()
       }
 
       connect(goutput,SIGNAL(hasChanges()),this,SLOT(onChildHasChanges()));
-      createConnection(goutput);
+      QString err;
+      if(!createConnection(goutput, err))
+        emit postMessage(err);
     }
   }
 
@@ -1132,20 +1226,30 @@ void GModelComponent::createExchangeItems()
     {
       ginput = m_inputGraphicObjects[input->id()];
       ginput->reEstablishSignalSlotConnections();
-      input->setCaption(ginput->caption());
+
+      if(!ginput->caption().isEmpty())
+        input->setCaption(ginput->caption());
+      else
+        ginput->setCaption(input->caption());
     }
     else
     {
-      IMultiInput* minput = dynamic_cast<IMultiInput*>(input);
+      //      IMultiInput* minput = dynamic_cast<IMultiInput*>(input);
 
-      if(minput)
-      {
-        ginput = new GMultiInput(minput->id(), this);
-      }
+      //      if(minput)
+      //      {
+      //        ginput = new GMultiInput(minput->id(), this);
+      //      }
+      //      else
+      //      {
+      ginput = new GInput(input->id(),this);
+
+      if(!ginput->caption().isEmpty())
+        input->setCaption(ginput->caption());
       else
-      {
-        ginput = new GInput(input->id(),this);
-      }
+        ginput->setCaption(input->caption());
+
+      //      ginput->setCaption(input->caption());
 
       m_inputGraphicObjects[ginput->id()] = ginput;
 
@@ -1168,7 +1272,9 @@ void GModelComponent::createExchangeItems()
 
       connect(ginput,SIGNAL(hasChanges()),this,SLOT(onChildHasChanges()));
 
-      ginput->createConnection(this);
+      QString err;
+      if(!ginput->createConnection(this, err))
+        emit postMessage(err);
     }
   }
 
@@ -1294,13 +1400,13 @@ void GModelComponent::onCreateTextItem()
 {
   if(m_project && m_project->hasGraphics())
   {
-//    m_textItem->document()->setDefaultStyleSheet("img "
-//                                                 "{"
-//                                                 "margin-top: 10px;"
-//                                                 "margin-bottom: 10px;"
-//                                                 "margin-left: 10px;"
-//                                                 "margin-right: 10px;"
-//                                                 "}");
+    //    m_textItem->document()->setDefaultStyleSheet("img "
+    //                                                 "{"
+    //                                                 "margin-top: 10px;"
+    //                                                 "margin-bottom: 10px;"
+    //                                                 "margin-left: 10px;"
+    //                                                 "margin-right: 10px;"
+    //                                                 "}");
     m_textItem->setFont(m_font);
     m_textItem->setScale(1.0);
     QString desc(sc_descriptionHtml);
@@ -1312,7 +1418,7 @@ void GModelComponent::onCreateTextItem()
         .replace("[Status]", modelComponentStatusAsString(m_modelComponent->status()))
         .replace("[IconPath]", iconFile.absoluteFilePath());
 
-//    desc = "\t" + desc;
+    //    desc = "\t" + desc;
 
     setToolTip(desc);
 

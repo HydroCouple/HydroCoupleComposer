@@ -6,8 +6,7 @@ using namespace HydroCouple;
 
 GInput::GInput(const QString &inputId, GModelComponent *parent)
   : GExchangeItem(inputId, NodeType::Input,  parent),
-    m_inputId(inputId),
-    m_provider(nullptr)
+    m_inputId(inputId)
 {
 
   if(m_component->inputs().contains(m_inputId))
@@ -24,13 +23,18 @@ GInput::GInput(const QString &inputId, GModelComponent *parent)
 
 GInput::~GInput()
 {
-
-  if(m_provider)
-  {
-    m_provider->deleteConnection(this);
-  }
-
   deleteConnections();
+
+  while(m_providers.size())
+  {
+    GOutput* provider = m_providers[0];
+    provider->deleteConnection(this);
+  }
+}
+
+bool GInput::isValid() const
+{
+  return input() != nullptr;
 }
 
 HydroCouple::IExchangeItem* GInput::exchangeItem() const
@@ -55,14 +59,136 @@ IInput* GInput::input() const
   return nullptr;
 }
 
-GOutput* GInput::provider() const
+IMultiInput* GInput::multiInput() const
 {
-  return m_provider;
+  if(input())
+  {
+    return dynamic_cast<IMultiInput*>(input());
+  }
+
+  return nullptr;
 }
 
-void GInput::setProvider(GOutput *provider)
+GOutput* GInput::provider() const
 {
-  m_provider = provider;
+  if(m_providers.size() == 1)
+  {
+    return m_providers[0];
+  }
+
+  return nullptr;
+}
+
+QList<GOutput*> GInput::providers() const
+{
+  return m_providers;
+}
+
+GInput::InputType GInput::getInputType()
+{
+  if(multiInput())
+    return GInput::Multi;
+  else if(input())
+    return GInput::Single;
+  else
+    return GInput::Unknown;
+}
+
+bool GInput::addProvider(GOutput *provider, QString &message)
+{
+  //validate if initialized otherwise just add.
+  if(!m_providers.contains(provider))
+  {
+    InputType inputType = getInputType();
+
+    switch (inputType)
+    {
+      case GInput::Single:
+        {
+          if(provider->output())
+          {
+            if(input()->canConsume(provider->output(), message) && m_providers.size() <= 1)
+            {
+              if(m_providers.size() == 1)
+              {
+                m_providers[0]->deleteConnection(this);
+              }
+
+              m_providers.append(provider);
+              return true;
+            }
+            else
+            {
+              printf("%s \n", message.toStdString().c_str());
+              return false;
+            }
+          }
+          else
+          {
+            m_providers.append(provider);
+            return true;
+          }
+        }
+        break;
+      case GInput::Multi:
+        {
+          if(provider->output())
+          {
+            if(input()->canConsume(provider->output(), message))
+            {
+              m_providers.append(provider);
+              return true;
+            }
+            else
+            {
+              return false;
+            }
+          }
+          else
+          {
+            m_providers.append(provider);
+            return true;
+          }
+        }
+        break;
+      default:
+        {
+          m_providers.append(provider);
+          return true;
+        }
+        break;
+    }
+  }
+  else
+  {
+    message = "Provider already exists";
+
+    return false;
+  }
+}
+
+bool GInput::removeProvider(GOutput *provider)
+{
+  int removed = m_providers.removeAll(provider);
+
+  if(removed)
+  {
+    IOutput *output = provider->output();
+
+    if(output)
+    {
+      if(multiInput())
+      {
+        output->removeConsumer(multiInput());
+      }
+      else if(input() && input()->provider() == output)
+      {
+        input()->setProvider(nullptr);
+      }
+    }
+  }
+
+  return removed;
 }
 
 void GInput::writeExchangeItemConnections(QXmlStreamWriter &xmlWriter)
@@ -81,30 +207,123 @@ void GInput::writeExchangeItemConnections(QXmlStreamWriter &xmlWriter)
 
 void GInput::deEstablishConnections()
 {
-  if(input())
+  if(multiInput())
+  {
+    while (multiInput()->providers().length())
+    {
+      multiInput()->removeProvider(multiInput()->providers()[0]);
+    }
+  }
+  else if(input())
   {
     input()->setProvider(nullptr);
   }
 }
 
-void GInput::reEstablishConnections()
+bool GInput::reEstablishConnections(QString &errorMessage)
 {
-  if(input())
+  errorMessage = "";
+
+  if(m_providers.size())
   {
-    if(m_provider && m_provider->output())
+    if(multiInput())
     {
-      input()->setProvider(m_provider->output());
+      for(GOutput *provider : m_providers)
+      {
+        if(provider->output())
+        {
+          if(input()->canConsume(provider->output(), errorMessage))
+          {
+            multiInput()->addProvider(provider->output());
+          }
+          else
+          {
+            errorMessage = "Error! Input " + id() + " cannot consume provider " + provider->id() + "!";
+            return false;
+          }
+        }
+        else
+        {
+          errorMessage = "Error! Provider " + provider->id() + " does not exist for consumer " + id() + "!";
+          return false;
+        }
+      }
     }
+    else if(input())
+    {
+      if(m_providers.size() == 1)
+      {
+        GOutput *provider = m_providers[0];
+
+        if(provider && provider->output())
+        {
+          if(input()->canConsume(provider->output(),errorMessage))
+          {
+            input()->setProvider(provider->output());
+          }
+          else
+          {
+            errorMessage = "Error! Input " + id() + " cannot consume provider " + provider->id() + "!";
+            return false;
+          }
+        }
+        else
+        {
+          errorMessage = "Error! Provider " + provider->id() + " does not exist for consumer " + id() + "!";
+          return false;
+        }
+      }
+      else
+      {
+        errorMessage = "Error! More than one provider declared for an " + id() + " that requires only one provider!";
+        return false;
+      }
+    }
+    else
+    {
+      errorMessage = "Error! Consumer " + id() + " is not a multi input but has multiple providers!";
+      return false;
+    }
+
+    return true;
   }
+
+  //  if(m_provider)
+  //  {
+  //    if(input())
+  //    {
+  //      if(m_provider->output())
+  //      {
+  //        if(input()->canConsume(m_provider->output(), errorMessage))
+  //        {
+  //          input()->setProvider(m_provider->output());
+  //          return true;
+  //        }
+  //      }
+  //      else
+  //      {
+  //        errorMessage = "Error! Provider " + m_provider->id() + " does not exist for consumer " + m_inputId + "!";
+  //      }
+  //    }
+  //    else
+  //    {
+  //      errorMessage = "Error! Consumer " + m_inputId + " does not exist!";
+  //    }
+
+  //    return false;
+  //  }
+
+  return true;
 }
 
 void GInput::reEstablishSignalSlotConnections()
 {
   if(input())
   {
-    setCaption(input()->caption());
-
     QObject* object = dynamic_cast<QObject*>(input());
+
+    disconnect(object, SIGNAL(propertyChanged(const QString &)),
+               this, SLOT(onPropertyChanged(const QString &)));
 
     connect(object, SIGNAL(propertyChanged(const QString &)),
             this, SLOT(onPropertyChanged(const QString &)));
@@ -112,7 +331,7 @@ void GInput::reEstablishSignalSlotConnections()
   }
 }
 
-bool GInput::createConnection(GNode *node)
+bool GInput::createConnection(GNode *node, QString &message)
 {
   if(node->nodeType() == GNode::NodeType::Component)
   {
@@ -139,6 +358,8 @@ bool GInput::createConnection(GNode *node)
       return true;
     }
   }
+
+  message = "Connection is invalid!";
 
   return false;
 }

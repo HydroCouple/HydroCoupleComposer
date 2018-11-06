@@ -2,11 +2,10 @@
 #Email caleb.buahin@gmail.com
 #Date 2016
 #License GNU Lesser General Public License (see <http: //www.gnu.org/licenses/> for details).
-
 TEMPLATE = app
-VERSION = 1.2.0
+VERSION = 1.3.0
 TARGET = HydroCoupleComposer
-QT += core widgets gui printsupport concurrent opengl
+QT += core widgets gui printsupport concurrent opengl xml
 
 #DEFINES += GRAPHVIZ_LIBRARY
 DEFINES += USE_CHPC
@@ -26,6 +25,7 @@ INCLUDEPATH += .\
                ../QPropertyModel/include
 
 macx{
+    DEFINES += GRAPHVIZ_LIBRARY
     INCLUDEPATH += /usr/local/include \
                    /usr/local/include/libiomp
 }
@@ -55,7 +55,9 @@ HEADERS += ./include/stdafx.h \
            ./include/commandlineparser.h \
            ./include/cpugpuallocation.h \
            ./include/preferencesdialog.h \
-           ./include/experimentalsimulation.h
+           ./include/experimentalsimulation.h \
+    include/dommodel/dommodel.h \
+    include/dommodel/domitem.h
 
 SOURCES += ./src/stdafx.cpp \
            ./src/main.cpp \
@@ -83,7 +85,9 @@ SOURCES += ./src/stdafx.cpp \
            ./src/commandlineparser.cpp \
            ./src/cpugpuallocation.cpp \
            ./src/preferencesdialog.cpp \
-           ./src/experimentalsimulation.cpp
+           ./src/experimentalsimulation.cpp \
+    src/dommodel/domitem.cpp \
+    src/dommodel/dommodel.cpp
 
 macx{
 
@@ -217,11 +221,11 @@ win32{
 CONFIG(debug, debug|release) {
 
     win32 {
-       QMAKE_CXXFLAGS += /MDd #/O2
+       QMAKE_CXXFLAGS += /MDd /O2
     }
 
     macx {
-       QMAKE_CXXFLAGS += -O3
+       QMAKE_CXXFLAGS += -O1
     }
 
     linux {

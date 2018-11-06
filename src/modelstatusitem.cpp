@@ -97,6 +97,17 @@ void ModelStatusItem::resetChildren()
 void ModelStatusItem::onComponentStatusChanged(const QSharedPointer<IComponentStatusChangeEventArgs> &statusChangedEvent)
 {
   m_status->setStatus(statusChangedEvent);
+
+  switch (m_status->status())
+  {
+    case IModelComponent::Initialized:
+      {
+        m_componentId = m_component->id();
+        m_componentCaption = m_component->caption();
+      }
+      break;
+  }
+
   emit componentStatusChanged(statusChangedEvent);
 }
 

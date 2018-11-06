@@ -18,7 +18,7 @@ using namespace std;
 using namespace HydroCouple;
 
 GConnection::GConnection(GNode *producer, GNode *consumer , QGraphicsObject* parent)
-  :QGraphicsObject(parent),
+  : QGraphicsObject(parent),
     m_pen(QBrush(QColor(0.0, 150.0, 255.0), Qt::BrushStyle::SolidPattern),4, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::MiterJoin),
     m_brush (QBrush(Qt::GlobalColor::white))
 {
@@ -160,6 +160,59 @@ QPainterPath GConnection::shape() const
   return m_path;
 }
 
+bool GConnection::isValid() const
+{
+  switch (m_producer->nodeType())
+  {
+    case GNode::Output:
+    case GNode::AdaptedOutput:
+      {
+        GOutput *output = (GOutput*)m_producer;
+
+        switch (m_consumer->nodeType())
+        {
+          case GNode::Input:
+            {
+              GInput* input = (GInput*) m_consumer;
+              QString message = "";
+
+              if(output->output() == nullptr || input->input() == nullptr ||
+                 !(input->input()->canConsume(output->output(), message)))
+              {
+                if(!message.isEmpty())
+                  printf("%s\n", message.toStdString().c_str());
+
+                return false;
+              }
+
+              if(input->getInputType() == GInput::InputType::Single
+                 && input->providers().size() > 1)
+              {
+                  return false;
+              }
+            }
+            break;
+          case GNode::AdaptedOutput:
+            {
+              GAdaptedOutput *adaptedOutput = (GAdaptedOutput*) m_consumer;
+
+              if(output->output() == nullptr ||
+                 adaptedOutput->output() == nullptr ||
+                 (adaptedOutput->output() && output->output() &&
+                  adaptedOutput->adaptedOutput()->adaptee() != output->output()))
+              {
+                return false;
+              }
+            }
+            break;
+        }
+      }
+      break;
+  }
+
+  return true;
+}
+
 void GConnection::paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget)
 {
   m_path = QPainterPath(m_start);
@@ -188,28 +241,36 @@ void GConnection::paint(QPainter * painter, const QStyleOptionGraphicsItem * opt
   g.append(m_arrowPoint[2]);
   m_path.addPolygon(g);
 
+  if(!isValid())
+  {
+    double size = 50.0;
+    double xstart = m_errorLocation.x() - size / 2.0;
+    double ystart = m_errorLocation.y() - size / 2.0;
+
+    painter->drawImage(QRectF(xstart,ystart,size,size), GNode::s_errorImage);
+  }
 }
 
 bool GConnection::insertAdaptedOutput(const QString& adaptedOutputId, const QString& adaptedOutputFactoryId, bool fromComponentLibrary)
 {
   if((m_producer->nodeType() ==  GNode::NodeType::Output || m_producer->nodeType() == GNode::NodeType::AdaptedOutput) &&
-     (m_consumer->nodeType() == GNode::NodeType::Input || m_consumer->nodeType() == GNode::NodeType::MultiInput))
+     (m_consumer->nodeType() == GNode::NodeType::Input))
   {
 
     GOutput* prod = dynamic_cast<GOutput*>(m_producer);
-    GInput* input =  nullptr;
+    GInput* input =  dynamic_cast<GInput*>(m_consumer);
 
-    if(m_consumer->nodeType() == GNode::Input)
-    {
-      input = dynamic_cast<GInput*>(m_consumer);
-      input->setProvider(nullptr);
-    }
-    else if(m_consumer->nodeType() == GNode::MultiInput)
-    {
-      GMultiInput* minput = dynamic_cast<GMultiInput*>(m_consumer);
-      minput->removeProvider(prod);
-      input = minput;
-    }
+    //    if(m_consumer->nodeType() == GNode::Input)
+    //    {
+    //      input =
+    //      input->setProvider(nullptr);
+    //    }
+    //    else if(m_consumer->nodeType() == GNode::MultiInput)
+    //    {
+    //      GMultiInput* minput = dynamic_cast<GMultiInput*>(m_consumer);
+    input->removeProvider(prod);
+    //      input = minput;
+    //    }
 
     prod->m_connections.remove(m_consumer);
 
@@ -224,7 +285,8 @@ bool GConnection::insertAdaptedOutput(const QString& adaptedOutputId, const QStr
     disconnect(m_consumer, SIGNAL(zChanged()), this, SLOT(parentLocationOrSizeChanged()));
     disconnect(m_consumer, SIGNAL(scaleChanged()), this, SLOT(parentLocationOrSizeChanged()));
 
-    adaptedOutput->createConnection(m_consumer);
+    QString err;
+    adaptedOutput->createConnection(m_consumer, err);
     m_consumer = adaptedOutput;
     prod->m_connections[m_consumer] = this;
 
@@ -291,7 +353,7 @@ void GConnection::dragMoveEvent(QGraphicsSceneDragDropEvent *event)
 void GConnection::dropEvent(QGraphicsSceneDragDropEvent *event)
 {
   if((m_producer->nodeType() == GNode::NodeType::Output || m_producer->nodeType() == GNode::NodeType::AdaptedOutput) &&
-     (m_consumer->nodeType() == GNode::NodeType::Input || m_consumer->nodeType() == GNode::NodeType::MultiInput))
+     (m_consumer->nodeType() == GNode::NodeType::Input))
   {
     if(event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist"))
     {
@@ -355,7 +417,7 @@ bool GConnection::canAcceptDrop(const QMimeData *data)
     {
       int row, col;
       QMap<int, QVariant> roleDataMap;
-//      stream >> row >> col >> roleDataMap;
+      //      stream >> row >> col >> roleDataMap;
 
       /* do something with the data */
       QVariant value = roleDataMap[Qt::UserRole];
@@ -435,9 +497,10 @@ void GConnection::parentLocationOrSizeChanged()
   QLineF nualine = aline.normalVector().unitVector();
 
   QPointF arrowEnd = ap1 - QPointF(aline.unitVector().dx(), aline.unitVector().dy()) * (m_arrowLength);
+  m_errorLocation = ap1 - QPointF(aline.unitVector().dx(), aline.unitVector().dy()) * (m_arrowLength + 25.0);
 
-  ap2 = arrowEnd +  QPointF(nualine.dx(), nualine.dy() ) * 0.5* m_arrowWidth;
-  ap3 = arrowEnd -  QPointF(nualine.dx(), nualine.dy()) * 0.5* m_arrowWidth;
+  ap2 = arrowEnd +  QPointF(nualine.dx(), nualine.dy() ) * 0.5 * m_arrowWidth;
+  ap3 = arrowEnd -  QPointF(nualine.dx(), nualine.dy()) * 0.5 * m_arrowWidth;
 
   QPointF labelLoc = (m_mid - ((0.5*m_arrowWidth+5+m_numConnectionsText->boundingRect().height()) * nuvector.toPoint()));
 
@@ -453,6 +516,8 @@ void GConnection::parentLocationOrSizeChanged()
   m_mid = m_mid - zeroPoint;
   m_c1 = m_c1 - zeroPoint;
   m_c2 = m_c2 - zeroPoint;
+  m_errorLocation = m_errorLocation - zeroPoint;
+
   labelLoc = labelLoc - zeroPoint;
 
   m_numConnectionsText->setPos(labelLoc);

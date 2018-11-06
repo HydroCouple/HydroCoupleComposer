@@ -15,6 +15,9 @@ const QString GNode::sc_captionHtml =
 int GNode::s_zindex(1000);
 QBrush GNode::s_selectedBrush(QColor(255, 230, 220), Qt::BrushStyle::SolidPattern);
 QPen GNode::s_selectedPen(QBrush(QColor(255, 0, 0), Qt::BrushStyle::SolidPattern), 4.0, Qt::PenStyle::SolidLine, Qt::PenCapStyle::RoundCap, Qt::PenJoinStyle::RoundJoin);
+bool GNode::s_errorImageLoaded(false);
+QImage GNode::s_errorImage = QImage();
+
 
 GNode::GNode(const QString& id, const QString& caption, NodeType type, HydroCoupleProject *project)
   :QGraphicsObject(nullptr),
@@ -30,6 +33,11 @@ GNode::GNode(const QString& id, const QString& caption, NodeType type, HydroCoup
   m_textItem->setFlag(GraphicsItemFlag::ItemIsSelectable, true);
   m_textItem->setFlag(GraphicsItemFlag::ItemIsFocusable, true);
 
+  if(!s_errorImageLoaded)
+  {
+    s_errorImageLoaded = true;
+    s_errorImage.load(":/HydroCoupleComposer/error_symbol");
+  }
 
   setFlag(GraphicsItemFlag::ItemIsMovable, true);
   setFlag(GraphicsItemFlag::ItemIsSelectable, true);
@@ -38,7 +46,7 @@ GNode::GNode(const QString& id, const QString& caption, NodeType type, HydroCoup
   setZValue(s_zindex);
   s_zindex ++;
 
-//  m_font.setPointSizeF(18);
+  //  m_font.setPointSizeF(18);
 
   switch (type)
   {
@@ -240,6 +248,11 @@ void GNode::setFont(const QFont &font)
   onCreateTextItem();
 }
 
+bool GNode::isValid() const
+{
+  return true;
+}
+
 QRectF GNode::boundingRect() const
 {
   QRectF m_boundingRect(0,0, m_size + 2 * m_xmargin , m_size + 2 * m_ymargin);
@@ -267,8 +280,9 @@ void GNode::paint(QPainter * painter, const QStyleOptionGraphicsItem * option, Q
   QBrush brush = m_brush;
   QPainterPath m_path = QPainterPath();
   QRectF bRect = m_textItem->boundingRect();
-  bRect.setCoords(0, 0,m_size + 2 * m_xmargin, m_size + 2 * m_ymargin);
+  bRect.setCoords(0, 0, m_size + 2 * m_xmargin, m_size + 2 * m_ymargin);
   m_path.addRoundedRect(bRect, m_cornerRadius, m_cornerRadius, Qt::SizeMode::AbsoluteSize);
+
 
   if (option->state & QStyle::State_Selected)
   {
@@ -279,6 +293,15 @@ void GNode::paint(QPainter * painter, const QStyleOptionGraphicsItem * option, Q
   painter->setPen(pen);
   painter->setBrush(brush);
   painter->drawPath(m_path);
+
+  if(!isValid())
+  {
+    double size = 50.0;
+    double xstart = bRect.width() -  size / 2;
+    double ystart = bRect.height() - size / 2 ;
+
+    painter->drawImage(QRectF(xstart,ystart,size,size), s_errorImage);
+  }
 
   if (option->state & QStyle::State_Selected)
   {

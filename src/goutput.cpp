@@ -26,6 +26,11 @@ GOutput::~GOutput()
   deleteConnections();
 }
 
+bool GOutput::isValid() const
+{
+  return output() != nullptr;
+}
+
 IExchangeItem* GOutput::exchangeItem() const
 {
   if(m_component->outputs().contains(m_outputId))
@@ -52,10 +57,9 @@ void GOutput::writeExchangeItemConnections(QXmlStreamWriter &xmlWriter)
 {
   xmlWriter.writeStartElement("OutputExchangeItem");
   {
-    xmlWriter.writeAttribute("OutputExchangeItemId" ,id());
-    xmlWriter.writeAttribute("OutputExchangeItemCaption" , caption());
-    xmlWriter.writeAttribute("XPos" , QString::number(pos().x()));
-    xmlWriter.writeAttribute("YPos" , QString::number(pos().y()));
+    xmlWriter.writeAttribute("OutputExchangeItemId",id());
+    //    xmlWriter.writeAttribute("XPos" , QString::number(pos().x()));
+    //    xmlWriter.writeAttribute("YPos" , QString::number(pos().y()));
 
     xmlWriter.writeStartElement("Connections");
     {
@@ -76,14 +80,6 @@ void GOutput::readOutputExchangeItemConnections(QXmlStreamReader &xmlReader, QLi
   {
     while(!(xmlReader.isEndElement() && !xmlReader.name().toString().compare("OutputExchangeItem", Qt::CaseInsensitive)) && !xmlReader.hasError())
     {
-      QXmlStreamAttributes attributesOutput = xmlReader.attributes();
-
-      if(attributesOutput.hasAttribute("OutputExchangeItemCaption"))
-      {
-        output()->setCaption(attributesOutput.value("OutputExchangeItemCaption").toString());
-        setCaption(attributesOutput.value("OutputExchangeItemCaption").toString());
-      }
-
       if(!xmlReader.name().toString().compare("Connections",Qt::CaseInsensitive) && xmlReader.tokenType() == QXmlStreamReader::StartElement)
       {
         while(!(xmlReader.isEndElement() && !xmlReader.name().toString().compare("Connections", Qt::CaseInsensitive)) && !xmlReader.hasError())
@@ -109,28 +105,63 @@ void GOutput::readOutputExchangeItemConnections(QXmlStreamReader &xmlReader, QLi
                 {
                   GInput* input = component->inputGraphicObjects()[id];
 
-                  if(attributes.hasAttribute("InputExchangeItemCaption"))
-                  {
-                    input->input()->setCaption(attributes.value("InputExchangeItemCaption").toString());
-                    input->setCaption(attributes.value("InputExchangeItemCaption").toString());
-                  }
+                  //                  if(attributes.hasAttribute("InputExchangeItemCaption"))
+                  //                  {
+                  //                    input->setCaption(attributes.value("InputExchangeItemCaption").toString());
+                  //                  }
 
-                  if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
-                  {
-                    QString xposS = attributes.value("XPos").toString();
-                    QString yposS = attributes.value("YPos").toString();
+                  //                  if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
+                  //                  {
+                  //                    QString xposS = attributes.value("XPos").toString();
+                  //                    QString yposS = attributes.value("YPos").toString();
 
-                    bool ok;
+                  //                    bool ok;
 
-                    double xloc = xposS.toDouble(&ok);
-                    double yloc = yposS.toDouble(&ok);
+                  //                    double xloc = xposS.toDouble(&ok);
+                  //                    double yloc = yposS.toDouble(&ok);
 
-                    if(ok)
-                    {
-                      input->setPos(xloc,yloc);
-                    }
-                  }
-                  createConnection(input);
+                  //                    if(ok)
+                  //                    {
+                  //                      input->setPos(xloc,yloc);
+                  //                    }
+                  //                  }
+
+                  QString err;
+                  if(!createConnection(input, err))
+                    errorMessages.push_back(err);
+                }
+                else
+                {
+                  GInput *input = new GInput(id, component);
+                  component->m_inputGraphicObjects[id] = input;
+
+                  QString err;
+                  if(!input->createConnection(component, err))
+                    errorMessages.push_back(err);
+
+                  //                  if(attributes.hasAttribute("InputExchangeItemCaption"))
+                  //                  {
+                  //                    input->setCaption(attributes.value("InputExchangeItemCaption").toString());
+                  //                  }
+
+                  //                  if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
+                  //                  {
+                  //                    QString xposS = attributes.value("XPos").toString();
+                  //                    QString yposS = attributes.value("YPos").toString();
+
+                  //                    bool ok;
+
+                  //                    double xloc = xposS.toDouble(&ok);
+                  //                    double yloc = yposS.toDouble(&ok);
+
+                  //                    if(ok)
+                  //                    {
+                  //                      input->setPos(xloc,yloc);
+                  //                    }
+                  //                  }
+
+                  if(!createConnection(input, err))
+                    errorMessages.push_back(err);
                 }
               }
             }
@@ -184,7 +215,6 @@ void GOutput::readAdaptedOutputExchangeItem(QXmlStreamReader &xmlReader, QList<Q
 
           GAdaptedOutput* gAdaptedOutput = new GAdaptedOutput(adaptedOutputId, this, input, adaptedOutputFactoryId, fromComponentLibrary);
 
-
           if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
           {
             QString xposS = attributes.value("XPos").toString();
@@ -201,7 +231,9 @@ void GOutput::readAdaptedOutputExchangeItem(QXmlStreamReader &xmlReader, QList<Q
             }
           }
 
-          createConnection(gAdaptedOutput);
+          QString err;
+          if(!createConnection(gAdaptedOutput, err))
+            errorMessages.push_back(err);
 
           //Read arguments and connections
           while (!(xmlReader.isEndElement() &&
@@ -322,43 +354,63 @@ void GOutput::deEstablishConnections()
   }
 }
 
-void GOutput::reEstablishConnections()
+bool GOutput::reEstablishConnections(QString &errorMessage)
 {
+  bool connectionsEstablished = true;
+  errorMessage = "";
+
   if(output())
   {
     for(GConnection *connection: m_connections)
     {
+      //      if(connection->consumer()->nodeType() ==  GNode::Input)
+      //      {
+      //        GInput* input = dynamic_cast<GInput*>(connection->consumer());
+
+      //        if(input && input->input())
+      //        {
+      //          output()->addConsumer(input->input());
+      //        }
+      //        else
+      //        {
+      //          errorMessage += "Input for connection Producer:" + output()->id() + " => Consumer:" + input->id() + " is invalid\n";
+      //          connectionsEstablished = false;
+      //        }
+      //      }
+      //      else
       if(connection->consumer()->nodeType() ==  GNode::Input)
       {
-        GInput* input = dynamic_cast<GInput*>(connection->consumer());
+        GInput *input = dynamic_cast<GInput*>(connection->consumer());
 
         if(input && input->input())
         {
           output()->addConsumer(input->input());
         }
-      }
-      else if(connection->consumer()->nodeType() ==  GNode::MultiInput)
-      {
-        GMultiInput* input = dynamic_cast<GMultiInput*>(connection->consumer());
-
-        if(input && input->multiInput())
+        else
         {
-          output()->addConsumer(input->multiInput());
+          errorMessage += "Input for connection Producer:" + output()->id() + " => Consumer:" + input->id() + " is invalid\n";
+          connectionsEstablished = false;
         }
       }
       else if(connection->consumer()->nodeType() ==  GNode::AdaptedOutput)
       {
         GAdaptedOutput* adaptedOutput = dynamic_cast<GAdaptedOutput*>(connection->consumer());
+        QString message = "";
 
-        adaptedOutput->reEstablishConnections();
-
-        if(adaptedOutput->adaptedOutput())
+        if(!adaptedOutput->reEstablishConnections(message))
         {
-          output()->addAdaptedOutput(adaptedOutput->adaptedOutput());
+          //          if(adaptedOutput->adaptedOutput())
+          //          {
+          //            output()->addAdaptedOutput(adaptedOutput->adaptedOutput());
+          //          }
+          errorMessage += message + "\n";
+          connectionsEstablished = false;
         }
       }
     }
   }
+
+  return connectionsEstablished;
 }
 
 void GOutput::reEstablishSignalSlotConnections()
@@ -371,25 +423,24 @@ void GOutput::reEstablishSignalSlotConnections()
   }
 }
 
-bool GOutput::createConnection(GNode *consumer)
+bool GOutput::createConnection(GNode *consumer, QString &message)
 {
   if(!m_connections.contains(consumer))
   {
     if(consumer->nodeType() == GNode::Input ||
-       consumer->nodeType() == GNode::MultiInput ||
        consumer->nodeType() == GNode::AdaptedOutput )
     {
 
       switch (consumer->nodeType())
       {
         case GNode::Input:
-        case GNode::MultiInput:
           {
-            GInput* input = (GInput*) consumer;
-            QString message;
+            GInput *input = (GInput*)consumer;
 
-            if(m_component == input->modelComponent() || !input->input()->canConsume(output(), message))
+            if(!input->addProvider(this, message))
             {
+              message = "Connection is invalid";
+
               return false;
             }
           }
@@ -400,43 +451,10 @@ bool GOutput::createConnection(GNode *consumer)
             connect(consumer , SIGNAL(doubleClicked(GNode*)) , modelComponent() , SLOT(onDoubleClicked(GNode*)));
           }
           break;
-        default:
-          break;
       }
 
       GConnection* connection = new GConnection(this,consumer);
       m_connections[consumer] = connection;
-
-      switch (consumer->nodeType())
-      {
-
-        case GNode::Input:
-          {
-            GInput *input = (GInput*)consumer;
-
-            if(input->provider())
-            {
-              for(GConnection *connection : m_connections)
-              {
-                if(connection->consumer() == input)
-                {
-                  input->provider()->deleteConnection(connection);
-                }
-              }
-            }
-
-            input->setProvider(this);
-          }
-          break;
-        case GNode::MultiInput:
-          {
-            GMultiInput *input = (GMultiInput*)consumer;
-            input->addProvider(this);
-          }
-          break;
-        default:
-          break;
-      }
 
       emit connectionAdded(connection);
       emit propertyChanged("Connections");
@@ -458,30 +476,24 @@ void GOutput::deleteConnection(GConnection *connection)
     delete connection;
     GInput *input = nullptr;
 
-    //consumer <---- adapter <---- adapteee
     if(consumer->nodeType() == GNode::Input)
     {
       input = dynamic_cast<GInput*>(consumer);
-      input->setProvider(nullptr);
+      input->removeProvider(this);
 
-      if(output() && input->input())
+      if(output())
       {
-        output()->removeConsumer(input->input());
-        input->input()->setProvider(nullptr);
+        if(input->multiInput())
+        {
+          output()->removeConsumer(input->input());
+          input->multiInput()->removeProvider(output());
+        }
+        else if(input->input())
+        {
+          output()->removeConsumer(input->input());
+          input->input()->setProvider(nullptr);
+        }
       }
-    }
-    else if(consumer->nodeType() == GNode::MultiInput)
-    {
-      GMultiInput *minput = dynamic_cast<GMultiInput*>(consumer);
-      minput->removeProvider(this);
-
-      if(output() && minput->multiInput())
-      {
-        output()->removeConsumer(minput->multiInput());
-        minput->multiInput()->removeProvider(output());
-      }
-
-      input = minput;
     }
     else if(consumer->nodeType() == GNode::AdaptedOutput)
     {
@@ -516,26 +528,21 @@ void GOutput::deleteConnection(GNode *node)
       if(consumer->nodeType() == GNode::Input)
       {
         input = dynamic_cast<GInput*>(consumer);
-        input->setProvider(nullptr);
+        input->removeProvider(this);
 
-        if(output() && input->input())
+        if(output())
         {
-          output()->removeConsumer(input->input());
-          input->input()->setProvider(nullptr);
+          if(input->multiInput())
+          {
+            input->multiInput()->removeProvider(output());
+            output()->removeConsumer(input->input());
+          }
+          else if(input->input())
+          {
+            input->input()->setProvider(nullptr);
+            output()->removeConsumer(input->input());
+          }
         }
-      }
-      else if(consumer->nodeType() == GNode::MultiInput)
-      {
-        GMultiInput *minput = dynamic_cast<GMultiInput*>(consumer);
-        minput->removeProvider(this);
-
-        if(output() && minput->multiInput())
-        {
-          output()->removeConsumer(minput->multiInput());
-          minput->multiInput()->removeProvider(output());
-        }
-
-        input = minput;
       }
       else if(consumer->nodeType() == GNode::AdaptedOutput)
       {

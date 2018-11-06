@@ -34,6 +34,7 @@ class CPUGPUAllocation;
 
 class GModelComponent : public GNode
 {
+    friend class GOutput;
     friend class GAdaptedOutput;
 
     Q_OBJECT
@@ -114,7 +115,7 @@ class GModelComponent : public GNode
 
     void paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0) override;
 
-    bool createConnection(GNode *node) override;
+    bool createConnection(GNode *node, QString &message) override;
 
     void deleteConnection(GConnection *connection) override;
 

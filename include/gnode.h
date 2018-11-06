@@ -43,7 +43,6 @@ class GNode : public QGraphicsObject
     enum NodeType
     {
       Input,
-      MultiInput,
       Output,
       AdaptedOutput,
       Component
@@ -113,6 +112,8 @@ class GNode : public QGraphicsObject
 
     QGraphicsTextItem  *labeGraphicsObject() const;
 
+    virtual bool isValid() const;
+
     virtual QRectF boundingRect() const override;
 
     QList<GConnection*> connections() const;
@@ -121,7 +122,7 @@ class GNode : public QGraphicsObject
 
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget) override;
 
-    virtual bool createConnection(GNode *node) = 0;
+    virtual bool createConnection(GNode *node, QString &message) = 0;
 
     virtual void deleteConnection(GConnection *connection) = 0;
 
@@ -167,6 +168,8 @@ class GNode : public QGraphicsObject
     QFont m_font;
     static int s_zindex;
     HydroCoupleProject *m_project;
+    static QImage s_errorImage;
+    static bool s_errorImageLoaded;
 };
 
 Q_DECLARE_METATYPE(GNode*)

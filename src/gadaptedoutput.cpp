@@ -99,6 +99,17 @@ GAdaptedOutput::~GAdaptedOutput()
   }
 }
 
+bool GAdaptedOutput::isValid() const
+{
+  if(m_adaptee->output() == nullptr)
+    return false;
+
+  if(m_input && m_input->input() == nullptr)
+    return false;
+
+  return true;
+}
+
 HydroCouple::IExchangeItem* GAdaptedOutput::exchangeItem() const
 {
   return m_adaptedOutput;
@@ -274,23 +285,24 @@ void GAdaptedOutput::readAdaptedOutputExchangeItemConnections(QXmlStreamReader &
             {
               GInput* input = component->inputGraphicObjects()[id];
 
-              if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
-              {
-                QString xposS = attributes.value("XPos").toString();
-                QString yposS = attributes.value("YPos").toString();
+              //              if(attributes.hasAttribute("XPos") && attributes.hasAttribute("YPos"))
+              //              {
+              //                QString xposS = attributes.value("XPos").toString();
+              //                QString yposS = attributes.value("YPos").toString();
 
-                bool ok;
+              //                bool ok;
 
-                double xloc = xposS.toDouble(&ok);
-                double yloc = yposS.toDouble(&ok);
+              //                double xloc = xposS.toDouble(&ok);
+              //                double yloc = yposS.toDouble(&ok);
 
-                if(ok)
-                {
-                  input->setPos(xloc,yloc);
-                }
-              }
-
-              createConnection(input);
+              //                if(ok)
+              //                {
+              //                  input->setPos(xloc,yloc);
+              //                }
+              //              }
+              QString err;
+              if(!createConnection(input, err))
+               errorMessages.push_back(err);
             }
           }
         }
@@ -316,12 +328,14 @@ void GAdaptedOutput::deEstablishConnections()
   }
 }
 
-void GAdaptedOutput::reEstablishConnections()
+bool GAdaptedOutput::reEstablishConnections(QString &errorMessage)
 {
   IAdaptedOutput* adaptedOutput = nullptr;
 
   if(m_adaptee->output())
   {
+    bool connectionsEstablished = true;
+    errorMessage = "";
 
     if(m_fromComponentLibrary)
     {
@@ -334,7 +348,7 @@ void GAdaptedOutput::reEstablishConnections()
 
     if(adaptedOutput)
     {
-      setCaption(m_adaptedOutput->caption());
+      m_adaptedOutput->setCaption(caption());
 
       QObject* object = dynamic_cast<QObject*>(adaptedOutput);
 
@@ -360,6 +374,8 @@ void GAdaptedOutput::reEstablishConnections()
     m_adaptedOutput = nullptr;
     m_adaptedOutput = adaptedOutput;
 
+    m_adaptee->output()->addAdaptedOutput(m_adaptedOutput);
+
     for(GConnection *connection: m_connections)
     {
       if(connection->consumer()->nodeType() ==  GNode::Input)
@@ -370,36 +386,37 @@ void GAdaptedOutput::reEstablishConnections()
         {
           output()->addConsumer(input->input());
         }
-      }
-      else if(connection->consumer()->nodeType() ==  GNode::MultiInput)
-      {
-        GMultiInput* input = dynamic_cast<GMultiInput*>(connection->consumer());
-
-        if(input && input->multiInput())
+        else
         {
-          output()->addConsumer(input->multiInput());
+          errorMessage += "Input for connection Producer:" + output()->id() + " => Consumer:" + input->id() + " is invalid\n";
+          connectionsEstablished = false;
         }
       }
       else if(connection->consumer()->nodeType() ==  GNode::AdaptedOutput)
       {
         GAdaptedOutput* adaptedOutput = dynamic_cast<GAdaptedOutput*>(connection->consumer());
-        adaptedOutput->reEstablishConnections();
+        QString message = "";
 
-        if(adaptedOutput->adaptedOutput())
+        if(!adaptedOutput->reEstablishConnections(message))
         {
-          output()->addAdaptedOutput(adaptedOutput->adaptedOutput());
+          errorMessage += message + "\n";
+          connectionsEstablished = false;
         }
       }
     }
+
+    return connectionsEstablished;
   }
+
+  errorMessage = "Adaptee: " +  m_adaptee->id() + " has not been initialized for AdaptedOuput: " + id() ;
+
+  return false;
 }
 
 void GAdaptedOutput::reEstablishSignalSlotConnections()
 {
   if(m_adaptedOutput)
   {
-    setCaption(m_adaptedOutput->caption());
-
     QObject* object = dynamic_cast<QObject*>(m_adaptedOutput);
 
     connect(object, SIGNAL(propertyChanged(const QString &)),
@@ -424,26 +441,21 @@ void GAdaptedOutput::deleteConnection(GConnection *connection)
     if(consumer->nodeType() == GNode::Input)
     {
       input = dynamic_cast<GInput*>(consumer);
-      input->setProvider(nullptr);
+      input->removeProvider(this);
 
-      if(output() && input->input())
+      if(output())
       {
-        output()->removeConsumer(input->input());
-        input->input()->setProvider(nullptr);
+        if(input->multiInput())
+        {
+          input->multiInput()->removeProvider(output());
+          output()->removeConsumer(input->input());
+        }
+        else if(input->input())
+        {
+          input->input()->setProvider(nullptr);
+          output()->removeConsumer(input->input());
+        }
       }
-    }
-    else if(consumer->nodeType() == GNode::MultiInput)
-    {
-      GMultiInput *minput = dynamic_cast<GMultiInput*>(consumer);
-      minput->removeProvider(this);
-
-      if(output() && minput->multiInput())
-      {
-        output()->removeConsumer(minput->multiInput());
-        minput->multiInput()->removeProvider(output());
-      }
-
-      input = minput;
     }
     else if(consumer->nodeType() == GNode::AdaptedOutput)
     {
@@ -484,26 +496,21 @@ void GAdaptedOutput::deleteConnection(GNode *node)
       if(consumer->nodeType() == GNode::Input)
       {
         input = dynamic_cast<GInput*>(consumer);
-        input->setProvider(nullptr);
+        input->removeProvider(this);
 
-        if(output() && input->input())
+        if(output())
         {
-          output()->removeConsumer(input->input());
-          input->input()->setProvider(nullptr);
+          if(input->multiInput())
+          {
+            output()->removeConsumer(input->input());
+            input->multiInput()->removeProvider(output());
+          }
+          else if(input->input())
+          {
+            output()->removeConsumer(input->input());
+            input->input()->setProvider(nullptr);
+          }
         }
-      }
-      else if(consumer->nodeType() == GNode::MultiInput)
-      {
-        GMultiInput *minput = dynamic_cast<GMultiInput*>(consumer);
-        minput->removeProvider(this);
-
-        if(output() && minput->multiInput())
-        {
-          output()->removeConsumer(minput->multiInput());
-          minput->multiInput()->removeProvider(output());
-        }
-
-        input = minput;
       }
       else if(consumer->nodeType() == GNode::AdaptedOutput)
       {

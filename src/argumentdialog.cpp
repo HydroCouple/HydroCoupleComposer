@@ -28,20 +28,24 @@ using namespace  HydroCouple ;
 
 
 ArgumentDialog::ArgumentDialog(QWidget *parent)
-   :QDialog(parent),
-     m_component(nullptr),
-     m_adaptedOutput(nullptr)
+  :QDialog(parent),
+    m_component(nullptr),
+    m_adaptedOutput(nullptr),
+    m_XMLArgDommodel(nullptr)
 {
-   setupUi(this);
+  setupUi(this);
 
+  m_XMLArgDommodel = new DomModel(QDomDocument(), this);
+  treeViewXML->setModel(m_XMLArgDommodel);
 
-   connect(pushButtonClose , SIGNAL(clicked()) , this , SLOT(close()));
-   connect(pushButtonReadValues, SIGNAL(clicked()) , this , SLOT(onReadArgument()));
-   connect(pushButtonInitializeComponent, SIGNAL(clicked()), this, SLOT(onInitializeComponent()));
-   connect(pushButtonBrowse, SIGNAL(clicked()), this, SLOT(onBrowseForFile()));
-   connect(comboBoxArguments, SIGNAL(currentIndexChanged(int)), this, SLOT(onSelectedArgumentChanged(int)));
+  connect(pushButtonClose , SIGNAL(clicked()) , this , SLOT(close()));
+  connect(pushButtonReadValues, SIGNAL(clicked()) , this , SLOT(onReadArgument()));
+  connect(pushButtonInitializeComponent, SIGNAL(clicked()), this, SLOT(onInitializeComponent()));
+  connect(pushButtonBrowse, SIGNAL(clicked()), this, SLOT(onBrowseForFile()));
+  connect(comboBoxArguments, SIGNAL(currentIndexChanged(int)), this, SLOT(onSelectedArgumentChanged(int)));
+  connect(radioButtonPlainText, &QRadioButton::toggled, this, &ArgumentDialog::onCheckBoxPlainTextToggled);
 
-   readSettings();
+  readSettings();
 }
 
 ArgumentDialog::~ArgumentDialog()
@@ -51,41 +55,41 @@ ArgumentDialog::~ArgumentDialog()
 
 void ArgumentDialog::setComponent(GModelComponent *component)
 {
-   m_isComponent = true;
+  m_isComponent = true;
 
-   pushButtonInitializeComponent->setVisible(true);
+  pushButtonInitializeComponent->setVisible(true);
 
-   m_component = component;
-   setWindowTitle("Model Component " + m_component->modelComponent()->id() + "'s Arguments");
+  m_component = component;
+  setWindowTitle("Model Component " + m_component->modelComponent()->id() + "'s Arguments");
 
-   comboBoxArguments->clear();
-   m_arguments.clear();
+  comboBoxArguments->clear();
+  m_arguments.clear();
 
-   for(IArgument* argument : component->modelComponent()->arguments())
-   {
-      m_arguments[argument->id()] = argument;
-      comboBoxArguments->addItem(argument->caption() , argument->id());
-   }
+  for(IArgument* argument : component->modelComponent()->arguments())
+  {
+    m_arguments[argument->id()] = argument;
+    comboBoxArguments->addItem(argument->caption() , argument->id());
+  }
 }
 
 void ArgumentDialog::setAdaptedOutput(GAdaptedOutput *adaptedOutput)
 {
-   m_isComponent = false;
+  m_isComponent = false;
 
-   pushButtonInitializeComponent->setVisible(false);
+  pushButtonInitializeComponent->setVisible(false);
 
-   m_adaptedOutput = adaptedOutput;
-   setWindowTitle("AdaptedOutput " + m_adaptedOutput->id() + "'s Arguments");
+  m_adaptedOutput = adaptedOutput;
+  setWindowTitle("AdaptedOutput " + m_adaptedOutput->id() + "'s Arguments");
 
 
-   comboBoxArguments->clear();
-   m_arguments.clear();
+  comboBoxArguments->clear();
+  m_arguments.clear();
 
-   for(IArgument* argument : m_adaptedOutput->adaptedOutput()->arguments())
-   {
-      m_arguments[argument->id()] = argument;
-      comboBoxArguments->addItem(argument->caption() , argument->id());
-   }
+  for(IArgument* argument : m_adaptedOutput->adaptedOutput()->arguments())
+  {
+    m_arguments[argument->id()] = argument;
+    comboBoxArguments->addItem(argument->caption() , argument->id());
+  }
 }
 
 void ArgumentDialog::readSettings()
@@ -116,182 +120,264 @@ void ArgumentDialog::clearSettings()
 
 void ArgumentDialog::onReadArgument()
 {
-   if(m_isComponent)
-   {
-      if(m_component->modelComponent()->status() == IModelComponent::Created ||
-            m_component->modelComponent()->status() == IModelComponent::Failed ||
-            m_component->modelComponent()->status() == IModelComponent::Initialized)
-      {
-         int index;
-
-         if(m_arguments.size() && (index = comboBoxArguments->currentIndex()) > -1)
-         {
-            QVariant arg = comboBoxArguments->itemData(index);
-            IArgument* argument = m_arguments[arg.toString()];
-
-            QString message;
-
-            if(radioButtonFileInput->isChecked())// dont care maybe clear && !lineEditFileInput->text().isEmpty() && !lineEditFileInput->text().isNull())
-            {
-
-               if(argument->readValues(lineEditFileInput->text(), message, true))
-               {
-                  labelStatus->setText("Input read successfully: " + message);
-                  textEditInput->setText(argument->toString());
-               }
-               else
-               {
-                  labelStatus->setText("Input could not be read!: " + message);
-               }
-            }
-            else //if(!textEditInput->toPlainText().isEmpty() && !textEditInput->toPlainText().isNull())
-            {
-               if(argument->readValues(textEditInput->toPlainText(), message))
-               {
-                  labelStatus->setText("Input read successfully: " + message);
-               }
-               else
-               {
-                  labelStatus->setText("Input could not be read!: " + message);
-               }
-
-               QTimer::singleShot(5000, this , SLOT(onRefreshStatus()));
-            }
-         }
-      }
-   }
-   else
-   {
+  if(m_isComponent)
+  {
+    if(m_component->modelComponent()->status() == IModelComponent::Created ||
+       m_component->modelComponent()->status() == IModelComponent::Failed ||
+       m_component->modelComponent()->status() == IModelComponent::Initialized)
+    {
       int index;
 
       if(m_arguments.size() && (index = comboBoxArguments->currentIndex()) > -1)
       {
-         QVariant arg = comboBoxArguments->itemData(index);
-         IArgument* argument = m_arguments[arg.toString()];
+        QVariant arg = comboBoxArguments->itemData(index);
+        IArgument* argument = m_arguments[arg.toString()];
 
-         QString message;
+        QString message;
 
-         if(radioButtonFileInput->isChecked() && !lineEditFileInput->text().isEmpty() && !lineEditFileInput->text().isNull())
-         {
-            if(argument->readValues(lineEditFileInput->text(), message, true))
-            {
-               labelStatus->setText("Input read successfully: " + message);
-            }
-            else
-            {
-               labelStatus->setText("Input could not be read Successfully");
-            }
-         }
-         else if(!textEditInput->toPlainText().isEmpty() && !textEditInput->toPlainText().isNull())
-         {
+        if(radioButtonFileInput->isChecked())// dont care maybe clear && !lineEditFileInput->text().isEmpty() && !lineEditFileInput->text().isNull())
+        {
+
+          if(argument->readValues(lineEditFileInput->text(), message, true))
+          {
+            labelStatus->setText("Input read successfully: " + message);
+            textEditInput->setText(argument->toString());
+          }
+          else
+          {
+            labelStatus->setText("Input could not be read!: " + message);
+          }
+        }
+        else
+        {
+          if(radioButtonPlainText->isChecked())
+          {
             if(argument->readValues(textEditInput->toPlainText(), message))
             {
-               labelStatus->setText("Input read successfully: " + message);
+              labelStatus->setText("Input read successfully: " + message);
             }
             else
             {
-               labelStatus->setText("Input could not be read Successfully: " + message);
+              labelStatus->setText("Input could not be read!: " + message);
             }
+          }
+          else
+          {
+            if(argument->readValues(m_XMLArgDommodel->domDocument().toString(), message))
+            {
+              labelStatus->setText("Input read successfully: " + message);
+            }
+            else
+            {
+              labelStatus->setText("Input could not be read!: " + message);
+            }
+          }
 
-            QTimer::singleShot(5000, this , SLOT(onRefreshStatus()));
-         }
+          QTimer::singleShot(5000, this , SLOT(onRefreshStatus()));
+        }
       }
-   }
+    }
+  }
+  else
+  {
+    int index;
+
+    if(m_arguments.size() && (index = comboBoxArguments->currentIndex()) > -1)
+    {
+      QVariant arg = comboBoxArguments->itemData(index);
+      IArgument* argument = m_arguments[arg.toString()];
+
+      QString message;
+
+      if(radioButtonFileInput->isChecked() && !lineEditFileInput->text().isEmpty() && !lineEditFileInput->text().isNull())
+      {
+        if(argument->readValues(lineEditFileInput->text(), message, true))
+        {
+          labelStatus->setText("Input read successfully: " + message);
+        }
+        else
+        {
+          labelStatus->setText("Input could not be read Successfully");
+        }
+      }
+      else
+      {
+        if(radioButtonPlainText->isChecked())
+        {
+          if(argument->readValues(textEditInput->toPlainText(), message))
+          {
+            labelStatus->setText("Input read successfully: " + message);
+          }
+          else
+          {
+            labelStatus->setText("Input could not be read Successfully: " + message);
+          }
+        }
+        else
+        {
+          if(argument->readValues(m_XMLArgDommodel->domDocument().toString(), message))
+          {
+            labelStatus->setText("Input read successfully: " + message);
+          }
+          else
+          {
+            labelStatus->setText("Input could not be read!: " + message);
+          }
+        }
+
+        QTimer::singleShot(5000, this , SLOT(onRefreshStatus()));
+      }
+    }
+  }
 }
 
 void ArgumentDialog::onInitializeComponent()
 {
-   if(m_component->modelComponent()->status() == IModelComponent::Created ||
-         m_component->modelComponent()->status() == IModelComponent::Failed ||
-         m_component->modelComponent()->status() == IModelComponent::Initialized
-         )
-   {
-      m_component->modelComponent()->initialize();
-   }
+  if(m_component->modelComponent()->status() == IModelComponent::Created ||
+     m_component->modelComponent()->status() == IModelComponent::Failed ||
+     m_component->modelComponent()->status() == IModelComponent::Initialized
+     )
+  {
+    m_component->modelComponent()->initialize();
+  }
 }
 
 void ArgumentDialog::onBrowseForFile()
 {
-   int index;
-   if(m_arguments.size() && (index = comboBoxArguments->currentIndex()) > -1)
-   {
-      QVariant arg = comboBoxArguments->itemData(index);
-      IArgument* argument = m_arguments[arg.toString()];
+  int index;
+  if(m_arguments.size() && (index = comboBoxArguments->currentIndex()) > -1)
+  {
+    QVariant arg = comboBoxArguments->itemData(index);
+    IArgument* argument = m_arguments[arg.toString()];
 
-      QString filter ="";
+    QString filter ="";
 
-      for(const QString &cfilter : argument->fileFilters())
+    for(const QString &cfilter : argument->fileFilters())
+    {
+      if(filter.isEmpty())
       {
-         if(filter.isEmpty())
-         {
-            filter = cfilter;
-         }
-         else
-         {
-            filter = filter + ";;" + cfilter;
-         }
+        filter = cfilter;
       }
-
-      QString file = QFileDialog::getOpenFileName(this, "Open Argument File","", filter);
-
-      if (!file.isEmpty() && QFileInfo(file).dir().exists())
+      else
       {
-         lineEditFileInput->setText(file);
+        filter = filter + ";;" + cfilter;
       }
-   }
+    }
+
+    QString file = QFileDialog::getOpenFileName(this, "Open Argument File","", filter);
+
+    if (!file.isEmpty() && QFileInfo(file).dir().exists())
+    {
+      lineEditFileInput->setText(file);
+    }
+  }
 }
 
 void ArgumentDialog::onSelectedArgumentChanged(int index)
 {
-   if(index > -1)
-   {
-      QVariant arg = comboBoxArguments->itemData(index);
-      IArgument* argument = m_arguments[arg.toString()];
+  if(index > -1)
+  {
+    QVariant arg = comboBoxArguments->itemData(index);
+    IArgument* argument = m_arguments[arg.toString()];
 
-      if(argument->canReadFromFile() && !argument->canReadFromString())
-      {
-         radioButtonFileInput->setEnabled(true);
-         radioButtonTextInput->setEnabled(false);
-         radioButtonTextInput->setChecked(false);
+    if(argument->canReadFromFile() && !argument->canReadFromString())
+    {
+      radioButtonFileInput->setEnabled(true);
 
-      }
-      else if(!argument->canReadFromFile() && argument->canReadFromString())
+      radioButtonTextInput->setEnabled(false);
+      radioButtonTextInput->setChecked(false);
+
+    }
+    else if(!argument->canReadFromFile() && argument->canReadFromString())
+    {
+      radioButtonFileInput->setEnabled(false);
+      radioButtonTextInput->setEnabled(true);
+      radioButtonFileInput->setChecked(false);
+    }
+    else
+    {
+      radioButtonFileInput->setEnabled(true);
+      radioButtonTextInput->setEnabled(true);
+    }
+
+    if(argument->currentArgumentIOType() == IArgument::String)
+    {
+      radioButtonTextInput->setChecked(true);
+
+      QString text = argument->toString();
+      QDomDocument domDoc;
+
+      if(text.contains("/>") && domDoc.setContent(text))
       {
-        radioButtonFileInput->setEnabled(false);
-        radioButtonTextInput->setEnabled(true);
-        radioButtonFileInput->setChecked(false);
+        radioButtonXML->setEnabled(true);
       }
       else
       {
-        radioButtonFileInput->setEnabled(true);
-        radioButtonTextInput->setEnabled(true);
+        radioButtonXML->setChecked(false);
+        radioButtonXML->setEnabled(false);
       }
 
-      if(argument->currentArgumentIOType() == IArgument::String)
+      if(radioButtonPlainText->isChecked())
       {
-         radioButtonTextInput->setChecked(true);
-         QString text = argument->toString();
-         textEditInput->setText(text);
-         lineEditFileInput->setText("");
+        textEditInput->setText(text);
+        m_XMLArgDommodel->setDomDocument(domDoc);
       }
       else
       {
-         radioButtonFileInput->setChecked(true);
-         lineEditFileInput->setText(argument->toString());
-         textEditInput->setText("");
+        textEditInput->setText("");
+        m_XMLArgDommodel->setDomDocument(domDoc);
+        treeViewXML->expandToDepth(2);
+        treeViewXML->resizeColumnToContents(0);
       }
 
-      textEditArgumentDescription->setHtml(argument->description());
-   }
-   else
-   {
-      lineEditFileInput->clear();
-      textEditInput->clear();
-      textEditArgumentDescription->clear();
-   }
+      lineEditFileInput->setText("");
+    }
+    else
+    {
+      radioButtonFileInput->setChecked(true);
+      lineEditFileInput->setText(argument->toString());
+
+      textEditInput->setText("");
+      m_XMLArgDommodel->setDomDocument(QDomDocument());
+    }
+
+    textEditArgumentDescription->setHtml(argument->description());
+  }
+  else
+  {
+    lineEditFileInput->clear();
+    textEditInput->clear();
+    textEditArgumentDescription->clear();
+    m_XMLArgDommodel->setDomDocument(QDomDocument());
+  }
+}
+
+void ArgumentDialog::onCheckBoxPlainTextToggled(bool on)
+{
+  if(comboBoxArguments->currentIndex() > -1)
+  {
+    QVariant arg = comboBoxArguments->itemData(comboBoxArguments->currentIndex());
+    IArgument* argument = m_arguments[arg.toString()];
+
+    if(radioButtonPlainText->isChecked())
+    {
+      textEditInput->setText(argument->toString());
+      m_XMLArgDommodel->setDomDocument(QDomDocument());
+
+    }
+    else
+    {
+      textEditInput->setText("");
+      QDomDocument domDoc = QDomDocument();
+      domDoc.setContent(argument->toString());
+      m_XMLArgDommodel->setDomDocument(domDoc);
+      treeViewXML->expandToDepth(2);
+      treeViewXML->resizeColumnToContents(0);
+    }
+  }
 }
 
 void ArgumentDialog::onRefreshStatus()
 {
-   labelStatus->setText("");
+  labelStatus->setText("");
 }

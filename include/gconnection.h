@@ -42,7 +42,6 @@ class GConnection : public QGraphicsObject
 
     friend class GModelComponent;
     friend class GInput;
-    friend class GMultiInput;
     friend class GOutput;
     friend class GAdaptedOutput;
 
@@ -99,6 +98,8 @@ class GConnection : public QGraphicsObject
 
     QPainterPath shape() const override;
 
+    bool isValid() const;
+
     virtual void paint(QPainter * painter, const QStyleOptionGraphicsItem * option, QWidget * widget = 0) override;
 
     bool insertAdaptedOutput(const QString& adaptedOutputId, const QString& adaptedOutputFactoryId, bool fromComponentLibrary = false);
@@ -136,7 +137,7 @@ class GConnection : public QGraphicsObject
   protected:
 
     GNode* m_producer, *m_consumer;
-    QPointF m_start, m_end , m_mid , m_c1, m_c2;
+    QPointF m_start, m_end , m_mid , m_c1, m_c2, m_errorLocation;
     QPointF m_arrowPoint[3];
     QRectF m_boundary;
     QPainterPath m_path;

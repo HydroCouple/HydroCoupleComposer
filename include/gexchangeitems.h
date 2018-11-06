@@ -54,7 +54,7 @@ class GExchangeItem : public GNode
 
     virtual void deEstablishConnections() = 0;
 
-    virtual void reEstablishConnections() = 0;
+    virtual bool reEstablishConnections(QString &errorMessage) = 0;
 
     virtual void reEstablishSignalSlotConnections() = 0;
 
@@ -81,27 +81,46 @@ class GInput: public GExchangeItem
 
   public:
 
+    enum InputType
+    {
+      Single,
+      Multi,
+      Unknown
+    };
+
     GInput(const QString &inputId, GModelComponent* parent);
 
     virtual ~GInput();
 
+    bool isValid() const override;
+
     HydroCouple::IExchangeItem* exchangeItem() const override;
 
-    HydroCouple::IInput* input() const;
+    HydroCouple::IInput *input() const;
+
+    HydroCouple::IMultiInput *multiInput() const;
 
     GOutput* provider() const;
 
-    void setProvider(GOutput* provider);
+    QList<GOutput*> providers() const;
+
+    InputType getInputType();
+
+    bool addProvider(GOutput* provider, QString &message);
+
+    bool removeProvider(GOutput* provider);
+
+//    void setProvider(GOutput* provider);
 
     void writeExchangeItemConnections(QXmlStreamWriter &xmlWriter) override;
 
     void deEstablishConnections() override;
 
-    void reEstablishConnections() override;
+    bool reEstablishConnections(QString &errorMessage) override;
 
     void reEstablishSignalSlotConnections() override;
 
-    bool createConnection(GNode *node) override;
+    bool createConnection(GNode *node, QString &message) override;
 
     void deleteConnection(GConnection *connection) override;
 
@@ -112,40 +131,42 @@ class GInput: public GExchangeItem
   private:
 
     QString m_inputId;
-    GOutput* m_provider;
-};
-
-class GMultiInput : public GInput
-{
-    Q_OBJECT
-    Q_PROPERTY(HydroCouple::IMultiInput* MultiInput READ multiInput)
-    Q_PROPERTY(QList<GOutput*> Providers READ providers)
-
-  public:
-
-    GMultiInput(const QString &multiInputId, GModelComponent* parent);
-
-    virtual ~GMultiInput();
-
-    HydroCouple::IMultiInput* multiInput() const;
-
-    QList<GOutput*> providers() const;
-
-    void addProvider(GOutput* provider);
-
-    void removeProvider(GOutput* provider);
-
-    void deEstablishConnections() override;
-
-    void reEstablishConnections() override;
-
-    void reEstablishSignalSlotConnections() override;
-
-  private:
-
-    QString m_multiInputId;
+//    GOutput* m_provider;
     QList<GOutput*> m_providers;
+
 };
+
+//class GMultiInput : public GInput
+//{
+//    Q_OBJECT
+//    Q_PROPERTY(HydroCouple::IMultiInput* MultiInput READ multiInput)
+//    Q_PROPERTY(QList<GOutput*> Providers READ providers)
+
+//  public:
+
+//    GMultiInput(const QString &multiInputId, GModelComponent* parent);
+
+//    virtual ~GMultiInput();
+
+//    HydroCouple::IMultiInput* multiInput() const;
+
+//    QList<GOutput*> providers() const;
+
+//    void addProvider(GOutput* provider);
+
+//    void removeProvider(GOutput* provider);
+
+//    void deEstablishConnections() override;
+
+//    bool reEstablishConnections(QString &errorMessage) override;
+
+//    void reEstablishSignalSlotConnections() override;
+
+//  private:
+
+//    QString m_multiInputId;
+//    QList<GOutput*> m_providers;
+//};
 
 class GOutput : public GExchangeItem
 {
@@ -157,6 +178,8 @@ class GOutput : public GExchangeItem
     GOutput(const QString &outputId, GModelComponent *parent);
 
     virtual ~GOutput();
+
+    bool isValid() const override;
 
     HydroCouple::IExchangeItem* exchangeItem() const override;
 
@@ -172,11 +195,11 @@ class GOutput : public GExchangeItem
 
     void deEstablishConnections() override;
 
-    void reEstablishConnections() override;
+    bool reEstablishConnections(QString &errorMessage) override;
 
     void reEstablishSignalSlotConnections() override;
 
-    bool createConnection(GNode *node) override;
+    bool createConnection(GNode *node, QString &message) override;
 
     void deleteConnection(GConnection *connection) override;
 
@@ -208,6 +231,8 @@ class GAdaptedOutput : public GOutput
 
     virtual ~GAdaptedOutput();
 
+    bool isValid() const override;
+
     HydroCouple::IExchangeItem* exchangeItem() const override;
 
     HydroCouple::IOutput* output() const override;
@@ -224,7 +249,7 @@ class GAdaptedOutput : public GOutput
 
     void deEstablishConnections() override;
 
-    void reEstablishConnections() override;
+    bool reEstablishConnections(QString &errorMessage) override;
 
     void reEstablishSignalSlotConnections() override;
 

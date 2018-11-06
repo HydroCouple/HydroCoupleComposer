@@ -76,28 +76,38 @@ void SimulationManager::runComposition(bool background)
       {
         disestablishConnections();
 
-        establishConnections();
+        QList<QString> messages;
 
-        if(m_project->workflowComponent())
+        if(establishConnections(messages))
         {
-          m_project->workflowComponent()->initialize();
-        }
-
-        if(validateModels() && prepareModels() && validateConnections())
-        {
-          if(background)
+          if(m_project->workflowComponent())
           {
-            m_isBackground = true;
-            m_thread = std::thread(SimulationManager::runManagerThread, this);
+            m_project->workflowComponent()->initialize();
+          }
+
+          if(validateModels() && prepareModels() && validateConnections())
+          {
+            if(background)
+            {
+              m_isBackground = true;
+              m_thread = std::thread(SimulationManager::runManagerThread, this);
+            }
+            else
+            {
+              m_isBackground = false;
+              run();
+            }
           }
           else
           {
-            m_isBackground = false;
-            run();
+            onSimulationCompleted();
           }
         }
         else
         {
+          for(const QString &message : messages)
+            emit postMessage(message);
+
           onSimulationCompleted();
         }
       }
@@ -329,7 +339,7 @@ bool SimulationManager::initializeModels()
   {
     for(GModelComponent *component : m_project->modelComponents())
     {
-      //    if(component->modelComponent()->status() != IModelComponent::Initialized)
+      if(component->modelComponent()->status() != IModelComponent::Initialized)
       {
         printf("start initializing\n");
 
@@ -368,13 +378,20 @@ void SimulationManager::disestablishConnections()
   }
 }
 
-void SimulationManager::establishConnections()
+bool SimulationManager::establishConnections(QList<QString> &messages)
 {
+  bool established = true;
+  QString message = "";
+
   for(GModelComponent *component : m_project->modelComponents())
   {
     for(GOutput* output : component->outputGraphicObjects().values())
     {
-      output->reEstablishConnections();
+      if(!output->reEstablishConnections(message))
+      {
+        messages.append(message);
+        established = false;
+      }
     }
   }
 
@@ -382,9 +399,15 @@ void SimulationManager::establishConnections()
   {
     for(GInput* input : component->inputGraphicObjects().values())
     {
-      input->reEstablishConnections();
+      if(!input->reEstablishConnections(message))
+      {
+        messages.append(message);
+        established = false;
+      }
     }
   }
+
+  return established;
 }
 
 bool SimulationManager::validateModels()
@@ -556,7 +579,7 @@ void SimulationManager::run()
 
 void SimulationManager::onSimulationCompleted()
 {
-  if(m_isBackground)
+  if(m_isBackground && m_thread.joinable())
   {
     m_thread.join();
   }

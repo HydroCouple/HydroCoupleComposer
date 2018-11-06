@@ -89,6 +89,7 @@ HydroCoupleComposer::HydroCoupleComposer(QWidget *parent)
   qRegisterMetaType<QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>>("QSharedPointer<HydroCouple::IComponentStatusChangeEventArgs>");
 
   m_argumentDialog = new ArgumentDialog(this);
+  m_argumentDialog->treeViewXML->setVisible(false);
   m_preferencesDialog = new PreferencesDialog(this);
 
   new QXMLSyntaxHighlighter(m_argumentDialog->textEditInput);
@@ -1037,11 +1038,11 @@ void HydroCoupleComposer::createConnection(GExchangeItem *producer, GExchangeIte
 {
   if(producer != consumer &&
      (producer->nodeType() == GNode::Output || producer->nodeType() == GNode::AdaptedOutput) &&
-     ( consumer->nodeType() == GNode::Input || consumer->nodeType() == GNode::MultiInput  || consumer->nodeType() == GNode::AdaptedOutput))
+     ( consumer->nodeType() == GNode::Input || consumer->nodeType() == GNode::AdaptedOutput))
   {
     QString message;
 
-    if(!producer->createConnection(consumer))
+    if(!producer->createConnection(consumer, message))
     {
       QMessageBox::critical(this,"Connection Error",message);
     }
@@ -1149,8 +1150,7 @@ void HydroCoupleComposer::addRemoveNodeToGraphicsView(GNode *node, bool add)
     {
       graphicsViewHydroCoupleComposer->scene()->addItem(connection);
 
-      if(connection->consumer()->nodeType() != GNode::Input &&
-         connection->consumer()->nodeType() != GNode::MultiInput)
+      if(connection->consumer()->nodeType() != GNode::Input)
       {
         addRemoveNodeToGraphicsView(connection->consumer(),add);
       }

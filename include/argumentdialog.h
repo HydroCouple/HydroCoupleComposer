@@ -27,6 +27,7 @@
 #include "gmodelcomponent.h"
 #include <QGenericMatrix>
 #include <QSettings>
+#include <dommodel/dommodel.h>
 
 class ArgumentDialog : public QDialog , public Ui::ArgumentDialog
 {
@@ -65,6 +66,8 @@ class ArgumentDialog : public QDialog , public Ui::ArgumentDialog
 
       void onRefreshStatus();
 
+      void onCheckBoxPlainTextToggled(bool on);
+
    private:
 
       void onClose();
@@ -75,7 +78,7 @@ class ArgumentDialog : public QDialog , public Ui::ArgumentDialog
       GAdaptedOutput *m_adaptedOutput;
       QHash<QString,HydroCouple::IArgument*> m_arguments;
       QSettings m_settings;
-
+      DomModel *m_XMLArgDommodel;
 };
 
 

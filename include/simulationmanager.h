@@ -105,7 +105,7 @@ class SimulationManager : public QObject
 
       void disestablishConnections();
 
-      void establishConnections();
+      bool establishConnections(QList<QString> &messages);
 
       bool validateModels();
 
