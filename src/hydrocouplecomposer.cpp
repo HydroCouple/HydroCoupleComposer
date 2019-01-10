@@ -178,11 +178,6 @@ void HydroCoupleComposer::setProject(HydroCoupleProject *project)
 
   m_project = project;
 
-  for(QDir dir : existingDirectories)
-    project->componentManager()->addComponentDirectory(dir);
-
-  for(QFileInfo file : existingLibraries)
-    project->componentManager()->loadComponent(file);
 
   m_simulationManager = new SimulationManager(m_project);
 
@@ -190,6 +185,11 @@ void HydroCoupleComposer::setProject(HydroCoupleProject *project)
   setWindowModified(m_project->hasChanges());
 
   initializeProjectSignalSlotConnections();
+  for(QDir dir : existingDirectories)
+    project->componentManager()->addComponentDirectory(dir);
+
+  for(QFileInfo file : existingLibraries)
+    project->componentManager()->loadComponent(file);
 
 
 
