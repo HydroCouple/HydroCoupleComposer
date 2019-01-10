@@ -10,6 +10,7 @@
 using namespace HydroCouple;
 
 const QString GModelComponent::sc_descriptionHtml =
+    "<h3><i>[CId] Instance</i></h3>"
     "<h2>[Caption]</h2>"
     "<h3>[Id]</h3>"
     "<h4><i>Status : [Status]</i></h4>"
@@ -263,6 +264,7 @@ GModelComponent* GModelComponent::readComponentFile(const QFileInfo & fileInfo, 
           {
             modelComponent->m_readFromFile = true;
             modelComponent->m_exportFile = fileInfo;
+            modelComponent->modelComponent()->setReferenceDirectory(fileInfo.dir().absolutePath());
             return modelComponent;
           }
         }
@@ -687,9 +689,12 @@ void GModelComponent::writeComponent(const QFileInfo &fileInfo)
 
   if(file.open(QIODevice::WriteOnly | QIODevice::Truncate))
   {
+
     QXmlStreamWriter xmlWriter(&file);
     xmlWriter.setAutoFormatting(true);
     xmlWriter.writeStartDocument();
+
+    m_readFromFile = true;
 
     xmlWriter.writeStartElement("ModelComponent");
     {
@@ -698,16 +703,16 @@ void GModelComponent::writeComponent(const QFileInfo &fileInfo)
 
       if(libFile.isRelative())
       {
-        if(m_readFromFile)
-        {
-          relPath = m_exportFile.dir().absoluteFilePath(libFile.filePath());
-          relPath = fileInfo.dir().relativeFilePath(relPath);
-        }
-        else
-        {
-          relPath = m_project->m_projectFile.dir().absoluteFilePath(libFile.filePath());
-          relPath = fileInfo.dir().relativeFilePath(relPath);
-        }
+        //        if(m_readFromFile)
+        //       {
+        relPath = m_project->projectFile().dir().absoluteFilePath(libFile.filePath());
+        relPath = fileInfo.dir().relativeFilePath(relPath);
+        //        }
+        //        else
+        //        {
+        //          relPath = m_project->m_projectFile.dir().absoluteFilePath(libFile.filePath());
+        //          relPath = fileInfo.dir().relativeFilePath(relPath);
+        //        }
       }
       else
       {
@@ -784,6 +789,7 @@ void GModelComponent::writeComponent(const QFileInfo &fileInfo)
 
     xmlWriter.writeEndDocument();
 
+    m_modelComponent->setReferenceDirectory(fileInfo.dir().absolutePath());
     m_readFromFile = true;
     m_exportFile = fileInfo;
   }
@@ -1188,27 +1194,38 @@ void GModelComponent::createExchangeItems()
     }
   }
 
-  QHash<QString,GOutput*>::iterator it = m_outputGraphicObjects.begin();
+  QList<QString> missingOutputs;
 
-  while(it != m_outputGraphicObjects.end())
+  for(QHash<QString, GOutput*>::iterator it = m_outputGraphicObjects.begin();
+      it != m_outputGraphicObjects.end(); it++)
   {
-    if(!m_outputs.contains(it.value()->id()))
-    {
-      emit postMessage("Output exchangeitem with id " +  it.value()->id() + " could not be found therefore it will be removed");
+    GOutput *output = it.value();
 
-      for(GConnection *connection : m_connections)
+    if(!m_outputs.contains(output->id()))
+    {
+      emit postMessage("Output exchangeitem with id " +  output->id() + " could not be found therefore it will be removed");
+
+      for(auto itc = m_connections.begin(); itc != m_connections.end(); itc++)
       {
-        if(connection->consumer() == it.value())
+        if(itc.key() == output)
         {
-          deleteConnection(connection);
+          deleteConnection(itc.value());
+          break;
         }
       }
 
-      m_outputGraphicObjects.erase(it);
+      missingOutputs.push_back(output->id());
+      delete output;
     }
-    else
+  }
+
+  for(const QString& id : missingOutputs)
+  {
+    QHash<QString, GOutput*>::iterator it = m_outputGraphicObjects.find(id);
+
+    if(it != m_outputGraphicObjects.end())
     {
-      it++;
+      m_outputGraphicObjects.erase(it);
     }
   }
 
@@ -1278,21 +1295,31 @@ void GModelComponent::createExchangeItems()
     }
   }
 
-  QHash<QString,GInput*>::iterator itinp = m_inputGraphicObjects.begin();
+  QList<QString> missingInputs;
 
-  while(itinp != m_inputGraphicObjects.end())
+  for(QHash<QString, GInput*>::iterator it = m_inputGraphicObjects.begin();
+      it != m_inputGraphicObjects.end(); it++)
   {
-    if(!m_inputs.contains(itinp.value()->id()))
+    GInput *input = it.value();
+
+    if(!m_inputs.contains(input->id()))
     {
-      emit postMessage("Input exchangeitem with id " +  itinp.value()->id() + " could not be found therefore it will be removed");
-      m_inputGraphicObjects.erase(itinp);
-      delete itinp.value();
-    }
-    else
-    {
-      itinp++;
+      emit postMessage("Input exchangeitem with id " +  input->id() + " could not be found therefore it will be removed");
+      missingInputs.push_back(input->id());
+      delete input;
     }
   }
+
+  for(const QString& id : missingInputs)
+  {
+    QHash<QString, GInput*>::iterator it = m_inputGraphicObjects.find(id);
+
+    if(it != m_inputGraphicObjects.end())
+    {
+      m_inputGraphicObjects.erase(it);
+    }
+  }
+
 
   emit hasChanges();
 }
@@ -1416,7 +1443,8 @@ void GModelComponent::onCreateTextItem()
         .replace("[Caption]", m_modelComponent->caption())
         .replace("[Description]", m_modelComponent->description())
         .replace("[Status]", modelComponentStatusAsString(m_modelComponent->status()))
-        .replace("[IconPath]", iconFile.absoluteFilePath());
+        .replace("[IconPath]", iconFile.absoluteFilePath())
+        .replace("[CId]", m_modelComponent->componentInfo()->caption());
 
     //    desc = "\t" + desc;
 

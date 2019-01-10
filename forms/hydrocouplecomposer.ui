@@ -933,7 +933,7 @@
     <string>Set Trigger</string>
    </property>
    <property name="toolTip">
-    <string>Set Select Component As Trigger</string>
+    <string>Set Component as Trigger</string>
    </property>
   </action>
   <action name="actionLoadModelComponentLibrary">

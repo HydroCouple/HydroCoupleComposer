@@ -1471,7 +1471,8 @@ void HydroCoupleComposer::onSaveAs()
 
   QString filter = "HydroCouple Composer Project (*.hcp)";
 
-  if(m_selectedModelComponents.length() == 1)
+  if(m_selectedModelComponents.length() == 1 &&
+     QFile::exists(m_project->projectFile().absoluteFilePath()))
   {
     filter = "All Compatible Files (*.hcp *.hcc);;" + filter + ";;HydroCouple Component (*.hcc)";
   }
@@ -1709,32 +1710,30 @@ void HydroCoupleComposer::onAddModelComponent()
 
     for(int i = 0 ; i < selectedIndices.length() ; i++)
     {
-      QVariant value = selectedIndices[i].data(Qt::UserRole);
+      QMap<QString,QVariant> data = selectedIndices[i].data(Qt::UserRole + 1).toMap();
 
-      if (value.type() != QVariant::Bool)
+      if(data.contains("ModelComponentInfo"))
       {
-        QString id = value.toString();
+        QString id = data["ModelComponentInfo"].toString();
+        QString message;
 
-        //        if(m_project->componentManager()->modelComponentInfoById().contains(id))
-        //        {
-        //          IModelComponentInfo* foundModelComponentInfo = m_project->componentManager()->modelComponentInfoById()[id];
+        IModelComponent *component = m_project->componentManager()->createModelComponentInstance(id, message);
 
-        //          IModelComponent* component = foundModelComponentInfo->createComponentInstance();
+        if(component)
+        {
+          GModelComponent* gcomponent = new GModelComponent(component, m_project);
 
-        //          GModelComponent* gcomponent = new GModelComponent(component, m_project);
+          QPointF f = graphicsViewHydroCoupleComposer->mapToScene(graphicsViewHydroCoupleComposer->frameRect().center()) - gcomponent->boundingRect().bottomRight()/2;
 
-        //          QPointF f = graphicsViewHydroCoupleComposer->mapToScene(graphicsViewHydroCoupleComposer->frameRect().center()) - gcomponent->boundingRect().bottomRight()/2;
+          gcomponent->setPos(f);
 
-        //          gcomponent->setPos(f);
+          if(m_project->modelComponents().count() == 0)
+          {
+            gcomponent->setTrigger(true);
+          }
 
-        //          if (m_project->modelComponents().count() == 0)
-        //          {
-        //            gcomponent->setTrigger(true);
-        //          }
-
-        //          m_project->addComponent(gcomponent);
-        //          return;
-        //        }
+          m_project->addModelComponent(gcomponent);
+        }
       }
     }
   }

@@ -56,8 +56,8 @@ HEADERS += ./include/stdafx.h \
            ./include/cpugpuallocation.h \
            ./include/preferencesdialog.h \
            ./include/experimentalsimulation.h \
-    include/dommodel/dommodel.h \
-    include/dommodel/domitem.h
+           ./include/dommodel/dommodel.h \
+           ./include/dommodel/domitem.h
 
 SOURCES += ./src/stdafx.cpp \
            ./src/main.cpp \
@@ -86,8 +86,8 @@ SOURCES += ./src/stdafx.cpp \
            ./src/cpugpuallocation.cpp \
            ./src/preferencesdialog.cpp \
            ./src/experimentalsimulation.cpp \
-    src/dommodel/domitem.cpp \
-    src/dommodel/dommodel.cpp
+           ./src/dommodel/domitem.cpp \
+           ./src/dommodel/dommodel.cpp
 
 macx{
 
@@ -225,7 +225,7 @@ CONFIG(debug, debug|release) {
     }
 
     macx {
-       QMAKE_CXXFLAGS += -O1
+       QMAKE_CXXFLAGS += -O3
     }
 
     linux {
