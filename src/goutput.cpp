@@ -26,6 +26,30 @@ GOutput::~GOutput()
   deleteConnections();
 }
 
+QString GOutput::id() const
+{
+  if(output())
+  {
+    return output()->id();
+  }
+  else
+  {
+    return GNode::id();
+  }
+}
+
+QString GOutput::caption() const
+{
+  if(output())
+  {
+    return output()->caption();
+  }
+  else
+  {
+    return GNode::caption();
+  }
+}
+
 bool GOutput::isValid() const
 {
   return output() != nullptr;

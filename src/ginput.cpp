@@ -32,6 +32,30 @@ GInput::~GInput()
   }
 }
 
+QString GInput::id() const
+{
+  if(input())
+  {
+    return input()->id();
+  }
+  else
+  {
+    return GNode::id();
+  }
+}
+
+QString GInput::caption() const
+{
+  if(input())
+  {
+    return input()->caption();
+  }
+  else
+  {
+    return GNode::caption();
+  }
+}
+
 bool GInput::isValid() const
 {
   return input() != nullptr;

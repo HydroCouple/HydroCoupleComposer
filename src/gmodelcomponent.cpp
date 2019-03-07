@@ -1156,11 +1156,10 @@ void GModelComponent::createExchangeItems()
     {
       goutput = m_outputGraphicObjects[output->id()];
 
-      if(!goutput->caption().isEmpty())
-        output->setCaption(goutput->caption());
-      else
-        goutput->setCaption(output->caption());
-
+      //      if(!goutput->caption().isEmpty())
+      //        output->setCaption(goutput->caption());
+      //      else
+      goutput->setCaption(output->caption());
       goutput->reEstablishSignalSlotConnections();
     }
     else
@@ -1244,10 +1243,10 @@ void GModelComponent::createExchangeItems()
       ginput = m_inputGraphicObjects[input->id()];
       ginput->reEstablishSignalSlotConnections();
 
-      if(!ginput->caption().isEmpty())
-        input->setCaption(ginput->caption());
-      else
-        ginput->setCaption(input->caption());
+      //      if(!ginput->caption().isEmpty())
+      //        input->setCaption(ginput->caption());
+      //      else
+      ginput->setCaption(input->caption());
     }
     else
     {
@@ -1261,10 +1260,10 @@ void GModelComponent::createExchangeItems()
       //      {
       ginput = new GInput(input->id(),this);
 
-      if(!ginput->caption().isEmpty())
-        input->setCaption(ginput->caption());
-      else
-        ginput->setCaption(input->caption());
+      //      if(!ginput->caption().isEmpty())
+      //        input->setCaption(ginput->caption());
+      //      else
+      ginput->setCaption(input->caption());
 
       //      ginput->setCaption(input->caption());
 

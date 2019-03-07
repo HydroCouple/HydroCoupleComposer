@@ -92,6 +92,10 @@ class GInput: public GExchangeItem
 
     virtual ~GInput();
 
+    QString id() const override;
+
+    QString caption() const override;
+
     bool isValid() const override;
 
     HydroCouple::IExchangeItem* exchangeItem() const override;
@@ -109,8 +113,6 @@ class GInput: public GExchangeItem
     bool addProvider(GOutput* provider, QString &message);
 
     bool removeProvider(GOutput* provider);
-
-//    void setProvider(GOutput* provider);
 
     void writeExchangeItemConnections(QXmlStreamWriter &xmlWriter) override;
 
@@ -131,42 +133,10 @@ class GInput: public GExchangeItem
   private:
 
     QString m_inputId;
-//    GOutput* m_provider;
     QList<GOutput*> m_providers;
 
 };
 
-//class GMultiInput : public GInput
-//{
-//    Q_OBJECT
-//    Q_PROPERTY(HydroCouple::IMultiInput* MultiInput READ multiInput)
-//    Q_PROPERTY(QList<GOutput*> Providers READ providers)
-
-//  public:
-
-//    GMultiInput(const QString &multiInputId, GModelComponent* parent);
-
-//    virtual ~GMultiInput();
-
-//    HydroCouple::IMultiInput* multiInput() const;
-
-//    QList<GOutput*> providers() const;
-
-//    void addProvider(GOutput* provider);
-
-//    void removeProvider(GOutput* provider);
-
-//    void deEstablishConnections() override;
-
-//    bool reEstablishConnections(QString &errorMessage) override;
-
-//    void reEstablishSignalSlotConnections() override;
-
-//  private:
-
-//    QString m_multiInputId;
-//    QList<GOutput*> m_providers;
-//};
 
 class GOutput : public GExchangeItem
 {
@@ -178,6 +148,10 @@ class GOutput : public GExchangeItem
     GOutput(const QString &outputId, GModelComponent *parent);
 
     virtual ~GOutput();
+
+    QString id() const override;
+
+    QString caption() const override;
 
     bool isValid() const override;
 

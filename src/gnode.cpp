@@ -343,8 +343,8 @@ void GNode::onCreateTextItem()
     m_textItem->setFont(m_font);
     QString desc(sc_captionHtml);
 
-    desc.replace("[Id]", m_id)
-        .replace("[Caption]", m_caption);
+    desc.replace("[Id]", id())
+        .replace("[Caption]", caption());
 
     setToolTip(desc);
     m_textItem->setHtml(desc);
