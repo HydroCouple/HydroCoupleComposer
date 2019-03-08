@@ -43,10 +43,10 @@ HydroCoupleComposer can be compiled using the QtCreator project file included wi
 
 ## References
 -------------------------------------------------------------------------------------------------------------------
-Buahin, C. and J. Horsburgh, 2016. From OpenMI to HydroCouple: Advancing OpenMI to Support Experimental Simulations and Standard Geospatial Datasets. International Congress on Environmental Modelling and Software. Toulouse, France. http://scholarsarchive.byu.edu/iemssconference/2016/Stream-A/11
+* Buahin, C. and J. Horsburgh, 2016. From OpenMI to HydroCouple: Advancing OpenMI to Support Experimental Simulations and Standard Geospatial Datasets. International Congress on Environmental Modelling and Software. Toulouse, France. http://scholarsarchive.byu.edu/iemssconference/2016/Stream-A/11
 
-Buahin, C. A., Horsburgh, J. S., and Neilson, B. T. (2018). “Enabling High-Performance Heterogeneous Computing for Component-Based Integrated Water Modeling Frameworks.”9th International Congress on Environmental Modelling and Software, Modelling for Sustainable Food-Energy-Water Systems, Fort Collins, Colorado, USA.
+* Buahin, C.A., Horsburgh, J.S., 2018. Advancing the Open Modeling Interface (OpenMI) for integrated water resources modeling. Environmental Modelling & Software 108, 133–153. https://doi.org/10.1016/j.envsoft.2018.07.015
 
-Buahin, C.A., Horsburgh, J.S., 2018. Advancing the Open Modeling Interface (OpenMI) for integrated water resources modeling. Environmental Modelling & Software 108, 133–153. https://doi.org/10.1016/j.envsoft.2018.07.015
+* Buahin, C. A., Horsburgh, J. S., and Neilson, B. T. (2018). “Enabling High-Performance Heterogeneous Computing for Component-Based Integrated Water Modeling Frameworks.”9th International Congress on Environmental Modelling and Software, Modelling for Sustainable Food-Energy-Water Systems, Fort Collins, Colorado, USA.
 
-Buahin, C.A., Horsburgh, J.S., Neilson, B.T., 2019. Parallel multi-objective calibration of a component-based river temperature model. Environmental Modelling & Software 116, 57–71. https://doi.org/10.1016/j.envsoft.2019.02.012
+* Buahin, C.A., Horsburgh, J.S., Neilson, B.T., 2019. Parallel multi-objective calibration of a component-based river temperature model. Environmental Modelling & Software 116, 57–71. https://doi.org/10.1016/j.envsoft.2019.02.012
