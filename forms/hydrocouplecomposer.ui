@@ -93,6 +93,7 @@
     <property name="title">
      <string>Help</string>
     </property>
+    <addaction name="actionHydroCoupleComposerHelp"/>
    </widget>
    <widget class="QMenu" name="menuTools">
     <property name="title">
@@ -1232,6 +1233,11 @@
    </property>
    <property name="toolTip">
     <string>Unload Model Component Library</string>
+   </property>
+  </action>
+  <action name="actionHydroCoupleComposerHelp">
+   <property name="text">
+    <string>HydroCoupleComposer Help</string>
    </property>
   </action>
  </widget>
