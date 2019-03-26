@@ -3868,7 +3868,7 @@ void HydroCoupleComposer::onAbout()
                      "</head>"
                      "<body>"
                      "<img alt=\"icon\" src=':/HydroCoupleComposer/hydrocouplecomposer' width=\"100\" align=\"left\" />"
-                     "<h3 align=\"center\">HydroCouple Composer 1.0.0</h3>"
+                     "<h3 align=\"center\">HydroCouple Composer 1.2.3</h3>"
                      "<hr>"
                      "<p>Build Date: 11/30/2017</p>"
                      "<p align=\"center\">Copyright 2014-2017. The HydroCouple Organization. All rights reserved.</p>"

@@ -3,7 +3,7 @@
 #Date 2016
 #License GNU Lesser General Public License (see <http: //www.gnu.org/licenses/> for details).
 TEMPLATE = app
-VERSION = 1.3.0
+VERSION = 1.2.3
 TARGET = HydroCoupleComposer
 QT += core widgets gui printsupport concurrent opengl xml
 
