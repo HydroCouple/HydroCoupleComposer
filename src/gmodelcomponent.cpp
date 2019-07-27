@@ -706,7 +706,7 @@ void GModelComponent::writeComponent(const QFileInfo &fileInfo)
         //        if(m_readFromFile)
         //       {
         relPath = m_project->projectFile().dir().absoluteFilePath(libFile.filePath());
-        relPath = fileInfo.dir().relativeFilePath(relPath);
+//        relPath = fileInfo.dir().relativeFilePath(relPath);
         //        }
         //        else
         //        {
@@ -716,7 +716,8 @@ void GModelComponent::writeComponent(const QFileInfo &fileInfo)
       }
       else
       {
-        relPath = fileInfo.dir().relativeFilePath(libFile.absoluteFilePath());
+//        relPath = fileInfo.dir().relativeFilePath(libFile.absoluteFilePath());
+        relPath = fileInfo.absoluteFilePath();
       }
 
       xmlWriter.writeAttribute("Name", m_modelComponent->componentInfo()->id());
@@ -821,7 +822,7 @@ void GModelComponent::writeComponent(QXmlStreamWriter &xmlWriter)
     }
     else
     {
-      QString relPath = projectDir.relativeFilePath(m_modelComponent->componentInfo()->libraryFilePath());
+      QString relPath = m_modelComponent->componentInfo()->libraryFilePath();
       xmlWriter.writeAttribute("Name",m_modelComponent->componentInfo()->id());
       xmlWriter.writeAttribute("Caption" , m_modelComponent->caption());
       xmlWriter.writeAttribute("Description" , m_modelComponent->description());
