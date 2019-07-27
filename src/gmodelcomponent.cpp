@@ -705,7 +705,7 @@ void GModelComponent::writeComponent(const QFileInfo &fileInfo)
       {
         //        if(m_readFromFile)
         //       {
-        relPath = m_project->projectFile().dir().absoluteFilePath(libFile.filePath());
+        relPath = libFile.absoluteFilePath();
 //        relPath = fileInfo.dir().relativeFilePath(relPath);
         //        }
         //        else
@@ -717,7 +717,7 @@ void GModelComponent::writeComponent(const QFileInfo &fileInfo)
       else
       {
 //        relPath = fileInfo.dir().relativeFilePath(libFile.absoluteFilePath());
-        relPath = fileInfo.absoluteFilePath();
+        relPath = libFile.absoluteFilePath();
       }
 
       xmlWriter.writeAttribute("Name", m_modelComponent->componentInfo()->id());
