@@ -16,6 +16,8 @@
 #include <QPrintDialog>
 #include <QPointF>
 
+#define BUILD_YEAR  (__DATE__ + 7)
+
 #ifdef USE_MPI
 #include <mpi.h>
 #endif
@@ -3861,6 +3863,10 @@ void HydroCoupleComposer::onShowHydroCoupleVis()
 
 void HydroCoupleComposer::onAbout()
 {
+  QString buildDateTime = QString("%1T%2").arg(__DATE__).arg(__TIME__);
+  QString buildYear = QString("%1").arg(BUILD_YEAR);
+  QString version = QString("%1.%2.%3").arg(VERSION_MAJOR).arg(VERSION_MINOR).arg(VERSION_BUILD);
+
   QMessageBox::about(this, "HydroCouple Composer",
                      "<html>"
                      "<head>"
@@ -3868,10 +3874,10 @@ void HydroCoupleComposer::onAbout()
                      "</head>"
                      "<body>"
                      "<img alt=\"icon\" src=':/HydroCoupleComposer/hydrocouplecomposer' width=\"100\" align=\"left\" />"
-                     "<h3 align=\"center\">HydroCouple Composer 1.2.3</h3>"
+                     "<h3 align=\"center\">HydroCouple Composer "+version+"</h3>"
                      "<hr>"
-                     "<p>Build Date: 11/30/2017</p>"
-                     "<p align=\"center\">Copyright 2014-2017. The HydroCouple Organization. All rights reserved.</p>"
+                     "<p>Build Date: " + buildDateTime + "</p>"
+                     "<p align=\"center\">Copyright 2014-"+ buildYear +". The HydroCouple Organization. All rights reserved.</p>"
                      "<p align=\"center\">This program and its associated libraries is provided AS IS with NO WARRANTY OF ANY KIND, "
                      "INCLUDING THE WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.</p>"
                      "<p align=\"center\"><a href=\"mailto:caleb.buahin@gmail.com?Subject=HydroCouple Composer\">caleb.buahin@gmail.com</a></p>"

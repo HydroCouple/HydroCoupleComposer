@@ -248,3 +248,4 @@ Makefile*
 CMakeLists.txt.user
 Makefile
 
+.DS_Store
