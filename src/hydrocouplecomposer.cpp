@@ -3880,8 +3880,8 @@ void HydroCoupleComposer::onAbout()
                      "<p align=\"center\">Copyright 2014-"+ buildYear +". The HydroCouple Organization. All rights reserved.</p>"
                      "<p align=\"center\">This program and its associated libraries are provided AS IS with NO WARRANTY OF ANY KIND, "
                      "INCLUDING THE WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.</p>"
-                     "<p align=\"center\"><a href=\"mailto:caleb.buahin@gmail.com?Subject=HydroCouple Composer\">caleb.buahin@gmail.com</a></p>"
-                     "<p align=\"center\"><a href=\"www.hydrocouple.org\">www.hydrocouple.org</a></p>"
+                     "<p align=\"justify\"><a href=\"mailto:caleb.buahin@gmail.com?Subject=HydroCouple Composer\">caleb.buahin@gmail.com</a></p>"
+                     "<p align=\"justify\"><a href=\"www.hydrocouple.org\">www.hydrocouple.org</a></p>"
                      "</body>"
                      "</html>");
 }

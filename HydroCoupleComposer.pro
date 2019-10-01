@@ -5,7 +5,7 @@
 TEMPLATE = app
 VERSION_MAJOR = 1
 VERSION_MINOR = 4
-VERSION_BUILD = 1
+VERSION_BUILD = 0
 VERSION = $${VERSION_MAJOR}.$${VERSION_MINOR}.$${VERSION_BUILD}
 TARGET = HydroCoupleComposer
 QT += core widgets gui printsupport concurrent opengl xml
