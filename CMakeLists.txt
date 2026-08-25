@@ -189,11 +189,56 @@ set(COMPOSER_SOURCES
     src/ui/toolbars/ribbonbar.cpp
     include/ui/theme/thememanager.h
     src/ui/theme/thememanager.cpp
+    include/ui/theme/iconfactory.h
+    src/ui/theme/iconfactory.cpp
     include/ui/composermainwindow.h
     src/ui/composermainwindow.cpp
 )
 
 add_library(composer_core STATIC ${COMPOSER_SOURCES})
+
+# ── Chrome icons ────────────────────────────────────────────────────────────
+# The monochrome SVG set shared with openswmm.gui, recoloured per theme at
+# render time by IconFactory.
+#
+# The FILES form, not a .qrc: on a static library the .qrc form's initialiser
+# is never referenced by anything the linker keeps, so the resource silently
+# does not exist at runtime and every icon renders as blank space. This form
+# emits a separate init object that Qt propagates to consumers.
+#
+# Listed rather than globbed, so a new icon that was not registered fails
+# CMake here instead of leaving one toolbar face empty.
+qt_add_resources(composer_core "composer_icons"
+    PREFIX "/icons"
+    BASE "resources/icons"
+    FILES
+        resources/icons/add_component_layers.svg
+        resources/icons/add_mesh.svg
+        resources/icons/add_raster.svg
+        resources/icons/add_vector.svg
+        resources/icons/composition.svg
+        resources/icons/dark.svg
+        resources/icons/delete.svg
+        resources/icons/dock_layers.svg
+        resources/icons/extent.svg
+        resources/icons/globe.svg
+        resources/icons/layer_styling.svg
+        resources/icons/move_down.svg
+        resources/icons/move_up.svg
+        resources/icons/new.svg
+        resources/icons/open.svg
+        resources/icons/pause.svg
+        resources/icons/play.svg
+        resources/icons/plugins.svg
+        resources/icons/redo.svg
+        resources/icons/save.svg
+        resources/icons/scene_3d.svg
+        resources/icons/stop.svg
+        resources/icons/sun.svg
+        resources/icons/system.svg
+        resources/icons/undo.svg
+        resources/icons/zoomin.svg
+        resources/icons/zoomout.svg)
 
 # ── C3 — scene materials, compiled to .qsb ──────────────────────────────────
 # Loaded from :/shaders at runtime by SceneRenderer. qsb cross-compiles one

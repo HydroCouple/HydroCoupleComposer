@@ -23,6 +23,8 @@
 #include "render/layerstyle.h"
 #include "scene/sceneview.h"
 #include "ui/composermainwindow.h"
+#include "ui/toolbars/ribbonbar.h"
+#include "ui/theme/thememanager.h"
 #include "ui/panels/layertreepanel.h"
 
 #include <QDir>
@@ -215,6 +217,15 @@ int main(int argc, char *argv[])
   }
 
   const QString outputPath = QString::fromLocal8Bit(argv[1]);
+
+  // --dark anywhere in the arguments: the chrome icons are recoloured per
+  // theme, so both halves of that have to be reviewable.
+  bool dark = false;
+
+  for (int index = 2; index < argc; ++index)
+  {
+    dark = dark || QString::fromLocal8Bit(argv[index]) == QLatin1String("--dark");
+  }
   const bool captureMap =
     argc > 2 && QString::fromLocal8Bit(argv[2]) == QLatin1String("--map");
 
@@ -232,6 +243,13 @@ int main(int argc, char *argv[])
   // the bowl the depth field describes, which the map can only colour.
   const bool captureScene =
     argc > 2 && QString::fromLocal8Bit(argv[2]) == QLatin1String("--scene");
+
+  if (dark)
+  {
+    // setMode only records the choice; apply() is what repaints.
+    ThemeManager::instance()->setMode(ThemeManager::Mode::Dark);
+    ThemeManager::instance()->apply();
+  }
 
   ComposerMainWindow window;
   window.resize(1400, 880);
@@ -485,6 +503,14 @@ int main(int argc, char *argv[])
 
     window.canvas()->fitInView(scene->itemsBoundingRect().adjusted(-60, -60, 60, 60),
                                Qt::KeepAspectRatio);
+  }
+
+  if (captureMap || captureGis || captureMesh || captureScene)
+  {
+    if (auto *ribbon = window.findChild<RibbonBar *>(QStringLiteral("ribbonBar")))
+    {
+      ribbon->setCurrentTab(QStringLiteral("map"));
+    }
   }
 
   // Let layout and the queued selection handling settle before capturing.

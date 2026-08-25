@@ -15,6 +15,7 @@
 #include "project/hcpimporter.h"
 #include "ui/dialogs/layerstyledialog.h"
 #include "ui/panels/layertreepanel.h"
+#include "ui/theme/iconfactory.h"
 #include "ui/theme/thememanager.h"
 #include "ui/toolbars/ribbonbar.h"
 
@@ -62,7 +63,9 @@ namespace HydroCouple::Composer
     m_workspace = new QTabWidget(this);
     m_workspace->setObjectName(QStringLiteral("workspaceTabs"));
     m_workspace->setDocumentMode(true);
-    m_workspace->addTab(m_canvas, tr("Composition"));
+    m_workspace->addTab(m_canvas,
+                        IconFactory::icon(QStringLiteral("composition")),
+                        tr("Composition"));
     setCentralWidget(m_workspace);
 
     createMapView();
@@ -164,17 +167,19 @@ namespace HydroCouple::Composer
   namespace
   {
     /*!
-     * \brief Gives an action a platform-standard icon when it has none.
+     * \brief Gives an action its icon from the shared chrome set.
      *
      * The ribbon's whole point is icon-over-label faces, so a face with no
-     * icon reads as a gap. These are placeholders with correct semantics —
-     * a designed icon set can replace them without touching this code.
+     * icon reads as a gap. The set is openswmm.gui's, so the two
+     * applications read as one family, and IconFactory recolours each glyph
+     * to the current theme — which the platform's own standardIcon artwork,
+     * being full-colour bitmaps, cannot do.
      */
-    void ensureIcon(QAction *action, QStyle::StandardPixmap pixmap)
+    void ensureIcon(QAction *action, const QString &alias)
     {
       if (action && action->icon().isNull())
       {
-        action->setIcon(QApplication::style()->standardIcon(pixmap));
+        action->setIcon(IconFactory::icon(alias));
       }
     }
   } // namespace
@@ -190,7 +195,9 @@ namespace HydroCouple::Composer
     // whose CRS differs from its backdrop's has to resample every tile.
     m_mapCanvas->setCrs(SpatialReference::webMercator());
 
-    m_workspace->addTab(m_mapCanvas, tr("Map"));
+    m_workspace->addTab(m_mapCanvas,
+                        IconFactory::icon(QStringLiteral("globe")),
+                        tr("Map"));
 
     // The same stack, seen a second way. Neither view knows about the other:
     // hiding or restyling a layer in the tree changes both because the stack
@@ -198,7 +205,9 @@ namespace HydroCouple::Composer
     m_sceneView = new SceneView(this);
     m_sceneView->setModel(m_layerStack);
 
-    m_workspace->addTab(m_sceneView, tr("3D"));
+    m_workspace->addTab(m_sceneView,
+                        IconFactory::icon(QStringLiteral("scene_3d")),
+                        tr("3D"));
 
     connect(m_mapCanvas, &MapCanvas::cursorMoved, this,
             [this](const QPointF &world)
@@ -645,26 +654,26 @@ namespace HydroCouple::Composer
     appearance->addAction(m_darkAction, tr("Dark"));
     appearance->addAction(m_systemAction, tr("System"));
 
-    ensureIcon(m_newAction, QStyle::SP_FileIcon);
-    ensureIcon(m_openAction, QStyle::SP_DirOpenIcon);
-    ensureIcon(m_saveAction, QStyle::SP_DialogSaveButton);
-    ensureIcon(m_loadComponentsAction, QStyle::SP_DirLinkIcon);
-    ensureIcon(m_runAction, QStyle::SP_MediaPlay);
-    ensureIcon(m_pauseAction, QStyle::SP_MediaPause);
-    ensureIcon(m_stopAction, QStyle::SP_MediaStop);
-    ensureIcon(m_undoAction, QStyle::SP_ArrowBack);
-    ensureIcon(m_redoAction, QStyle::SP_ArrowForward);
-    ensureIcon(m_lightAction, QStyle::SP_DialogYesButton);
-    ensureIcon(m_darkAction, QStyle::SP_DialogNoButton);
-    ensureIcon(m_systemAction, QStyle::SP_ComputerIcon);
-    ensureIcon(m_zoomFullAction, QStyle::SP_FileDialogListView);
-    ensureIcon(m_zoomInAction, QStyle::SP_TitleBarMaxButton);
-    ensureIcon(m_zoomOutAction, QStyle::SP_TitleBarMinButton);
-    ensureIcon(m_styleLayerAction, QStyle::SP_DialogApplyButton);
-    ensureIcon(m_addVectorAction, QStyle::SP_FileDialogNewFolder);
-    ensureIcon(m_addRasterAction, QStyle::SP_FileDialogDetailedView);
-    ensureIcon(m_addComponentLayersAction, QStyle::SP_DriveNetIcon);
-    ensureIcon(m_addMeshAction, QStyle::SP_FileDialogInfoView);
+    ensureIcon(m_newAction, QStringLiteral("new"));
+    ensureIcon(m_openAction, QStringLiteral("open"));
+    ensureIcon(m_saveAction, QStringLiteral("save"));
+    ensureIcon(m_loadComponentsAction, QStringLiteral("plugins"));
+    ensureIcon(m_runAction, QStringLiteral("play"));
+    ensureIcon(m_pauseAction, QStringLiteral("pause"));
+    ensureIcon(m_stopAction, QStringLiteral("stop"));
+    ensureIcon(m_undoAction, QStringLiteral("undo"));
+    ensureIcon(m_redoAction, QStringLiteral("redo"));
+    ensureIcon(m_lightAction, QStringLiteral("sun"));
+    ensureIcon(m_darkAction, QStringLiteral("dark"));
+    ensureIcon(m_systemAction, QStringLiteral("system"));
+    ensureIcon(m_zoomFullAction, QStringLiteral("extent"));
+    ensureIcon(m_zoomInAction, QStringLiteral("zoomin"));
+    ensureIcon(m_zoomOutAction, QStringLiteral("zoomout"));
+    ensureIcon(m_styleLayerAction, QStringLiteral("layer_styling"));
+    ensureIcon(m_addVectorAction, QStringLiteral("add_vector"));
+    ensureIcon(m_addRasterAction, QStringLiteral("add_raster"));
+    ensureIcon(m_addComponentLayersAction, QStringLiteral("add_component_layers"));
+    ensureIcon(m_addMeshAction, QStringLiteral("add_mesh"));
 
     m_ribbon->setCurrentTab(QStringLiteral("home"));
   }

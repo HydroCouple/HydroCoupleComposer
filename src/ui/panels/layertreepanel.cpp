@@ -3,6 +3,7 @@
 #include "map/layerstackmodel.h"
 #include "map/maplayer.h"
 #include "map/maplayer.h"
+#include "ui/theme/iconfactory.h"
 
 #include <QHBoxLayout>
 #include <QItemSelectionModel>
@@ -16,11 +17,11 @@ namespace HydroCouple::Composer
   namespace
   {
     QToolButton *makeButton(QWidget *parent, const QString &objectName,
-                            QStyle::StandardPixmap icon, const QString &tip)
+                            const QString &alias, const QString &tip)
     {
       auto *button = new QToolButton(parent);
       button->setObjectName(objectName);
-      button->setIcon(parent->style()->standardIcon(icon));
+      button->setIcon(IconFactory::icon(alias));
       button->setToolTip(tip);
       button->setAutoRaise(true);
       button->setEnabled(false);
@@ -57,17 +58,17 @@ namespace HydroCouple::Composer
     m_view->setDropIndicatorShown(true);
 
     m_upButton = makeButton(this, QStringLiteral("layerUpButton"),
-                            QStyle::SP_ArrowUp, tr("Move layer up"));
+                            QStringLiteral("move_up"), tr("Move layer up"));
     m_downButton = makeButton(this, QStringLiteral("layerDownButton"),
-                              QStyle::SP_ArrowDown, tr("Move layer down"));
+                              QStringLiteral("move_down"), tr("Move layer down"));
     m_zoomButton = makeButton(this, QStringLiteral("layerZoomButton"),
-                              QStyle::SP_FileDialogContentsView,
+                              QStringLiteral("extent"),
                               tr("Zoom to layer"));
     m_styleButton = makeButton(this, QStringLiteral("layerStyleButton"),
-                               QStyle::SP_DialogApplyButton,
+                               QStringLiteral("layer_styling"),
                                tr("Style layer…"));
     m_removeButton = makeButton(this, QStringLiteral("layerRemoveButton"),
-                                QStyle::SP_TrashIcon, tr("Remove layer"));
+                                QStringLiteral("delete"), tr("Remove layer"));
 
     auto *buttons = new QHBoxLayout;
     buttons->setContentsMargins(0, 0, 0, 0);

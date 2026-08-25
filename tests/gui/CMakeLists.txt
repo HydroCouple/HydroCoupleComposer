@@ -55,6 +55,10 @@ target_compile_definitions(test_dataitemlayers PRIVATE
 target_compile_definitions(test_gdallayers PRIVATE
     COMPOSER_GIS_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/gis")
 
+# The shared SVG chrome set. Renders every icon for real, because a missing
+# or untintable one is only visible in pixels.
+composer_add_gui_test(test_icons)
+
 # C3a — the 3D scene. The camera suite is arithmetic and needs no device; the
 # scene suite renders for real, through a standalone QRhi rather than through
 # QRhiWidget, because QRhiWidget cannot create a device under the offscreen
