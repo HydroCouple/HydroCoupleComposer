@@ -1,0 +1,361 @@
+#include "canvas/canvasitems.h"
+
+#include <QFontMetricsF>
+
+#include <algorithm>
+#include <QGraphicsSceneMouseEvent>
+#include <QPainter>
+#include <QPainterPath>
+#include <QStyleOptionGraphicsItem>
+
+namespace HydroCouple::Composer
+{
+
+  namespace
+  {
+    constexpr qreal kPortRadius = 5.0;
+    constexpr qreal kPortSpacing = 20.0;
+    constexpr qreal kHeaderHeight = 26.0;
+    constexpr qreal kMinimumWidth = 160.0;
+    constexpr qreal kHorizontalPadding = 16.0;
+  } // namespace
+
+  // ── PortItem ─────────────────────────────────────────────────────────────
+
+  PortItem::PortItem(ComponentNodeItem *node, ExchangeItemDescriptor descriptor,
+                     Direction direction)
+    : QGraphicsItem(node),
+      m_node(node),
+      m_descriptor(std::move(descriptor)),
+      m_direction(direction)
+  {
+    setAcceptHoverEvents(true);
+    setToolTip(m_descriptor.caption);
+    setData(0, m_descriptor.id);
+  }
+
+  int PortItem::type() const
+  {
+    return Type;
+  }
+
+  QRectF PortItem::boundingRect() const
+  {
+    return QRectF(-kPortRadius, -kPortRadius, kPortRadius * 2.0,
+                  kPortRadius * 2.0);
+  }
+
+  void PortItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *,
+                       QWidget *)
+  {
+    const QColor fill = m_highlighted
+                          ? QColor(90, 190, 120)
+                          : (m_direction == Direction::Input
+                               ? QColor(80, 130, 200)
+                               : QColor(210, 145, 60));
+
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setBrush(fill);
+    painter->setPen(QPen(QColor(40, 40, 40), 1.0));
+
+    if (m_descriptor.isMultiInput)
+    {
+      // A multi-input accepts several providers; drawn square so the
+      // difference is visible without hovering.
+      painter->drawRect(boundingRect().adjusted(0.5, 0.5, -0.5, -0.5));
+    }
+    else
+    {
+      painter->drawEllipse(boundingRect());
+    }
+  }
+
+  QString PortItem::itemId() const
+  {
+    return m_descriptor.id;
+  }
+
+  PortItem::Direction PortItem::direction() const
+  {
+    return m_direction;
+  }
+
+  ComponentNodeItem *PortItem::node() const
+  {
+    return m_node;
+  }
+
+  QPointF PortItem::anchor() const
+  {
+    return mapToScene(QPointF(0.0, 0.0));
+  }
+
+  void PortItem::setHighlighted(bool highlighted)
+  {
+    if (m_highlighted == highlighted)
+    {
+      return;
+    }
+
+    m_highlighted = highlighted;
+    update();
+  }
+
+  // ── ComponentNodeItem ────────────────────────────────────────────────────
+
+  ComponentNodeItem::ComponentNodeItem(
+    QString componentId, const QString &caption,
+    const QList<ExchangeItemDescriptor> &inputs,
+    const QList<ExchangeItemDescriptor> &outputs)
+    : m_componentId(std::move(componentId)),
+      m_caption(caption.isEmpty() ? m_componentId : caption)
+  {
+    setFlag(ItemIsMovable, true);
+    setFlag(ItemIsSelectable, true);
+    setFlag(ItemSendsGeometryChanges, true);
+    setData(0, m_componentId);
+
+    for (const ExchangeItemDescriptor &descriptor : inputs)
+    {
+      m_inputs.append(new PortItem(this, descriptor, PortItem::Direction::Input));
+    }
+
+    for (const ExchangeItemDescriptor &descriptor : outputs)
+    {
+      m_outputs.append(
+        new PortItem(this, descriptor, PortItem::Direction::Output));
+    }
+
+    layoutPorts();
+  }
+
+  int ComponentNodeItem::type() const
+  {
+    return Type;
+  }
+
+  void ComponentNodeItem::layoutPorts()
+  {
+    const int rows = std::max(
+      {static_cast<int>(m_inputs.size()), static_cast<int>(m_outputs.size()), 1});
+
+    m_size = QSizeF(kMinimumWidth,
+                    kHeaderHeight + (rows * kPortSpacing) + kPortSpacing * 0.5);
+
+    for (int index = 0; index < m_inputs.size(); ++index)
+    {
+      m_inputs[index]->setPos(
+        0.0, kHeaderHeight + kPortSpacing * (index + 0.5));
+    }
+
+    for (int index = 0; index < m_outputs.size(); ++index)
+    {
+      m_outputs[index]->setPos(
+        m_size.width(), kHeaderHeight + kPortSpacing * (index + 0.5));
+    }
+  }
+
+  QRectF ComponentNodeItem::boundingRect() const
+  {
+    return QRectF(-kPortRadius, 0.0, m_size.width() + kPortRadius * 2.0,
+                  m_size.height());
+  }
+
+  void ComponentNodeItem::paint(QPainter *painter,
+                                const QStyleOptionGraphicsItem *option,
+                                QWidget *)
+  {
+    const QRectF body(0.0, 0.0, m_size.width(), m_size.height());
+    const bool selected = option->state & QStyle::State_Selected;
+
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    painter->setBrush(m_unavailableReason.isEmpty() ? QColor(250, 250, 252)
+                                                    : QColor(252, 244, 244));
+    painter->setPen(QPen(selected ? QColor(60, 120, 220) : QColor(120, 120, 130),
+                         selected ? 2.0 : 1.0));
+    painter->drawRoundedRect(body, 6.0, 6.0);
+
+    QRectF header(0.0, 0.0, m_size.width(), kHeaderHeight);
+    painter->setPen(Qt::NoPen);
+    painter->setBrush(m_unavailableReason.isEmpty() ? QColor(232, 238, 248)
+                                                    : QColor(248, 226, 226));
+    painter->drawRoundedRect(header, 6.0, 6.0);
+    painter->drawRect(QRectF(0.0, kHeaderHeight - 6.0, m_size.width(), 6.0));
+
+    painter->setPen(QColor(30, 30, 40));
+
+    const QFontMetricsF metrics(painter->font());
+    const QString elided = metrics.elidedText(
+      m_caption, Qt::ElideRight, m_size.width() - kHorizontalPadding);
+
+    painter->drawText(header.adjusted(kHorizontalPadding * 0.5, 0.0,
+                                      -kHorizontalPadding * 0.5, 0.0),
+                      Qt::AlignVCenter | Qt::AlignLeft, elided);
+
+    // Port labels, drawn inside the body on their respective sides.
+    painter->setPen(QColor(70, 70, 80));
+
+    for (PortItem *port : m_inputs)
+    {
+      painter->drawText(
+        QRectF(kHorizontalPadding * 0.5, port->pos().y() - kPortSpacing * 0.5,
+               m_size.width() * 0.5, kPortSpacing),
+        Qt::AlignVCenter | Qt::AlignLeft, port->itemId());
+    }
+
+    for (PortItem *port : m_outputs)
+    {
+      painter->drawText(
+        QRectF(m_size.width() * 0.5 - kHorizontalPadding * 0.5,
+               port->pos().y() - kPortSpacing * 0.5, m_size.width() * 0.5,
+               kPortSpacing),
+        Qt::AlignVCenter | Qt::AlignRight, port->itemId());
+    }
+  }
+
+  QString ComponentNodeItem::componentId() const
+  {
+    return m_componentId;
+  }
+
+  PortItem *ComponentNodeItem::port(const QString &itemId,
+                                    PortItem::Direction direction) const
+  {
+    const QList<PortItem *> &ports =
+      direction == PortItem::Direction::Input ? m_inputs : m_outputs;
+
+    for (PortItem *port : ports)
+    {
+      if (port->itemId() == itemId)
+      {
+        return port;
+      }
+    }
+
+    return nullptr;
+  }
+
+  void ComponentNodeItem::setUnavailable(const QString &reason)
+  {
+    m_unavailableReason = reason;
+    setToolTip(reason);
+    update();
+  }
+
+  QVariant ComponentNodeItem::itemChange(GraphicsItemChange change,
+                                         const QVariant &value)
+  {
+    if (change == ItemPositionHasChanged)
+    {
+      m_moving = true;
+    }
+
+    return QGraphicsObject::itemChange(change, value);
+  }
+
+  void ComponentNodeItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
+  {
+    QGraphicsObject::mouseReleaseEvent(event);
+
+    // The move is committed on release, so a drag becomes one undo entry
+    // rather than one per mouse-move. Acting on release rather than press
+    // also matches the rule that anything modal is opened from a release —
+    // opening from a press wedges input handling on macOS.
+    if (m_moving)
+    {
+      m_moving = false;
+      Q_EMIT moved(m_componentId, pos());
+    }
+  }
+
+  // ── ConnectionEdgeItem ───────────────────────────────────────────────────
+
+  ConnectionEdgeItem::ConnectionEdgeItem(
+    HydroCouple::SDK::IO::ConnectionSpec connection, PortItem *from,
+    PortItem *to)
+    : m_connection(std::move(connection)),
+      m_from(from),
+      m_to(to)
+  {
+    setFlag(ItemIsSelectable, true);
+    setZValue(-1.0);
+    refresh();
+  }
+
+  int ConnectionEdgeItem::type() const
+  {
+    return Type;
+  }
+
+  QPainterPath ConnectionEdgeItem::buildPath() const
+  {
+    QPainterPath path;
+
+    if (!m_from || !m_to)
+    {
+      return path;
+    }
+
+    const QPointF start = m_from->anchor();
+    const QPointF end = m_to->anchor();
+
+    // A horizontal-tangent cubic keeps edges readable when boxes are stacked.
+    const qreal reach = std::max(40.0, std::abs(end.x() - start.x()) * 0.5);
+
+    path.moveTo(start);
+    path.cubicTo(start + QPointF(reach, 0.0), end - QPointF(reach, 0.0), end);
+
+    return path;
+  }
+
+  void ConnectionEdgeItem::refresh()
+  {
+    prepareGeometryChange();
+    m_path = buildPath();
+    update();
+  }
+
+  QRectF ConnectionEdgeItem::boundingRect() const
+  {
+    return m_path.boundingRect().adjusted(-6.0, -6.0, 6.0, 6.0);
+  }
+
+  QPainterPath ConnectionEdgeItem::shape() const
+  {
+    QPainterPathStroker stroker;
+    stroker.setWidth(8.0);
+    return stroker.createStroke(m_path);
+  }
+
+  void ConnectionEdgeItem::paint(QPainter *painter,
+                                 const QStyleOptionGraphicsItem *option,
+                                 QWidget *)
+  {
+    const bool selected = option->state & QStyle::State_Selected;
+    const bool adapted = !m_connection.adaptedOutputs.empty();
+
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setBrush(Qt::NoBrush);
+
+    QPen pen(selected ? QColor(60, 120, 220) : QColor(110, 110, 120),
+             selected ? 2.5 : 1.6);
+
+    // An adapted-output chain is a different kind of link, not decoration —
+    // it is drawn dashed so it reads as one at a glance.
+    if (adapted)
+    {
+      pen.setStyle(Qt::DashLine);
+    }
+
+    painter->setPen(pen);
+    painter->drawPath(m_path);
+  }
+
+  const HydroCouple::SDK::IO::ConnectionSpec &
+  ConnectionEdgeItem::connection() const
+  {
+    return m_connection;
+  }
+
+} // namespace HydroCouple::Composer

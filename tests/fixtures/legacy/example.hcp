@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  A HydroCouple 1.x project file.
+
+  No .hcp files survived in this repository, so this fixture is reconstructed
+  from the v1 writer itself — HydroCoupleProject::onSaveProject,
+  GModelComponent::writeComponent / writeComponentConnections, GOutput,
+  GInput and GAdaptedOutput — and exercises every construct those emit,
+  including the ones the v2 importer cannot mechanically convert.
+-->
+<HydroCoupleProject name="example.hcp">
+  <ModelComponents>
+    <ModelComponent Name="org.hydrocouple.catchment"
+                    Caption="Upper Catchment"
+                    Description="Rainfall-runoff for the upper basin"
+                    IsTrigger="True"
+                    ModelComponentLibrary="../components/libCatchment.dylib"
+                    XPos="-120.5" YPos="40">
+      <ComputeResourceAllocations>
+        <ComputeResourceAllocation MPIProcess="0" GPUPlatform="0" GPUDevice="0"/>
+      </ComputeResourceAllocations>
+      <Arguments>
+        <Argument Id="RunoffCoefficients" ArgumentIOType="String">0.35 0.20 0.55</Argument>
+        <Argument Id="InputFile" ArgumentIOType="File">inputs/catchment.inp</Argument>
+      </Arguments>
+    </ModelComponent>
+
+    <ModelComponent Name="org.hydrocouple.channel"
+                    Caption="Main Channel"
+                    Description="Muskingum routing"
+                    ModelComponentLibrary="../components/libChannel.dylib"
+                    XPos="180" YPos="42.25">
+      <Arguments>
+        <Argument Id="RoutingWeight" ArgumentIOType="String">0.25</Argument>
+      </Arguments>
+    </ModelComponent>
+  </ModelComponents>
+
+  <ModelComponentConnections>
+    <ModelComponentConnection SourceModelComponentIndex="0">
+      <OutputExchangeItem OutputExchangeItemId="runoff">
+        <Connections>
+          <InputExchangeItem ModelComponentIndex="1"
+                             InputExchangeItemId="lateral_inflow"
+                             InputExchangeItemCaption="Lateral Inflow"
+                             XPos="150" YPos="60"/>
+          <AdaptedOutputExchangeItem AdaptedOutputExchangeItemId="timeInterpolator"
+                                     AdaptedOutputFactoryId="org.hydrocouple.temporal"
+                                     FromComponentLibrary="True"
+                                     InputExchangeItemModelComponentIndex="1"
+                                     InputExchangeItemId="upstream_flow"
+                                     XPos="60" YPos="90">
+            <Arguments>
+              <Argument Id="InterpolationOrder" ArgumentIOType="String">1</Argument>
+            </Arguments>
+          </AdaptedOutputExchangeItem>
+        </Connections>
+      </OutputExchangeItem>
+    </ModelComponentConnection>
+  </ModelComponentConnections>
+</HydroCoupleProject>

@@ -1,0 +1,18 @@
+{
+  "type": "FeatureCollection",
+  "name": "network",
+  "features": [
+    { "type": "Feature",
+      "properties": { "name": "J1", "depth": 1.5, "kind": "junction" },
+      "geometry": { "type": "Point", "coordinates": [ -1.0, -1.0 ] } },
+    { "type": "Feature",
+      "properties": { "name": "J2", "depth": 3.5, "kind": "junction" },
+      "geometry": { "type": "Point", "coordinates": [ 0.0, 0.0 ] } },
+    { "type": "Feature",
+      "properties": { "name": "O1", "depth": 9.0, "kind": "outfall" },
+      "geometry": { "type": "Point", "coordinates": [ 1.0, 1.0 ] } },
+    { "type": "Feature",
+      "properties": { "name": "N1", "kind": "junction" },
+      "geometry": { "type": "Point", "coordinates": [ 0.5, -0.5 ] } }
+  ]
+}

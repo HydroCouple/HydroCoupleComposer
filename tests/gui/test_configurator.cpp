@@ -1,0 +1,347 @@
+/*!
+ * \file   test_configurator.cpp
+ * \brief  Phase B2 verification — the argument configurator.
+ *
+ * The central test is a hydration contract: for every argument the fixture
+ * component publishes, the descriptor must reflect what the component says
+ * about it, an edit must survive a serialize/initialize round trip, and the
+ * recorded document payload must equal what the component itself serialises.
+ * A form that merely renders is not enough — it has to round-trip.
+ */
+
+#include "configurator/argumentdescriptor.h"
+#include "configurator/componentconfigurator.h"
+#include "core/composerapplication.h"
+#include "plugins/componentregistry.h"
+#include "project/componentinstances.h"
+#include "project/compositiondocument.h"
+
+#include <gtest/gtest.h>
+
+#include <QComboBox>
+#include <QDir>
+#include <QDoubleSpinBox>
+#include <QLineEdit>
+#include <QSpinBox>
+#include <QTableWidget>
+#include <QUndoStack>
+
+using namespace HydroCouple::Composer;
+
+namespace
+{
+  QString fixturePath(const QString &stem)
+  {
+    return QDir(QStringLiteral(COMPOSER_FIXTURE_DIR))
+      .absoluteFilePath(QStringLiteral("lib") + stem +
+                        ComponentLibrary::librarySuffix());
+  }
+
+  class ConfiguratorTest : public ::testing::Test
+  {
+    protected:
+      static void SetUpTestSuite()
+      {
+        if (!qApp)
+        {
+          static int argc = 1;
+          static char arg0[] = "test_configurator";
+          static char *argv[] = {arg0, nullptr};
+          s_app = new ComposerApplication(argc, argv);
+        }
+      }
+
+      static void TearDownTestSuite()
+      {
+        delete s_app;
+        s_app = nullptr;
+      }
+
+      void SetUp() override
+      {
+        QString message;
+        ASSERT_NE(registry.loadLibrary(fixturePath(QStringLiteral("testcomponent")),
+                                       message),
+                  nullptr)
+          << message.toStdString();
+
+        HydroCouple::SDK::IO::ComponentSpec spec;
+        spec.id = "unit";
+        spec.info.componentInfoId = "composer.test.component";
+        ASSERT_TRUE(document.addComponent(spec, {}));
+
+        instances = std::make_unique<ComponentInstances>(&document, &registry);
+        configurator =
+          std::make_unique<ComponentConfigurator>(&document, instances.get());
+        configurator->setComponent(QStringLiteral("unit"));
+      }
+
+      void TearDown() override
+      {
+        configurator.reset();
+        instances.reset();
+      }
+
+      [[nodiscard]] ArgumentDescriptor descriptorFor(const QString &id) const
+      {
+        for (const ArgumentDescriptor &descriptor : configurator->descriptors())
+        {
+          if (descriptor.id == id)
+          {
+            return descriptor;
+          }
+        }
+
+        return {};
+      }
+
+      ComponentRegistry registry;
+      CompositionDocument document;
+      std::unique_ptr<ComponentInstances> instances;
+      std::unique_ptr<ComponentConfigurator> configurator;
+
+      static ComposerApplication *s_app;
+  };
+
+  ComposerApplication *ConfiguratorTest::s_app = nullptr;
+}
+
+// ── Introspection ─────────────────────────────────────────────────────────
+
+TEST_F(ConfiguratorTest, DescribesEveryArgumentTheComponentPublishes)
+{
+  const QList<ArgumentDescriptor> descriptors = configurator->descriptors();
+  ASSERT_FALSE(descriptors.isEmpty());
+
+  QStringList ids;
+  for (const ArgumentDescriptor &descriptor : descriptors)
+  {
+    ids.append(descriptor.id);
+  }
+
+  EXPECT_TRUE(ids.contains(QStringLiteral("scale")));
+  EXPECT_TRUE(ids.contains(QStringLiteral("iterations")));
+  EXPECT_TRUE(ids.contains(QStringLiteral("label")));
+  EXPECT_TRUE(ids.contains(QStringLiteral("regime")));
+  EXPECT_TRUE(ids.contains(QStringLiteral("grid")));
+}
+
+// The editor is chosen from what the component advertises, not from a schema.
+TEST_F(ConfiguratorTest, ChoosesEditorsFromComponentMetadata)
+{
+  EXPECT_EQ(descriptorFor(QStringLiteral("iterations")).kind,
+            ArgumentEditorKind::Integer);
+  EXPECT_EQ(descriptorFor(QStringLiteral("label")).kind,
+            ArgumentEditorKind::Text);
+
+  // A value definition that enumerates categories becomes a choice.
+  const ArgumentDescriptor regime = descriptorFor(QStringLiteral("regime"));
+  EXPECT_EQ(regime.kind, ArgumentEditorKind::Categorical);
+  EXPECT_EQ(regime.categories,
+            QStringList({QStringLiteral("steady"), QStringLiteral("dynamic"),
+                         QStringLiteral("kinematic")}));
+
+  // Rank decides the table, and the shape comes from the component.
+  const ArgumentDescriptor grid = descriptorFor(QStringLiteral("grid"));
+  EXPECT_EQ(grid.kind, ArgumentEditorKind::Table);
+  EXPECT_EQ(grid.rows, 2);
+  EXPECT_EQ(grid.columns, 3);
+
+  const ArgumentDescriptor scale = descriptorFor(QStringLiteral("scale"));
+  EXPECT_EQ(scale.kind, ArgumentEditorKind::Table) << "rank-1 of length 3";
+  EXPECT_EQ(scale.rows, 3);
+}
+
+TEST_F(ConfiguratorTest, BuildsAWidgetForEachEditableArgument)
+{
+  EXPECT_NE(configurator->findChild<QSpinBox *>(QStringLiteral("argument_iterations")),
+            nullptr);
+  EXPECT_NE(configurator->findChild<QLineEdit *>(QStringLiteral("argument_label")),
+            nullptr);
+  EXPECT_NE(configurator->findChild<QComboBox *>(QStringLiteral("argument_regime")),
+            nullptr);
+  EXPECT_NE(configurator->findChild<QTableWidget *>(QStringLiteral("argument_grid")),
+            nullptr);
+}
+
+// ── The hydration contract ────────────────────────────────────────────────
+
+TEST_F(ConfiguratorTest, EveryEditedArgumentRoundTripsThroughTheComponent)
+{
+  struct Case
+  {
+      QString id;
+      nlohmann::json payload;
+  };
+
+  const std::vector<Case> cases{
+    {QStringLiteral("iterations"), nlohmann::json{{"values", {7}}}},
+    {QStringLiteral("label"), nlohmann::json{{"values", {"upper basin"}}}},
+    {QStringLiteral("regime"), nlohmann::json{{"values", {"dynamic"}}}},
+    {QStringLiteral("scale"), nlohmann::json{{"values", {1.5, 2.5, 3.5}}}},
+    // Rank-2 values are rows, not a flattened run — the component enforces it.
+    {QStringLiteral("grid"),
+     nlohmann::json{{"values", {{1.0, 2.0, 3.0}, {4.0, 5.0, 6.0}}}}},
+  };
+
+  for (const Case &testCase : cases)
+  {
+    QString message;
+    ASSERT_TRUE(configurator->applyArgument(testCase.id, testCase.payload,
+                                            message))
+      << testCase.id.toStdString() << ": " << message.toStdString();
+
+    // What the document recorded must equal what the component now reports —
+    // otherwise the form and the model have quietly diverged.
+    const std::optional<CompositionDocument::ComponentSpec> spec =
+      document.component(QStringLiteral("unit"));
+    ASSERT_TRUE(spec.has_value());
+
+    const std::string key = testCase.id.toStdString();
+    ASSERT_TRUE(spec->arguments.contains(key))
+      << testCase.id.toStdString() << " was not recorded";
+
+    HydroCouple::IModelComponent *component =
+      instances->instance(QStringLiteral("unit"));
+    ASSERT_NE(component, nullptr);
+
+    HydroCouple::IArgument *live = nullptr;
+    for (HydroCouple::IArgument *candidate : component->arguments())
+    {
+      if (QString::fromStdString(candidate->id()) == testCase.id)
+      {
+        live = candidate;
+        break;
+      }
+    }
+    ASSERT_NE(live, nullptr);
+
+    QString readMessage;
+    const nlohmann::json reserialised = readArgumentPayload(live, readMessage);
+    ASSERT_FALSE(reserialised.is_null()) << readMessage.toStdString();
+
+    // The component's own serialisation must carry the values we set.
+    const nlohmann::json &expected = testCase.payload["values"];
+    const nlohmann::json &actual = reserialised.contains("values")
+                                     ? reserialised["values"]
+                                     : reserialised;
+
+    EXPECT_EQ(actual, expected)
+      << testCase.id.toStdString() << " did not round-trip; component said "
+      << reserialised.dump();
+  }
+}
+
+// A payload the model refuses must not reach the document.
+TEST_F(ConfiguratorTest, RejectedPayloadNeverReachesTheDocument)
+{
+  const QByteArray before = document.toJson();
+
+  QString message;
+  EXPECT_FALSE(configurator->applyArgument(
+    QStringLiteral("iterations"), nlohmann::json{{"values", {"not a number"}}},
+    message));
+
+  EXPECT_EQ(document.toJson(), before);
+  EXPECT_FALSE(message.isEmpty());
+}
+
+TEST_F(ConfiguratorTest, RejectsUnknownArgument)
+{
+  QString message;
+  EXPECT_FALSE(configurator->applyArgument(QStringLiteral("nonesuch"),
+                                           nlohmann::json{{"values", {1}}},
+                                           message));
+  EXPECT_TRUE(message.contains(QStringLiteral("nonesuch")));
+}
+
+TEST_F(ConfiguratorTest, EditsAreUndoable)
+{
+  const int before = document.undoStack()->count();
+
+  QString message;
+  ASSERT_TRUE(configurator->applyArgument(QStringLiteral("iterations"),
+                                          nlohmann::json{{"values", {9}}},
+                                          message));
+
+  EXPECT_GT(document.undoStack()->count(), before);
+
+  const QByteArray edited = document.toJson();
+  document.undoStack()->undo();
+  EXPECT_NE(document.toJson(), edited);
+}
+
+// ── The raw pane ──────────────────────────────────────────────────────────
+
+TEST_F(ConfiguratorTest, RawPaneTracksTheDocument)
+{
+  QString message;
+  ASSERT_TRUE(configurator->applyArgument(QStringLiteral("iterations"),
+                                          nlohmann::json{{"values", {4}}},
+                                          message));
+
+  EXPECT_TRUE(configurator->rawText().contains(QStringLiteral("iterations")));
+}
+
+TEST_F(ConfiguratorTest, RawPaneAppliesValidJson)
+{
+  configurator->setRawText(
+    QStringLiteral("{\"iterations\": {\"values\": [11]}}"));
+
+  QString message;
+  ASSERT_TRUE(configurator->applyRawText(message)) << message.toStdString();
+
+  const std::optional<CompositionDocument::ComponentSpec> spec =
+    document.component(QStringLiteral("unit"));
+  ASSERT_TRUE(spec.has_value());
+  EXPECT_EQ(spec->arguments["iterations"]["values"][0], 11);
+}
+
+TEST_F(ConfiguratorTest, RawPaneRejectsMalformedJsonWithoutApplyingAnything)
+{
+  const QByteArray before = document.toJson();
+
+  configurator->setRawText(QStringLiteral("{ not json"));
+
+  QString message;
+  EXPECT_FALSE(configurator->applyRawText(message));
+  EXPECT_TRUE(message.contains(QStringLiteral("JSON")));
+  EXPECT_EQ(document.toJson(), before);
+}
+
+// One bad argument must not leave the earlier ones applied.
+TEST_F(ConfiguratorTest, RawPaneAppliesAllArgumentsOrNone)
+{
+  const QByteArray before = document.toJson();
+
+  configurator->setRawText(QStringLiteral(
+    "{\"iterations\": {\"values\": [3]}, \"nonesuch\": {\"values\": [1]}}"));
+
+  QString message;
+  EXPECT_FALSE(configurator->applyRawText(message));
+  EXPECT_EQ(document.toJson(), before)
+    << "a partially applied raw edit left the document inconsistent";
+}
+
+// ── Component-supplied editors ────────────────────────────────────────────
+
+TEST_F(ConfiguratorTest, OffersNoComponentEditorWhenTheComponentHasNone)
+{
+  // The fixture does not implement IUIProvider, so the button stays hidden
+  // rather than opening nothing.
+  EXPECT_FALSE(configurator->hasComponentEditor());
+  EXPECT_FALSE(configurator->showComponentEditor());
+}
+
+TEST_F(ConfiguratorTest, ReportsComponentsThatCannotBeLoaded)
+{
+  HydroCouple::SDK::IO::ComponentSpec spec;
+  spec.id = "ghost";
+  spec.info.componentInfoId = "org.nowhere.missing";
+  ASSERT_TRUE(document.addComponent(spec, {}));
+
+  configurator->setComponent(QStringLiteral("ghost"));
+
+  EXPECT_TRUE(configurator->descriptors().isEmpty());
+  EXPECT_FALSE(configurator->hasComponentEditor());
+}

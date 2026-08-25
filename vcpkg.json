@@ -1,0 +1,46 @@
+{
+  "name": "hydrocouplecomposer",
+  "version-semver": "2.0.0-alpha.1",
+  "description": "HydroCouple Composer \u2014 graphical composition editor, configurator, and model-agnostic results viewer for HydroCouple 2.0 component-based models.",
+  "license": "LGPL-3.0-or-later",
+  "homepage": "https://www.hydrocouple.org",
+  "builtin-baseline": "9e593bb18ea69cc5095e012465dcd675a822ed0d",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    },
+    "nlohmann-json",
+    "yaml-cpp",
+    {
+      "name": "gdal",
+      "default-features": false,
+      "features": [
+        "geos",
+        "jpeg",
+        "png",
+        "sqlite3"
+      ]
+    },
+    "nanoflann"
+  ],
+  "default-features": [],
+  "features": {
+    "tests": {
+      "description": "Offscreen GUI test harness (Google Test)",
+      "dependencies": [
+        "gtest"
+      ]
+    }
+  },
+  "overrides": [
+    {
+      "name": "gtest",
+      "version": "1.15.2"
+    }
+  ]
+}

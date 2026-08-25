@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A project whose connection names a component index that does not exist. -->
+<HydroCoupleProject name="dangling.hcp">
+  <ModelComponents>
+    <ModelComponent Name="org.hydrocouple.only" Caption="Only"
+                    ModelComponentLibrary="libOnly.dylib" XPos="0" YPos="0"/>
+  </ModelComponents>
+  <ModelComponentConnections>
+    <ModelComponentConnection SourceModelComponentIndex="0">
+      <OutputExchangeItem OutputExchangeItemId="flow">
+        <Connections>
+          <InputExchangeItem ModelComponentIndex="7" InputExchangeItemId="inflow"/>
+        </Connections>
+      </OutputExchangeItem>
+    </ModelComponentConnection>
+  </ModelComponentConnections>
+</HydroCoupleProject>

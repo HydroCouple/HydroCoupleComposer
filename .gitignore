@@ -249,3 +249,15 @@ CMakeLists.txt.user
 Makefile
 
 .DS_Store
+
+# CMake install trees (v2)
+install/
+vcpkg_installed/
+CMakeUserPresets.json
+compile_commands.json
+
+# Local visual/verification artefacts (not committed)
+artifacts/
+
+# Test fixtures the tests write themselves (inspectable, not committed)
+tests/fixtures/gis/generated-*

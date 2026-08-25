@@ -1,0 +1,14 @@
+{
+  "type": "FeatureCollection",
+  "name": "catchments",
+  "features": [
+    { "type": "Feature",
+      "properties": { "name": "S1", "area": 12.5 },
+      "geometry": { "type": "Polygon", "coordinates": [
+        [ [ -2.0, -2.0 ], [ 0.0, -2.0 ], [ 0.0, 0.0 ], [ -2.0, 0.0 ], [ -2.0, -2.0 ] ] ] } },
+    { "type": "Feature",
+      "properties": { "name": "S2", "area": 4.0 },
+      "geometry": { "type": "Polygon", "coordinates": [
+        [ [ 0.0, 0.0 ], [ 2.0, 0.0 ], [ 2.0, 2.0 ], [ 0.0, 2.0 ], [ 0.0, 0.0 ] ] ] } }
+  ]
+}

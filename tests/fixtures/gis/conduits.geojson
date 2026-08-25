@@ -1,0 +1,12 @@
+{
+  "type": "FeatureCollection",
+  "name": "conduits",
+  "features": [
+    { "type": "Feature",
+      "properties": { "name": "C1", "flow": 0.4 },
+      "geometry": { "type": "LineString", "coordinates": [ [ -1.0, -1.0 ], [ 0.0, 0.0 ] ] } },
+    { "type": "Feature",
+      "properties": { "name": "C2", "flow": 1.9 },
+      "geometry": { "type": "LineString", "coordinates": [ [ 0.0, 0.0 ], [ 1.0, 1.0 ] ] } }
+  ]
+}
