@@ -29,7 +29,16 @@ namespace HydroCouple::Composer
     // and two listeners on the stack would be two chances to disagree about
     // whether the frame on screen is current.
     connect(&m_renderer, &SceneRenderer::sceneChanged, this,
-            QOverload<>::of(&QWidget::update));
+            [this]
+            {
+              // Framed when the geometry arrives, not when the next frame is
+              // about to be drawn. Those are the same moment on a machine
+              // with a graphics device and are not the same moment anywhere
+              // else — and "what is this view looking at" is a question that
+              // should have an answer either way.
+              frameOnFirstGeometry();
+              update();
+            });
 
     setMouseTracking(true);
     setFocusPolicy(Qt::StrongFocus);
@@ -82,6 +91,43 @@ namespace HydroCouple::Composer
       height() > 0 ? double(width()) / double(height()) : 1.0;
 
     m_camera.fitTo(bounds, aspect);
+    m_framed = true;
+
+    update();
+    Q_EMIT cameraChanged();
+  }
+
+  QRectF SceneView::groundExtent() const
+  {
+    // Nothing to show means nothing is being looked at. Without this the
+    // default camera's rectangle around the origin reads as a considered
+    // view, and handing it to the map replaces a framing the user chose with
+    // a couple of world units of nowhere.
+    if (height() <= 0 || width() <= 0 || !m_renderer.sceneBounds().isValid())
+    {
+      return {};
+    }
+
+    return m_camera.groundExtent(double(width()) / double(height()));
+  }
+
+  void SceneView::showGroundExtent(const QRectF &extent)
+  {
+    // isNull, matching what Camera itself refuses, so that "framed" is
+    // recorded exactly when the camera was framed. The size check is the one
+    // that is really needed: a widget that has not been laid out has no
+    // aspect ratio to frame against.
+    if (extent.isNull() || height() <= 0 || width() <= 0)
+    {
+      return;
+    }
+
+    m_camera.setGroundExtent(extent.normalized(),
+                             double(width()) / double(height()));
+
+    // The view has been framed deliberately, so the first-geometry framing
+    // must not come along afterwards and overrule it — which it would, since
+    // arriving from the map is usually the first time this widget draws.
     m_framed = true;
 
     update();

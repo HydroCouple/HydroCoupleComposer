@@ -79,9 +79,18 @@ namespace HydroCouple::Composer
 
       /*!
        * \brief Shows \a extent, preserving aspect ratio.
+       *
+       * Exactly \a extent by default, with no air around it. Breathing room
+       * belongs to the *commands* that frame data — zoomToFullExtent() and
+       * zoomToLayer() ask for it — and not to the primitive they are built
+       * on: a margin here is charged again on every hand-off from the 3D
+       * view, and a user flipping between the tabs zooms steadily out.
+       *
        * \param extent World rectangle in the map's CRS.
+       * \param marginFraction Extra space around it, as a fraction.
        */
-      void setVisibleExtent(const QRectF &extent);
+      void setVisibleExtent(const QRectF &extent,
+                            double marginFraction = 0.0);
 
       /*!
        * \brief The union of every visible layer's extent, in the map's CRS.

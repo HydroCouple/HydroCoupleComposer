@@ -77,6 +77,33 @@ namespace HydroCouple::Composer
       void zoomToFullExtent();
 
       /*!
+       * \brief The ground the view is looking at.
+       *
+       * The scene's half of the hand-off with the map. A tilted camera sees a
+       * trapezoid of ground and this is its bounding rectangle, so handing it
+       * to the map shows somewhat more than the scene did — which is the
+       * honest answer, since the map has no way to show a trapezoid.
+       *
+       * Empty until there is something to look at — before the widget has a
+       * size, or while no layer in the stack has 3D geometry. A view of
+       * nothing is not a view, and handing one to the map would replace a
+       * framing somebody chose with the default camera's couple of units
+       * around the origin.
+       */
+      [[nodiscard]] QRectF groundExtent() const;
+
+      /*!
+       * \brief Looks at \a extent on the ground.
+       *
+       * The map's half of the hand-off. Only the framing moves: the camera
+       * keeps its orientation, so switching to the 3D tab shows the ground
+       * the map was showing, from wherever the scene was last looked at.
+       *
+       * \param extent World rectangle to frame; ignored when empty.
+       */
+      void showGroundExtent(const QRectF &extent);
+
+      /*!
        * \brief Sets the display exaggeration of world Z.
        * \param factor Values above 1 make relief more legible.
        */

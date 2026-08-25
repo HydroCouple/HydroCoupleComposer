@@ -209,6 +209,47 @@ namespace HydroCouple::Composer
                         IconFactory::icon(QStringLiteral("scene_3d")),
                         tr("3D"));
 
+    // The hand-off. The two views share a layer stack already; what they do
+    // not share is where they are looking, and a user who frames a catchment
+    // in one and finds the other showing a continent has been given two
+    // applications rather than two views of one.
+    //
+    // Carried on the tab change rather than continuously: keeping them in
+    // step live would mean the hidden view reframing on every pan of the
+    // visible one, and a tilted camera's ground extent is a bounding box, so
+    // each such exchange widens what is shown. Once, on arrival, does not
+    // drift.
+    connect(m_workspace, &QTabWidget::currentChanged, this,
+            [this](int index)
+            {
+              QWidget *arriving = m_workspace->widget(index);
+
+              if (arriving == m_sceneView)
+              {
+                // Only when the map is showing data. An empty map shows its
+                // default view around the origin, and handing *that* over
+                // would count as having framed the scene deliberately — so a
+                // model loaded afterwards would never be framed at all, and
+                // the 3D tab would sit looking at nothing near the origin.
+                if (!m_mapCanvas->fullExtent().isEmpty())
+                {
+                  m_sceneView->showGroundExtent(
+                    m_mapCanvas->transform().visibleExtent());
+                }
+              }
+              else if (arriving == m_mapCanvas)
+              {
+                // Empty before the 3D view has had a size, which is exactly
+                // the case where it has nothing to hand over anyway.
+                const QRectF ground = m_sceneView->groundExtent();
+
+                if (!ground.isEmpty())
+                {
+                  m_mapCanvas->setVisibleExtent(ground);
+                }
+              }
+            });
+
     connect(m_mapCanvas, &MapCanvas::cursorMoved, this,
             [this](const QPointF &world)
             {

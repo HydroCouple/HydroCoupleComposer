@@ -22,6 +22,15 @@ namespace HydroCouple::Composer
     constexpr double kWheelZoomFactor = 1.2;
 
     /*!
+     * \brief Air left around data when a command frames it.
+     *
+     * Belongs to "zoom to this data", not to "show this rectangle": the
+     * second is used to carry a view between the map and the 3D scene, and a
+     * margin charged there is charged again on every exchange.
+     */
+    constexpr double kFramingMargin = 0.05;
+
+    /*!
      * \brief Reprojects a rectangle by sampling its boundary.
      *
      * Corners alone are not enough: a projection bends straight lines, so the
@@ -195,7 +204,8 @@ namespace HydroCouple::Composer
     }
   }
 
-  void MapCanvas::setVisibleExtent(const QRectF &extent)
+  void MapCanvas::setVisibleExtent(const QRectF &extent,
+                                   double marginFraction)
   {
     if (extent.isNull())
     {
@@ -203,7 +213,7 @@ namespace HydroCouple::Composer
     }
 
     syncViewport();
-    m_transform.fit(extent, QSizeF(size()));
+    m_transform.fit(extent, QSizeF(size()), marginFraction);
 
     m_fitted = true;
     m_framedExtent = extent;
@@ -257,7 +267,7 @@ namespace HydroCouple::Composer
 
   void MapCanvas::zoomToFullExtent()
   {
-    setVisibleExtent(fullExtent());
+    setVisibleExtent(fullExtent(), kFramingMargin);
   }
 
   void MapCanvas::zoomToLayer(const MapLayer *layer)
@@ -267,7 +277,7 @@ namespace HydroCouple::Composer
       return;
     }
 
-    setVisibleExtent(layerExtentInMapCrs(layer));
+    setVisibleExtent(layerExtentInMapCrs(layer), kFramingMargin);
   }
 
   void MapCanvas::zoomBy(double factor)
