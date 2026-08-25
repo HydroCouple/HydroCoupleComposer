@@ -141,6 +141,25 @@ namespace HydroCouple::Composer
        */
       quint32 addVertex(const QVector3D &position, const QVector3D &normal,
                         const QColor &color);
+
+      /*!
+       * \brief Appends a vertex without touching the bounds.
+       *
+       * For builders that know a whole cell's box up front and can grow the
+       * bounds once for it, rather than once per vertex. At the phase's cell
+       * counts that is millions of comparisons saved; the caller takes on
+       * maintaining \c bounds itself, and geometry with stale bounds frames
+       * wrongly rather than failing, so this is not the default.
+       *
+       * \param vertex The vertex to append.
+       * \returns Its index.
+       */
+      quint32 appendVertex(const SceneVertex &vertex)
+      {
+        vertices.append(vertex);
+
+        return quint32(vertices.size() - 1);
+      }
   };
 
 } // namespace HydroCouple::Composer

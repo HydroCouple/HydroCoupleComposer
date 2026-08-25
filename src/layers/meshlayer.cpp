@@ -12,6 +12,9 @@
 
 #include <QHash>
 #include <QPair>
+#include <QVarLengthArray>
+
+#include <cmath>
 
 #include <algorithm>
 #include <vector>
@@ -672,6 +675,7 @@ namespace HydroCouple::Composer
     }
 
     m_layering = std::move(mesh);
+    m_adjacencyValid = false;
     m_cellValues.clear();
     m_firstVisibleLayer = 0;
     m_lastVisibleLayer = m_layering.layerCount - 1;
@@ -777,65 +781,21 @@ namespace HydroCouple::Composer
 
     const QVector<QVector<QPolygonF>> &projected = projectedFeatures();
 
-    // ── Which columns share each edge ─────────────────────────────────────
-    //
-    // A vertical wall between two columns is inside the water, and drawing
-    // it would put three quarters of a large mesh's triangles where nobody
-    // can see them. Adjacency is what says which walls are on the outside;
-    // it is keyed on the node pair rather than on geometry, so two columns
-    // meeting along an edge are neighbours regardless of how their corners
-    // were wound.
-    QHash<QPair<qint64, qint64>, QPair<int, int>> sharedEdges;
-
-    const auto edgeKey = [](qint64 a, qint64 b)
-    { return a < b ? QPair<qint64, qint64>(a, b) : QPair<qint64, qint64>(b, a); };
-
-    const auto ringNodes = [this](qint64 column, QVector<qint64> &nodes)
-    {
-      const int64_t from = m_mesh.faceNodeOffsets[static_cast<size_t>(column)];
-      const int64_t to = m_mesh.faceNodeOffsets[static_cast<size_t>(column) + 1];
-
-      nodes.clear();
-      nodes.reserve(int(to - from));
-
-      for (int64_t slot = from; slot < to; ++slot)
-      {
-        nodes.append(m_mesh.faceNodes[static_cast<size_t>(slot)]);
-      }
-    };
-
-    QVector<qint64> nodes;
-
-    for (int feature = 0; feature < projected.size(); ++feature)
-    {
-      if (feature >= m_entityIndex.size())
-      {
-        continue;
-      }
-
-      ringNodes(m_entityIndex[feature], nodes);
-
-      for (int corner = 0; corner < nodes.size(); ++corner)
-      {
-        const QPair<qint64, qint64> key =
-          edgeKey(nodes[corner], nodes[(corner + 1) % nodes.size()]);
-
-        auto existing = sharedEdges.find(key);
-
-        if (existing == sharedEdges.end())
-        {
-          sharedEdges.insert(key, { feature, -1 });
-        }
-        else if (existing->second < 0)
-        {
-          existing->second = feature;
-        }
-      }
-    }
+    ensurePrismAdjacency();
 
     // ── Geometry ──────────────────────────────────────────────────────────
     SceneGeometry geometry;
     geometry.primitive = ScenePrimitive::Triangles;
+
+    // Only the caps, whose size is known exactly: two per column, of the
+    // column's own corners. The walls are left to grow.
+    //
+    // Sizing this from the previous build instead — the obvious trick — is
+    // actively worse. A peel to one layer needs a fraction of what the full
+    // stack did, so the reserve allocates tens of megabytes it will not use,
+    // and touching those pages costs more than the reallocations it saved:
+    // measured at 42 ms against 26 ms with no reserve at all.
+    geometry.vertices.reserve(2 * m_adjacency.totalCorners);
 
     const auto slabTop = [this](qint64 column)
     { return m_layering.z(column, m_firstVisibleLayer); };
@@ -843,32 +803,71 @@ namespace HydroCouple::Composer
     const auto slabBottom = [this](qint64 column)
     { return m_layering.z(column, m_lastVisibleLayer + 1); };
 
-    const auto cellColor = [this](qint64 column, int layer) -> QColor
-    {
-      if (m_cellValues.isEmpty())
-      {
-        const LayerStyle *layerStyle = style();
+    // The visible layers' colours, resolved once per column rather than
+    // once per edge per layer. Classifying is a search, and a column's four
+    // edges were each repeating the same one.
+    const LayerStyle *layerStyle = style();
+    const QColor plainFill =
+      layerStyle ? layerStyle->symbol().fill : QColor(Qt::gray);
+    const bool classified = !m_cellValues.isEmpty();
 
-        return layerStyle ? layerStyle->symbol().fill : QColor(Qt::gray);
+    QVarLengthArray<QColor, 32> layerColors(
+      m_lastVisibleLayer - m_firstVisibleLayer + 1, plainFill);
+
+    const auto resolveColumnColors = [&](qint64 column)
+    {
+      if (!classified)
+      {
+        // Unclassified: one fill for every layer, resolved once for the
+        // whole mesh rather than per column.
+        return;
       }
 
-      return colorForCellValue(
-        m_cellValues[int(m_layering.cell(column, layer))]);
+      for (int layer = m_firstVisibleLayer; layer <= m_lastVisibleLayer;
+           ++layer)
+      {
+        layerColors[layer - m_firstVisibleLayer] = colorForCellValue(
+          m_cellValues[int(m_layering.cell(column, layer))]);
+      }
+    };
+
+    const auto cellColor = [&](int layer) -> const QColor &
+    { return layerColors[layer - m_firstVisibleLayer]; };
+
+    //! A colour converted once, rather than at every vertex that wears it.
+    struct Rgba
+    {
+        float r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f;
+    };
+
+    const auto toRgba = [](const QColor &color)
+    {
+      return Rgba{ float(color.redF()), float(color.greenF()),
+                   float(color.blueF()), float(color.alphaF()) };
     };
 
     //! Adds a horizontal polygon at one elevation.
     const auto addCap = [&geometry](const QPolygonF &ring, int corners,
-                                    double elevation, const QVector3D &normal,
-                                    const QColor &color)
+                                    double elevation, float normalZ,
+                                    const Rgba &color)
     {
       const quint32 base = quint32(geometry.vertices.size());
 
+      SceneVertex vertex;
+      vertex.nx = 0.0f;
+      vertex.ny = 0.0f;
+      vertex.nz = normalZ;
+      vertex.z = float(elevation);
+      vertex.r = color.r;
+      vertex.g = color.g;
+      vertex.b = color.b;
+      vertex.a = color.a;
+
       for (int corner = 0; corner < corners; ++corner)
       {
-        geometry.addVertex(QVector3D(float(ring[corner].x()),
-                                     float(ring[corner].y()),
-                                     float(elevation)),
-                           normal, color);
+        vertex.x = float(ring[corner].x());
+        vertex.y = float(ring[corner].y());
+        geometry.appendVertex(vertex);
       }
 
       for (int corner = 1; corner + 1 < corners; ++corner)
@@ -882,32 +881,44 @@ namespace HydroCouple::Composer
     //! Adds one vertical quad along an edge, between two elevations.
     const auto addWall = [&geometry](const QPointF &a, const QPointF &b,
                                      double low, double high,
-                                     const QColor &color)
+                                     const Rgba &color)
     {
       if (high - low <= 0.0)
       {
         return;
       }
 
-      QVector3D normal(float(b.y() - a.y()), float(a.x() - b.x()), 0.0f);
+      const double dx = b.y() - a.y();
+      const double dy = a.x() - b.x();
+      const double length = std::hypot(dx, dy);
 
-      if (normal.isNull())
+      if (length <= 0.0)
       {
         return;
       }
 
-      normal.normalize();
-
       const quint32 base = quint32(geometry.vertices.size());
 
-      geometry.addVertex(QVector3D(float(a.x()), float(a.y()), float(low)),
-                         normal, color);
-      geometry.addVertex(QVector3D(float(b.x()), float(b.y()), float(low)),
-                         normal, color);
-      geometry.addVertex(QVector3D(float(b.x()), float(b.y()), float(high)),
-                         normal, color);
-      geometry.addVertex(QVector3D(float(a.x()), float(a.y()), float(high)),
-                         normal, color);
+      SceneVertex vertex;
+      vertex.nx = float(dx / length);
+      vertex.ny = float(dy / length);
+      vertex.nz = 0.0f;
+      vertex.r = color.r;
+      vertex.g = color.g;
+      vertex.b = color.b;
+      vertex.a = color.a;
+
+      const double xs[4] = { a.x(), b.x(), b.x(), a.x() };
+      const double ys[4] = { a.y(), b.y(), b.y(), a.y() };
+      const double zs[4] = { low, low, high, high };
+
+      for (int corner = 0; corner < 4; ++corner)
+      {
+        vertex.x = float(xs[corner]);
+        vertex.y = float(ys[corner]);
+        vertex.z = float(zs[corner]);
+        geometry.appendVertex(vertex);
+      }
 
       for (const quint32 offset : { 0u, 1u, 2u, 0u, 2u, 3u })
       {
@@ -925,9 +936,8 @@ namespace HydroCouple::Composer
       const qint64 column = m_entityIndex[feature];
       const QPolygonF &ring = projected[feature].first();
 
-      ringNodes(column, nodes);
-
-      const int corners = nodes.size();
+      const int corners = m_adjacency.corners[feature];
+      const int edgeBase = m_adjacency.offsets[feature];
 
       // The ring carries a closing duplicate the connectivity does not.
       if (corners < 3 || ring.size() < corners)
@@ -935,8 +945,13 @@ namespace HydroCouple::Composer
         continue;
       }
 
-      const QColor topColor = cellColor(column, m_firstVisibleLayer);
-      const QColor bottomColor = cellColor(column, m_lastVisibleLayer);
+      resolveColumnColors(column);
+
+      const QColor &topColor = cellColor(m_firstVisibleLayer);
+      const QColor &bottomColor = cellColor(m_lastVisibleLayer);
+
+      const double columnTop = slabTop(column);
+      const double columnBottom = slabBottom(column);
 
       // Caps. Nothing sits above the topmost visible layer or below the
       // bottommost — peeling is exactly what exposes them — so both are
@@ -944,28 +959,17 @@ namespace HydroCouple::Composer
       // interior and never are.
       if (topColor.isValid())
       {
-        addCap(ring, corners, slabTop(column), QVector3D(0.0f, 0.0f, 1.0f),
-               topColor);
+        addCap(ring, corners, columnTop, 1.0f, toRgba(topColor));
       }
 
       if (bottomColor.isValid())
       {
-        addCap(ring, corners, slabBottom(column),
-               QVector3D(0.0f, 0.0f, -1.0f), bottomColor);
+        addCap(ring, corners, columnBottom, -1.0f, toRgba(bottomColor));
       }
 
       for (int corner = 0; corner < corners; ++corner)
       {
-        const QPair<qint64, qint64> key =
-          edgeKey(nodes[corner], nodes[(corner + 1) % corners]);
-
-        const auto shared = sharedEdges.constFind(key);
-        int neighbour = -1;
-
-        if (shared != sharedEdges.constEnd())
-        {
-          neighbour = shared->first == feature ? shared->second : shared->first;
-        }
+        const int neighbour = m_adjacency.neighbours[edgeBase + corner];
 
         // What the neighbouring column's own slab covers. Sigma layers
         // follow the bed, so two adjacent columns' slabs rarely line up:
@@ -990,19 +994,21 @@ namespace HydroCouple::Composer
         for (int layer = m_firstVisibleLayer; layer <= m_lastVisibleLayer;
              ++layer)
         {
-          const QColor color = cellColor(column, layer);
+          const QColor &color = cellColor(layer);
 
           if (!color.isValid())
           {
             continue;
           }
 
+          const Rgba rgba = toRgba(color);
+
           const double high = m_layering.z(column, layer);
           const double low = m_layering.z(column, layer + 1);
 
           if (!covered)
           {
-            addWall(a, b, low, high, color);
+            addWall(a, b, low, high, rgba);
 
             continue;
           }
@@ -1010,12 +1016,40 @@ namespace HydroCouple::Composer
           // The exposed part is what is left of this segment once the
           // neighbour's slab is removed: at most a piece above it and a
           // piece below it.
-          addWall(a, b, std::max(low, coveredHigh), high, color);
-          addWall(a, b, low, std::min(high, coveredLow), color);
+          addWall(a, b, std::max(low, coveredHigh), high, rgba);
+          addWall(a, b, low, std::min(high, coveredLow), rgba);
         }
       }
     }
 
+    // The bounds are whatever was actually built, taken in one pass at the
+    // end. Growing them as pieces are emitted needs both the caps and the
+    // walls to do it, and either alone covers the box in almost every mesh —
+    // so neither is really load-bearing and a fault in either one hides.
+    // One pass over a contiguous array also costs less than the scattered
+    // updates it replaces.
+    if (!geometry.vertices.isEmpty())
+    {
+      // Reduced on plain floats rather than through Bounds3D::expandTo per
+      // vertex: that goes via QVector3D's accessors and its has-anything-yet
+      // branch, and at these counts the difference is most of the pass.
+      const SceneVertex *first = geometry.vertices.constData();
+      float lowX = first->x, lowY = first->y, lowZ = first->z;
+      float highX = lowX, highY = lowY, highZ = lowZ;
+
+      for (const SceneVertex &vertex : geometry.vertices)
+      {
+        lowX = std::min(lowX, vertex.x);
+        lowY = std::min(lowY, vertex.y);
+        lowZ = std::min(lowZ, vertex.z);
+        highX = std::max(highX, vertex.x);
+        highY = std::max(highY, vertex.y);
+        highZ = std::max(highZ, vertex.z);
+      }
+
+      geometry.bounds.expandTo(QVector3D(lowX, lowY, lowZ));
+      geometry.bounds.expandTo(QVector3D(highX, highY, highZ));
+    }
     if (!geometry.isEmpty())
     {
       batches.append(std::move(geometry));
@@ -1098,6 +1132,82 @@ namespace HydroCouple::Composer
     }
 
     return int(vertical.timeCount);
+  }
+
+
+  void MeshLayer::ensurePrismAdjacency() const
+  {
+    if (m_adjacencyValid)
+    {
+      return;
+    }
+
+    m_adjacencyValid = true;
+    m_adjacency = {};
+
+    const int features = m_entityIndex.size();
+
+    m_adjacency.corners.resize(features);
+    m_adjacency.offsets.resize(features);
+
+    int total = 0;
+
+    for (int feature = 0; feature < features; ++feature)
+    {
+      const qint64 column = m_entityIndex[feature];
+      const int corners =
+        int(m_mesh.faceNodeOffsets[static_cast<size_t>(column) + 1] -
+            m_mesh.faceNodeOffsets[static_cast<size_t>(column)]);
+
+      m_adjacency.corners[feature] = corners;
+      m_adjacency.offsets[feature] = total;
+      total += corners;
+    }
+
+    m_adjacency.totalCorners = total;
+
+    m_adjacency.neighbours.assign(total, -1);
+
+    // One pass, one hash: an edge's second owner patches the first's slot as
+    // well as its own, so each edge is looked up once rather than once per
+    // side.
+    // The first owner's feature and its slot, so the second can patch both
+    // sides without needing to map a slot back to a feature.
+    QHash<QPair<qint64, qint64>, QPair<int, int>> firstOwner;
+    firstOwner.reserve(total);
+
+    for (int feature = 0; feature < features; ++feature)
+    {
+      const qint64 column = m_entityIndex[feature];
+      const int64_t from = m_mesh.faceNodeOffsets[static_cast<size_t>(column)];
+      const int corners = m_adjacency.corners[feature];
+      const int base = m_adjacency.offsets[feature];
+
+      for (int corner = 0; corner < corners; ++corner)
+      {
+        const qint64 a =
+          m_mesh.faceNodes[static_cast<size_t>(from + corner)];
+        const qint64 b = m_mesh.faceNodes[static_cast<size_t>(
+          from + (corner + 1) % corners)];
+
+        const QPair<qint64, qint64> key =
+          a < b ? QPair<qint64, qint64>(a, b) : QPair<qint64, qint64>(b, a);
+
+        const auto existing = firstOwner.constFind(key);
+
+        if (existing == firstOwner.constEnd())
+        {
+          firstOwner.insert(key, { feature, base + corner });
+        }
+        else
+        {
+          // Both sides learn about each other here, so the geometry pass
+          // needs no lookup at all.
+          m_adjacency.neighbours[base + corner] = existing->first;
+          m_adjacency.neighbours[existing->second] = feature;
+        }
+      }
+    }
   }
 
 } // namespace HydroCouple::Composer

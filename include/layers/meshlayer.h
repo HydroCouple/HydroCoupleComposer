@@ -278,6 +278,24 @@ namespace HydroCouple::Composer
       //! Colour for a cell value, straight from the style's classification.
       [[nodiscard]] QColor colorForCellValue(double value) const;
 
+      /*!
+       * \brief Which column lies across each of a column's edges.
+       *
+       * Pure topology, so it survives every peel — and peeling is what makes
+       * that worth saying: rebuilding this per peel means hashing every edge
+       * of every column again to learn something that cannot have changed.
+       */
+      struct PrismAdjacency
+      {
+          QVector<int> corners;     //!< Corners of each feature's ring.
+          QVector<int> offsets;     //!< Where a feature's edges start.
+          QVector<int> neighbours;  //!< Feature across each edge, or -1.
+          int totalCorners = 0;     //!< Corners across every feature.
+      };
+
+      //! Builds the adjacency if it is not current; cheap when it is.
+      void ensurePrismAdjacency() const;
+
       HydroCouple::SDK::IO::MeshDefinition m_mesh;
       MeshEntity m_entity = MeshEntity::Face;
       QString m_valueAttribute;
@@ -286,6 +304,13 @@ namespace HydroCouple::Composer
       QVector<double> m_cellValues;
       int m_firstVisibleLayer = 0;
       int m_lastVisibleLayer = -1;
+
+      //! Edge topology, cached across peels. Mutable because it is a cache:
+      //! a const caller asking for geometry is not changing the layer.
+      mutable PrismAdjacency m_adjacency;
+      mutable bool m_adjacencyValid = false;
+
+
 
       //! The mesh entity each feature came from. Not the feature's own index:
       //! faces whose connectivity points outside the node array are skipped,

@@ -313,6 +313,102 @@ TEST_F(LayeredMeshTest, AWallStandingProudOfItsNeighbourIsStillBuilt)
   EXPECT_NEAR(lowest, -40.0, 1.0e-6);
 }
 
+TEST_F(LayeredMeshTest, TheGeometryBoundsAreTheWholeBoxItOccupies)
+{
+  // Framing reads these, so a bounds that is short on any axis frames the
+  // scene wrongly — and does it quietly, since the geometry itself is fine.
+  // Asserted on all three axes: the caps carry the vertical extremes, so a
+  // check that only looked at z would pass with the footprint half missing.
+  QString message;
+  const std::unique_ptr<MeshLayer> layer =
+    layeredLayer(flatStrip(2, 3, -12.0, 3.0), message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  const QVector<SceneGeometry> batches =
+    layer->sceneSource()->sceneGeometry();
+  ASSERT_EQ(batches.size(), 1);
+
+  const Bounds3D &bounds = batches.first().bounds;
+  ASSERT_TRUE(bounds.isValid());
+
+  EXPECT_NEAR(double(bounds.minimum().x()), 0.0, 1.0e-6);
+  EXPECT_NEAR(double(bounds.maximum().x()), 2.0, 1.0e-6);
+  EXPECT_NEAR(double(bounds.minimum().y()), 0.0, 1.0e-6);
+  EXPECT_NEAR(double(bounds.maximum().y()), 1.0, 1.0e-6);
+  EXPECT_NEAR(double(bounds.minimum().z()), -12.0, 1.0e-6);
+  EXPECT_NEAR(double(bounds.maximum().z()), 3.0, 1.0e-6);
+}
+
+TEST_F(LayeredMeshTest, WallNormalsAreUnitAndPerpendicularToTheirEdge)
+{
+  // The material lights by these. Left unnormalised they scale the shading
+  // term; pointing along the edge rather than across it, they shade a wall
+  // as though it faced somewhere else. Both look like lighting choices.
+  //
+  // The column is deliberately neither square nor unit-sized: on a 1x1 cell
+  // dividing by the edge length changes nothing, and swapping "across" for
+  // "along" still yields an axis-aligned unit vector, so either fault would
+  // pass unnoticed.
+  HydroCouple::SDK::IO::MeshDefinition mesh;
+  mesh.meshName = "oblong";
+  mesh.nodeX = { 0.0, 7.0, 7.0, 0.0 };
+  mesh.nodeY = { 0.0, 0.0, 3.0, 3.0 };
+  mesh.faceNodeOffsets = { 0, 4 };
+  mesh.faceNodes = { 0, 1, 2, 3 };
+
+  LayeredMesh layered;
+  layered.horizontal = mesh;
+  layered.layerCount = 1;
+  layered.interfaceZ = { 0.0, -4.0 };
+
+  QString message;
+  const std::unique_ptr<MeshLayer> layer = layeredLayer(layered, message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  const QVector<SceneGeometry> batches =
+    layer->sceneSource()->sceneGeometry();
+  ASSERT_EQ(batches.size(), 1);
+
+  const QVector<SceneVertex> &vertices = batches.first().vertices;
+
+  int walls = 0;
+
+  for (int index = 0; index + 3 < vertices.size();)
+  {
+    if (!qFuzzyIsNull(vertices[index].nz))
+    {
+      // A cap vertex; its normal is vertical.
+      EXPECT_NEAR(std::abs(double(vertices[index].nz)), 1.0, 1.0e-5)
+        << "a cap normal is not vertical";
+      ++index;
+
+      continue;
+    }
+
+    // Walls are emitted four vertices at a time: the edge's two ends at the
+    // bottom, then the same two at the top.
+    const SceneVertex &a = vertices[index];
+    const SceneVertex &b = vertices[index + 1];
+
+    const QVector3D normal(a.nx, a.ny, a.nz);
+    const QVector3D along(b.x - a.x, b.y - a.y, 0.0f);
+
+    EXPECT_NEAR(double(normal.length()), 1.0, 1.0e-5)
+      << "wall normal (" << a.nx << ", " << a.ny << ") is not unit length";
+    ASSERT_GT(double(along.length()), 1.0e-6) << "a wall has no edge";
+
+    EXPECT_NEAR(double(QVector3D::dotProduct(normal, along.normalized())),
+                0.0, 1.0e-5)
+      << "wall normal (" << a.nx << ", " << a.ny << ") is not across its "
+      << "edge (" << along.x() << ", " << along.y() << ")";
+
+    ++walls;
+    index += 4;
+  }
+
+  EXPECT_EQ(walls, 4) << "a single column should have four walls";
+}
+
 // ── Peeling ─────────────────────────────────────────────────────────────────
 
 TEST_F(LayeredMeshTest, PeelingToOneLayerShowsThatLayersElevations)
