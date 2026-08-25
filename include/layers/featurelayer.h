@@ -16,6 +16,7 @@
 #include "map/maplayer.h"
 #include "render/attributeprovider.h"
 #include "render/layerstyle.h"
+#include "scene/scenesource.h"
 
 #include <QPolygonF>
 #include <QString>
@@ -32,6 +33,31 @@ namespace HydroCouple::Composer
     Point,
     Line,
     Polygon
+  };
+
+  /*!
+   * \brief How a feature layer places itself in the 3D scene.
+   *
+   * A vector layer has no third coordinate of its own, so it has to be given
+   * one. These are the three answers that mean something: leave it flat, lay
+   * it on the ground, or stand it up so it is visible over the ground.
+   */
+  enum class SceneDrape
+  {
+    //! At z = 0. What a layer over a stack with no terrain in it gets.
+    Flat,
+
+    //! Laid on the terrain, densified finely enough to follow it.
+    Terrain,
+
+    /*!
+     * \brief A vertical curtain from the terrain up to a set height.
+     *
+     * How a buried or a low-relief network stays legible: a line lying on a
+     * hillside is hidden by the first fold of ground in front of it, and a
+     * pipe network that disappears behind terrain is not a view of a network.
+     */
+    Extruded
   };
 
   /*!
@@ -52,7 +78,9 @@ namespace HydroCouple::Composer
   /*!
    * \brief A layer of features drawn on the map.
    */
-  class FeatureLayer : public MapLayer, public IAttributeProvider
+  class FeatureLayer : public MapLayer,
+                       public IAttributeProvider,
+                       public ISceneSource
   {
     public:
       /*!
@@ -78,6 +106,38 @@ namespace HydroCouple::Composer
        */
       bool restyle();
 
+      /*!
+       * \brief How the layer places itself in the 3D scene.
+       */
+      [[nodiscard]] SceneDrape sceneDrape() const;
+
+      /*!
+       * \brief Sets how the layer places itself in the 3D scene.
+       *
+       * Terrain is the default, and degrades to Flat by itself when the
+       * stack holds no terrain — so a network opened beside a mesh drapes
+       * without being told to, and one opened alone still appears.
+       *
+       * \param drape The placement to use.
+       */
+      void setSceneDrape(SceneDrape drape);
+
+      /*!
+       * \brief How far an extruded curtain rises above the ground.
+       */
+      [[nodiscard]] double extrusionHeight() const;
+
+      /*!
+       * \brief Sets the extrusion height, in world units.
+       *
+       * Zero is legal and leaves the crest line alone on the ground, which
+       * is what a curtain of no height is; there is no default worth
+       * inventing, because the unit is whatever the map's CRS measures in.
+       *
+       * \param height Height above the terrain; negative values hang below.
+       */
+      void setExtrusionHeight(double height);
+
       // ── MapLayer ─────────────────────────────────────────────────────────
 
       [[nodiscard]] QRectF extent() const override;
@@ -96,6 +156,46 @@ namespace HydroCouple::Composer
 
       [[nodiscard]] QVariant attributeValue(int feature,
                                             const QString &field) const override;
+
+      // ── ISceneSource ─────────────────────────────────────────────────────
+
+      /*!
+       * \brief This layer, as the 3D scene's geometry supplier.
+       *
+       * Every vector layer answers, rather than only the ones somebody
+       * remembered to switch on: a network that is in the map and missing
+       * from the scene reads as a rendering fault, and looking for the
+       * setting that caused it is worse than the setting being there.
+       * A point layer is the exception — see sceneGeometry().
+       */
+      [[nodiscard]] const ISceneSource *sceneSource() const override;
+
+      /*!
+       * \brief Lines for line and polygon layers, nothing for points.
+       *
+       * Polygons contribute their rings rather than filled surfaces: filling
+       * one against terrain is a constrained triangulation, and a catchment
+       * whose outline follows the ground already says what the map cannot.
+       * Points contribute nothing, on MeshLayer's precedent — a point cloud
+       * has no 3D form that is not invented.
+       *
+       * Colours come from the layer's own style, so a feature classified in
+       * the map and the same feature in the scene cannot disagree.
+       *
+       * \param context The terrain to drape on, when the stack has one.
+       */
+      [[nodiscard]] QVector<SceneGeometry> sceneGeometry(
+        const SceneContext &context) const override;
+
+      /*!
+       * \brief The layer's map-CRS footprint, at the heights it may occupy.
+       *
+       * The terrain is not consulted, because bounds exist to frame the view
+       * before anything is built and sampling a surface for every vertex is
+       * exactly the cost that is being avoided. The terrain layer's own
+       * bounds carry the relief, and the scene is framed to both.
+       */
+      [[nodiscard]] Bounds3D sceneBounds() const override;
 
       /*!
        * \brief Every feature's geometry in the map's CRS.
@@ -162,6 +262,9 @@ namespace HydroCouple::Composer
       //! is not changing the layer, it is paying for work not yet done.
       mutable QVector<QVector<QPolygonF>> m_projected;
       mutable bool m_projectionValid = false;
+
+      SceneDrape m_drape = SceneDrape::Terrain;
+      double m_extrusionHeight = 0.0;
 
       LayerStyle m_style;
   };

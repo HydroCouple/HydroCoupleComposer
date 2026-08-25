@@ -9,7 +9,7 @@ layout(std140, binding = 0) uniform buf {
     mat4 mvp;
     mat4 normalMatrix;
     vec4 lightDirection;
-    vec4 params;          // x = opacity, y = ambient
+    vec4 params;          // x = opacity, y = ambient, z = depth nudge
 } ubuf;
 
 void main()

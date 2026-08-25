@@ -73,6 +73,11 @@ composer_add_gui_test(test_layeredmesh)
 target_compile_definitions(test_layeredmesh PRIVATE
     COMPOSER_GIS_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/gis")
 
+# C3c — vector layers composed against a terrain: draping and extrusion.
+composer_add_gui_test(test_drape)
+target_compile_definitions(test_drape PRIVATE
+    COMPOSER_GIS_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/gis")
+
 # The document tests round-trip the SDK's own example composition, so they need
 # to know where the installed SDK examples live.
 composer_add_gui_test(test_compositiondocument)

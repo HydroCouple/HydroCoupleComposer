@@ -46,7 +46,7 @@ namespace HydroCouple::Composer
   /*!
    * \brief A UGRID mesh drawn on the map.
    */
-  class MeshLayer : public FeatureLayer, public ISceneSource
+  class MeshLayer : public FeatureLayer, public ITerrainSource
   {
     public:
       /*!
@@ -255,13 +255,54 @@ namespace HydroCouple::Composer
        *
        * Colours come from the layer's own style, so a mesh classified in the
        * map and the same mesh in the scene cannot disagree.
+       *
+       * \param context Unused: a mesh carries its own elevations and is the
+       *        thing other layers are draped on, not a thing that drapes.
        */
-      [[nodiscard]] QVector<SceneGeometry> sceneGeometry() const override;
+      [[nodiscard]] QVector<SceneGeometry> sceneGeometry(
+        const SceneContext &context) const override;
 
       /*!
        * \brief The mesh's box: its map-CRS footprint and its node elevations.
        */
       [[nodiscard]] Bounds3D sceneBounds() const override;
+
+      /*!
+       * \brief This layer as a surface to drape on, or nullptr.
+       *
+       * A mesh is terrain when it draws faces and carries node elevations.
+       * Without elevations it is a flat sheet at zero, and draping a network
+       * onto that is indistinguishable from not draping it at all — so it
+       * declines, and the layer above stays flat for an honest reason.
+       */
+      [[nodiscard]] const ITerrainSource *terrain() const override;
+
+      // ── ITerrainSource ───────────────────────────────────────────────────
+
+      /*!
+       * \brief The mesh surface's elevation at \a point.
+       *
+       * Interpolated across the very triangles the scene draws — the same fan
+       * from the ring's first corner — because a sample taken off a different
+       * tessellation of the same face floats above or below the surface it
+       * was supposed to lie on, by an amount that only shows on the cells
+       * that are not planar.
+       *
+       * \param point Map-CRS position to sample.
+       * \param[out] elevation The surface elevation there.
+       * \returns True when a face of the mesh contains \a point.
+       */
+      [[nodiscard]] bool elevationAt(const QPointF &point,
+                                     double &elevation) const override;
+
+      //! \brief The mesh's map-CRS footprint, over which it answers.
+      [[nodiscard]] QRectF terrainExtent() const override;
+
+      //! \brief The mesh's mean cell edge length, in map units.
+      [[nodiscard]] double terrainResolution() const override;
+
+    protected:
+      void onMapCrsChanged() override;
 
     private:
       MeshLayer(const QString &name, MeshEntity entity);
@@ -296,6 +337,23 @@ namespace HydroCouple::Composer
       //! Builds the adjacency if it is not current; cheap when it is.
       void ensurePrismAdjacency() const;
 
+      /*!
+       * \brief Where each face sits, for the point queries a drape makes.
+       *
+       * A KD-tree over face centroids rather than a bin grid, because a mesh
+       * whose cells vary by three orders of magnitude — which is every mesh
+       * generated to a channel — puts either far too many bins under the
+       * small cells or far too many faces in one bin under the large ones.
+       *
+       * Centroids answer "which face" only approximately, so a query that
+       * the nearest centroid's face does not contain widens to a radius
+       * search over the largest face's own reach, which is exact.
+       */
+      struct TerrainIndex;
+
+      //! Builds the terrain index if it is not current; cheap when it is.
+      void ensureTerrainIndex() const;
+
       HydroCouple::SDK::IO::MeshDefinition m_mesh;
       MeshEntity m_entity = MeshEntity::Face;
       QString m_valueAttribute;
@@ -309,6 +367,11 @@ namespace HydroCouple::Composer
       //! a const caller asking for geometry is not changing the layer.
       mutable PrismAdjacency m_adjacency;
       mutable bool m_adjacencyValid = false;
+
+      //! Face lookup for drape queries; rebuilt when the map's CRS changes,
+      //! since it indexes projected positions. Mutable for the same reason
+      //! the adjacency is: sampling a surface does not change it.
+      mutable std::unique_ptr<TerrainIndex> m_terrainIndex;
 
 
 

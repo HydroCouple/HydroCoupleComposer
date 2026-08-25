@@ -239,9 +239,9 @@ TEST_F(LayeredMeshTest, InteriorFacesBetweenStackedLayersAreNotBuilt)
   const int thinCaps = 2 * 2;  // two quads, two triangles each
 
   // Walls scale with layer count; caps must not.
-  EXPECT_EQ(triangleCount(thin->sceneSource()->sceneGeometry()),
+  EXPECT_EQ(triangleCount(thin->sceneSource()->sceneGeometry({})),
             thinCaps + 4 * 2);
-  EXPECT_EQ(triangleCount(thick->sceneSource()->sceneGeometry()),
+  EXPECT_EQ(triangleCount(thick->sceneSource()->sceneGeometry({})),
             thinCaps + 8 * 4 * 2)
     << "the caps were rebuilt once per layer";
 }
@@ -260,8 +260,8 @@ TEST_F(LayeredMeshTest, WallsBetweenNeighbouringColumnsAreNotBuilt)
   ASSERT_NE(one, nullptr) << message.toStdString();
   ASSERT_NE(two, nullptr) << message.toStdString();
 
-  const int single = triangleCount(one->sceneSource()->sceneGeometry());
-  const int pair = triangleCount(two->sceneSource()->sceneGeometry());
+  const int single = triangleCount(one->sceneSource()->sceneGeometry({}));
+  const int pair = triangleCount(two->sceneSource()->sceneGeometry({}));
 
   // Two columns, two layers: 2 caps each (8 triangles), and 6 outer walls
   // per layer rather than 8 — the shared edge contributes none. One column
@@ -287,7 +287,7 @@ TEST_F(LayeredMeshTest, AWallStandingProudOfItsNeighbourIsStillBuilt)
   ASSERT_NE(layer, nullptr) << message.toStdString();
 
   const QVector<SceneGeometry> batches =
-    layer->sceneSource()->sceneGeometry();
+    layer->sceneSource()->sceneGeometry({});
 
   // The shared wall is exposed over the 30 m the second column extends past
   // the first, so it is built — as part of column 1's own wall.
@@ -298,7 +298,7 @@ TEST_F(LayeredMeshTest, AWallStandingProudOfItsNeighbourIsStillBuilt)
   ASSERT_NE(flatLayer, nullptr);
 
   EXPECT_GT(triangleCount(batches),
-            triangleCount(flatLayer->sceneSource()->sceneGeometry()))
+            triangleCount(flatLayer->sceneSource()->sceneGeometry({})))
     << "the exposed part of the shared wall was dropped with the rest of it";
 
   // And it really is where the step is: the geometry must reach the deeper
@@ -325,7 +325,7 @@ TEST_F(LayeredMeshTest, TheGeometryBoundsAreTheWholeBoxItOccupies)
   ASSERT_NE(layer, nullptr) << message.toStdString();
 
   const QVector<SceneGeometry> batches =
-    layer->sceneSource()->sceneGeometry();
+    layer->sceneSource()->sceneGeometry({});
   ASSERT_EQ(batches.size(), 1);
 
   const Bounds3D &bounds = batches.first().bounds;
@@ -366,7 +366,7 @@ TEST_F(LayeredMeshTest, WallNormalsAreUnitAndPerpendicularToTheirEdge)
   ASSERT_NE(layer, nullptr) << message.toStdString();
 
   const QVector<SceneGeometry> batches =
-    layer->sceneSource()->sceneGeometry();
+    layer->sceneSource()->sceneGeometry({});
   ASSERT_EQ(batches.size(), 1);
 
   const QVector<SceneVertex> &vertices = batches.first().vertices;
@@ -424,7 +424,7 @@ TEST_F(LayeredMeshTest, PeelingToOneLayerShowsThatLayersElevations)
   ASSERT_EQ(layer->lastVisibleLayer(), 1);
 
   const QVector<SceneGeometry> batches =
-    layer->sceneSource()->sceneGeometry();
+    layer->sceneSource()->sceneGeometry({});
   ASSERT_EQ(batches.size(), 1);
 
   // Layer 1 of four spans -5 to -10 in a 0..-20 column.
@@ -442,10 +442,10 @@ TEST_F(LayeredMeshTest, PeelingExposesTheCapsOfTheRangeItLeaves)
     layeredLayer(flatStrip(1, 6), message);
   ASSERT_NE(layer, nullptr) << message.toStdString();
 
-  const int whole = triangleCount(layer->sceneSource()->sceneGeometry());
+  const int whole = triangleCount(layer->sceneSource()->sceneGeometry({}));
 
   layer->setVisibleLayers(2, 3);
-  const int slab = triangleCount(layer->sceneSource()->sceneGeometry());
+  const int slab = triangleCount(layer->sceneSource()->sceneGeometry({}));
 
   EXPECT_EQ(slab, 2 * 2 + 2 * 4 * 2);
   EXPECT_LT(slab, whole);
@@ -498,7 +498,7 @@ TEST_F(LayeredMeshTest, CellValuesColourTheLayerTheyBelongTo)
   style->classification().setClassColor(1, QColor(255, 0, 0));
 
   const QVector<SceneGeometry> batches =
-    layer->sceneSource()->sceneGeometry();
+    layer->sceneSource()->sceneGeometry({});
   ASSERT_EQ(batches.size(), 1);
 
   bool sawWarm = false;
@@ -534,13 +534,13 @@ TEST_F(LayeredMeshTest, ACellWhoseClassIsHiddenIsNotBuilt)
   style->setMode(StyleMode::Graduated);
   ASSERT_TRUE(style->classification().setManualBreaks({ 0.0, 12.0, 30.0 }));
 
-  const int both = triangleCount(layer->sceneSource()->sceneGeometry());
+  const int both = triangleCount(layer->sceneSource()->sceneGeometry({}));
   ASSERT_GT(both, 0);
 
   // Hide the cold class: the bed layer goes, the surface layer stays.
   style->classification().setClassVisible(0, false);
 
-  const int remaining = triangleCount(layer->sceneSource()->sceneGeometry());
+  const int remaining = triangleCount(layer->sceneSource()->sceneGeometry({}));
 
   EXPECT_LT(remaining, both) << "the hidden class was built anyway";
   EXPECT_GT(remaining, 0) << "hiding one class removed both";
@@ -548,7 +548,7 @@ TEST_F(LayeredMeshTest, ACellWhoseClassIsHiddenIsNotBuilt)
   // And it is the bed layer that went: nothing reaches the bottom any more.
   double lowest = 0.0;
 
-  for (const SceneGeometry &geometry : layer->sceneSource()->sceneGeometry())
+  for (const SceneGeometry &geometry : layer->sceneSource()->sceneGeometry({}))
   {
     lowest = std::min(lowest, double(geometry.bounds.minimum().z()));
   }
@@ -707,7 +707,7 @@ TEST_F(LayeredMeshTest, APlainTwoDimensionalFileStillLoadsAsASurface)
 
   ASSERT_NE(layer, nullptr) << message.toStdString();
   EXPECT_FALSE(layer->isLayered());
-  EXPECT_FALSE(layer->sceneSource()->sceneGeometry().isEmpty())
+  EXPECT_FALSE(layer->sceneSource()->sceneGeometry({}).isEmpty())
     << "a two-dimensional mesh lost its surface as well as its column";
 }
 

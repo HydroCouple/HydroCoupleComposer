@@ -599,7 +599,7 @@ TEST_F(Scene3DTest, AClassSwitchedOffInTheLegendIsNotDrawnInTheScene)
   ASSERT_GT(both, 0);
 
   const qsizetype allVertices =
-    layer->sceneSource()->sceneGeometry().first().vertices.size();
+    layer->sceneSource()->sceneGeometry({}).first().vertices.size();
 
   style->classification().setClassVisible(0, false);
   layer->notifyAppearanceChanged();
@@ -617,7 +617,7 @@ TEST_F(Scene3DTest, AClassSwitchedOffInTheLegendIsNotDrawnInTheScene)
   // zero, so uploading it anyway would look identical here — and would still
   // put every hidden cell on the bus, which at this phase's cell counts is
   // the difference the check is for.
-  EXPECT_LT(layer->sceneSource()->sceneGeometry().first().vertices.size(),
+  EXPECT_LT(layer->sceneSource()->sceneGeometry({}).first().vertices.size(),
             allVertices)
     << "a hidden class was uploaded and then blended away";
 }
@@ -632,7 +632,7 @@ TEST_F(Scene3DTest, ANodeMeshSuppliesNoSceneGeometry)
   ASSERT_NE(layer, nullptr);
 
   ASSERT_NE(layer->sceneSource(), nullptr);
-  EXPECT_TRUE(layer->sceneSource()->sceneGeometry().isEmpty());
+  EXPECT_TRUE(layer->sceneSource()->sceneGeometry({}).isEmpty());
 }
 
 TEST_F(Scene3DTest, AnEdgeMeshSuppliesLines)
@@ -645,7 +645,7 @@ TEST_F(Scene3DTest, AnEdgeMeshSuppliesLines)
     QStringLiteral("edges"), mesh, MeshEntity::Edge, message);
   ASSERT_NE(layer, nullptr);
 
-  const QVector<SceneGeometry> batches = layer->sceneSource()->sceneGeometry();
+  const QVector<SceneGeometry> batches = layer->sceneSource()->sceneGeometry({});
   ASSERT_EQ(batches.size(), 1);
   EXPECT_EQ(batches.first().primitive, ScenePrimitive::Lines);
   EXPECT_EQ(batches.first().indices.size(), 4);
@@ -678,7 +678,7 @@ TEST_F(Scene3DTest, FaceConnectivityIsWhatSuppliesEachCornerItsElevation)
     QStringLiteral("ridge"), ridge(40.0), MeshEntity::Face, message);
   ASSERT_NE(layer, nullptr);
 
-  const QVector<SceneGeometry> batches = layer->sceneSource()->sceneGeometry();
+  const QVector<SceneGeometry> batches = layer->sceneSource()->sceneGeometry({});
   ASSERT_EQ(batches.size(), 1);
 
   const SceneGeometry &geometry = batches.first();
@@ -706,7 +706,7 @@ TEST_F(Scene3DTest, ANonPlanarFaceGetsOneNormalRatherThanAThreeCornerGuess)
     QStringLiteral("warped"), warped, MeshEntity::Face, message);
   ASSERT_NE(layer, nullptr);
 
-  const QVector<SceneGeometry> batches = layer->sceneSource()->sceneGeometry();
+  const QVector<SceneGeometry> batches = layer->sceneSource()->sceneGeometry({});
   ASSERT_EQ(batches.size(), 1);
 
   const SceneGeometry &geometry = batches.first();

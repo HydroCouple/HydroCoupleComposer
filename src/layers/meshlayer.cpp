@@ -14,6 +14,8 @@
 #include <QPair>
 #include <QVarLengthArray>
 
+#include <nanoflann.hpp>
+
 #include <cmath>
 
 #include <algorithm>
@@ -26,6 +28,91 @@ namespace HydroCouple::Composer
   namespace
   {
     namespace Spatial = HydroCouple::Spatial;
+
+    /*!
+     * \brief Face centroids, in the layout nanoflann reads.
+     *
+     * Structure of arrays rather than a vector of points because the tree
+     * reads one coordinate at a time and a vector of QPointF would make every
+     * such read touch a cache line it uses half of.
+     */
+    struct CentroidCloud
+    {
+        std::vector<double> x;
+        std::vector<double> y;
+
+        //! The feature each centroid came from. Not the index into this
+        //! cloud: faces the layer skipped leave the two sequences different
+        //! lengths, and a query answering with the wrong face's elevations
+        //! would look like a mesh that is slightly bent.
+        std::vector<int> feature;
+
+        [[nodiscard]] size_t kdtree_get_point_count() const
+        {
+          return x.size();
+        }
+
+        [[nodiscard]] double kdtree_get_pt(size_t index, size_t dimension) const
+        {
+          return dimension == 0 ? x[index] : y[index];
+        }
+
+        template<typename BoundingBox>
+        bool kdtree_get_bbox(BoundingBox &) const
+        {
+          return false;
+        }
+    };
+
+    using CentroidTree = nanoflann::KDTreeSingleIndexAdaptor<
+      nanoflann::L2_Simple_Adaptor<double, CentroidCloud>, CentroidCloud, 2>;
+
+    /*!
+     * \brief Interpolates \a point across the triangle \a a \a b \a c.
+     *
+     * Barycentric, so the answer is the plane through the three corners
+     * evaluated at the point — which is precisely what the renderer draws
+     * between them.
+     *
+     * \returns False when \a point is outside the triangle, or the triangle
+     *          is degenerate.
+     */
+    bool interpolateTriangle(const QPointF &point, const QPointF &a,
+                             const QPointF &b, const QPointF &c, double za,
+                             double zb, double zc, double &elevation)
+    {
+      const double area = (b.y() - c.y()) * (a.x() - c.x()) +
+                          (c.x() - b.x()) * (a.y() - c.y());
+
+      if (area == 0.0)
+      {
+        return false;
+      }
+
+      const double first = ((b.y() - c.y()) * (point.x() - c.x()) +
+                            (c.x() - b.x()) * (point.y() - c.y())) /
+                           area;
+      const double second = ((c.y() - a.y()) * (point.x() - c.x()) +
+                             (a.x() - c.x()) * (point.y() - c.y())) /
+                            area;
+      const double third = 1.0 - first - second;
+
+      // The tolerance is on dimensionless weights, so it means the same thing
+      // on a metre-scale mesh and a degree-scale one. Without it a point on a
+      // shared edge belongs to neither of the two faces that meet there, and
+      // a drape develops pinholes along every cell boundary it crosses.
+      constexpr double kEdgeTolerance = -1.0e-9;
+
+      if (first < kEdgeTolerance || second < kEdgeTolerance ||
+          third < kEdgeTolerance)
+      {
+        return false;
+      }
+
+      elevation = first * za + second * zb + third * zc;
+
+      return true;
+    }
 
     /*!
      * \brief Builds a mesh from a regular grid's nodes and active cells.
@@ -649,9 +736,233 @@ namespace HydroCouple::Composer
   }
 
 
-  QVector<SceneGeometry> MeshLayer::sceneGeometry() const
+  QVector<SceneGeometry> MeshLayer::sceneGeometry(
+    const SceneContext &context) const
   {
+    Q_UNUSED(context)
+
     return isLayered() ? prismGeometry() : surfaceGeometry();
+  }
+
+  // ── ITerrainSource ─────────────────────────────────────────────────────────
+
+  struct MeshLayer::TerrainIndex
+  {
+      CentroidCloud cloud;
+      std::unique_ptr<CentroidTree> tree;
+
+      //! The farthest any face's corner lies from its own centroid. The reach
+      //! a query has to widen to before it can conclude that no face contains
+      //! the point.
+      double maxRadius = 0.0;
+
+      //! Mean face edge length — what a drape densifies to.
+      double resolution = 0.0;
+
+      QRectF extent;
+  };
+
+  void MeshLayer::onMapCrsChanged()
+  {
+    FeatureLayer::onMapCrsChanged();
+
+    // The index holds projected positions, so a new map CRS invalidates every
+    // one of them. Dropped rather than rebuilt: a stack whose CRS changed may
+    // never be sampled again.
+    m_terrainIndex.reset();
+  }
+
+  void MeshLayer::ensureTerrainIndex() const
+  {
+    if (m_terrainIndex)
+    {
+      return;
+    }
+
+    auto index = std::make_unique<TerrainIndex>();
+
+    if (m_entity == MeshEntity::Face)
+    {
+      const QVector<QVector<QPolygonF>> &projected = projectedFeatures();
+      double edgeSum = 0.0;
+
+      for (int feature = 0; feature < projected.size(); ++feature)
+      {
+        if (projected[feature].isEmpty() || feature >= m_entityIndex.size())
+        {
+          continue;
+        }
+
+        const qint64 entity = m_entityIndex[feature];
+
+        if (entity >= m_mesh.faceCount())
+        {
+          continue;
+        }
+
+        const int64_t from =
+          m_mesh.faceNodeOffsets[static_cast<size_t>(entity)];
+        const int64_t to =
+          m_mesh.faceNodeOffsets[static_cast<size_t>(entity) + 1];
+        const int corners = int(to - from);
+        const QPolygonF &ring = projected[feature].first();
+
+        if (corners < 3 || ring.size() < corners)
+        {
+          continue;
+        }
+
+        QPointF centroid;
+
+        for (int corner = 0; corner < corners; ++corner)
+        {
+          centroid += ring.at(corner);
+        }
+
+        centroid /= double(corners);
+
+        double radius = 0.0;
+        double perimeter = 0.0;
+
+        for (int corner = 0; corner < corners; ++corner)
+        {
+          const QPointF offset = ring.at(corner) - centroid;
+          radius = std::max(radius, std::hypot(offset.x(), offset.y()));
+
+          const QPointF edge =
+            ring.at((corner + 1) % corners) - ring.at(corner);
+          perimeter += std::hypot(edge.x(), edge.y());
+        }
+
+        index->cloud.x.push_back(centroid.x());
+        index->cloud.y.push_back(centroid.y());
+        index->cloud.feature.push_back(feature);
+        index->maxRadius = std::max(index->maxRadius, radius);
+
+        // Mean edge length, not the cell's width across: the spacing that
+        // matters is the one over which the surface can turn, and a cell
+        // turns at its edges.
+        edgeSum += perimeter / double(corners);
+
+        const QRectF box = ring.boundingRect();
+        index->extent =
+          index->extent.isNull() ? box : index->extent.united(box);
+      }
+
+      if (!index->cloud.x.empty())
+      {
+        index->resolution = edgeSum / double(index->cloud.x.size());
+        index->tree = std::make_unique<CentroidTree>(2, index->cloud);
+      }
+    }
+
+    m_terrainIndex = std::move(index);
+  }
+
+  const ITerrainSource *MeshLayer::terrain() const
+  {
+    // Elevations are what makes a mesh a surface. Without them it is a sheet
+    // at zero, and draping a network onto that moves nothing — so it declines
+    // rather than answering a terrain that is indistinguishable from none.
+    if (m_entity != MeshEntity::Face || m_mesh.faceCount() == 0 ||
+        m_mesh.nodeZ.empty())
+    {
+      return nullptr;
+    }
+
+    return this;
+  }
+
+  bool MeshLayer::elevationAt(const QPointF &point, double &elevation) const
+  {
+    ensureTerrainIndex();
+
+    if (!m_terrainIndex->tree || !m_terrainIndex->extent.contains(point))
+    {
+      return false;
+    }
+
+    const QVector<QVector<QPolygonF>> &projected = projectedFeatures();
+
+    const auto sampleFace = [&](int feature, double &result) -> bool
+    {
+      const qint64 entity = m_entityIndex[feature];
+      const int64_t from = m_mesh.faceNodeOffsets[static_cast<size_t>(entity)];
+      const int64_t to =
+        m_mesh.faceNodeOffsets[static_cast<size_t>(entity) + 1];
+      const int corners = int(to - from);
+      const QPolygonF &ring = projected[feature].first();
+
+      // The same fan the renderer triangulates with — from the ring's first
+      // corner — because a sample taken off a different tessellation of a
+      // non-planar face lies off the surface that is actually drawn.
+      for (int corner = 1; corner + 1 < corners; ++corner)
+      {
+        if (interpolateTriangle(
+              point, ring.at(0), ring.at(corner), ring.at(corner + 1),
+              nodeElevation(m_mesh.faceNodes[static_cast<size_t>(from)]),
+              nodeElevation(
+                m_mesh.faceNodes[static_cast<size_t>(from + corner)]),
+              nodeElevation(
+                m_mesh.faceNodes[static_cast<size_t>(from + corner + 1)]),
+              result))
+        {
+          return true;
+        }
+      }
+
+      return false;
+    };
+
+    const double query[2] = { point.x(), point.y() };
+
+    // The nearest centroid's face contains the point on any mesh whose cells
+    // are convex and comparable in size, which is the common case and costs
+    // one descent of the tree.
+    size_t nearest = 0;
+    double distance = 0.0;
+    nanoflann::KNNResultSet<double> knn(1);
+    knn.init(&nearest, &distance);
+
+    if (m_terrainIndex->tree->findNeighbors(knn, query) &&
+        sampleFace(m_terrainIndex->cloud.feature[nearest], elevation))
+    {
+      return true;
+    }
+
+    // It did not, so widen to every face that could possibly reach the point.
+    // Exact, unlike guessing at a neighbour count: a face whose centroid is
+    // farther than its own greatest corner reach cannot contain the point.
+    std::vector<nanoflann::ResultItem<CentroidTree::IndexType, double>>
+      candidates;
+    const double reach = m_terrainIndex->maxRadius * m_terrainIndex->maxRadius;
+
+    // The count comes back in `candidates` itself; the return value repeats it.
+    (void)m_terrainIndex->tree->radiusSearch(query, reach, candidates);
+
+    for (const auto &candidate : candidates)
+    {
+      if (sampleFace(m_terrainIndex->cloud.feature[candidate.first], elevation))
+      {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  QRectF MeshLayer::terrainExtent() const
+  {
+    ensureTerrainIndex();
+
+    return m_terrainIndex->extent;
+  }
+
+  double MeshLayer::terrainResolution() const
+  {
+    ensureTerrainIndex();
+
+    return m_terrainIndex->resolution;
   }
 
   bool MeshLayer::setLayering(LayeredMesh mesh, QString &message)

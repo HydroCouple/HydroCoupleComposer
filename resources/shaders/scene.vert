@@ -16,7 +16,7 @@ layout(std140, binding = 0) uniform buf {
     mat4 mvp;
     mat4 normalMatrix;
     vec4 lightDirection;
-    vec4 params;          // x = opacity, y = ambient
+    vec4 params;          // x = opacity, y = ambient, z = depth nudge
 } ubuf;
 
 out gl_PerVertex { vec4 gl_Position; };
@@ -28,4 +28,11 @@ void main()
     vNormal     = normalize((ubuf.normalMatrix * vec4(normal, 0.0)).xyz);
     vColor      = color;
     gl_Position = ubuf.mvp * vec4(position, 1.0);
+
+    // Coplanar lines are pulled a hair toward the eye, so that a mesh's edges
+    // and a draped network are not decided against the very surface they lie
+    // on by whichever way the two interpolators rounded. Scaled by w, so the
+    // shift is the same in normalised depth at any distance, and zero for
+    // everything that is not a line.
+    gl_Position.z -= ubuf.params.z * gl_Position.w;
 }

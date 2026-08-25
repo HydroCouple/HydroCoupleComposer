@@ -44,6 +44,7 @@ class QRhiShaderResourceBindings;
 
 namespace HydroCouple::Composer
 {
+  class ITerrainSource;
   class LayerStackModel;
 
   /*!
@@ -162,6 +163,9 @@ namespace HydroCouple::Composer
       void sceneChanged();
 
     private:
+      //! The stack's uppermost visible terrain, or nullptr.
+      [[nodiscard]] const ITerrainSource *resolveTerrain() const;
+
       //! One layer's geometry, uploaded.
       struct Batch
       {

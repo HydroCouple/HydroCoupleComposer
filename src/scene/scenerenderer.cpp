@@ -18,6 +18,29 @@ namespace HydroCouple::Composer
     //! mat4 mvp, mat4 normalMatrix, vec4 lightDirection, vec4 params.
     constexpr int kUniformBlockSize = 64 + 64 + 16 + 16;
 
+    /*!
+     * \brief How far a line is pulled toward the eye, in clip space.
+     *
+     * Lines in this scene are coplanar with surfaces by construction: a mesh's
+     * edges lie on its own faces, and a draped network lies on the terrain it
+     * was sampled from. Their depths then differ only by how each interpolator
+     * rounded, and which one wins changes with the camera angle — measured on
+     * one flat sheet, the line is drawn at 89 degrees of elevation and gone at
+     * 90, which is exactly the view the map hands over.
+     *
+     * Neither of the two obvious remedies works. Depth bias is applied by
+     * Metal, D3D11 and Vulkan to filled primitives only, so a biased line
+     * pipeline is inert — measured, pixel-identical with and without. And a
+     * LessOrEqual compare only covers exact ties, which this is not.
+     *
+     * Nudging in the shader keeps the drape honest, which is the point:
+     * the vertices stay on the surface they claim to be on, so measuring one
+     * gives back the elevation it was sampled at, and only the depth written
+     * for it moves. Small enough that a line genuinely behind a hill still
+     * loses — a hundredth of a percent of the depth range.
+     */
+    constexpr float kCoplanarLineNudge = 1.0e-4f;
+
     QShader loadShader(const QString &path)
     {
       QFile file(path);
@@ -112,6 +135,37 @@ namespace HydroCouple::Composer
     }
 
     return bounds;
+  }
+
+  const ITerrainSource *SceneRenderer::resolveTerrain() const
+  {
+    if (!m_model)
+    {
+      return nullptr;
+    }
+
+    // The uppermost terrain in the tree wins. renderOrder() is bottom-up —
+    // it is a draw order — so the last one it yields is the top one, and
+    // reversing that would silently drape on whatever happened to be lowest.
+    const ITerrainSource *terrain = nullptr;
+
+    for (const MapLayer *layer : m_model->renderOrder())
+    {
+      if (!layer->isVisible())
+      {
+        continue;
+      }
+
+      if (const ISceneSource *source = layer->sceneSource())
+      {
+        if (const ITerrainSource *candidate = source->terrain())
+        {
+          terrain = candidate;
+        }
+      }
+    }
+
+    return terrain;
   }
 
   bool SceneRenderer::initialize(QRhi *rhi, QRhiRenderPassDescriptor *descriptor,
@@ -260,6 +314,11 @@ namespace HydroCouple::Composer
       return;
     }
 
+    // Resolved once for the whole stack, before anything is built: draping is
+    // a property of the composition, and a layer that went looking for its own
+    // terrain would be a layer that knows what else is in the stack.
+    const SceneContext context = { resolveTerrain() };
+
     for (const MapLayer *layer : m_model->renderOrder())
     {
       if (!layer->isVisible())
@@ -274,7 +333,7 @@ namespace HydroCouple::Composer
         continue;
       }
 
-      for (const SceneGeometry &geometry : source->sceneGeometry())
+      for (const SceneGeometry &geometry : source->sceneGeometry(context))
       {
         if (geometry.isEmpty())
         {
@@ -388,6 +447,9 @@ namespace HydroCouple::Composer
       block[35] = 0.0f;
       block[36] = batch.opacity;
       block[37] = float(m_ambient);
+      block[38] = batch.primitive == ScenePrimitive::Lines
+                    ? kCoplanarLineNudge
+                    : 0.0f;
 
       updates->updateDynamicBuffer(batch.uniformBuffer.get(), 0,
                                    kUniformBlockSize, block);

@@ -75,7 +75,7 @@ int main(int argc, char **argv)
 
   QElapsedTimer timer;
   timer.start();
-  const QVector<SceneGeometry> batches = owned->sceneSource()->sceneGeometry();
+  const QVector<SceneGeometry> batches = owned->sceneSource()->sceneGeometry({});
   const qint64 buildMs = timer.elapsed();
 
   qint64 verts = 0, tris = 0;
@@ -175,14 +175,14 @@ int main(int argc, char **argv)
   {
     raw->setVisibleLayers(layer, layer);
     timer.restart();
-    const auto peeled = raw->sceneSource()->sceneGeometry();
+    const auto peeled = raw->sceneSource()->sceneGeometry({});
     worst = std::max(worst, timer.elapsed());
   }
   std::printf("peel rebuild (worst of %d) = %lldms\n", layers, (long long)worst);
 
   raw->setVisibleLayers(0, layers - 1);
   timer.restart();
-  const auto full = raw->sceneSource()->sceneGeometry();
+  const auto full = raw->sceneSource()->sceneGeometry({});
   std::printf("full-stack rebuild = %lldms\n", (long long)timer.elapsed());
 
   return 0;
