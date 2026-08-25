@@ -16,6 +16,7 @@
 #define HYDROCOUPLECOMPOSER_LAYERS_MESHLAYER_H
 
 #include "layers/featurelayer.h"
+#include "layers/layeredmesh.h"
 #include "scene/scenesource.h"
 
 #include "hydrocouplesdk/io/meshdefinition.h"
@@ -145,6 +146,62 @@ namespace HydroCouple::Composer
       [[nodiscard]] QString valueAttribute() const;
 
       /*!
+       * \brief Gives the layer a vertical discretisation.
+       *
+       * The map is unaffected — in plan view a layered mesh is its own
+       * horizontal mesh — but the 3D scene switches from drawing a surface
+       * to drawing the columns of prismatic cells the layering describes.
+       *
+       * \param mesh The layered mesh; its horizontal part must match this
+       *        layer's own, since the features were built from it.
+       * \param[out] message Diagnostic on failure.
+       * \returns True when the layering was accepted.
+       */
+      bool setLayering(LayeredMesh mesh, QString &message);
+
+      /*!
+       * \brief Whether the layer has a vertical discretisation.
+       */
+      [[nodiscard]] bool isLayered() const;
+
+      /*!
+       * \brief The vertical discretisation; layerCount is zero without one.
+       */
+      [[nodiscard]] const LayeredMesh &layering() const;
+
+      /*!
+       * \brief Attaches one value per cell of a layered mesh.
+       *
+       * Indexed as FVQual indexes them — `column * layerCount + k` — because
+       * a field read from one of its files is in that order, and reading it
+       * in the other transposes the water column into something that still
+       * looks like data.
+       *
+       * \param name Attribute name to offer the values under.
+       * \param values One value per cell.
+       * \returns True when the count matched and the values were attached.
+       */
+      bool setLayeredValues(const QString &name, const QVector<double> &values);
+
+      /*!
+       * \brief The layers the scene draws, inclusive.
+       *
+       * Peeling: the whole point of a layered view is to look *inside*, and
+       * a full stack of prisms shows only its own outer skin. Clamped to the
+       * mesh, and an inverted range is taken as the single layer \a first.
+       *
+       * \param first Topmost layer to draw; 0 is the surface layer.
+       * \param last Bottommost layer to draw.
+       */
+      void setVisibleLayers(int first, int last);
+
+      //! \copybrief setVisibleLayers
+      [[nodiscard]] int firstVisibleLayer() const;
+
+      //! \copybrief setVisibleLayers
+      [[nodiscard]] int lastVisibleLayer() const;
+
+      /*!
        * \brief This layer, as the 3D scene's geometry supplier.
        */
       [[nodiscard]] const ISceneSource *sceneSource() const override;
@@ -172,9 +229,23 @@ namespace HydroCouple::Composer
       //! Elevation of a node, or zero for a mesh that carries none.
       [[nodiscard]] double nodeElevation(qint64 node) const;
 
+      //! Emits the flat surface a mesh without layering draws.
+      [[nodiscard]] QVector<SceneGeometry> surfaceGeometry() const;
+
+      //! Emits the prismatic cells a layered mesh draws.
+      [[nodiscard]] QVector<SceneGeometry> prismGeometry() const;
+
+      //! Colour for a cell value, straight from the style's classification.
+      [[nodiscard]] QColor colorForCellValue(double value) const;
+
       HydroCouple::SDK::IO::MeshDefinition m_mesh;
       MeshEntity m_entity = MeshEntity::Face;
       QString m_valueAttribute;
+
+      LayeredMesh m_layering;
+      QVector<double> m_cellValues;
+      int m_firstVisibleLayer = 0;
+      int m_lastVisibleLayer = -1;
 
       //! The mesh entity each feature came from. Not the feature's own index:
       //! faces whose connectivity points outside the node array are skipped,

@@ -153,6 +153,8 @@ set(COMPOSER_SOURCES
     src/layers/dataitemlayer.cpp
     include/layers/gdalvectorlayer.h
     src/layers/gdalvectorlayer.cpp
+    include/layers/layeredmesh.h
+    src/layers/layeredmesh.cpp
     include/layers/meshlayer.h
     src/layers/meshlayer.cpp
     include/layers/gdalrasterlayer.h

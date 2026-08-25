@@ -19,6 +19,7 @@
 #include "map/maptransform.h"
 #include "render/attributeprovider.h"
 #include "layers/gdalvectorlayer.h"
+#include "layers/layeredmesh.h"
 #include "layers/meshlayer.h"
 #include "render/layerstyle.h"
 #include "scene/sceneview.h"
@@ -239,6 +240,22 @@ int main(int argc, char *argv[])
   const bool captureMesh =
     argc > 2 && QString::fromLocal8Bit(argv[2]) == QLatin1String("--mesh");
 
+  // --layered: the radial mesh given a water column, shown in 3D as the
+  // prismatic cells FVQual solves on, coloured by a stratified temperature.
+  const bool captureLayered =
+    argc > 2 && QString::fromLocal8Bit(argv[2]) == QLatin1String("--layered");
+
+  // --peel <k>: show only layer k of the layered capture.
+  int peelLayer = -1;
+
+  for (int index = 2; index + 1 < argc; ++index)
+  {
+    if (QString::fromLocal8Bit(argv[index]) == QLatin1String("--peel"))
+    {
+      peelLayer = QString::fromLocal8Bit(argv[index + 1]).toInt();
+    }
+  }
+
   // --scene: the same mesh, shown in the 3D view. Its node elevations make
   // the bowl the depth field describes, which the map can only colour.
   const bool captureScene =
@@ -255,7 +272,7 @@ int main(int argc, char *argv[])
   window.resize(1400, 880);
   window.show();
 
-  if (captureMesh || captureScene)
+  if (captureMesh || captureScene || captureLayered)
   {
     // A radial mesh: rings of quads around a centre, each face carrying a
     // value that falls off with distance — the shape a depth field takes.
@@ -343,7 +360,75 @@ int main(int argc, char *argv[])
       layer->style()->setSymbol(symbol);
 
       layer->restyle();
-      window.layerStack()->addLayer(layer.release());
+
+      MeshLayer *added = layer.release();
+      window.layerStack()->addLayer(added);
+
+      if (captureLayered)
+      {
+        // Ten sigma layers over the bowl, with a thermocline: warm at the
+        // surface, cold at the bed, and the gradient in between. This is the
+        // shape a stratified reservoir takes, and the reason the 3D view has
+        // to be able to cut into it at all.
+        constexpr int kLayers = 10;
+
+        std::vector<double> cfSigma(kLayers + 1);
+        for (int k = 0; k <= kLayers; ++k)
+          cfSigma[std::size_t(k)] = -double(k) / double(kLayers);
+
+        const std::size_t columns = std::size_t(mesh.faceCount());
+        std::vector<double> depth(columns), surface(columns, 0.0);
+
+        for (std::size_t column = 0; column < columns; ++column)
+        {
+          // Bed depth from the mesh's own node elevations, so the water
+          // column follows the bowl the map is showing.
+          const std::int64_t from = mesh.faceNodeOffsets[column];
+          const std::int64_t to = mesh.faceNodeOffsets[column + 1];
+
+          double bed = 0.0;
+          for (std::int64_t slot = from; slot < to; ++slot)
+            bed += mesh.nodeZ[std::size_t(mesh.faceNodes[std::size_t(slot)])];
+
+          depth[column] = -bed / double(to - from);
+        }
+
+        QString layeredMessage;
+        const LayeredMesh layered = LayeredMesh::fromCfSigma(
+          mesh, cfSigma, depth, surface, layeredMessage);
+
+        if (added->setLayering(layered, layeredMessage))
+        {
+          QVector<double> temperature;
+          temperature.reserve(int(layered.cellCount()));
+
+          for (std::size_t column = 0; column < columns; ++column)
+          {
+            for (int k = 0; k < kLayers; ++k)
+            {
+              // A thermocline centred a third of the way down.
+              const double fraction = (double(k) + 0.5) / double(kLayers);
+              temperature.append(
+                6.0 + 18.0 / (1.0 + std::exp((fraction - 0.33) * 14.0)));
+            }
+          }
+
+          added->setLayeredValues(QStringLiteral("temperature"), temperature);
+          added->setName(QObject::tr("Temperature (°C)"));
+
+          added->style()->setAttribute(QStringLiteral("temperature"));
+          added->style()->classification().classify(temperature);
+          added->style()->classification().setRamp(
+            ColorRamp::builtin(QStringLiteral("Inferno")));
+
+          if (peelLayer >= 0)
+            added->setVisibleLayers(peelLayer, peelLayer);
+        }
+        else
+        {
+          std::cerr << layeredMessage.toStdString() << '\n';
+        }
+      }
     }
     else
     {
@@ -353,17 +438,17 @@ int main(int argc, char *argv[])
     if (auto *tabs =
           window.findChild<QTabWidget *>(QStringLiteral("workspaceTabs")))
     {
-      tabs->setCurrentWidget(captureScene
+      tabs->setCurrentWidget((captureScene || captureLayered)
                                ? static_cast<QWidget *>(window.sceneView())
                                : static_cast<QWidget *>(window.mapCanvas()));
     }
 
-    if (captureScene && window.sceneView())
+    if ((captureScene || captureLayered) && window.sceneView())
     {
       Camera camera = window.sceneView()->camera();
-      camera.setElevation(32.0);
+      camera.setElevation(captureLayered ? 20.0 : 32.0);
       camera.setAzimuth(35.0);
-      camera.setVerticalExaggeration(2.5);
+      camera.setVerticalExaggeration(captureLayered ? 6.0 : 2.5);
       window.sceneView()->setCamera(camera);
       window.sceneView()->zoomToFullExtent();
     }
@@ -505,7 +590,8 @@ int main(int argc, char *argv[])
                                Qt::KeepAspectRatio);
   }
 
-  if (captureMap || captureGis || captureMesh || captureScene)
+  if (captureMap || captureGis || captureMesh || captureScene ||
+      captureLayered)
   {
     if (auto *ribbon = window.findChild<RibbonBar *>(QStringLiteral("ribbonBar")))
     {

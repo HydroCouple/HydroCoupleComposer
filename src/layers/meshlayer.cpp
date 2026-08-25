@@ -10,6 +10,9 @@
 #include <QFileInfo>
 #include <QObject>
 
+#include <QHash>
+#include <QPair>
+
 #include <algorithm>
 #include <vector>
 
@@ -499,7 +502,7 @@ namespace HydroCouple::Composer
     return bounds;
   }
 
-  QVector<SceneGeometry> MeshLayer::sceneGeometry() const
+  QVector<SceneGeometry> MeshLayer::surfaceGeometry() const
   {
     QVector<SceneGeometry> batches;
 
@@ -631,6 +634,385 @@ namespace HydroCouple::Composer
         geometry.indices.append(base);
         geometry.indices.append(base + quint32(corner));
         geometry.indices.append(base + quint32(corner) + 1);
+      }
+    }
+
+    if (!geometry.isEmpty())
+    {
+      batches.append(std::move(geometry));
+    }
+
+    return batches;
+  }
+
+
+  QVector<SceneGeometry> MeshLayer::sceneGeometry() const
+  {
+    return isLayered() ? prismGeometry() : surfaceGeometry();
+  }
+
+  bool MeshLayer::setLayering(LayeredMesh mesh, QString &message)
+  {
+    if (!mesh.isValid(message))
+    {
+      return false;
+    }
+
+    // The features were built from the horizontal mesh, and the columns are
+    // those faces. A layering built on a different mesh would index into the
+    // wrong columns and look almost right.
+    if (mesh.columnCount() != m_mesh.faceCount())
+    {
+      message = QObject::tr("The layering describes %1 columns but the layer "
+                            "draws a mesh of %2 faces.")
+                  .arg(mesh.columnCount())
+                  .arg(m_mesh.faceCount());
+
+      return false;
+    }
+
+    m_layering = std::move(mesh);
+    m_cellValues.clear();
+    m_firstVisibleLayer = 0;
+    m_lastVisibleLayer = m_layering.layerCount - 1;
+
+    notifyAppearanceChanged();
+
+    return true;
+  }
+
+  bool MeshLayer::isLayered() const
+  {
+    return m_layering.layerCount > 0;
+  }
+
+  const LayeredMesh &MeshLayer::layering() const
+  {
+    return m_layering;
+  }
+
+  bool MeshLayer::setLayeredValues(const QString &name,
+                                   const QVector<double> &values)
+  {
+    if (!isLayered() || values.size() != m_layering.cellCount())
+    {
+      return false;
+    }
+
+    m_cellValues = values;
+    m_valueAttribute = name;
+
+    notifyAppearanceChanged();
+
+    return true;
+  }
+
+  void MeshLayer::setVisibleLayers(int first, int last)
+  {
+    if (!isLayered())
+    {
+      return;
+    }
+
+    const int top = std::clamp(first, 0, m_layering.layerCount - 1);
+    const int bottom = std::clamp(last, top, m_layering.layerCount - 1);
+
+    if (top == m_firstVisibleLayer && bottom == m_lastVisibleLayer)
+    {
+      return;
+    }
+
+    m_firstVisibleLayer = top;
+    m_lastVisibleLayer = bottom;
+
+    notifyAppearanceChanged();
+  }
+
+  int MeshLayer::firstVisibleLayer() const
+  {
+    return m_firstVisibleLayer;
+  }
+
+  int MeshLayer::lastVisibleLayer() const
+  {
+    return m_lastVisibleLayer;
+  }
+
+  QColor MeshLayer::colorForCellValue(double value) const
+  {
+    const LayerStyle *layerStyle = style();
+
+    if (!layerStyle)
+    {
+      return QColor(Qt::gray);
+    }
+
+    // Cell values do not belong to a feature — there are layerCount of them
+    // per face — so the classification is asked directly rather than through
+    // the feature-indexed colorFor(). It is the same classification the map
+    // and the legend read, which is what keeps the three consistent.
+    const Classification &classification = layerStyle->classification();
+
+    if (layerStyle->mode() == StyleMode::Single || classification.isEmpty())
+    {
+      return layerStyle->symbol().fill;
+    }
+
+    const int index = classification.indexFor(value);
+
+    if (index < 0 || index >= classification.breaks().size())
+    {
+      return {};
+    }
+
+    const ClassBreak &band = classification.breaks()[index];
+
+    return band.visible ? band.color : QColor();
+  }
+
+
+  QVector<SceneGeometry> MeshLayer::prismGeometry() const
+  {
+    QVector<SceneGeometry> batches;
+
+    const QVector<QVector<QPolygonF>> &projected = projectedFeatures();
+
+    // ── Which columns share each edge ─────────────────────────────────────
+    //
+    // A vertical wall between two columns is inside the water, and drawing
+    // it would put three quarters of a large mesh's triangles where nobody
+    // can see them. Adjacency is what says which walls are on the outside;
+    // it is keyed on the node pair rather than on geometry, so two columns
+    // meeting along an edge are neighbours regardless of how their corners
+    // were wound.
+    QHash<QPair<qint64, qint64>, QPair<int, int>> sharedEdges;
+
+    const auto edgeKey = [](qint64 a, qint64 b)
+    { return a < b ? QPair<qint64, qint64>(a, b) : QPair<qint64, qint64>(b, a); };
+
+    const auto ringNodes = [this](qint64 column, QVector<qint64> &nodes)
+    {
+      const int64_t from = m_mesh.faceNodeOffsets[static_cast<size_t>(column)];
+      const int64_t to = m_mesh.faceNodeOffsets[static_cast<size_t>(column) + 1];
+
+      nodes.clear();
+      nodes.reserve(int(to - from));
+
+      for (int64_t slot = from; slot < to; ++slot)
+      {
+        nodes.append(m_mesh.faceNodes[static_cast<size_t>(slot)]);
+      }
+    };
+
+    QVector<qint64> nodes;
+
+    for (int feature = 0; feature < projected.size(); ++feature)
+    {
+      if (feature >= m_entityIndex.size())
+      {
+        continue;
+      }
+
+      ringNodes(m_entityIndex[feature], nodes);
+
+      for (int corner = 0; corner < nodes.size(); ++corner)
+      {
+        const QPair<qint64, qint64> key =
+          edgeKey(nodes[corner], nodes[(corner + 1) % nodes.size()]);
+
+        auto existing = sharedEdges.find(key);
+
+        if (existing == sharedEdges.end())
+        {
+          sharedEdges.insert(key, { feature, -1 });
+        }
+        else if (existing->second < 0)
+        {
+          existing->second = feature;
+        }
+      }
+    }
+
+    // ── Geometry ──────────────────────────────────────────────────────────
+    SceneGeometry geometry;
+    geometry.primitive = ScenePrimitive::Triangles;
+
+    const auto slabTop = [this](qint64 column)
+    { return m_layering.z(column, m_firstVisibleLayer); };
+
+    const auto slabBottom = [this](qint64 column)
+    { return m_layering.z(column, m_lastVisibleLayer + 1); };
+
+    const auto cellColor = [this](qint64 column, int layer) -> QColor
+    {
+      if (m_cellValues.isEmpty())
+      {
+        const LayerStyle *layerStyle = style();
+
+        return layerStyle ? layerStyle->symbol().fill : QColor(Qt::gray);
+      }
+
+      return colorForCellValue(
+        m_cellValues[int(m_layering.cell(column, layer))]);
+    };
+
+    //! Adds a horizontal polygon at one elevation.
+    const auto addCap = [&geometry](const QPolygonF &ring, int corners,
+                                    double elevation, const QVector3D &normal,
+                                    const QColor &color)
+    {
+      const quint32 base = quint32(geometry.vertices.size());
+
+      for (int corner = 0; corner < corners; ++corner)
+      {
+        geometry.addVertex(QVector3D(float(ring[corner].x()),
+                                     float(ring[corner].y()),
+                                     float(elevation)),
+                           normal, color);
+      }
+
+      for (int corner = 1; corner + 1 < corners; ++corner)
+      {
+        geometry.indices.append(base);
+        geometry.indices.append(base + quint32(corner));
+        geometry.indices.append(base + quint32(corner) + 1);
+      }
+    };
+
+    //! Adds one vertical quad along an edge, between two elevations.
+    const auto addWall = [&geometry](const QPointF &a, const QPointF &b,
+                                     double low, double high,
+                                     const QColor &color)
+    {
+      if (high - low <= 0.0)
+      {
+        return;
+      }
+
+      QVector3D normal(float(b.y() - a.y()), float(a.x() - b.x()), 0.0f);
+
+      if (normal.isNull())
+      {
+        return;
+      }
+
+      normal.normalize();
+
+      const quint32 base = quint32(geometry.vertices.size());
+
+      geometry.addVertex(QVector3D(float(a.x()), float(a.y()), float(low)),
+                         normal, color);
+      geometry.addVertex(QVector3D(float(b.x()), float(b.y()), float(low)),
+                         normal, color);
+      geometry.addVertex(QVector3D(float(b.x()), float(b.y()), float(high)),
+                         normal, color);
+      geometry.addVertex(QVector3D(float(a.x()), float(a.y()), float(high)),
+                         normal, color);
+
+      for (const quint32 offset : { 0u, 1u, 2u, 0u, 2u, 3u })
+      {
+        geometry.indices.append(base + offset);
+      }
+    };
+
+    for (int feature = 0; feature < projected.size(); ++feature)
+    {
+      if (projected[feature].isEmpty() || feature >= m_entityIndex.size())
+      {
+        continue;
+      }
+
+      const qint64 column = m_entityIndex[feature];
+      const QPolygonF &ring = projected[feature].first();
+
+      ringNodes(column, nodes);
+
+      const int corners = nodes.size();
+
+      // The ring carries a closing duplicate the connectivity does not.
+      if (corners < 3 || ring.size() < corners)
+      {
+        continue;
+      }
+
+      const QColor topColor = cellColor(column, m_firstVisibleLayer);
+      const QColor bottomColor = cellColor(column, m_lastVisibleLayer);
+
+      // Caps. Nothing sits above the topmost visible layer or below the
+      // bottommost — peeling is exactly what exposes them — so both are
+      // always drawn, while the interfaces *between* visible layers are
+      // interior and never are.
+      if (topColor.isValid())
+      {
+        addCap(ring, corners, slabTop(column), QVector3D(0.0f, 0.0f, 1.0f),
+               topColor);
+      }
+
+      if (bottomColor.isValid())
+      {
+        addCap(ring, corners, slabBottom(column),
+               QVector3D(0.0f, 0.0f, -1.0f), bottomColor);
+      }
+
+      for (int corner = 0; corner < corners; ++corner)
+      {
+        const QPair<qint64, qint64> key =
+          edgeKey(nodes[corner], nodes[(corner + 1) % corners]);
+
+        const auto shared = sharedEdges.constFind(key);
+        int neighbour = -1;
+
+        if (shared != sharedEdges.constEnd())
+        {
+          neighbour = shared->first == feature ? shared->second : shared->first;
+        }
+
+        // What the neighbouring column's own slab covers. Sigma layers
+        // follow the bed, so two adjacent columns' slabs rarely line up:
+        // the part of this wall standing proud of the neighbour is real,
+        // visible geometry, and dropping the whole wall because an edge is
+        // interior punches a hole into the mesh wherever the bed steps.
+        double coveredLow = 0.0;
+        double coveredHigh = 0.0;
+        bool covered = false;
+
+        if (neighbour >= 0 && neighbour < m_entityIndex.size())
+        {
+          const qint64 other = m_entityIndex[neighbour];
+          coveredLow = slabBottom(other);
+          coveredHigh = slabTop(other);
+          covered = true;
+        }
+
+        const QPointF &a = ring[corner];
+        const QPointF &b = ring[(corner + 1) % corners];
+
+        for (int layer = m_firstVisibleLayer; layer <= m_lastVisibleLayer;
+             ++layer)
+        {
+          const QColor color = cellColor(column, layer);
+
+          if (!color.isValid())
+          {
+            continue;
+          }
+
+          const double high = m_layering.z(column, layer);
+          const double low = m_layering.z(column, layer + 1);
+
+          if (!covered)
+          {
+            addWall(a, b, low, high, color);
+
+            continue;
+          }
+
+          // The exposed part is what is left of this segment once the
+          // neighbour's slab is removed: at most a piece above it and a
+          // piece below it.
+          addWall(a, b, std::max(low, coveredHigh), high, color);
+          addWall(a, b, low, std::min(high, coveredLow), color);
+        }
       }
     }
 
