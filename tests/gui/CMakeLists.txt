@@ -55,6 +55,15 @@ target_compile_definitions(test_dataitemlayers PRIVATE
 target_compile_definitions(test_gdallayers PRIVATE
     COMPOSER_GIS_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/gis")
 
+# C3a — the 3D scene. The camera suite is arithmetic and needs no device; the
+# scene suite renders for real, through a standalone QRhi rather than through
+# QRhiWidget, because QRhiWidget cannot create a device under the offscreen
+# platform plugin every test here runs under.
+composer_add_gui_test(test_camera)
+composer_add_gui_test(test_scene3d)
+target_compile_definitions(test_scene3d PRIVATE
+    COMPOSER_GIS_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/gis")
+
 # The document tests round-trip the SDK's own example composition, so they need
 # to know where the installed SDK examples live.
 composer_add_gui_test(test_compositiondocument)

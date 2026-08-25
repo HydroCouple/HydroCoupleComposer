@@ -151,7 +151,7 @@ namespace HydroCouple::Composer
     notifyAppearanceChanged();
   }
 
-  void FeatureLayer::rebuildProjected()
+  void FeatureLayer::rebuildProjected() const
   {
     m_projected.clear();
     m_projected.reserve(m_features.size());
@@ -183,6 +183,16 @@ namespace HydroCouple::Composer
     }
 
     m_projectionValid = true;
+  }
+
+  const QVector<QVector<QPolygonF>> &FeatureLayer::projectedFeatures() const
+  {
+    if (!m_projectionValid)
+    {
+      rebuildProjected();
+    }
+
+    return m_projected;
   }
 
   void FeatureLayer::render(QPainter &painter, const MapTransform &transform)

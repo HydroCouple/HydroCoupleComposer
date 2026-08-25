@@ -165,6 +165,17 @@ set(COMPOSER_SOURCES
     src/map/layerstackmodel.cpp
     include/map/mapcanvas.h
     src/map/mapcanvas.cpp
+    include/scene/scenegeometry.h
+    src/scene/scenegeometry.cpp
+    include/scene/scenesource.h
+    include/scene/camera.h
+    src/scene/camera.cpp
+    include/scene/scenerenderer.h
+    src/scene/scenerenderer.cpp
+    include/scene/sceneimage.h
+    src/scene/sceneimage.cpp
+    include/scene/sceneview.h
+    src/scene/sceneview.cpp
     include/ui/dialogs/layerstyledialog.h
     src/ui/dialogs/layerstyledialog.cpp
     include/ui/panels/layertreepanel.h
@@ -184,6 +195,20 @@ set(COMPOSER_SOURCES
 
 add_library(composer_core STATIC ${COMPOSER_SOURCES})
 
+# ── C3 — scene materials, compiled to .qsb ──────────────────────────────────
+# Loaded from :/shaders at runtime by SceneRenderer. qsb cross-compiles one
+# GLSL source to every backend Qt supports, which is what lets the same
+# material serve Metal here and D3D or Vulkan on the other CI platforms.
+# BASE, not just PREFIX: without it the resource path keeps the sources'
+# directory too, and the shaders land at :/shaders/resources/shaders/... —
+# present in the binary, and not where anything looks for them.
+qt_add_shaders(composer_core "composer_scene_shaders"
+    PREFIX "/shaders"
+    BASE "resources/shaders"
+    FILES
+        resources/shaders/scene.vert
+        resources/shaders/scene.frag)
+
 target_include_directories(composer_core
     PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
@@ -194,6 +219,10 @@ target_link_libraries(composer_core
         Qt6::Core Qt6::Gui Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets
         Qt6::Network Qt6::Concurrent Qt6::Svg Qt6::Charts
         Qt6::Quick Qt6::QuickWidgets Qt6::Qml Qt6::PrintSupport Qt6::Xml
+        # QRhi — the 3D scene's graphics abstraction (C3). Qt ships it under
+        # the private include path, so the module is named explicitly; the
+        # QRhiWidget class that hosts it is public QtWidgets API.
+        Qt6::GuiPrivate
         HydroCouple::HydroCouple
         HydroCoupleSDK::HydroCoupleSDK
         GDAL::GDAL

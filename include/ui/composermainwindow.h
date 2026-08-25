@@ -37,6 +37,7 @@ namespace HydroCouple::Composer
   class LayerStackModel;
   class LayerTreePanel;
   class MapCanvas;
+  class SceneView;
   class MapLayer;
   class RibbonBar;
 }
@@ -93,6 +94,11 @@ namespace HydroCouple::Composer
        * \brief The layer tree panel.
        */
       [[nodiscard]] LayerTreePanel *layerTree() const;
+
+      /*!
+       * \brief The 3D view of the same layer stack.
+       */
+      [[nodiscard]] SceneView *sceneView() const;
 
       /*!
        * \brief Loads component libraries from a directory into the palette.
@@ -169,6 +175,7 @@ namespace HydroCouple::Composer
 
       LayerStackModel *m_layerStack = nullptr;
       MapCanvas *m_mapCanvas = nullptr;
+      SceneView *m_sceneView = nullptr;
       LayerTreePanel *m_layerTree = nullptr;
       QLabel *m_coordinateLabel = nullptr;
 

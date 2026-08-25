@@ -16,6 +16,8 @@
 #include "map/mapcanvas.h"
 #include "map/maplayer.h"
 #include "map/tilegrid.h"
+#include "layers/meshlayer.h"
+#include "scene/sceneview.h"
 #include "ui/composermainwindow.h"
 #include "ui/panels/layertreepanel.h"
 #include "ui/theme/thememanager.h"
@@ -483,4 +485,84 @@ TEST_F(ShellTest, ZoomToFullExtentIgnoresTheBasemap)
   EXPECT_LT(framed.width(), HydroCouple::Composer::TileGrid::kWorldHalfSpan)
     << "the basemap dragged the view out to the whole planet";
   EXPECT_TRUE(framed.adjusted(-1.0, -1.0, 1.0, 1.0).contains(data));
+}
+
+// ── C3a — the 3D view ───────────────────────────────────────────────────────
+
+// The scene must be a second view of the *same* stack. Two stacks would look
+// identical the moment they were built and diverge on the first edit.
+TEST_F(ShellTest, TheSceneShowsTheSameStackAsTheMap)
+{
+  ComposerMainWindow window;
+  window.setAttribute(Qt::WA_QuitOnClose, false);
+  window.show();
+
+  auto *workspace =
+    window.findChild<QTabWidget *>(QStringLiteral("workspaceTabs"));
+  ASSERT_NE(workspace, nullptr);
+
+  ASSERT_NE(window.sceneView(), nullptr);
+  EXPECT_EQ(workspace->indexOf(window.sceneView()) >= 0, true)
+    << "the 3D view is not reachable from the workspace";
+
+  EXPECT_EQ(window.sceneView()->model(), window.layerStack());
+  EXPECT_EQ(window.mapCanvas()->model(), window.layerStack());
+}
+
+// Zoom to Full Extent is one action serving two views, so it has to reach the
+// one in front. Wired to the map alone, it would silently do nothing in 3D.
+TEST_F(ShellTest, ZoomToFullExtentFramesWhicheverViewIsInFront)
+{
+  using HydroCouple::Composer::MeshEntity;
+  using HydroCouple::Composer::MeshLayer;
+
+  ComposerMainWindow window;
+  window.setAttribute(Qt::WA_QuitOnClose, false);
+  window.show();
+
+  HydroCouple::SDK::IO::MeshDefinition mesh;
+  mesh.meshName = "quad";
+  mesh.nodeX = { 4000.0, 4100.0, 4100.0, 4000.0 };
+  mesh.nodeY = { 6000.0, 6000.0, 6100.0, 6100.0 };
+  mesh.nodeZ = { 0.0, 0.0, 20.0, 20.0 };
+  mesh.faceNodeOffsets = { 0, 4 };
+  mesh.faceNodes = { 0, 1, 2, 3 };
+
+  QString message;
+  std::unique_ptr<MeshLayer> layer =
+    MeshLayer::create(QStringLiteral("mesh"), mesh, MeshEntity::Face, message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  window.layerStack()->addLayer(layer.release());
+
+  auto *workspace =
+    window.findChild<QTabWidget *>(QStringLiteral("workspaceTabs"));
+  ASSERT_NE(workspace, nullptr);
+  workspace->setCurrentWidget(window.sceneView());
+
+  // Look somewhere else first, in both views: the scene frames the first
+  // geometry to arrive on its own, so triggering the action on a freshly
+  // populated view would assert nothing about the action.
+  HydroCouple::Composer::Camera elsewhere;
+  elsewhere.setTarget(QVector3D(-50000.0f, -50000.0f, 0.0f));
+  elsewhere.setDistance(10.0);
+  window.sceneView()->setCamera(elsewhere);
+
+  window.mapCanvas()->setVisibleExtent(QRectF(-10000.0, -10000.0, 10.0, 10.0));
+
+  auto *zoomFull =
+    window.findChild<QAction *>(QStringLiteral("zoomFullAction"));
+  ASSERT_NE(zoomFull, nullptr);
+
+  zoomFull->trigger();
+
+  // The scene moved to the data...
+  const QVector3D target = window.sceneView()->camera().target();
+  EXPECT_NEAR(double(target.x()), 4050.0, 200.0);
+  EXPECT_NEAR(double(target.y()), 6050.0, 200.0);
+
+  // ...and the map, which was not in front, did not.
+  EXPECT_FALSE(window.mapCanvas()->transform().visibleExtent().contains(
+    QPointF(4050.0, 6050.0)))
+    << "the action reached the background view as well";
 }

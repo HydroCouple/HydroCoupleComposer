@@ -28,6 +28,7 @@ class QPainter;
 
 namespace HydroCouple::Composer
 {
+  class ISceneSource;
   class LayerStyle;
   class MapTransform;
   class SpatialReference;
@@ -126,6 +127,16 @@ namespace HydroCouple::Composer
        * can change a style without casting the const away at every call site.
        */
       [[nodiscard]] virtual LayerStyle *style();
+
+      /*!
+       * \brief The layer's 3D geometry supplier, or nullptr when it has none.
+       *
+       * The 3D counterpart of style(): the scene asks every layer this one
+       * question and builds nothing for the layers that answer nullptr. Most
+       * layers have no 3D form, and a tile basemap never will, so it is a
+       * virtual accessor rather than a member every layer would carry empty.
+       */
+      [[nodiscard]] virtual const ISceneSource *sceneSource() const;
 
       /*!
        * \brief Whether this layer is a backdrop rather than data.

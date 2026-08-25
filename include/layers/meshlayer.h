@@ -16,6 +16,7 @@
 #define HYDROCOUPLECOMPOSER_LAYERS_MESHLAYER_H
 
 #include "layers/featurelayer.h"
+#include "scene/scenesource.h"
 
 #include "hydrocouplesdk/io/meshdefinition.h"
 
@@ -44,7 +45,7 @@ namespace HydroCouple::Composer
   /*!
    * \brief A UGRID mesh drawn on the map.
    */
-  class MeshLayer : public FeatureLayer
+  class MeshLayer : public FeatureLayer, public ISceneSource
   {
     public:
       /*!
@@ -143,12 +144,43 @@ namespace HydroCouple::Composer
        */
       [[nodiscard]] QString valueAttribute() const;
 
+      /*!
+       * \brief This layer, as the 3D scene's geometry supplier.
+       */
+      [[nodiscard]] const ISceneSource *sceneSource() const override;
+
+      /*!
+       * \brief Surfaces for faces, segments for edges, nothing for nodes.
+       *
+       * A node mesh is a point cloud, which the map already draws and which
+       * the plan's 3D work does not cover; it answers with no geometry rather
+       * than with an invented representation of itself.
+       *
+       * Colours come from the layer's own style, so a mesh classified in the
+       * map and the same mesh in the scene cannot disagree.
+       */
+      [[nodiscard]] QVector<SceneGeometry> sceneGeometry() const override;
+
+      /*!
+       * \brief The mesh's box: its map-CRS footprint and its node elevations.
+       */
+      [[nodiscard]] Bounds3D sceneBounds() const override;
+
     private:
       MeshLayer(const QString &name, MeshEntity entity);
+
+      //! Elevation of a node, or zero for a mesh that carries none.
+      [[nodiscard]] double nodeElevation(qint64 node) const;
 
       HydroCouple::SDK::IO::MeshDefinition m_mesh;
       MeshEntity m_entity = MeshEntity::Face;
       QString m_valueAttribute;
+
+      //! The mesh entity each feature came from. Not the feature's own index:
+      //! faces whose connectivity points outside the node array are skipped,
+      //! so the two sequences diverge on exactly the meshes where guessing
+      //! would attach the wrong elevations.
+      QVector<qint64> m_entityIndex;
   };
 
 } // namespace HydroCouple::Composer

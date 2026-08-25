@@ -97,6 +97,18 @@ namespace HydroCouple::Composer
       [[nodiscard]] QVariant attributeValue(int feature,
                                             const QString &field) const override;
 
+      /*!
+       * \brief Every feature's geometry in the map's CRS.
+       *
+       * The projected form the 2D render walks, exposed because the 3D scene
+       * needs precisely the same coordinates: a mesh reprojected one way for
+       * the map and another for the scene would not line up with the layers
+       * drawn beside it. Parallel to features(), and rebuilt on demand, so
+       * the first call after a CRS change pays for the reprojection.
+       */
+      [[nodiscard]] const QVector<QVector<QPolygonF>> &projectedFeatures()
+        const;
+
     protected:
       void onMapCrsChanged() override;
 
@@ -137,7 +149,7 @@ namespace HydroCouple::Composer
       void setFeatureAttributes(int feature, QVector<QVariant> attributes);
 
     private:
-      void rebuildProjected();
+      void rebuildProjected() const;
 
       QVector<VectorFeature> m_features;
       QVector<AttributeField> m_fields;
@@ -145,9 +157,11 @@ namespace HydroCouple::Composer
       QRectF m_extent;
       bool m_extentValid = false;
 
-      //! Geometry in the map's CRS, rebuilt only when a CRS changes.
-      QVector<QVector<QPolygonF>> m_projected;
-      bool m_projectionValid = false;
+      //! Geometry in the map's CRS, rebuilt only when a CRS changes. Mutable
+      //! because it is a cache: a const caller asking for the projected form
+      //! is not changing the layer, it is paying for work not yet done.
+      mutable QVector<QVector<QPolygonF>> m_projected;
+      mutable bool m_projectionValid = false;
 
       LayerStyle m_style;
   };

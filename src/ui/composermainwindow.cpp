@@ -10,6 +10,7 @@
 #include "gis/spatialreference.h"
 #include "map/layerstackmodel.h"
 #include "map/mapcanvas.h"
+#include "scene/sceneview.h"
 #include "map/maplayer.h"
 #include "project/hcpimporter.h"
 #include "ui/dialogs/layerstyledialog.h"
@@ -145,6 +146,11 @@ namespace HydroCouple::Composer
     return m_mapCanvas;
   }
 
+  SceneView *ComposerMainWindow::sceneView() const
+  {
+    return m_sceneView;
+  }
+
   LayerStackModel *ComposerMainWindow::layerStack() const
   {
     return m_layerStack;
@@ -186,6 +192,14 @@ namespace HydroCouple::Composer
 
     m_workspace->addTab(m_mapCanvas, tr("Map"));
 
+    // The same stack, seen a second way. Neither view knows about the other:
+    // hiding or restyling a layer in the tree changes both because the stack
+    // is the single owner of what is drawn.
+    m_sceneView = new SceneView(this);
+    m_sceneView->setModel(m_layerStack);
+
+    m_workspace->addTab(m_sceneView, tr("3D"));
+
     connect(m_mapCanvas, &MapCanvas::cursorMoved, this,
             [this](const QPointF &world)
             {
@@ -207,8 +221,21 @@ namespace HydroCouple::Composer
   {
     m_zoomFullAction = new QAction(tr("Zoom to &Full Extent"), this);
     m_zoomFullAction->setObjectName(QStringLiteral("zoomFullAction"));
-    connect(m_zoomFullAction, &QAction::triggered, m_mapCanvas,
-            &MapCanvas::zoomToFullExtent);
+    connect(m_zoomFullAction, &QAction::triggered, this,
+            [this]
+            {
+              // Framing follows whichever view is in front. One action for
+              // both, because "zoom to everything" means the same thing in
+              // each and two would be two things to keep in step.
+              if (m_workspace->currentWidget() == m_sceneView)
+              {
+                m_sceneView->zoomToFullExtent();
+              }
+              else
+              {
+                m_mapCanvas->zoomToFullExtent();
+              }
+            });
 
     m_zoomInAction = new QAction(tr("Zoom &In"), this);
     m_zoomInAction->setObjectName(QStringLiteral("zoomInAction"));

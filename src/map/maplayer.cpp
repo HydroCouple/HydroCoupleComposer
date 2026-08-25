@@ -28,6 +28,11 @@ namespace HydroCouple::Composer
     return nullptr;
   }
 
+  const ISceneSource *MapLayer::sceneSource() const
+  {
+    return nullptr;
+  }
+
   bool MapLayer::isBasemap() const
   {
     return false;

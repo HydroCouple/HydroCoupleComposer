@@ -1,0 +1,240 @@
+#include "scene/sceneview.h"
+
+#include "map/layerstackmodel.h"
+
+#include <QMouseEvent>
+#include <QWheelEvent>
+
+#include <rhi/qrhi.h>
+
+#include <cmath>
+
+namespace HydroCouple::Composer
+{
+  namespace
+  {
+    //! Degrees of rotation per pixel dragged. Chosen so a drag across the
+    //! width of a typical view is most of a turn, which is what makes
+    //! orbiting feel like turning an object rather than nudging one.
+    constexpr double kDegreesPerPixel = 0.4;
+
+    constexpr double kZoomPerNotch = 1.15;
+
+  }
+
+  SceneView::SceneView(QWidget *parent) : QRhiWidget(parent)
+  {
+    // Repaint when the renderer says its geometry is stale, not when the
+    // stack says it changed: the renderer is the thing holding the cache,
+    // and two listeners on the stack would be two chances to disagree about
+    // whether the frame on screen is current.
+    connect(&m_renderer, &SceneRenderer::sceneChanged, this,
+            QOverload<>::of(&QWidget::update));
+
+    setMouseTracking(true);
+    setFocusPolicy(Qt::StrongFocus);
+
+    // The depth buffer the pipeline's depth test needs comes with
+    // QRhiWidget's automatic render target, which is on by default.
+  }
+
+  SceneView::~SceneView() = default;
+
+  void SceneView::setModel(LayerStackModel *model)
+  {
+    m_renderer.setModel(model);
+    m_framed = false;
+
+    update();
+  }
+
+  LayerStackModel *SceneView::model() const
+  {
+    return m_renderer.model();
+  }
+
+  const Camera &SceneView::camera() const
+  {
+    return m_camera;
+  }
+
+  void SceneView::setCamera(const Camera &camera)
+  {
+    m_camera = camera;
+
+    // Set explicitly, so the automatic first framing must not overrule it.
+    m_framed = true;
+
+    update();
+    Q_EMIT cameraChanged();
+  }
+
+  void SceneView::zoomToFullExtent()
+  {
+    const Bounds3D bounds = m_renderer.sceneBounds();
+
+    if (!bounds.isValid())
+    {
+      return;
+    }
+
+    const double aspect =
+      height() > 0 ? double(width()) / double(height()) : 1.0;
+
+    m_camera.fitTo(bounds, aspect);
+    m_framed = true;
+
+    update();
+    Q_EMIT cameraChanged();
+  }
+
+  void SceneView::setVerticalExaggeration(double factor)
+  {
+    if (qFuzzyCompare(m_camera.verticalExaggeration(), factor))
+    {
+      return;
+    }
+
+    m_camera.setVerticalExaggeration(factor);
+
+    // Reframed, because exaggerating relief by an order of magnitude puts
+    // most of the scene outside a view that was framed without it.
+    zoomToFullExtent();
+  }
+
+  QColor SceneView::backgroundColor() const
+  {
+    return m_background;
+  }
+
+  void SceneView::setBackgroundColor(const QColor &color)
+  {
+    if (m_background == color)
+    {
+      return;
+    }
+
+    m_background = color;
+    update();
+  }
+
+  QSize SceneView::sizeHint() const
+  {
+    return { 640, 480 };
+  }
+
+  void SceneView::frameOnFirstGeometry()
+  {
+    if (m_framed)
+    {
+      return;
+    }
+
+    // Layers arrive after the widget does, so framing has to wait for the
+    // first frame in which there is something to frame rather than happen
+    // once at construction.
+    if (m_renderer.sceneBounds().isValid())
+    {
+      zoomToFullExtent();
+    }
+  }
+
+  void SceneView::initialize(QRhiCommandBuffer *cb)
+  {
+    Q_UNUSED(cb)
+
+    QString message;
+
+    if (!m_renderer.initialize(rhi(), renderTarget()->renderPassDescriptor(),
+                               renderTarget()->sampleCount(), message))
+    {
+      qWarning("SceneView: %s", qPrintable(message));
+    }
+  }
+
+  void SceneView::render(QRhiCommandBuffer *cb)
+  {
+    frameOnFirstGeometry();
+
+    m_renderer.render(cb, renderTarget(), m_camera, m_background);
+  }
+
+  void SceneView::releaseResources()
+  {
+    m_renderer.releaseResources();
+  }
+
+  void SceneView::mousePressEvent(QMouseEvent *event)
+  {
+    m_lastMousePosition = event->pos();
+
+    // Left orbits, middle and right pan — the convention every GIS 3D view
+    // uses, so muscle memory carries over.
+    m_orbiting = event->button() == Qt::LeftButton;
+    m_panning = event->button() == Qt::MiddleButton ||
+                event->button() == Qt::RightButton;
+
+    QRhiWidget::mousePressEvent(event);
+  }
+
+  void SceneView::mouseMoveEvent(QMouseEvent *event)
+  {
+    if (!m_orbiting && !m_panning)
+    {
+      QRhiWidget::mouseMoveEvent(event);
+
+      return;
+    }
+
+    const QPoint delta = event->pos() - m_lastMousePosition;
+    m_lastMousePosition = event->pos();
+
+    const double aspect =
+      height() > 0 ? double(width()) / double(height()) : 1.0;
+
+    if (m_orbiting)
+    {
+      // Dragging right turns the scene right, which means turning the camera
+      // the other way.
+      m_camera.orbit(-delta.x() * kDegreesPerPixel,
+                     delta.y() * kDegreesPerPixel);
+    }
+    else
+    {
+      m_camera.pan(QPointF(delta.x(), delta.y()), height(), aspect);
+    }
+
+    update();
+    Q_EMIT cameraChanged();
+
+    QRhiWidget::mouseMoveEvent(event);
+  }
+
+  void SceneView::mouseReleaseEvent(QMouseEvent *event)
+  {
+    m_orbiting = false;
+    m_panning = false;
+
+    QRhiWidget::mouseReleaseEvent(event);
+  }
+
+  void SceneView::wheelEvent(QWheelEvent *event)
+  {
+    const double notches = event->angleDelta().y() / 120.0;
+
+    if (qFuzzyIsNull(notches))
+    {
+      QRhiWidget::wheelEvent(event);
+
+      return;
+    }
+
+    m_camera.dolly(std::pow(1.0 / kZoomPerNotch, notches));
+
+    update();
+    Q_EMIT cameraChanged();
+
+    event->accept();
+  }
+
+} // namespace HydroCouple::Composer

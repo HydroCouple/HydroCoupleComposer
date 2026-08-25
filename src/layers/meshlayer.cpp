@@ -10,6 +10,7 @@
 #include <QFileInfo>
 #include <QObject>
 
+#include <algorithm>
 #include <vector>
 
 namespace HydroCouple::Composer
@@ -189,13 +190,17 @@ namespace HydroCouple::Composer
           feature.kind = GeometryKind::Polygon;
           feature.parts.append(ring);
 
+          layer->m_entityIndex.append(face);
           layer->addFeature(std::move(feature));
         }
         break;
 
       case MeshEntity::Edge:
-        for (const std::array<int64_t, 2> &edge : mesh.edgeNodes)
+        for (int64_t index = 0; index < mesh.edgeCount(); ++index)
         {
+          const std::array<int64_t, 2> &edge =
+            mesh.edgeNodes[static_cast<size_t>(index)];
+
           if (!nodeInRange(edge[0]) || !nodeInRange(edge[1]))
           {
             continue;
@@ -209,6 +214,7 @@ namespace HydroCouple::Composer
           feature.kind = GeometryKind::Line;
           feature.parts.append(line);
 
+          layer->m_entityIndex.append(index);
           layer->addFeature(std::move(feature));
         }
         break;
@@ -223,6 +229,7 @@ namespace HydroCouple::Composer
           feature.kind = GeometryKind::Point;
           feature.parts.append(point);
 
+          layer->m_entityIndex.append(node);
           layer->addFeature(std::move(feature));
         }
         break;
@@ -407,6 +414,232 @@ namespace HydroCouple::Composer
     restyle();
 
     return true;
+  }
+
+
+  const ISceneSource *MeshLayer::sceneSource() const
+  {
+    return this;
+  }
+
+  double MeshLayer::nodeElevation(qint64 node) const
+  {
+    if (m_mesh.nodeZ.empty() || node < 0 ||
+        node >= static_cast<qint64>(m_mesh.nodeZ.size()))
+    {
+      return 0.0;
+    }
+
+    return m_mesh.nodeZ[static_cast<size_t>(node)];
+  }
+
+  Bounds3D MeshLayer::sceneBounds() const
+  {
+    Bounds3D bounds;
+
+    const QVector<QVector<QPolygonF>> &projected = projectedFeatures();
+
+    for (int feature = 0; feature < projected.size(); ++feature)
+    {
+      if (projected[feature].isEmpty())
+      {
+        continue;
+      }
+
+      // Answered from the projected footprint and the node elevations rather
+      // than by building the geometry: framing the view must not cost a
+      // tessellation of every layer in the stack.
+      const QRectF footprint = projected[feature].first().boundingRect();
+
+      double low = 0.0;
+      double high = 0.0;
+
+      if (m_entity == MeshEntity::Face && feature < m_entityIndex.size())
+      {
+        const qint64 face = m_entityIndex[feature];
+        const int64_t from = m_mesh.faceNodeOffsets[static_cast<size_t>(face)];
+        const int64_t to =
+          m_mesh.faceNodeOffsets[static_cast<size_t>(face) + 1];
+
+        low = nodeElevation(m_mesh.faceNodes[static_cast<size_t>(from)]);
+        high = low;
+
+        for (int64_t slot = from + 1; slot < to; ++slot)
+        {
+          const double z =
+            nodeElevation(m_mesh.faceNodes[static_cast<size_t>(slot)]);
+          low = std::min(low, z);
+          high = std::max(high, z);
+        }
+      }
+      else if (feature < m_entityIndex.size())
+      {
+        const qint64 entity = m_entityIndex[feature];
+
+        if (m_entity == MeshEntity::Edge && entity < m_mesh.edgeCount())
+        {
+          const std::array<int64_t, 2> &edge =
+            m_mesh.edgeNodes[static_cast<size_t>(entity)];
+          low = std::min(nodeElevation(edge[0]), nodeElevation(edge[1]));
+          high = std::max(nodeElevation(edge[0]), nodeElevation(edge[1]));
+        }
+        else
+        {
+          low = nodeElevation(entity);
+          high = low;
+        }
+      }
+
+      bounds.expandTo(QVector3D(float(footprint.left()),
+                                float(footprint.top()), float(low)));
+      bounds.expandTo(QVector3D(float(footprint.right()),
+                                float(footprint.bottom()), float(high)));
+    }
+
+    return bounds;
+  }
+
+  QVector<SceneGeometry> MeshLayer::sceneGeometry() const
+  {
+    QVector<SceneGeometry> batches;
+
+    if (m_entity == MeshEntity::Node)
+    {
+      return batches;
+    }
+
+    const QVector<QVector<QPolygonF>> &projected = projectedFeatures();
+    const LayerStyle *layerStyle = style();
+
+    SceneGeometry geometry;
+    geometry.primitive = m_entity == MeshEntity::Face
+                           ? ScenePrimitive::Triangles
+                           : ScenePrimitive::Lines;
+
+    for (int feature = 0; feature < projected.size(); ++feature)
+    {
+      if (projected[feature].isEmpty() || feature >= m_entityIndex.size())
+      {
+        continue;
+      }
+
+      // The map's own colour for this feature: an invalid one means the
+      // class was switched off in the legend, and a scene that drew it
+      // anyway would contradict the legend beside it.
+      const QColor color =
+        layerStyle ? layerStyle->colorFor(*this, feature) : QColor(Qt::gray);
+
+      if (!color.isValid())
+      {
+        continue;
+      }
+
+      const QPolygonF &part = projected[feature].first();
+      const qint64 entity = m_entityIndex[feature];
+
+      if (m_entity == MeshEntity::Edge)
+      {
+        if (part.size() < 2 || entity >= m_mesh.edgeCount())
+        {
+          continue;
+        }
+
+        const std::array<int64_t, 2> &edge =
+          m_mesh.edgeNodes[static_cast<size_t>(entity)];
+
+        // Edges have no surface to face, so they are lit as if facing up;
+        // the shader's headlight term then leaves them at full colour.
+        const QVector3D up(0.0f, 0.0f, 1.0f);
+
+        const quint32 first = geometry.addVertex(
+          QVector3D(float(part[0].x()), float(part[0].y()),
+                    float(nodeElevation(edge[0]))),
+          up, color);
+        const quint32 second = geometry.addVertex(
+          QVector3D(float(part[1].x()), float(part[1].y()),
+                    float(nodeElevation(edge[1]))),
+          up, color);
+
+        geometry.indices.append(first);
+        geometry.indices.append(second);
+
+        continue;
+      }
+
+      const int64_t from = m_mesh.faceNodeOffsets[static_cast<size_t>(entity)];
+      const int64_t to =
+        m_mesh.faceNodeOffsets[static_cast<size_t>(entity) + 1];
+      const int corners = int(to - from);
+
+      // The ring carries a closing duplicate the connectivity does not, so
+      // the two are only parallel over the connectivity's own length.
+      if (corners < 3 || part.size() < corners)
+      {
+        continue;
+      }
+
+      QVector<QVector3D> ring;
+      ring.reserve(corners);
+
+      for (int corner = 0; corner < corners; ++corner)
+      {
+        ring.append(QVector3D(
+          float(part[corner].x()), float(part[corner].y()),
+          float(nodeElevation(
+            m_mesh.faceNodes[static_cast<size_t>(from + corner)]))));
+      }
+
+      // Newell's method, because a quad whose four nodes carry four different
+      // elevations is not planar and a normal taken from any three of its
+      // corners would depend on which three.
+      //
+      // Its direction follows the ring's winding, and is left that way: the
+      // material lights both sides, which it has to anyway for a camera
+      // orbited beneath a surface. Normalising the winding here as well would
+      // leave two mechanisms for one property and neither clearly in charge.
+      QVector3D normal;
+
+      for (int corner = 0; corner < corners; ++corner)
+      {
+        const QVector3D &current = ring[corner];
+        const QVector3D &next = ring[(corner + 1) % corners];
+
+        normal += QVector3D(
+          (current.y() - next.y()) * (current.z() + next.z()),
+          (current.z() - next.z()) * (current.x() + next.x()),
+          (current.x() - next.x()) * (current.y() + next.y()));
+      }
+
+      if (!normal.isNull())
+      {
+        normal.normalize();
+      }
+      else
+      {
+        normal = QVector3D(0.0f, 0.0f, 1.0f);
+      }
+
+      const quint32 base = quint32(geometry.vertices.size());
+
+      for (const QVector3D &vertex : ring)
+      {
+        geometry.addVertex(vertex, normal, color);
+      }
+
+      for (int corner = 1; corner + 1 < corners; ++corner)
+      {
+        geometry.indices.append(base);
+        geometry.indices.append(base + quint32(corner));
+        geometry.indices.append(base + quint32(corner) + 1);
+      }
+    }
+
+    if (!geometry.isEmpty())
+    {
+      batches.append(std::move(geometry));
+    }
+
+    return batches;
   }
 
 } // namespace HydroCouple::Composer

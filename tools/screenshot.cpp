@@ -21,6 +21,7 @@
 #include "layers/gdalvectorlayer.h"
 #include "layers/meshlayer.h"
 #include "render/layerstyle.h"
+#include "scene/sceneview.h"
 #include "ui/composermainwindow.h"
 #include "ui/panels/layertreepanel.h"
 
@@ -227,11 +228,16 @@ int main(int argc, char *argv[])
   const bool captureMesh =
     argc > 2 && QString::fromLocal8Bit(argv[2]) == QLatin1String("--mesh");
 
+  // --scene: the same mesh, shown in the 3D view. Its node elevations make
+  // the bowl the depth field describes, which the map can only colour.
+  const bool captureScene =
+    argc > 2 && QString::fromLocal8Bit(argv[2]) == QLatin1String("--scene");
+
   ComposerMainWindow window;
   window.resize(1400, 880);
   window.show();
 
-  if (captureMesh)
+  if (captureMesh || captureScene)
   {
     // A radial mesh: rings of quads around a centre, each face carrying a
     // value that falls off with distance — the shape a depth field takes.
@@ -241,8 +247,13 @@ int main(int argc, char *argv[])
     constexpr int kRings = 9;
     constexpr int kSectors = 28;
 
+    // The bed the depth field sits on: deepest at the centre, rising to the
+    // rim. The map has nowhere to put this; the 3D view is what it is for.
+    const auto bedAt = [](int ring) { return -120.0 * (1.0 - double(ring) / kRings); };
+
     mesh.nodeX.push_back(0.0);
     mesh.nodeY.push_back(0.0);
+    mesh.nodeZ.push_back(bedAt(0));
 
     for (int ring = 1; ring <= kRings; ++ring)
     {
@@ -253,6 +264,7 @@ int main(int argc, char *argv[])
 
         mesh.nodeX.push_back(radius * std::cos(angle));
         mesh.nodeY.push_back(radius * std::sin(angle));
+        mesh.nodeZ.push_back(bedAt(ring));
       }
     }
 
@@ -323,7 +335,19 @@ int main(int argc, char *argv[])
     if (auto *tabs =
           window.findChild<QTabWidget *>(QStringLiteral("workspaceTabs")))
     {
-      tabs->setCurrentWidget(window.mapCanvas());
+      tabs->setCurrentWidget(captureScene
+                               ? static_cast<QWidget *>(window.sceneView())
+                               : static_cast<QWidget *>(window.mapCanvas()));
+    }
+
+    if (captureScene && window.sceneView())
+    {
+      Camera camera = window.sceneView()->camera();
+      camera.setElevation(32.0);
+      camera.setAzimuth(35.0);
+      camera.setVerticalExaggeration(2.5);
+      window.sceneView()->setCamera(camera);
+      window.sceneView()->zoomToFullExtent();
     }
 
     if (auto *dock =
