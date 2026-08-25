@@ -47,6 +47,11 @@ namespace HydroCouple::Composer
 
   void TileLayer::onTileReady()
   {
+    // The picture changed, so the scene's copy of it is stale. Dropped rather
+    // than redrawn: a tile arriving for a map nobody is looking in 3D at
+    // should not cost a megapixel of compositing.
+    m_groundFocus = QRectF();
+
     notifyAppearanceChanged();
   }
 
@@ -107,6 +112,48 @@ namespace HydroCouple::Composer
     }
 
     painter.setRenderHint(QPainter::SmoothPixmapTransform, wasSmoothing);
+  }
+
+  const ISceneSource *TileLayer::sceneSource() const
+  {
+    return this;
+  }
+
+  Bounds3D TileLayer::sceneBounds() const
+  {
+    return {};
+  }
+
+  QVector<SceneGeometry> TileLayer::sceneGeometry(
+    const SceneContext &context) const
+  {
+    QVector<SceneGeometry> batches;
+
+    const QRectF focus = context.focus.normalized();
+
+    if (focus.isEmpty())
+    {
+      return batches;
+    }
+
+    if (m_groundFocus != focus || !m_ground.isValid())
+    {
+      // The const_cast is the layer drawing itself into its own cache; see
+      // GdalRasterLayer::sceneGeometry() for why render() being non-const
+      // does not make this a mutation.
+      m_ground = renderLayerToImage(const_cast<TileLayer &>(*this), focus,
+                                    kGroundTexturePixels);
+      m_groundFocus = focus;
+    }
+
+    SceneGeometry ground = buildGroundPlane(m_ground, context.terrain);
+
+    if (!ground.isEmpty())
+    {
+      batches.append(std::move(ground));
+    }
+
+    return batches;
   }
 
 } // namespace HydroCouple::Composer

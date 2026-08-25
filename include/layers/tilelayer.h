@@ -17,6 +17,8 @@
 #define HYDROCOUPLECOMPOSER_LAYERS_TILELAYER_H
 
 #include "map/maplayer.h"
+#include "scene/groundplane.h"
+#include "scene/scenesource.h"
 #include "map/tilegrid.h"
 
 #include <QHash>
@@ -76,7 +78,7 @@ namespace HydroCouple::Composer
   /*!
    * \brief A tiled basemap layer.
    */
-  class TileLayer : public MapLayer
+  class TileLayer : public MapLayer, public ISceneSource
   {
     public:
       /*!
@@ -121,6 +123,40 @@ namespace HydroCouple::Composer
        */
       [[nodiscard]] bool isBasemap() const override;
 
+      // ── ISceneSource ─────────────────────────────────────────────────────
+
+      /*!
+       * \brief This layer, as the 3D scene's geometry supplier.
+       */
+      [[nodiscard]] const ISceneSource *sceneSource() const override;
+
+      /*!
+       * \brief The ground under the scene, wearing this basemap.
+       *
+       * Textured over the scene's focus rather than over this layer's own
+       * extent, which is the planet: spending a megapixel on the whole world
+       * would leave the modelled catchment about a pixel across.
+       *
+       * A scene with no data in it gets nothing. There is no rectangle a
+       * backdrop should cover when there is nothing for it to be behind, and
+       * the alternative — falling back to the globe — is a globe viewer,
+       * which this is not.
+       *
+       * \param context The scene's focus, and the terrain to lay it on.
+       */
+      [[nodiscard]] QVector<SceneGeometry> sceneGeometry(
+        const SceneContext &context) const override;
+
+      /*!
+       * \brief Nothing.
+       *
+       * A basemap covers everywhere, so framing it frames the planet — the
+       * same reasoning as isBasemap(), and the reason the scene's focus can
+       * be read straight off SceneRenderer::sceneBounds() without a rule of
+       * its own for backdrops.
+       */
+      [[nodiscard]] Bounds3D sceneBounds() const override;
+
       /*!
        * \brief The provider's required credit.
        */
@@ -135,6 +171,12 @@ namespace HydroCouple::Composer
       std::unique_ptr<ITileSource> m_source;
       int m_lastZoom = -1;
       int m_lastDrawnTileCount = 0;
+
+      //! The scene's texture, and the focus it was built for. Mutable because
+      //! it is a cache; keyed on the focus because that is what decides the
+      //! picture, and tiles arriving later change it again.
+      mutable GroundImage m_ground;
+      mutable QRectF m_groundFocus;
   };
 
 } // namespace HydroCouple::Composer

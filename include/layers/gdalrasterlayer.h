@@ -18,6 +18,8 @@
 
 #include "map/maplayer.h"
 #include "render/colorramp.h"
+#include "scene/groundplane.h"
+#include "scene/scenesource.h"
 
 #include <QImage>
 #include <QString>
@@ -32,7 +34,7 @@ namespace HydroCouple::Composer
   /*!
    * \brief A raster dataset drawn on the map.
    */
-  class GdalRasterLayer : public MapLayer
+  class GdalRasterLayer : public MapLayer, public ISceneSource
   {
     public:
       /*!
@@ -98,6 +100,30 @@ namespace HydroCouple::Composer
 
       void render(QPainter &painter, const MapTransform &transform) override;
 
+      // ── ISceneSource ─────────────────────────────────────────────────────
+
+      /*!
+       * \brief This layer, as the 3D scene's geometry supplier.
+       */
+      [[nodiscard]] const ISceneSource *sceneSource() const override;
+
+      /*!
+       * \brief The ground itself, wearing this raster.
+       *
+       * A raster has no geometry — it is a picture of a place — so its 3D
+       * form is the surface it is a picture *of*, textured with what the map
+       * would have drawn there and laid on whatever terrain the stack holds.
+       *
+       * \param context The terrain to lay it on, when the stack has one.
+       */
+      [[nodiscard]] QVector<SceneGeometry> sceneGeometry(
+        const SceneContext &context) const override;
+
+      /*!
+       * \brief The raster's footprint, at ground level.
+       */
+      [[nodiscard]] Bounds3D sceneBounds() const override;
+
     protected:
       void onMapCrsChanged() override;
 
@@ -124,6 +150,13 @@ namespace HydroCouple::Composer
 
       ColorRamp m_ramp;
       QImage m_lastImage;
+
+      //! The scene's texture. Mutable because it is a cache: a const caller
+      //! asking for geometry is not changing the layer, it is paying for work
+      //! not yet done — the same reasoning as FeatureLayer's projected
+      //! geometry. Dropped whenever the picture would change.
+      mutable GroundImage m_ground;
+      mutable bool m_groundValid = false;
   };
 
 } // namespace HydroCouple::Composer

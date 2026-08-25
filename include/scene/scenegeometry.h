@@ -21,6 +21,7 @@
 #define HYDROCOUPLECOMPOSER_SCENE_SCENEGEOMETRY_H
 
 #include <QColor>
+#include <QImage>
 #include <QRectF>
 #include <QVector>
 #include <QVector3D>
@@ -123,6 +124,31 @@ namespace HydroCouple::Composer
       QVector<quint32> indices;
       ScenePrimitive primitive = ScenePrimitive::Triangles;
       Bounds3D bounds;
+
+      /*!
+       * \brief An image draped over the batch, or a null image.
+       *
+       * The one thing per-vertex colour cannot express. Classification is
+       * resolved on the CPU and baked per vertex precisely so the map and the
+       * scene cannot disagree about it — but a basemap or a photograph
+       * carries its own resolution, and sampling it down to one colour per
+       * vertex would throw away the very thing it is being shown for.
+       */
+      QImage texture;
+
+      /*!
+       * \brief The world rectangle \c texture covers exactly.
+       *
+       * There are no per-vertex texture coordinates, deliberately: a ground
+       * plane's are an affine function of its position, so storing them per
+       * vertex would be storing the same four numbers a million times over.
+       * The shader derives them from this instead, which also means a drape
+       * refined against a finer terrain does not have to be re-coordinated.
+       *
+       * Y is world-north-up and the image's first row is its northern edge,
+       * which is the convention MapTransform draws in.
+       */
+      QRectF textureExtent;
 
       /*!
        * \brief Whether there is anything to draw.

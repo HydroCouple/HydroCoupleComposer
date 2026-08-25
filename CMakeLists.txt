@@ -174,6 +174,8 @@ set(COMPOSER_SOURCES
     src/scene/camera.cpp
     include/scene/scenerenderer.h
     src/scene/scenerenderer.cpp
+    include/scene/groundplane.h
+    src/scene/groundplane.cpp
     include/scene/sceneimage.h
     src/scene/sceneimage.cpp
     include/scene/sceneview.h
@@ -254,7 +256,9 @@ qt_add_shaders(composer_core "composer_scene_shaders"
     BASE "resources/shaders"
     FILES
         resources/shaders/scene.vert
-        resources/shaders/scene.frag)
+        resources/shaders/scene.frag
+        resources/shaders/ground.vert
+        resources/shaders/ground.frag)
 
 target_include_directories(composer_core
     PUBLIC

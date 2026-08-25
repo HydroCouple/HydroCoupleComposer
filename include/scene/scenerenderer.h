@@ -40,7 +40,9 @@ class QRhiGraphicsPipeline;
 class QRhiRenderPassDescriptor;
 class QRhiRenderTarget;
 class QRhiResourceUpdateBatch;
+class QRhiSampler;
 class QRhiShaderResourceBindings;
+class QRhiTexture;
 
 namespace HydroCouple::Composer
 {
@@ -173,10 +175,19 @@ namespace HydroCouple::Composer
           std::unique_ptr<QRhiBuffer> indexBuffer;
           std::unique_ptr<QRhiBuffer> uniformBuffer;
           std::unique_ptr<QRhiShaderResourceBindings> bindings;
+
+          //! The ground image, when this batch wears one.
+          std::unique_ptr<QRhiTexture> texture;
+          std::unique_ptr<QRhiSampler> sampler;
+
           quint32 indexCount = 0;
           quint32 vertexCount = 0;
           ScenePrimitive primitive = ScenePrimitive::Triangles;
           float opacity = 1.0f;
+
+          //! World rectangle the texture covers: origin and inverse size, as
+          //! the shader wants them.
+          float textureMap[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
       };
 
       void rebuildBatches();
@@ -187,6 +198,11 @@ namespace HydroCouple::Composer
 
       std::unique_ptr<QRhiGraphicsPipeline> m_trianglePipeline;
       std::unique_ptr<QRhiGraphicsPipeline> m_linePipeline;
+
+      //! Surfaces wearing an image. A pipeline of its own rather than a
+      //! branch in the shared one: a sampler changes the resource binding
+      //! layout, and a layout is what a pipeline is built against.
+      std::unique_ptr<QRhiGraphicsPipeline> m_groundPipeline;
 
       std::vector<Batch> m_batches;
       bool m_batchesValid = false;

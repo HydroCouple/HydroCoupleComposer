@@ -88,6 +88,19 @@ namespace HydroCouple::Composer
   {
       //! The surface to drape on, or nullptr when the stack has none.
       const ITerrainSource *terrain = nullptr;
+
+      /*!
+       * \brief The world rectangle the scene is about, or an empty one.
+       *
+       * What a layer that covers everywhere should show. A tiled basemap's
+       * extent is the planet, so texturing its own extent would spend the
+       * whole image on an ocean and leave the model a pixel wide. Layers with
+       * an extent of their own ignore this and show all of themselves.
+       *
+       * Empty means the scene holds no data — only backdrops — and there is
+       * then nothing for a backdrop to be behind.
+       */
+      QRectF focus;
   };
 
   /*!

@@ -173,6 +173,7 @@ namespace HydroCouple::Composer
   void GdalRasterLayer::setRamp(const ColorRamp &ramp)
   {
     m_ramp = ramp;
+    m_groundValid = false;
     notifyAppearanceChanged();
   }
 
@@ -199,6 +200,8 @@ namespace HydroCouple::Composer
       GDALClose(m_warped);
       m_warped = nullptr;
     }
+
+    m_groundValid = false;
 
     notifyAppearanceChanged();
   }
@@ -372,6 +375,61 @@ namespace HydroCouple::Composer
 
     m_lastImage = image;
     painter.drawImage(target, image);
+  }
+
+  const ISceneSource *GdalRasterLayer::sceneSource() const
+  {
+    return this;
+  }
+
+  Bounds3D GdalRasterLayer::sceneBounds() const
+  {
+    Bounds3D bounds;
+
+    const QRectF box = m_extent.normalized();
+
+    if (box.isEmpty())
+    {
+      return bounds;
+    }
+
+    // At ground level, and flat: the terrain the raster is laid on carries
+    // the relief, and sampling a surface here would cost a full drape just to
+    // frame the view — which is the one thing bounds exist to avoid.
+    bounds.expandTo(QVector3D(float(box.left()), float(box.top()), 0.0f));
+    bounds.expandTo(QVector3D(float(box.right()), float(box.bottom()), 0.0f));
+
+    return bounds;
+  }
+
+  QVector<SceneGeometry> GdalRasterLayer::sceneGeometry(
+    const SceneContext &context) const
+  {
+    QVector<SceneGeometry> batches;
+
+    if (!m_groundValid)
+    {
+      // A raster is a picture of a *place*, so it shows all of itself rather
+      // than only the part the rest of the scene happens to cover.
+      //
+      // The const_cast is the layer drawing itself into its own cache. Its
+      // render() is non-const because drawing into a painter records what was
+      // drawn, and a const caller asking for geometry is not changing the
+      // layer — it is paying for work not yet done, exactly as
+      // FeatureLayer::projectedFeatures() does.
+      m_ground = renderLayerToImage(const_cast<GdalRasterLayer &>(*this),
+                                    m_extent, kGroundTexturePixels);
+      m_groundValid = true;
+    }
+
+    SceneGeometry ground = buildGroundPlane(m_ground, context.terrain);
+
+    if (!ground.isEmpty())
+    {
+      batches.append(std::move(ground));
+    }
+
+    return batches;
   }
 
 } // namespace HydroCouple::Composer
