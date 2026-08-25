@@ -98,6 +98,46 @@ namespace HydroCouple::Composer
         QString &message);
 
       /*!
+       * \brief Builds a layer from a layered UGRID file, layering included.
+       *
+       * The same reader as fromUGRIDFile(), plus the file's CF vertical
+       * coordinate when it has one. A file without one is not an error — most
+       * UGRID meshes are two-dimensional — and yields the flat surface layer
+       * fromUGRIDFile() would have given.
+       *
+       * \param filePath NetCDF-UGRID file to read.
+       * \param meshName Mesh to read; empty takes the first.
+       * \param timeIndex Which time's water surface to build the column on.
+       * \param[out] message Diagnostic on failure.
+       * \returns The layer, or nullptr.
+       */
+      [[nodiscard]] static std::unique_ptr<MeshLayer> fromLayeredUGRIDFile(
+        const QString &filePath, const QString &meshName, int timeIndex,
+        QString &message);
+
+      /*!
+       * \brief Whether \a filePath carries a water column for \a meshName.
+       *
+       * Asked before offering the layered treatment, rather than attempting
+       * it and recovering.
+       */
+      [[nodiscard]] static bool isLayeredUGRIDFile(const QString &filePath,
+                                                   const QString &meshName);
+
+      /*!
+       * \brief Times the file's water surface carries; 0 when steady.
+       *
+       * A layered mesh moves — the surface is what turns sigma into
+       * elevations — so a viewer stepping through a run reloads the layering
+       * per time rather than only the values on it.
+       *
+       * \param filePath File to inspect.
+       * \param meshName Mesh to inspect; empty takes the first.
+       */
+      [[nodiscard]] static int ugridTimeCount(const QString &filePath,
+                                              const QString &meshName);
+
+      /*!
        * \brief The mesh names a UGRID file holds.
        *
        * A file may carry several — a 1-D network and a 2-D floodplain, say —

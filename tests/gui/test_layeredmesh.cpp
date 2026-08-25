@@ -26,6 +26,9 @@
 
 #include <QApplication>
 #include <QDir>
+#include <QFile>
+
+#include "hydrocouplesdk/io/netcdfugridwriter.h"
 
 #include <cmath>
 #include <memory>
@@ -456,6 +459,160 @@ TEST_F(LayeredMeshTest, ACellWhoseClassIsHiddenIsNotBuilt)
 
   EXPECT_NEAR(lowest, -5.0, 1.0e-6)
     << "the hidden bed layer still contributed geometry";
+}
+
+// ── Reading a layered file ──────────────────────────────────────────────────
+
+TEST_F(LayeredMeshTest, ReadsALayeredFileTheSdkWrote)
+{
+  if (!MeshLayer::ugridSupported())
+  {
+    GTEST_SKIP() << "the SDK this build links has no NetCDF support";
+  }
+
+  // Written by the SDK's own writer and read back through the SDK's reader,
+  // so this proves the whole chain agrees rather than proving Composer
+  // agrees with a file it invented. Composer links no NetCDF of its own.
+  const QString path = QDir(QStringLiteral(COMPOSER_GIS_FIXTURE_DIR))
+                         .filePath(QStringLiteral("generated-layered.nc"));
+  QFile::remove(path);
+
+  HydroCouple::SDK::IO::MeshDefinition mesh;
+  mesh.meshName = "lake";
+  mesh.nodeX = { 0.0, 10.0, 10.0, 0.0, 20.0, 20.0 };
+  mesh.nodeY = { 0.0, 0.0, 10.0, 10.0, 0.0, 10.0 };
+  mesh.faceNodeOffsets = { 0, 4, 8 };
+  mesh.faceNodes = { 0, 1, 2, 3, 1, 4, 5, 2 };
+
+  {
+    HydroCouple::SDK::IO::NetCDFUGRIDWriter writer(path.toStdString(), mesh);
+
+    // Two columns of different depth, so the layering is not uniform and a
+    // reader that ignored per-face depth would still produce something.
+    writer.setVerticalCoordinate({ 0.0, -0.25, -1.0 }, { 8.0, 20.0 },
+                                 { 2.0, 2.0 });
+
+    ASSERT_EQ(writer.initialize(), 0) << writer.errorMessage();
+    ASSERT_EQ(writer.finalize(), 0) << writer.errorMessage();
+  }
+
+  ASSERT_TRUE(QFile::exists(path));
+  EXPECT_TRUE(MeshLayer::isLayeredUGRIDFile(path, QString()));
+
+  QString message;
+  const std::unique_ptr<MeshLayer> layer =
+    MeshLayer::fromLayeredUGRIDFile(path, QString(), 0, message);
+
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+  ASSERT_TRUE(layer->isLayered())
+    << "the file's water column did not reach the layer: "
+    << message.toStdString();
+
+  const LayeredMesh &layered = layer->layering();
+
+  EXPECT_EQ(layered.layerCount, 2);
+  ASSERT_EQ(layered.columnCount(), 2);
+
+  // Column 0: surface 2, depth 8 -> bed -8, a 10 m column with an interface
+  // a quarter of the way down at -0.5.
+  EXPECT_NEAR(layered.z(0, 0), 2.0, 1.0e-9);
+  EXPECT_NEAR(layered.z(0, 1), -0.5, 1.0e-9);
+  EXPECT_NEAR(layered.z(0, 2), -8.0, 1.0e-9);
+
+  // Column 1 is deeper, which is what proves depth is read per face.
+  EXPECT_NEAR(layered.z(1, 2), -20.0, 1.0e-9)
+    << "every column took the same depth";
+}
+
+TEST_F(LayeredMeshTest, LoadsTheWaterColumnOfTheTimeAsked)
+{
+  if (!MeshLayer::ugridSupported())
+  {
+    GTEST_SKIP() << "the SDK this build links has no NetCDF support";
+  }
+
+  // A layered mesh moves: the surface is what turns sigma into elevations,
+  // so stepping through a run has to reload the column, not only the values
+  // on it. Reading time 0 for every step freezes the mesh in place.
+  const QString path = QDir(QStringLiteral(COMPOSER_GIS_FIXTURE_DIR))
+                         .filePath(QStringLiteral("generated-layered-times.nc"));
+  QFile::remove(path);
+
+  HydroCouple::SDK::IO::MeshDefinition mesh;
+  mesh.meshName = "lake";
+  mesh.nodeX = { 0.0, 10.0, 10.0, 0.0 };
+  mesh.nodeY = { 0.0, 0.0, 10.0, 10.0 };
+  mesh.faceNodeOffsets = { 0, 4 };
+  mesh.faceNodes = { 0, 1, 2, 3 };
+
+  {
+    HydroCouple::SDK::IO::NetCDFUGRIDWriter writer(path.toStdString(), mesh);
+
+    // One face, three time levels: the reservoir fills.
+    writer.setVerticalCoordinate({ 0.0, -1.0 }, { 10.0 },
+                                 { 0.0, 2.0, 5.0 });
+
+    ASSERT_EQ(writer.initialize(), 0) << writer.errorMessage();
+    ASSERT_EQ(writer.finalize(), 0) << writer.errorMessage();
+  }
+
+  EXPECT_EQ(MeshLayer::ugridTimeCount(path, QString()), 3);
+
+  QString message;
+
+  for (const auto &[timeIndex, surface] :
+       { std::pair<int, double>{ 0, 0.0 }, { 1, 2.0 }, { 2, 5.0 } })
+  {
+    const std::unique_ptr<MeshLayer> layer =
+      MeshLayer::fromLayeredUGRIDFile(path, QString(), timeIndex, message);
+
+    ASSERT_NE(layer, nullptr) << message.toStdString();
+    ASSERT_TRUE(layer->isLayered()) << message.toStdString();
+
+    EXPECT_NEAR(layer->layering().z(0, 0), surface, 1.0e-9)
+      << "time " << timeIndex << " did not take its own water surface";
+
+    // The bed does not move with it: depth is measured from the datum.
+    EXPECT_NEAR(layer->layering().z(0, 1), -10.0, 1.0e-9);
+  }
+}
+
+TEST_F(LayeredMeshTest, APlainTwoDimensionalFileStillLoadsAsASurface)
+{
+  if (!MeshLayer::ugridSupported())
+  {
+    GTEST_SKIP() << "the SDK this build links has no NetCDF support";
+  }
+
+  // Most UGRID meshes have no water column, and asking for the layered
+  // treatment must degrade to the flat one rather than fail.
+  const QString path = QDir(QStringLiteral(COMPOSER_GIS_FIXTURE_DIR))
+                         .filePath(QStringLiteral("generated-flat.nc"));
+  QFile::remove(path);
+
+  HydroCouple::SDK::IO::MeshDefinition mesh;
+  mesh.meshName = "flat";
+  mesh.nodeX = { 0.0, 1.0, 1.0, 0.0 };
+  mesh.nodeY = { 0.0, 0.0, 1.0, 1.0 };
+  mesh.faceNodeOffsets = { 0, 4 };
+  mesh.faceNodes = { 0, 1, 2, 3 };
+
+  {
+    HydroCouple::SDK::IO::NetCDFUGRIDWriter writer(path.toStdString(), mesh);
+    ASSERT_EQ(writer.initialize(), 0) << writer.errorMessage();
+    ASSERT_EQ(writer.finalize(), 0) << writer.errorMessage();
+  }
+
+  EXPECT_FALSE(MeshLayer::isLayeredUGRIDFile(path, QString()));
+
+  QString message;
+  const std::unique_ptr<MeshLayer> layer =
+    MeshLayer::fromLayeredUGRIDFile(path, QString(), 0, message);
+
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+  EXPECT_FALSE(layer->isLayered());
+  EXPECT_FALSE(layer->sceneSource()->sceneGeometry().isEmpty())
+    << "a two-dimensional mesh lost its surface as well as its column";
 }
 
 // ── It renders ──────────────────────────────────────────────────────────────

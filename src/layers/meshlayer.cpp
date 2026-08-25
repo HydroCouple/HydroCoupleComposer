@@ -1024,4 +1024,80 @@ namespace HydroCouple::Composer
     return batches;
   }
 
+
+  std::unique_ptr<MeshLayer> MeshLayer::fromLayeredUGRIDFile(
+    const QString &filePath, const QString &meshName, int timeIndex,
+    QString &message)
+  {
+    std::unique_ptr<MeshLayer> layer =
+      fromUGRIDFile(filePath, meshName, MeshEntity::Face, message);
+
+    if (!layer)
+    {
+      return nullptr;
+    }
+
+    HydroCouple::SDK::IO::VerticalCoordinate vertical;
+    std::string readerMessage;
+
+    // A file with no vertical coordinate is not a failure: most UGRID meshes
+    // are two-dimensional, and the flat surface is the right answer for them.
+    if (!HydroCouple::SDK::IO::readVerticalCoordinate(
+          filePath.toStdString(), meshName.toStdString(),
+          static_cast<size_t>(std::max(0, timeIndex)), vertical,
+          readerMessage))
+    {
+      return layer;
+    }
+
+    QString layeringMessage;
+    const LayeredMesh layered = LayeredMesh::fromCfSigma(
+      layer->mesh(), vertical.interfaceSigma, vertical.depth,
+      vertical.surface, layeringMessage);
+
+    if (layered.layerCount < 1 || !layer->setLayering(layered, layeringMessage))
+    {
+      // The mesh is still usable in plan view, so the layering is reported
+      // rather than allowed to lose the layer entirely.
+      message = QObject::tr("The mesh was read, but its water column was "
+                            "not: %1")
+                  .arg(layeringMessage);
+    }
+
+    return layer;
+  }
+
+  bool MeshLayer::isLayeredUGRIDFile(const QString &filePath,
+                                     const QString &meshName)
+  {
+    if (!ugridSupported())
+    {
+      return false;
+    }
+
+    return HydroCouple::SDK::IO::hasVerticalCoordinate(
+      filePath.toStdString(), meshName.toStdString());
+  }
+
+  int MeshLayer::ugridTimeCount(const QString &filePath,
+                                const QString &meshName)
+  {
+    if (!ugridSupported())
+    {
+      return 0;
+    }
+
+    HydroCouple::SDK::IO::VerticalCoordinate vertical;
+    std::string message;
+
+    if (!HydroCouple::SDK::IO::readVerticalCoordinate(
+          filePath.toStdString(), meshName.toStdString(), 0, vertical,
+          message))
+    {
+      return 0;
+    }
+
+    return int(vertical.timeCount);
+  }
+
 } // namespace HydroCouple::Composer

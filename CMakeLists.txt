@@ -318,6 +318,9 @@ endif()
 
 # ── Screenshot tool (visual review, runs headless) ──────────────────────────
 if(COMPOSER_BUILD_TESTS)
+    qt_add_executable(layered_perf tools/layered_perf.cpp)
+    target_link_libraries(layered_perf PRIVATE composer_core)
+    set_target_properties(layered_perf PROPERTIES MACOSX_BUNDLE OFF)
     qt_add_executable(composer_screenshot tools/screenshot.cpp)
     target_link_libraries(composer_screenshot PRIVATE composer_core)
     set_target_properties(composer_screenshot PROPERTIES MACOSX_BUNDLE OFF)
