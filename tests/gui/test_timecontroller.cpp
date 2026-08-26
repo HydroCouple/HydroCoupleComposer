@@ -517,3 +517,124 @@ TEST_F(TimeControllerTest, AnotherFieldIsNotAnsweredWithTheRecord)
   EXPECT_EQ(layer->numericValues(layer->valueAttribute()).size(),
             layer->featureCount() * layer->timeCount());
 }
+
+// ── D2d: the legend beside a running map ─────────────────────────────────
+//
+// The layer tree derives its legend rows from the style on every read rather
+// than storing them, which is what stops a map and its legend from drifting
+// apart. What that leaves to check is the other half: that the theme itself
+// holds while the run plays, so the legend read at one instant is still the
+// legend for the map at the next.
+
+TEST_F(TimeControllerTest, TheLegendNamesTheThemesClasses)
+{
+  LayerStackModel stack;
+
+  const std::unique_ptr<Testing::StubTimeGeometryItem> item =
+    makeItem("depth", 4, kEpoch, 1.0);
+
+  QString message;
+  DataItemLayer *layer = DataItemLayer::create(item.get(), message).release();
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  themeByValue(*layer, 4);
+  ASSERT_GE(stack.addLayer(layer), 0);
+  ASSERT_TRUE(layer->restyle());
+
+  const QModelIndex layerRow = stack.index(0, 0);
+  ASSERT_TRUE(layerRow.isValid());
+
+  const QVector<ClassBreak> &breaks =
+    layer->style()->classification().breaks();
+  ASSERT_FALSE(breaks.isEmpty());
+
+  ASSERT_EQ(stack.rowCount(layerRow), breaks.size());
+
+  for (int row = 0; row < breaks.size(); ++row)
+  {
+    const QModelIndex legendRow = stack.index(row, 0, layerRow);
+
+    EXPECT_TRUE(stack.data(legendRow, LayerStackModel::IsLegendRole).toBool());
+    EXPECT_EQ(stack.data(legendRow, Qt::DisplayRole).toString(),
+              breaks.at(row).label)
+      << "legend row " << row << " does not name the class it stands for";
+  }
+}
+
+TEST_F(TimeControllerTest, TheLegendHoldsWhileTheRunPlays)
+{
+  LayerStackModel stack;
+
+  const std::unique_ptr<Testing::StubTimeGeometryItem> item =
+    makeItem("depth", 4, kEpoch, 1.0);
+
+  QString message;
+  DataItemLayer *layer = DataItemLayer::create(item.get(), message).release();
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  themeByValue(*layer, 4);
+  ASSERT_GE(stack.addLayer(layer), 0);
+  ASSERT_TRUE(layer->restyle());
+
+  const QModelIndex layerRow = stack.index(0, 0);
+
+  QStringList reference;
+
+  for (int row = 0; row < stack.rowCount(layerRow); ++row)
+  {
+    reference.append(
+      stack.data(stack.index(row, 0, layerRow), Qt::DisplayRole).toString());
+  }
+
+  ASSERT_FALSE(reference.isEmpty());
+
+  for (int level = 0; level < layer->timeCount(); ++level)
+  {
+    ASSERT_TRUE(layer->setTimeIndex(level));
+
+    QStringList now;
+
+    for (int row = 0; row < stack.rowCount(layerRow); ++row)
+    {
+      now.append(
+        stack.data(stack.index(row, 0, layerRow), Qt::DisplayRole).toString());
+    }
+
+    EXPECT_EQ(now, reference)
+      << "the legend was rewritten at level " << level
+      << ", so a reader comparing two frames is comparing two scales";
+  }
+}
+
+TEST_F(TimeControllerTest, TheLegendFollowsARethemeMidRun)
+{
+  LayerStackModel stack;
+
+  const std::unique_ptr<Testing::StubTimeGeometryItem> item =
+    makeItem("depth", 6, kEpoch, 1.0);
+
+  QString message;
+  DataItemLayer *layer = DataItemLayer::create(item.get(), message).release();
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  themeByValue(*layer, 3);
+  ASSERT_GE(stack.addLayer(layer), 0);
+  ASSERT_TRUE(layer->restyle());
+
+  const QModelIndex layerRow = stack.index(0, 0);
+  ASSERT_EQ(stack.rowCount(layerRow), 3);
+
+  QSignalSpy inserted(&stack, &QAbstractItemModel::rowsInserted);
+
+  // Re-theming mid-run changes how many classes there are, which is a
+  // structural change to the tree and not only new text in it: a view told
+  // otherwise keeps addressing legend rows that no longer exist.
+  layer->style()->classification().setClassCount(6);
+  ASSERT_TRUE(layer->restyle());
+
+  EXPECT_EQ(stack.rowCount(layerRow), 6);
+
+  ASSERT_EQ(inserted.size(), 1)
+    << "the tree was not told its legend rows had changed";
+  EXPECT_EQ(inserted.at(0).at(0).value<QModelIndex>(), layerRow);
+}
