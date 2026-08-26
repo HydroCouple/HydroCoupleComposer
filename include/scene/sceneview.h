@@ -18,6 +18,7 @@
 #ifndef HYDROCOUPLECOMPOSER_SCENE_SCENEVIEW_H
 #define HYDROCOUPLECOMPOSER_SCENE_SCENEVIEW_H
 
+#include "map/maplayer.h"
 #include "scene/camera.h"
 #include "scene/scenerenderer.h"
 
@@ -27,7 +28,9 @@
 
 namespace HydroCouple::Composer
 {
+  class FeatureLayer;
   class LayerStackModel;
+  class MapLayer;
 
   /*!
    * \brief An orbitable 3D view of the layer stack.
@@ -122,7 +125,50 @@ namespace HydroCouple::Composer
 
       [[nodiscard]] QSize sizeHint() const override;
 
+      /*!
+       * \brief The feature under \a pixel, and the layer it belongs to.
+       *
+       * The ray is turned into a place on the ground and the stack is then
+       * asked the question the map already answers, so the two views cannot
+       * disagree about what is at a coordinate. What that costs is the
+       * features whose 3D form is not their 2D one: an extruded curtain is
+       * picked where it stands rather than where its wall was clicked, and a
+       * peeled column of prisms identifies the column rather than the cell.
+       *
+       * \param pixel Widget position, as a click gives.
+       * \param[out] feature Index within the layer returned.
+       * \returns The layer picked, or nullptr when nothing was under it.
+       */
+      [[nodiscard]] FeatureLayer *pickAt(const QPoint &pixel,
+                                         int &feature) const;
+
+      /*!
+       * \brief Where a pixel of the viewport lands on the ground.
+       *
+       * Exposed because it is the whole of the correspondence between the
+       * two views, and a correspondence nothing can measure is one that
+       * quietly stops holding.
+       *
+       * \param pixel Widget position.
+       * \param[out] ground Map-CRS position it lands on.
+       * \returns False when the ray meets no ground.
+       */
+      [[nodiscard]] bool groundUnder(const QPoint &pixel,
+                                     QPointF &ground) const;
+
     Q_SIGNALS:
+      /*!
+       * \brief Emitted when a click selects a feature, or selects nothing.
+       *
+       * The same signal the map emits, carrying the base type for the same
+       * reason: a listener wants to know what was picked and does not care
+       * which view did the picking.
+       *
+       * \param layer The layer picked, or nullptr.
+       * \param feature Index within \a layer, or -1.
+       */
+      void featurePicked(MapLayer *layer, int feature);
+
       /*!
        * \brief Emitted when the camera moves.
        *
@@ -154,6 +200,7 @@ namespace HydroCouple::Composer
       Camera m_camera;
       QColor m_background = QColor(0x1a, 0x1d, 0x21);
 
+      QPoint m_pressPosition;
       QPoint m_lastMousePosition;
       bool m_orbiting = false;
       bool m_panning = false;

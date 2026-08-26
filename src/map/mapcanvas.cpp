@@ -516,20 +516,7 @@ namespace HydroCouple::Composer
         // table beside it describe somewhere they have navigated away from.
         if (m_model)
         {
-          for (MapLayer *candidate : m_model->layers())
-          {
-            if (auto *features = dynamic_cast<FeatureLayer *>(candidate))
-            {
-              if (features == layer)
-              {
-                features->setSelection({ feature });
-              }
-              else
-              {
-                features->clearSelection();
-              }
-            }
-          }
+          m_model->selectOnly(layer, feature);
         }
 
         Q_EMIT featurePicked(layer, feature);

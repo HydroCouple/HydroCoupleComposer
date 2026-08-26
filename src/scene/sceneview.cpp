@@ -1,6 +1,8 @@
 #include "scene/sceneview.h"
 
+#include "layers/featurelayer.h"
 #include "map/layerstackmodel.h"
+#include "pick/terrainray.h"
 
 #include <QMouseEvent>
 #include <QWheelEvent>
@@ -13,6 +15,22 @@ namespace HydroCouple::Composer
 {
   namespace
   {
+    /*!
+     * \brief How near a click has to land, in pixels.
+     *
+     * In pixels rather than world units because it is a property of pointing,
+     * not of the data — the same reasoning, and the same number, as the map's.
+     */
+    constexpr double kPickRadiusPixels = 6.0;
+
+    /*!
+     * \brief How far the mouse may move and still count as a click.
+     *
+     * Orbiting and picking share the left button, so they are told apart by
+     * whether the scene turned.
+     */
+    constexpr int kClickSlopPixels = 3;
+
     //! Degrees of rotation per pixel dragged. Chosen so a drag across the
     //! width of a typical view is most of a turn, which is what makes
     //! orbiting feel like turning an object rather than nudging one.
@@ -212,6 +230,7 @@ namespace HydroCouple::Composer
 
   void SceneView::mousePressEvent(QMouseEvent *event)
   {
+    m_pressPosition = event->pos();
     m_lastMousePosition = event->pos();
 
     // Left orbits, middle and right pan — the convention every GIS 3D view
@@ -258,10 +277,107 @@ namespace HydroCouple::Composer
 
   void SceneView::mouseReleaseEvent(QMouseEvent *event)
   {
+    const bool wasOrbiting = m_orbiting;
+
     m_orbiting = false;
     m_panning = false;
 
+    // A left press that did not turn the scene was a click, not an orbit —
+    // the same rule the map uses to tell a click from a pan, and for the same
+    // reason: one button does both.
+    const QPoint travelled = event->pos() - m_pressPosition;
+
+    if (wasOrbiting && event->button() == Qt::LeftButton &&
+        std::abs(travelled.x()) <= kClickSlopPixels &&
+        std::abs(travelled.y()) <= kClickSlopPixels)
+    {
+      int feature = -1;
+      FeatureLayer *layer = pickAt(event->pos(), feature);
+
+      if (LayerStackModel *stack = m_renderer.model())
+      {
+        stack->selectOnly(layer, feature);
+      }
+
+      Q_EMIT featurePicked(layer, feature);
+    }
+
     QRhiWidget::mouseReleaseEvent(event);
+  }
+
+  bool SceneView::groundUnder(const QPoint &pixel, QPointF &ground) const
+  {
+    QVector3D origin;
+    QVector3D direction;
+
+    if (!m_camera.rayThrough(QPointF(pixel), size(), origin, direction))
+    {
+      return false;
+    }
+
+    const ITerrainSource *terrain = m_renderer.terrain();
+    const Bounds3D bounds = m_renderer.sceneBounds();
+
+    // Far enough to cross the whole scene from wherever the eye is, and no
+    // farther: the march's step comes from the terrain, so an arbitrarily
+    // large reach would be an arbitrarily large number of steps.
+    const double reach =
+      bounds.isValid()
+        ? double((bounds.center() - origin).length()) + bounds.diagonal()
+        : m_camera.farPlane();
+
+    return rayGroundPoint(origin, direction, terrain, reach, ground);
+  }
+
+  FeatureLayer *SceneView::pickAt(const QPoint &pixel, int &feature) const
+  {
+    feature = -1;
+
+    LayerStackModel *stack = m_renderer.model();
+
+    QPointF ground;
+
+    if (!stack || !groundUnder(pixel, ground))
+    {
+      return nullptr;
+    }
+
+    // The click tolerance, measured on the ground rather than assumed: a
+    // pixel covers a different amount of world at the near edge of a tilted
+    // view than at the far one, and under perspective the difference across
+    // one screen is easily tenfold.
+    QPointF offset;
+    const double tolerance =
+      groundUnder(pixel + QPoint(int(kPickRadiusPixels), 0), offset)
+        ? std::hypot(offset.x() - ground.x(), offset.y() - ground.y())
+        : 0.0;
+
+    // layers() is top-first, which is the order the answer has to come in.
+    for (MapLayer *layer : stack->layers())
+    {
+      if (!layer->isVisible())
+      {
+        continue;
+      }
+
+      auto *features = dynamic_cast<FeatureLayer *>(layer);
+
+      if (!features)
+      {
+        continue;
+      }
+
+      const int hit = features->pickAt(ground, tolerance);
+
+      if (hit >= 0)
+      {
+        feature = hit;
+
+        return features;
+      }
+    }
+
+    return nullptr;
   }
 
   void SceneView::wheelEvent(QWheelEvent *event)

@@ -1,5 +1,7 @@
 #include "map/layerstackmodel.h"
 
+#include "layers/featurelayer.h"
+
 #include "gis/spatialreference.h"
 #include "map/maplayer.h"
 #include "render/layerstyle.h"
@@ -549,6 +551,28 @@ namespace HydroCouple::Composer
     std::reverse(ordered.begin(), ordered.end());
 
     return ordered;
+  }
+
+  void LayerStackModel::selectOnly(MapLayer *layer, int feature)
+  {
+    for (MapLayer *candidate : m_layers)
+    {
+      auto *features = dynamic_cast<FeatureLayer *>(candidate);
+
+      if (!features)
+      {
+        continue;
+      }
+
+      if (features == layer && feature >= 0)
+      {
+        features->setSelection({ feature });
+      }
+      else
+      {
+        features->clearSelection();
+      }
+    }
   }
 
   void LayerStackModel::clear()

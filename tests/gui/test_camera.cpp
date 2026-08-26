@@ -422,3 +422,138 @@ TEST(Bounds3DTest, AbsorbingAnEmptyBoxChangesNothing)
   EXPECT_EQ(bounds.maximum(), before);
   EXPECT_EQ(bounds.minimum(), before);
 }
+
+// ── The ray a pixel casts ───────────────────────────────────────────────────
+
+namespace
+{
+  //! Where a ray meets the z = 0 plane.
+  QPointF groundHit(const QVector3D &origin, const QVector3D &direction)
+  {
+    const double travel = -double(origin.z()) / double(direction.z());
+    const QVector3D at = origin + direction * float(travel);
+
+    return QPointF(at.x(), at.y());
+  }
+}
+
+TEST(CameraRayTest, TheCentrePixelLooksAtTheTarget)
+{
+  Camera camera;
+  camera.setProjection(CameraProjection::Orthographic, kAspect);
+  camera.setElevation(90.0);
+  camera.setGroundExtent(matchingRect(), kAspect);
+
+  QVector3D origin;
+  QVector3D direction;
+
+  ASSERT_TRUE(camera.rayThrough(QPointF(400.0, 300.0), QSize(800, 600), origin,
+                                direction));
+
+  const QPointF hit = groundHit(origin, direction);
+
+  EXPECT_NEAR(hit.x(), camera.target().x(), 1.0e-3);
+  EXPECT_NEAR(hit.y(), camera.target().y(), 1.0e-3);
+}
+
+TEST(CameraRayTest, PixelsMapAcrossTheGroundExtent)
+{
+  // Orthographic and straight down, where the correspondence is exact: the
+  // ray through a corner pixel must land on the corner of the ground the
+  // camera says it is showing.
+  Camera camera;
+  camera.setProjection(CameraProjection::Orthographic, kAspect);
+  camera.setElevation(90.0);
+  camera.setGroundExtent(matchingRect(), kAspect);
+
+  const QRectF ground = camera.groundExtent(kAspect);
+  const QSize viewport(800, 600);
+
+  QVector3D origin;
+  QVector3D direction;
+
+  ASSERT_TRUE(camera.rayThrough(QPointF(0.0, 0.0), viewport, origin,
+                                direction));
+
+  const QPointF topLeft = groundHit(origin, direction);
+
+  // Widget y grows downward and world y grows north, so the top-left pixel
+  // is the north-west corner.
+  EXPECT_NEAR(topLeft.x(), ground.left(), 1.0e-3);
+  EXPECT_NEAR(topLeft.y(), ground.bottom(), 1.0e-3);
+
+  ASSERT_TRUE(camera.rayThrough(QPointF(800.0, 600.0), viewport, origin,
+                                direction));
+
+  const QPointF bottomRight = groundHit(origin, direction);
+
+  EXPECT_NEAR(bottomRight.x(), ground.right(), 1.0e-3);
+  EXPECT_NEAR(bottomRight.y(), ground.top(), 1.0e-3);
+}
+
+TEST(CameraRayTest, ExaggerationDoesNotMoveWhereAPixelPoints)
+{
+  // The property that makes exaggeration a display setting rather than a data
+  // one. A ray built from the model-view-projection without undoing the model
+  // matrix would drift across the ground as the slider moved, and a pick
+  // would land on a different feature at every exaggeration.
+  Camera camera;
+  camera.setElevation(35.0);
+  camera.setAzimuth(20.0);
+  camera.setTarget(QVector3D(50.0f, 60.0f, 0.0f));
+  camera.setDistance(200.0);
+
+  QVector3D origin;
+  QVector3D direction;
+
+  ASSERT_TRUE(camera.rayThrough(QPointF(510.0, 260.0), QSize(800, 600), origin,
+                                direction));
+
+  const QPointF flat = groundHit(origin, direction);
+
+  camera.setVerticalExaggeration(8.0);
+
+  ASSERT_TRUE(camera.rayThrough(QPointF(510.0, 260.0), QSize(800, 600), origin,
+                                direction));
+
+  const QPointF exaggerated = groundHit(origin, direction);
+
+  EXPECT_NEAR(exaggerated.x(), flat.x(), 1.0e-2);
+  EXPECT_NEAR(exaggerated.y(), flat.y(), 1.0e-2);
+}
+
+TEST(CameraRayTest, ADegenerateViewportCastsNothing)
+{
+  const Camera camera;
+
+  QVector3D origin;
+  QVector3D direction;
+
+  EXPECT_FALSE(camera.rayThrough(QPointF(0.0, 0.0), QSize(0, 600), origin,
+                                 direction));
+  EXPECT_FALSE(camera.rayThrough(QPointF(0.0, 0.0), QSize(800, 0), origin,
+                                 direction));
+}
+
+TEST(CameraRayTest, ARayGoesAwayFromTheEye)
+{
+  Camera camera;
+  camera.setElevation(40.0);
+  camera.setTarget(QVector3D(10.0f, 20.0f, 0.0f));
+  camera.setDistance(100.0);
+
+  QVector3D origin;
+  QVector3D direction;
+
+  ASSERT_TRUE(camera.rayThrough(QPointF(400.0, 300.0), QSize(800, 600), origin,
+                                direction));
+
+  EXPECT_NEAR(double(direction.length()), 1.0, 1.0e-5);
+
+  // Toward the target, not away from it: a ray built from the far plane
+  // minus the near one the wrong way round points into the sky, and every
+  // pick misses for a reason nothing in the picking code explains.
+  const QVector3D toTarget = (camera.target() - origin).normalized();
+
+  EXPECT_GT(double(QVector3D::dotProduct(direction, toTarget)), 0.9);
+}

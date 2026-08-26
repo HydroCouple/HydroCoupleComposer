@@ -99,6 +99,15 @@ namespace HydroCouple::Composer
       [[nodiscard]] Bounds3D sceneBounds() const;
 
       /*!
+       * \brief The stack's uppermost visible terrain, or nullptr.
+       *
+       * What every layer is being composed against, and what a ray from the
+       * camera lands on. Public because picking asks the same question the
+       * batch builder does, and two answers to it would be two surfaces.
+       */
+      [[nodiscard]] const ITerrainSource *terrain() const;
+
+      /*!
        * \brief The ambient fraction of the lighting, from 0 to 1.
        */
       [[nodiscard]] double ambient() const;
@@ -165,9 +174,6 @@ namespace HydroCouple::Composer
       void sceneChanged();
 
     private:
-      //! The stack's uppermost visible terrain, or nullptr.
-      [[nodiscard]] const ITerrainSource *resolveTerrain() const;
-
       //! One layer's geometry, uploaded.
       struct Batch
       {

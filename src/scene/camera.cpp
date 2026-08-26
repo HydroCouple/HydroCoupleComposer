@@ -1,5 +1,7 @@
 #include "scene/camera.h"
 
+#include <QVector4D>
+
 #include <algorithm>
 #include <cmath>
 
@@ -395,6 +397,61 @@ namespace HydroCouple::Composer
     {
       m_orthoHalfHeight = std::max(kMinDistance, m_orthoHalfHeight * factor);
     }
+  }
+
+  bool Camera::rayThrough(const QPointF &pixel, const QSize &viewport,
+                          QVector3D &origin, QVector3D &direction) const
+  {
+    if (viewport.width() <= 0 || viewport.height() <= 0)
+    {
+      return false;
+    }
+
+    const double aspect =
+      double(viewport.width()) / double(viewport.height());
+
+    bool invertible = false;
+    const QMatrix4x4 inverse =
+      modelViewProjection(aspect).inverted(&invertible);
+
+    if (!invertible)
+    {
+      return false;
+    }
+
+    // Widget y grows downward and normalised device y grows upward, hence
+    // the subtraction rather than a second scale.
+    const float ndcX =
+      float(2.0 * pixel.x() / double(viewport.width()) - 1.0);
+    const float ndcY =
+      float(1.0 - 2.0 * pixel.y() / double(viewport.height()));
+
+    // Through QVector4D and divided by w by hand: QMatrix4x4::map() of a
+    // QVector3D treats it as a point and does not divide, which is right for
+    // projecting and silently wrong for undoing a projection.
+    const auto unproject = [&](float ndcZ) -> QVector3D
+    {
+      const QVector4D clip = inverse * QVector4D(ndcX, ndcY, ndcZ, 1.0f);
+
+      return qFuzzyIsNull(clip.w()) ? clip.toVector3D()
+                                    : clip.toVector3D() / clip.w();
+    };
+
+    // Qt's projection matrices are OpenGL-style, so the near plane is at
+    // z = -1 and the far plane at z = +1 in normalised device coordinates.
+    const QVector3D nearPoint = unproject(-1.0f);
+    const QVector3D farPoint = unproject(1.0f);
+    const QVector3D along = farPoint - nearPoint;
+
+    if (along.isNull())
+    {
+      return false;
+    }
+
+    origin = nearPoint;
+    direction = along.normalized();
+
+    return true;
   }
 
   double Camera::nearPlane() const

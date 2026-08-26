@@ -30,6 +30,7 @@
 #include <QMatrix4x4>
 #include <QPointF>
 #include <QRectF>
+#include <QSize>
 #include <QVector3D>
 
 namespace HydroCouple::Composer
@@ -253,6 +254,29 @@ namespace HydroCouple::Composer
        * \param factor Values below 1 move closer.
        */
       void dolly(double factor);
+
+      /*!
+       * \brief The world-space ray through a pixel of the viewport.
+       *
+       * In *world* coordinates, with the model matrix undone — so the answer
+       * does not move when vertical exaggeration changes, and a pick lands on
+       * the same feature at any exaggeration. That is the whole reason the
+       * model matrix is a display property.
+       *
+       * The backend's clip-space correction is deliberately absent, as it is
+       * everywhere else in this class: it differs between Metal, Vulkan and
+       * OpenGL, and a ray that depended on it would pick differently on
+       * different machines.
+       *
+       * \param pixel Position within the viewport, y down as a widget gives.
+       * \param viewport Viewport size in pixels.
+       * \param[out] origin Where the ray starts, on the near plane.
+       * \param[out] direction Which way it goes; unit length.
+       * \returns False when the viewport is degenerate.
+       */
+      [[nodiscard]] bool rayThrough(const QPointF &pixel,
+                                    const QSize &viewport, QVector3D &origin,
+                                    QVector3D &direction) const;
 
       /*!
        * \brief The near and far clip distances for the current view.

@@ -155,7 +155,7 @@ namespace HydroCouple::Composer
     return bounds;
   }
 
-  const ITerrainSource *SceneRenderer::resolveTerrain() const
+  const ITerrainSource *SceneRenderer::terrain() const
   {
     if (!m_model)
     {
@@ -383,7 +383,7 @@ namespace HydroCouple::Composer
     // a property of the composition, and a layer that went looking for its own
     // terrain would be a layer that knows what else is in the stack.
     SceneContext context;
-    context.terrain = resolveTerrain();
+    context.terrain = terrain();
 
     // What the scene is about. sceneBounds() already answers this correctly
     // without a rule of its own: a backdrop reports no bounds, on the same

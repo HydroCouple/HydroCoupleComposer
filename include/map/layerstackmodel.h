@@ -156,6 +156,22 @@ namespace HydroCouple::Composer
       [[nodiscard]] MapLayer *layerFor(const QModelIndex &index) const;
 
       /*!
+       * \brief Selects \a feature in \a layer and nothing anywhere else.
+       *
+       * The stack's job rather than a view's, because there is one selection
+       * across the whole stack and two views doing this independently would
+       * be two places for that rule to be spelled differently. A null layer
+       * or a negative feature selects nothing, which is what a click on empty
+       * space means.
+       *
+       * Layers without features are unaffected, having nothing to select.
+       *
+       * \param layer The layer the selection belongs to, or nullptr.
+       * \param feature Index within \a layer, or -1.
+       */
+      void selectOnly(MapLayer *layer, int feature);
+
+      /*!
        * \brief Whether \a index is a legend row rather than a layer.
        * \param index Index to test.
        */
