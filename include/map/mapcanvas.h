@@ -22,6 +22,8 @@
 
 #include <QColor>
 #include <QPoint>
+#include "map/maptool.h"
+
 #include <QWidget>
 
 #include <memory>
@@ -173,6 +175,63 @@ namespace HydroCouple::Composer
       [[nodiscard]] FeatureLayer *pickAt(const QPoint &screen,
                                          int &feature) const;
 
+      // ── what the map tools act through ───────────────────────────────────
+
+      /*!
+       * \brief Which gesture set the map is under.
+       */
+      [[nodiscard]] MapToolKind toolKind() const;
+
+      /*!
+       * \brief Switches gesture set.
+       *
+       * A gesture in progress is abandoned rather than carried across, so a
+       * rubber band cannot be left on screen belonging to a tool that is no
+       * longer active.
+       *
+       * \param kind The gestures wanted.
+       */
+      void setToolKind(MapToolKind kind);
+
+      /*!
+       * \brief Slides the view by \a pixels.
+       * \param pixels Screen-space offset to move the content by.
+       */
+      void panByPixels(const QPointF &pixels);
+
+      /*!
+       * \brief Zooms about a point rather than about the centre.
+       *
+       * What the wheel does, and what a zoom-tool click does: zooming about
+       * the centre slides whatever the user is pointing at off-screen.
+       *
+       * \param factor Values above 1 zoom in.
+       * \param pixel The point to hold still.
+       */
+      void zoomAtPixel(double factor, const QPoint &pixel);
+
+      /*!
+       * \brief Frames the world under a screen rectangle.
+       *
+       * No margin: the rectangle is what was asked for, and breathing room
+       * belongs to the commands that frame *data* — zoomToFullExtent() and
+       * zoomToLayer() — not to one the user drew themselves.
+       *
+       * \param rectangle Screen rectangle; ignored when degenerate.
+       */
+      void zoomToScreenRect(const QRect &rectangle);
+
+      /*!
+       * \brief Identifies what is under \a screen and selects it.
+       *
+       * Selecting nothing when nothing is there, which is how a user says
+       * "nothing" — leaving the last selection standing would make the table
+       * beside it describe somewhere they have navigated away from.
+       *
+       * \param screen Widget position, as a click gives.
+       */
+      void pickAndSelectAt(const QPoint &screen);
+
     Q_SIGNALS:
       /*!
        * \brief Emitted when a click selects a feature, or selects nothing.
@@ -268,6 +327,16 @@ namespace HydroCouple::Composer
 
       LayerStackModel *m_model = nullptr;
       std::shared_ptr<SpatialReference> m_crs;
+
+      /*!
+       * \brief The active tool, built on first use.
+       *
+       * \returns The tool; never null.
+       */
+      [[nodiscard]] MapTool *activeTool();
+
+      std::unique_ptr<MapTool> m_tool;
+      MapToolKind m_toolKind = MapToolKind::Pan;
 
       //! What scaleChanged() last reported, so a pan does not re-announce it.
       mutable double m_lastDenominator = 0.0;

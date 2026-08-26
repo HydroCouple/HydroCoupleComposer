@@ -31,6 +31,7 @@ composer_add_gui_test(test_spatialreference)
 composer_add_gui_test(test_maptransform)
 composer_add_gui_test(test_layerstack)
 composer_add_gui_test(test_mapcanvas)
+composer_add_gui_test(test_maptools)
 
 # C1c — styling. The ramp and classification suites are value-type maths and
 # need no widgets; the labelling suite renders, because a halo that is not

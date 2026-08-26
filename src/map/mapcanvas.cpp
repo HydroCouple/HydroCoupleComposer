@@ -591,16 +591,133 @@ namespace HydroCouple::Composer
     update();
   }
 
+  MapToolKind MapCanvas::toolKind() const
+  {
+    return m_toolKind;
+  }
+
+  void MapCanvas::setToolKind(MapToolKind kind)
+  {
+    if (m_tool && m_toolKind == kind)
+    {
+      return;
+    }
+
+    // Replacing the tool destroys it, and a rubber band is its child, so a
+    // gesture in progress ends by construction. An explicit cancel() before
+    // the swap was written first and deleted: nothing observable depended on
+    // it, and the falsification run said so.
+    m_toolKind = kind;
+
+    switch (kind)
+    {
+      case MapToolKind::Zoom:
+        m_tool = std::make_unique<ZoomTool>(this);
+        break;
+
+      case MapToolKind::Pan:
+        m_tool = std::make_unique<PanTool>(this);
+        break;
+    }
+
+    setCursor(m_tool->idleCursor());
+  }
+
+  MapTool *MapCanvas::activeTool()
+  {
+    // Built on first use rather than in the constructor, so a canvas that is
+    // never interacted with never builds one.
+    if (!m_tool)
+    {
+      setToolKind(m_toolKind);
+    }
+
+    return m_tool.get();
+  }
+
+  void MapCanvas::panByPixels(const QPointF &pixels)
+  {
+    syncViewport();
+
+    if (!m_transform.isValid())
+    {
+      return;
+    }
+
+    m_transform.panByPixels(pixels);
+    m_viewMovedByUser = true;
+
+    announceTransformChanged();
+    update();
+  }
+
+  void MapCanvas::zoomAtPixel(double factor, const QPoint &pixel)
+  {
+    syncViewport();
+
+    if (!m_transform.isValid() || factor <= 0.0)
+    {
+      return;
+    }
+
+    m_transform.zoomAt(factor, QPointF(pixel));
+    m_viewMovedByUser = true;
+
+    announceTransformChanged();
+    update();
+  }
+
+  void MapCanvas::zoomToScreenRect(const QRect &rectangle)
+  {
+    syncViewport();
+
+    // Width and height explicitly: a zero-area QRect reports itself null, so
+    // the obvious guard would be true for a rectangle that is merely thin.
+    if (!m_transform.isValid() || rectangle.width() <= 0 ||
+        rectangle.height() <= 0)
+    {
+      return;
+    }
+
+    const QPointF first = m_transform.toWorld(QPointF(rectangle.topLeft()));
+    const QPointF second =
+      m_transform.toWorld(QPointF(rectangle.bottomRight()));
+
+    const QRectF world = QRectF(first, second).normalized();
+
+    if (world.isEmpty())
+    {
+      return;
+    }
+
+    // No margin: the rectangle is what was asked for. Breathing room belongs
+    // to the commands that frame data, not to one the user drew.
+    setVisibleExtent(world);
+    m_viewMovedByUser = true;
+  }
+
+  void MapCanvas::pickAndSelectAt(const QPoint &screen)
+  {
+    int feature = -1;
+    FeatureLayer *layer = pickAt(screen, feature);
+
+    // Clicking empty map clears the selection, which is how a user says
+    // "nothing" — leaving the last selection standing would make the table
+    // beside it describe somewhere they have navigated away from.
+    if (m_model)
+    {
+      m_model->selectOnly(layer, feature);
+    }
+
+    Q_EMIT featurePicked(layer, feature);
+  }
+
   void MapCanvas::mousePressEvent(QMouseEvent *event)
   {
     syncViewport();
 
-    if (event->button() == Qt::LeftButton && m_transform.isValid())
+    if (activeTool()->press(event))
     {
-      m_panning = true;
-      m_pressPosition = event->pos();
-      m_lastPanPosition = event->pos();
-      setCursor(Qt::ClosedHandCursor);
       event->accept();
       return;
     }
@@ -617,15 +734,8 @@ namespace HydroCouple::Composer
       Q_EMIT cursorMoved(m_transform.toWorld(QPointF(event->pos())));
     }
 
-    if (m_panning)
+    if (activeTool()->move(event))
     {
-      m_transform.panByPixels(QPointF(event->pos() - m_lastPanPosition));
-      m_lastPanPosition = event->pos();
-      m_viewMovedByUser = true;
-
-      announceTransformChanged();
-      update();
-
       event->accept();
       return;
     }
@@ -635,33 +745,8 @@ namespace HydroCouple::Composer
 
   void MapCanvas::mouseReleaseEvent(QMouseEvent *event)
   {
-    if (m_panning && event->button() == Qt::LeftButton)
+    if (activeTool()->release(event))
     {
-      m_panning = false;
-      unsetCursor();
-
-      // A press that did not move the view was a click, not a pan. Picking on
-      // release rather than on press is also what keeps a drag that happens
-      // to start on a feature from selecting it.
-      const QPoint travelled = event->pos() - m_pressPosition;
-
-      if (std::abs(travelled.x()) <= kClickSlopPixels &&
-          std::abs(travelled.y()) <= kClickSlopPixels)
-      {
-        int feature = -1;
-        FeatureLayer *layer = pickAt(event->pos(), feature);
-
-        // Clicking empty map clears the selection, which is how a user says
-        // "nothing" — leaving the last selection standing would make the
-        // table beside it describe somewhere they have navigated away from.
-        if (m_model)
-        {
-          m_model->selectOnly(layer, feature);
-        }
-
-        Q_EMIT featurePicked(layer, feature);
-      }
-
       event->accept();
       return;
     }

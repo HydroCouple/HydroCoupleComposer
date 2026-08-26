@@ -326,6 +326,31 @@ namespace HydroCouple::Composer
     connect(m_mapCrsAction, &QAction::triggered, this,
             &ComposerMainWindow::onSetMapCrs);
 
+    m_panToolAction = new QAction(tr("Pa&n"), this);
+    m_panToolAction->setObjectName(QStringLiteral("panToolAction"));
+    m_panToolAction->setCheckable(true);
+    m_panToolAction->setChecked(true);
+    m_panToolAction->setToolTip(
+      tr("Drag to pan; click to identify what is underneath."));
+
+    m_zoomToolAction = new QAction(tr("&Zoom to Rectangle"), this);
+    m_zoomToolAction->setObjectName(QStringLiteral("zoomToolAction"));
+    m_zoomToolAction->setCheckable(true);
+    m_zoomToolAction->setToolTip(
+      tr("Drag a rectangle to zoom to it; click to zoom in."));
+
+    // Exclusive: the map is under one gesture set at a time, and two
+    // independent checkboxes would let the UI show a state it cannot be in.
+    auto *toolGroup = new QActionGroup(this);
+    toolGroup->setExclusive(true);
+    toolGroup->addAction(m_panToolAction);
+    toolGroup->addAction(m_zoomToolAction);
+
+    connect(m_panToolAction, &QAction::triggered, this,
+            &ComposerMainWindow::onMapToolChosen);
+    connect(m_zoomToolAction, &QAction::triggered, this,
+            &ComposerMainWindow::onMapToolChosen);
+
     m_perspectiveAction = new QAction(tr("&Perspective"), this);
     m_perspectiveAction->setObjectName(QStringLiteral("perspectiveAction"));
     m_perspectiveAction->setCheckable(true);
@@ -572,6 +597,8 @@ namespace HydroCouple::Composer
               [this, name = provider.name] { setBasemap(name); });
     }
 
+    viewMenu->addAction(m_panToolAction);
+    viewMenu->addAction(m_zoomToolAction);
     viewMenu->addAction(m_mapCrsAction);
 
     viewMenu->addSeparator();
@@ -696,6 +723,11 @@ namespace HydroCouple::Composer
     // and C1d; the results tools get a tab of their own in phase D.
     m_ribbon->addTab(QStringLiteral("map"), tr("Map"));
 
+    RibbonGroup *tools =
+      m_ribbon->addGroup(QStringLiteral("map"), tr("Tools"));
+    tools->addAction(m_panToolAction, tr("Pan"));
+    tools->addAction(m_zoomToolAction, tr("Zoom\nBox"));
+
     RibbonGroup *navigate =
       m_ribbon->addGroup(QStringLiteral("map"), tr("Navigate"));
     navigate->addAction(m_zoomFullAction, tr("Full\nExtent"));
@@ -772,6 +804,8 @@ namespace HydroCouple::Composer
     // the one thing on the ribbon that is about the earth rather than about
     // the data drawn on it.
     ensureIcon(m_mapCrsAction, QStringLiteral("globe"));
+    ensureIcon(m_panToolAction, QStringLiteral("pan"));
+    ensureIcon(m_zoomToolAction, QStringLiteral("zoom_rect"));
 
     // The 3D glyph for the projection a 3D view is normally read in, and the
     // extent rectangle for the parallel one, which is what a plan view is.
@@ -1167,6 +1201,17 @@ namespace HydroCouple::Composer
     m_mapCanvas->setCrs(std::move(chosen));
 
     log(tr("Map coordinate system: %1").arg(described));
+  }
+
+  void ComposerMainWindow::onMapToolChosen()
+  {
+    m_mapCanvas->setToolKind(m_zoomToolAction->isChecked()
+                               ? MapToolKind::Zoom
+                               : MapToolKind::Pan);
+
+    // Brought forward, because a gesture set is a property of a view nobody
+    // can use from another tab.
+    m_workspace->setCurrentWidget(m_mapCanvas);
   }
 
   void ComposerMainWindow::onProjectionChosen()

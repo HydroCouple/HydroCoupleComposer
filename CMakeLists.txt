@@ -161,6 +161,8 @@ set(COMPOSER_SOURCES
     src/layers/meshlayer.cpp
     include/layers/gdalrasterlayer.h
     src/layers/gdalrasterlayer.cpp
+    include/map/maptool.h
+    src/map/maptool.cpp
     include/map/maptransform.h
     src/map/maptransform.cpp
     include/map/maplayer.h
@@ -238,6 +240,8 @@ qt_add_resources(composer_core "composer_icons"
         resources/icons/delete.svg
         resources/icons/dock_layers.svg
         resources/icons/extent.svg
+        resources/icons/pan.svg
+        resources/icons/zoom_rect.svg
         resources/icons/globe.svg
         resources/icons/layer_styling.svg
         resources/icons/move_down.svg

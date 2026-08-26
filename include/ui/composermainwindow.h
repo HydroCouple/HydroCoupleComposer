@@ -132,6 +132,7 @@ namespace HydroCouple::Composer
       void onSelectionChanged();
       void onLayerProperties(HydroCouple::Composer::MapLayer *layer);
       void onSetMapCrs();
+      void onMapToolChosen();
       void onProjectionChosen();
       void onAddVectorLayer();
       void onAddRasterLayer();
@@ -209,6 +210,8 @@ namespace HydroCouple::Composer
       QAction *m_zoomOutAction = nullptr;
       QAction *m_layerPropertiesAction = nullptr;
       QAction *m_mapCrsAction = nullptr;
+      QAction *m_panToolAction = nullptr;
+      QAction *m_zoomToolAction = nullptr;
       QAction *m_perspectiveAction = nullptr;
       QAction *m_orthographicAction = nullptr;
       QDoubleSpinBox *m_exaggerationSpin = nullptr;
