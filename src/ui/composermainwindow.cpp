@@ -14,6 +14,7 @@
 #include "map/maplayer.h"
 #include "project/hcpimporter.h"
 #include "ui/dialogs/layerstyledialog.h"
+#include "ui/panels/attributetablepanel.h"
 #include "ui/panels/layertreepanel.h"
 #include "ui/theme/iconfactory.h"
 #include "ui/theme/thememanager.h"
@@ -162,6 +163,11 @@ namespace HydroCouple::Composer
   LayerTreePanel *ComposerMainWindow::layerTree() const
   {
     return m_layerTree;
+  }
+
+  AttributeTablePanel *ComposerMainWindow::attributeTable() const
+  {
+    return m_attributeTable;
   }
 
   namespace
@@ -779,6 +785,16 @@ namespace HydroCouple::Composer
 
     addDockWidget(Qt::RightDockWidgetArea, configuratorDock);
 
+    // ── Attributes ───────────────────────────────────────────────────────
+    auto *attributeDock = new QDockWidget(tr("Attributes"), this);
+    attributeDock->setObjectName(QStringLiteral("attributeDock"));
+
+    m_attributeTable = new AttributeTablePanel(attributeDock);
+    m_attributeTable->setModel(m_layerStack);
+    attributeDock->setWidget(m_attributeTable);
+
+    addDockWidget(Qt::BottomDockWidgetArea, attributeDock);
+
     // ── Log ──────────────────────────────────────────────────────────────
     auto *logDock = new QDockWidget(tr("Log"), this);
     logDock->setObjectName(QStringLiteral("logDock"));
@@ -790,6 +806,10 @@ namespace HydroCouple::Composer
     logDock->setWidget(m_log);
 
     addDockWidget(Qt::BottomDockWidgetArea, logDock);
+    // Tabbed with the attribute table: both are things you look *down* at
+    // while working on the map above, and only one at a time.
+    tabifyDockWidget(attributeDock, logDock);
+    attributeDock->raise();
   }
 
   void ComposerMainWindow::addMapLayer(MapLayer *layer)

@@ -93,6 +93,10 @@ composer_add_gui_test(test_viewhandoff)
 # events: telling a click from a pan is not observable from the hit test.
 composer_add_gui_test(test_picking)
 
+# C4c — the attribute table. Driven through its real widgets: what is under
+# test is the wiring, not the model.
+composer_add_gui_test(test_attributetable)
+
 # The document tests round-trip the SDK's own example composition, so they need
 # to know where the installed SDK examples live.
 composer_add_gui_test(test_compositiondocument)

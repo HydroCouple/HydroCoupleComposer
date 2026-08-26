@@ -35,6 +35,7 @@ class QTabWidget;
 namespace HydroCouple::Composer
 {
   class LayerStackModel;
+  class AttributeTablePanel;
   class LayerTreePanel;
   class MapCanvas;
   class SceneView;
@@ -94,6 +95,11 @@ namespace HydroCouple::Composer
        * \brief The layer tree panel.
        */
       [[nodiscard]] LayerTreePanel *layerTree() const;
+
+      /*!
+       * \brief The attribute table panel.
+       */
+      [[nodiscard]] AttributeTablePanel *attributeTable() const;
 
       /*!
        * \brief The 3D view of the same layer stack.
@@ -177,6 +183,7 @@ namespace HydroCouple::Composer
       MapCanvas *m_mapCanvas = nullptr;
       SceneView *m_sceneView = nullptr;
       LayerTreePanel *m_layerTree = nullptr;
+      AttributeTablePanel *m_attributeTable = nullptr;
       QLabel *m_coordinateLabel = nullptr;
 
       RibbonBar *m_ribbon = nullptr;

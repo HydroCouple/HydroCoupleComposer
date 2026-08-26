@@ -187,6 +187,10 @@ set(COMPOSER_SOURCES
     src/ui/dialogs/layerstyledialog.cpp
     include/ui/panels/layertreepanel.h
     src/ui/panels/layertreepanel.cpp
+    include/ui/panels/attributetablemodel.h
+    src/ui/panels/attributetablemodel.cpp
+    include/ui/panels/attributetablepanel.h
+    src/ui/panels/attributetablepanel.cpp
     include/qtbridge/queuedslot.h
     include/qtbridge/componentstatusobserver.h
     src/qtbridge/componentstatusobserver.cpp
