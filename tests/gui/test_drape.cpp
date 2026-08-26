@@ -23,6 +23,8 @@
 #include "scene/sceneimage.h"
 #include "scene/scenerenderer.h"
 
+#include "vectorprobe.h"
+
 #include <gtest/gtest.h>
 
 #include <QApplication>
@@ -104,56 +106,7 @@ namespace
     return mesh;
   }
 
-  //! A vector layer a test can put features into.
-  class Network : public FeatureLayer
-  {
-    public:
-      explicit Network(const QString &name) : FeatureLayer(name)
-      {
-        AttributeField field;
-        field.name = QStringLiteral("name");
-        field.type = QMetaType::QString;
-
-        setFields({ field });
-      }
-
-      //! Adds one line through \a points.
-      void addLine(const QVector<QPointF> &points)
-      {
-        VectorFeature feature;
-        feature.kind = GeometryKind::Line;
-        feature.parts.append(QPolygonF(points));
-        feature.attributes.append(
-          QStringLiteral("L%1").arg(featureCount()));
-
-        addFeature(std::move(feature));
-        finishLoading();
-      }
-
-      //! Adds one closed ring.
-      void addRing(const QVector<QPointF> &points)
-      {
-        VectorFeature feature;
-        feature.kind = GeometryKind::Polygon;
-        feature.parts.append(QPolygonF(points));
-        feature.attributes.append(QStringLiteral("P"));
-
-        addFeature(std::move(feature));
-        finishLoading();
-      }
-
-      //! Adds one point.
-      void addPoint(const QPointF &position)
-      {
-        VectorFeature feature;
-        feature.kind = GeometryKind::Point;
-        feature.parts.append(QPolygonF({ position }));
-        feature.attributes.append(QStringLiteral("N"));
-
-        addFeature(std::move(feature));
-        finishLoading();
-      }
-  };
+  using Network = Testing::VectorProbe;
 
   /*!
    * \brief A flat terrain that counts the samples taken from it.

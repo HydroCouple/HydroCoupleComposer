@@ -1,5 +1,7 @@
 #include "layers/meshlayer.h"
 
+#include "pick/centroidindex.h"
+
 #include "gis/spatialreference.h"
 
 #include "hydrocouplesdk/io/ugridreader.h"
@@ -14,7 +16,6 @@
 #include <QPair>
 #include <QVarLengthArray>
 
-#include <nanoflann.hpp>
 
 #include <cmath>
 
@@ -28,44 +29,6 @@ namespace HydroCouple::Composer
   namespace
   {
     namespace Spatial = HydroCouple::Spatial;
-
-    /*!
-     * \brief Face centroids, in the layout nanoflann reads.
-     *
-     * Structure of arrays rather than a vector of points because the tree
-     * reads one coordinate at a time and a vector of QPointF would make every
-     * such read touch a cache line it uses half of.
-     */
-    struct CentroidCloud
-    {
-        std::vector<double> x;
-        std::vector<double> y;
-
-        //! The feature each centroid came from. Not the index into this
-        //! cloud: faces the layer skipped leave the two sequences different
-        //! lengths, and a query answering with the wrong face's elevations
-        //! would look like a mesh that is slightly bent.
-        std::vector<int> feature;
-
-        [[nodiscard]] size_t kdtree_get_point_count() const
-        {
-          return x.size();
-        }
-
-        [[nodiscard]] double kdtree_get_pt(size_t index, size_t dimension) const
-        {
-          return dimension == 0 ? x[index] : y[index];
-        }
-
-        template<typename BoundingBox>
-        bool kdtree_get_bbox(BoundingBox &) const
-        {
-          return false;
-        }
-    };
-
-    using CentroidTree = nanoflann::KDTreeSingleIndexAdaptor<
-      nanoflann::L2_Simple_Adaptor<double, CentroidCloud>, CentroidCloud, 2>;
 
     /*!
      * \brief Interpolates \a point across the triangle \a a \a b \a c.
@@ -748,13 +711,7 @@ namespace HydroCouple::Composer
 
   struct MeshLayer::TerrainIndex
   {
-      CentroidCloud cloud;
-      std::unique_ptr<CentroidTree> tree;
-
-      //! The farthest any face's corner lies from its own centroid. The reach
-      //! a query has to widen to before it can conclude that no face contains
-      //! the point.
-      double maxRadius = 0.0;
+      CentroidIndex faces;
 
       //! Mean face edge length — what a drape densifies to.
       double resolution = 0.0;
@@ -785,6 +742,7 @@ namespace HydroCouple::Composer
     {
       const QVector<QVector<QPolygonF>> &projected = projectedFeatures();
       double edgeSum = 0.0;
+      int counted = 0;
 
       for (int feature = 0; feature < projected.size(); ++feature)
       {
@@ -834,10 +792,8 @@ namespace HydroCouple::Composer
           perimeter += std::hypot(edge.x(), edge.y());
         }
 
-        index->cloud.x.push_back(centroid.x());
-        index->cloud.y.push_back(centroid.y());
-        index->cloud.feature.push_back(feature);
-        index->maxRadius = std::max(index->maxRadius, radius);
+        index->faces.add(centroid, radius, feature);
+        ++counted;
 
         // Mean edge length, not the cell's width across: the spacing that
         // matters is the one over which the surface can turn, and a cell
@@ -849,10 +805,10 @@ namespace HydroCouple::Composer
           index->extent.isNull() ? box : index->extent.united(box);
       }
 
-      if (!index->cloud.x.empty())
+      if (counted > 0)
       {
-        index->resolution = edgeSum / double(index->cloud.x.size());
-        index->tree = std::make_unique<CentroidTree>(2, index->cloud);
+        index->resolution = edgeSum / double(counted);
+        index->faces.build();
       }
     }
 
@@ -877,14 +833,17 @@ namespace HydroCouple::Composer
   {
     ensureTerrainIndex();
 
-    if (!m_terrainIndex->tree || !m_terrainIndex->extent.contains(point))
+    if (!m_terrainIndex->faces.isValid() ||
+        !m_terrainIndex->extent.contains(point))
     {
       return false;
     }
 
     const QVector<QVector<QPolygonF>> &projected = projectedFeatures();
 
-    const auto sampleFace = [&](int feature, double &result) -> bool
+    double sampled = 0.0;
+
+    const auto sampleFace = [&](int feature) -> bool
     {
       const qint64 entity = m_entityIndex[feature];
       const int64_t from = m_mesh.faceNodeOffsets[static_cast<size_t>(entity)];
@@ -905,7 +864,7 @@ namespace HydroCouple::Composer
                 m_mesh.faceNodes[static_cast<size_t>(from + corner)]),
               nodeElevation(
                 m_mesh.faceNodes[static_cast<size_t>(from + corner + 1)]),
-              result))
+              sampled))
         {
           return true;
         }
@@ -914,41 +873,14 @@ namespace HydroCouple::Composer
       return false;
     };
 
-    const double query[2] = { point.x(), point.y() };
-
-    // The nearest centroid's face contains the point on any mesh whose cells
-    // are convex and comparable in size, which is the common case and costs
-    // one descent of the tree.
-    size_t nearest = 0;
-    double distance = 0.0;
-    nanoflann::KNNResultSet<double> knn(1);
-    knn.init(&nearest, &distance);
-
-    if (m_terrainIndex->tree->findNeighbors(knn, query) &&
-        sampleFace(m_terrainIndex->cloud.feature[nearest], elevation))
+    if (m_terrainIndex->faces.findNearest(point, 0.0, sampleFace) < 0)
     {
-      return true;
+      return false;
     }
 
-    // It did not, so widen to every face that could possibly reach the point.
-    // Exact, unlike guessing at a neighbour count: a face whose centroid is
-    // farther than its own greatest corner reach cannot contain the point.
-    std::vector<nanoflann::ResultItem<CentroidTree::IndexType, double>>
-      candidates;
-    const double reach = m_terrainIndex->maxRadius * m_terrainIndex->maxRadius;
+    elevation = sampled;
 
-    // The count comes back in `candidates` itself; the return value repeats it.
-    (void)m_terrainIndex->tree->radiusSearch(query, reach, candidates);
-
-    for (const auto &candidate : candidates)
-    {
-      if (sampleFace(m_terrainIndex->cloud.feature[candidate.first], elevation))
-      {
-        return true;
-      }
-    }
-
-    return false;
+    return true;
   }
 
   QRectF MeshLayer::terrainExtent() const

@@ -89,6 +89,10 @@ target_compile_definitions(test_groundplane PRIVATE
 # window: what is under test is the tab change, not the camera arithmetic.
 composer_add_gui_test(test_viewhandoff)
 
+# C4 — identifying what is under a click. Drives the canvas with real mouse
+# events: telling a click from a pan is not observable from the hit test.
+composer_add_gui_test(test_picking)
+
 # The document tests round-trip the SDK's own example composition, so they need
 # to know where the installed SDK examples live.
 composer_add_gui_test(test_compositiondocument)

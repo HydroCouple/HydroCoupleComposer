@@ -1,6 +1,7 @@
 #include "map/mapcanvas.h"
 
 #include "gis/spatialreference.h"
+#include "layers/featurelayer.h"
 #include "map/extentmath.h"
 #include "map/layerstackmodel.h"
 #include "map/maplayer.h"
@@ -12,6 +13,8 @@
 #include <QVector>
 #include <QWheelEvent>
 
+#include <cstdlib>
+
 #include <cmath>
 
 namespace HydroCouple::Composer
@@ -20,6 +23,24 @@ namespace HydroCouple::Composer
   {
     //! Wheel notches are 120 eighths of a degree; one notch is one step.
     constexpr double kWheelZoomFactor = 1.2;
+
+    /*!
+     * \brief How near a click has to land, in pixels.
+     *
+     * In pixels rather than map units because it is a property of pointing,
+     * not of the data: the same conduit is equally hard to hit at any zoom,
+     * and a tolerance in metres is generous on a city and useless on a pipe.
+     */
+    constexpr double kPickRadiusPixels = 6.0;
+
+    /*!
+     * \brief How far the mouse may move and still count as a click.
+     *
+     * Panning and picking share the left button, so they are told apart by
+     * whether the view moved. Zero would make every pick a matter of holding
+     * perfectly still.
+     */
+    constexpr int kClickSlopPixels = 3;
 
     /*!
      * \brief Air left around data when a command frames it.
@@ -437,6 +458,7 @@ namespace HydroCouple::Composer
     if (event->button() == Qt::LeftButton && m_transform.isValid())
     {
       m_panning = true;
+      m_pressPosition = event->pos();
       m_lastPanPosition = event->pos();
       setCursor(Qt::ClosedHandCursor);
       event->accept();
@@ -477,11 +499,88 @@ namespace HydroCouple::Composer
     {
       m_panning = false;
       unsetCursor();
+
+      // A press that did not move the view was a click, not a pan. Picking on
+      // release rather than on press is also what keeps a drag that happens
+      // to start on a feature from selecting it.
+      const QPoint travelled = event->pos() - m_pressPosition;
+
+      if (std::abs(travelled.x()) <= kClickSlopPixels &&
+          std::abs(travelled.y()) <= kClickSlopPixels)
+      {
+        int feature = -1;
+        FeatureLayer *layer = pickAt(event->pos(), feature);
+
+        // Clicking empty map clears the selection, which is how a user says
+        // "nothing" — leaving the last selection standing would make the
+        // table beside it describe somewhere they have navigated away from.
+        if (m_model)
+        {
+          for (MapLayer *candidate : m_model->layers())
+          {
+            if (auto *features = dynamic_cast<FeatureLayer *>(candidate))
+            {
+              if (features == layer)
+              {
+                features->setSelection({ feature });
+              }
+              else
+              {
+                features->clearSelection();
+              }
+            }
+          }
+        }
+
+        Q_EMIT featurePicked(layer, feature);
+      }
+
       event->accept();
       return;
     }
 
     QWidget::mouseReleaseEvent(event);
+  }
+
+  FeatureLayer *MapCanvas::pickAt(const QPoint &screen, int &feature) const
+  {
+    feature = -1;
+
+    if (!m_model || !m_transform.isValid() || m_transform.scale() <= 0.0)
+    {
+      return nullptr;
+    }
+
+    const QPointF world = m_transform.toWorld(QPointF(screen));
+    const double tolerance = kPickRadiusPixels / m_transform.scale();
+
+    // layers() is top-first, which is the order the answer has to come in:
+    // the feature the user can see is the one on top.
+    for (MapLayer *layer : m_model->layers())
+    {
+      if (!layer->isVisible())
+      {
+        continue;
+      }
+
+      auto *features = dynamic_cast<FeatureLayer *>(layer);
+
+      if (!features)
+      {
+        continue;
+      }
+
+      const int hit = features->pickAt(world, tolerance);
+
+      if (hit >= 0)
+      {
+        feature = hit;
+
+        return features;
+      }
+    }
+
+    return nullptr;
   }
 
   void MapCanvas::wheelEvent(QWheelEvent *event)

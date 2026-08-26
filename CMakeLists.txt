@@ -170,6 +170,7 @@ set(COMPOSER_SOURCES
     include/scene/scenegeometry.h
     src/scene/scenegeometry.cpp
     include/scene/scenesource.h
+    include/pick/centroidindex.h
     include/scene/camera.h
     src/scene/camera.cpp
     include/scene/scenerenderer.h

@@ -16,9 +16,11 @@
 #include "map/maplayer.h"
 #include "render/attributeprovider.h"
 #include "render/layerstyle.h"
+#include "pick/centroidindex.h"
 #include "scene/scenesource.h"
 
 #include <QPolygonF>
+#include <QSet>
 #include <QString>
 #include <QVector>
 
@@ -105,6 +107,39 @@ namespace HydroCouple::Composer
        * \brief Recomputes the style from the layer's own data.
        */
       bool restyle();
+
+      /*!
+       * \brief The feature at \a point, or -1.
+       *
+       * Nearest first: a click between two features takes the one it is
+       * closer to, which is what the user meant by clicking there.
+       *
+       * \param point Map-CRS position, as a click converts to.
+       * \param tolerance How far from a feature still counts as on it, in
+       *        map units. A line has no area to click inside, and neither
+       *        does a point.
+       */
+      [[nodiscard]] int pickAt(const QPointF &point, double tolerance) const;
+
+      /*!
+       * \brief The features currently selected, by index.
+       *
+       * Held on the layer rather than on whichever view did the selecting,
+       * so that the map, the 3D scene and the attribute table are three
+       * views of one selection instead of three selections.
+       */
+      [[nodiscard]] const QSet<int> &selection() const;
+
+      /*!
+       * \brief Replaces the selection.
+       * \param features Feature indices; out-of-range ones are dropped.
+       */
+      void setSelection(QSet<int> features);
+
+      /*!
+       * \brief Selects nothing.
+       */
+      void clearSelection();
 
       /*!
        * \brief How the layer places itself in the 3D scene.
@@ -251,6 +286,13 @@ namespace HydroCouple::Composer
     private:
       void rebuildProjected() const;
 
+      //! Builds the pick index if it is not current; cheap when it is.
+      void ensurePickIndex() const;
+
+      //! Whether \a feature is within \a tolerance of \a point.
+      [[nodiscard]] bool featureHit(int feature, const QPointF &point,
+                                    double tolerance) const;
+
       QVector<VectorFeature> m_features;
       QVector<AttributeField> m_fields;
       GeometryKind m_kind = GeometryKind::Point;
@@ -265,6 +307,14 @@ namespace HydroCouple::Composer
 
       SceneDrape m_drape = SceneDrape::Terrain;
       double m_extrusionHeight = 0.0;
+
+      QSet<int> m_selection;
+
+      //! Where each feature is, for picking. Mutable and rebuilt with the
+      //! projection it indexes, for the same reason that one is: a const
+      //! caller asking what is under a point is not changing the layer.
+      mutable CentroidIndex m_pickIndex;
+      mutable bool m_pickIndexValid = false;
 
       LayerStyle m_style;
   };

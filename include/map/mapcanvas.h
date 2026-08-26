@@ -17,6 +17,7 @@
 #ifndef HYDROCOUPLECOMPOSER_MAP_MAPCANVAS_H
 #define HYDROCOUPLECOMPOSER_MAP_MAPCANVAS_H
 
+#include "map/maplayer.h"
 #include "map/maptransform.h"
 
 #include <QColor>
@@ -27,8 +28,8 @@
 
 namespace HydroCouple::Composer
 {
+  class FeatureLayer;
   class LayerStackModel;
-  class MapLayer;
   class SpatialReference;
 
   /*!
@@ -129,7 +130,34 @@ namespace HydroCouple::Composer
 
       [[nodiscard]] QSize sizeHint() const override;
 
+      /*!
+       * \brief The feature under \a screen, and the layer it belongs to.
+       *
+       * Walked from the top of the stack down, so the answer is the feature
+       * the user can see rather than one hidden beneath it.
+       *
+       * \param screen Widget position, as a click gives.
+       * \param[out] feature Index within the layer returned.
+       * \returns The layer picked, or nullptr when nothing was under it.
+       */
+      [[nodiscard]] FeatureLayer *pickAt(const QPoint &screen,
+                                         int &feature) const;
+
     Q_SIGNALS:
+      /*!
+       * \brief Emitted when a click selects a feature, or selects nothing.
+       *
+       * Carries the base type, not the concrete one: a signal's parameter has
+       * to be a complete type where moc reads it, and naming the concrete
+       * layer here would pull the whole layers tier into every translation
+       * unit that draws a map. A listener that needs more casts.
+       *
+       * \param layer The layer picked, or nullptr when the click was on
+       *        empty map.
+       * \param feature Index within \a layer, or -1.
+       */
+      void featurePicked(MapLayer *layer, int feature);
+
       /*!
        * \brief Emitted when the view moves or its scale changes.
        */
@@ -214,6 +242,7 @@ namespace HydroCouple::Composer
       bool m_viewMovedByUser = false;
 
       bool m_panning = false;
+      QPoint m_pressPosition;
       QPoint m_lastPanPosition;
   };
 

@@ -10,9 +10,28 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace HydroCouple::Composer
 {
+  namespace
+  {
+    /*!
+     * \brief The colour a selected feature is outlined in.
+     *
+     * One colour rather than a themed pair: a selection has to stand out
+     * against whatever the layer beneath it happens to be, and a highlight
+     * that follows the theme is a highlight that matches its surroundings.
+     * Cyan, because it survives both a dark basemap and a pale one, and
+     * because almost nothing in hydrology is naturally that colour.
+     */
+    const QColor kSelectionColor(0, 200, 255);
+
+    //! Wide enough to read as a halo around the feature, not as its stroke.
+    constexpr double kSelectionWidth = 3.0;
+
+  }
+
 
   FeatureLayer::FeatureLayer(const QString &name) : MapLayer(name)
   {
@@ -88,6 +107,8 @@ namespace HydroCouple::Composer
 
   void FeatureLayer::addFeature(VectorFeature feature)
   {
+    m_pickIndexValid = false;
+
     QRectF bounds;
     bool valid = false;
 
@@ -128,6 +149,9 @@ namespace HydroCouple::Composer
 
   void FeatureLayer::clearFeatures()
   {
+    m_pickIndexValid = false;
+    m_selection.clear();
+
     m_features.clear();
     m_projected.clear();
     m_extent = QRectF();
@@ -151,6 +175,10 @@ namespace HydroCouple::Composer
   void FeatureLayer::onMapCrsChanged()
   {
     m_projectionValid = false;
+
+    // The pick index holds projected positions, so it goes with them.
+    m_pickIndexValid = false;
+
     notifyAppearanceChanged();
   }
 
@@ -291,6 +319,35 @@ namespace HydroCouple::Composer
             painter.drawPolygon(screen);
             break;
         }
+
+        // Drawn over the feature rather than instead of it, so that what is
+        // selected is still legible as what it is: a highlight that replaces
+        // the fill tells you a catchment is selected and nothing else about
+        // it.
+        if (m_selection.contains(i))
+        {
+          painter.setPen(QPen(kSelectionColor, kSelectionWidth));
+          painter.setBrush(Qt::NoBrush);
+
+          switch (m_features.at(i).kind)
+          {
+            case GeometryKind::Point:
+              for (const QPointF &point : screen)
+              {
+                painter.drawEllipse(point, symbol.size * 0.5 + kSelectionWidth,
+                                    symbol.size * 0.5 + kSelectionWidth);
+              }
+              break;
+
+            case GeometryKind::Line:
+              painter.drawPolyline(screen);
+              break;
+
+            case GeometryKind::Polygon:
+              painter.drawPolygon(screen);
+              break;
+          }
+        }
       }
 
       if (labelling && anchored)
@@ -315,6 +372,59 @@ namespace HydroCouple::Composer
 
   namespace
   {
+    /*!
+     * \brief Shortest distance from \a point to the segment \a from-\a to.
+     */
+    double distanceToSegment(const QPointF &point, const QPointF &from,
+                             const QPointF &to)
+    {
+      const QPointF along = to - from;
+      const double length =
+        along.x() * along.x() + along.y() * along.y();
+
+      if (length <= 0.0)
+      {
+        return std::hypot(point.x() - from.x(), point.y() - from.y());
+      }
+
+      // Clamped, so that the answer for a point beyond either end is the
+      // distance to that end rather than to the infinite line through them.
+      const double along01 = std::clamp(
+        ((point.x() - from.x()) * along.x() +
+         (point.y() - from.y()) * along.y()) /
+          length,
+        0.0, 1.0);
+
+      const QPointF nearest = from + along * along01;
+
+      return std::hypot(point.x() - nearest.x(), point.y() - nearest.y());
+    }
+
+    //! Shortest distance from \a point to \a part's own vertices and edges.
+    double distanceToOutline(const QPointF &point, const QPolygonF &part)
+    {
+      if (part.isEmpty())
+      {
+        return std::numeric_limits<double>::infinity();
+      }
+
+      if (part.size() == 1)
+      {
+        return std::hypot(point.x() - part.at(0).x(),
+                          point.y() - part.at(0).y());
+      }
+
+      double nearest = std::numeric_limits<double>::infinity();
+
+      for (int i = 0; i + 1 < part.size(); ++i)
+      {
+        nearest = std::min(
+          nearest, distanceToSegment(point, part.at(i), part.at(i + 1)));
+      }
+
+      return nearest;
+    }
+
     /*!
      * \brief Subdivisions a single segment may be cut into.
      *
@@ -400,6 +510,139 @@ namespace HydroCouple::Composer
       return ground;
     }
 
+  }
+
+  void FeatureLayer::ensurePickIndex() const
+  {
+    if (m_pickIndexValid)
+    {
+      return;
+    }
+
+    m_pickIndex.clear();
+
+    const QVector<QVector<QPolygonF>> &projected = projectedFeatures();
+
+    for (int feature = 0; feature < projected.size(); ++feature)
+    {
+      // Accumulated by hand rather than through QRectF::united(), and judged
+      // by a counter rather than by isNull(): a point feature's bounding
+      // rectangle has zero area, which makes it null, and both of those would
+      // quietly drop every point layer out of the index.
+      double minimumX = 0.0;
+      double minimumY = 0.0;
+      double maximumX = 0.0;
+      double maximumY = 0.0;
+      int vertices = 0;
+
+      for (const QPolygonF &part : projected.at(feature))
+      {
+        for (const QPointF &vertex : part)
+        {
+          if (vertices == 0)
+          {
+            minimumX = maximumX = vertex.x();
+            minimumY = maximumY = vertex.y();
+          }
+          else
+          {
+            minimumX = std::min(minimumX, vertex.x());
+            maximumX = std::max(maximumX, vertex.x());
+            minimumY = std::min(minimumY, vertex.y());
+            maximumY = std::max(maximumY, vertex.y());
+          }
+
+          ++vertices;
+        }
+      }
+
+      if (vertices == 0)
+      {
+        continue;
+      }
+
+      // Half the diagonal: the reach from the centroid that covers every
+      // vertex, which is what makes the index's widened search exact. Zero
+      // for a point, which is correct — a point reaches nowhere, and the
+      // click tolerance is what gets it hit.
+      m_pickIndex.add(
+        QPointF(0.5 * (minimumX + maximumX), 0.5 * (minimumY + maximumY)),
+        0.5 * std::hypot(maximumX - minimumX, maximumY - minimumY), feature);
+    }
+
+    m_pickIndex.build();
+    m_pickIndexValid = true;
+  }
+
+  bool FeatureLayer::featureHit(int feature, const QPointF &point,
+                                double tolerance) const
+  {
+    const QVector<QPolygonF> &parts = projectedFeatures().at(feature);
+
+    for (const QPolygonF &part : parts)
+    {
+      // Inside counts for a polygon, and so does near its edge: a catchment
+      // drawn a few pixels across has no inside to click in, and one drawn
+      // across the whole window is most easily hit at its boundary.
+      if (m_kind == GeometryKind::Polygon && part.size() > 2 &&
+          part.containsPoint(point, Qt::OddEvenFill))
+      {
+        return true;
+      }
+
+      if (distanceToOutline(point, part) <= tolerance)
+      {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  int FeatureLayer::pickAt(const QPointF &point, double tolerance) const
+  {
+    ensurePickIndex();
+
+    const double reach = std::max(0.0, tolerance);
+
+    return m_pickIndex.findNearest(
+      point, reach,
+      [&](int feature) { return featureHit(feature, point, reach); });
+  }
+
+  const QSet<int> &FeatureLayer::selection() const
+  {
+    return m_selection;
+  }
+
+  void FeatureLayer::setSelection(QSet<int> features)
+  {
+    QSet<int> kept;
+
+    for (int feature : features)
+    {
+      if (feature >= 0 && feature < m_features.size())
+      {
+        kept.insert(feature);
+      }
+    }
+
+    if (kept == m_selection)
+    {
+      return;
+    }
+
+    m_selection = std::move(kept);
+
+    // Selection is an appearance: every view that shows this layer has to
+    // redraw, and there is nothing else any of them would do with a separate
+    // signal. The attribute table reads the selection back on the same one.
+    notifyAppearanceChanged();
+  }
+
+  void FeatureLayer::clearSelection()
+  {
+    setSelection({});
   }
 
   SceneDrape FeatureLayer::sceneDrape() const
