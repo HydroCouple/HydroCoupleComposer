@@ -41,7 +41,10 @@ namespace HydroCouple::Composer
     // One at a time, matching what a pick can express. Offering a rubber-band
     // selection the map cannot show would be offering a selection that only
     // half exists.
-    m_view->setSelectionMode(QAbstractItemView::SingleSelection);
+    // Extended, since C5c's rubber band selects several at once and the
+    // table is the other view of that selection: one that could only show
+    // one of them would describe a third of what the map is highlighting.
+    m_view->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_view->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_view->horizontalHeader()->setStretchLastSection(true);
     layout->addWidget(m_view, 1);
@@ -263,10 +266,16 @@ namespace HydroCouple::Composer
 
     m_syncing = true;
 
+    QSet<int> features;
+
+    for (const QModelIndex &row : rows)
+    {
+      features.insert(row.row());
+    }
+
     // Through the stack, so that selecting here clears the other layers
     // exactly as a click on the map does — one rule, in one place.
-    m_model->selectOnly(m_table->layer(),
-                        rows.isEmpty() ? -1 : rows.first().row());
+    m_model->selectOnly(m_table->layer(), features);
 
     m_syncing = false;
 

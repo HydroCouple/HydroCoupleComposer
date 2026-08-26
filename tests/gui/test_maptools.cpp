@@ -18,7 +18,9 @@
 #include "map/mapcanvas.h"
 #include "map/maptool.h"
 #include "map/maptransform.h"
+#include "layers/featurelayer.h"
 #include "probelayer.h"
+#include "vectorprobe.h"
 
 #include <gtest/gtest.h>
 
@@ -160,7 +162,7 @@ TEST_F(MapToolsTest, DraggingARectangleFramesExactlyThatRectangle)
 {
   MapCanvas canvas;
   showFixture(canvas);
-  canvas.setToolKind(MapToolKind::Zoom);
+  canvas.setToolKind(MapToolKind::ZoomIn);
 
   // Screen (500, 250) to (700, 350) is world (100, -50) to (300, -150) in
   // the fixture: one unit per pixel, y downward on screen and upward in the
@@ -186,7 +188,7 @@ TEST_F(MapToolsTest, ADragTooSmallToBeARectangleZoomsAboutThePoint)
 {
   MapCanvas canvas;
   showFixture(canvas);
-  canvas.setToolKind(MapToolKind::Zoom);
+  canvas.setToolKind(MapToolKind::ZoomIn);
 
   const QRectF before = canvas.transform().visibleExtent();
 
@@ -214,12 +216,12 @@ TEST_F(MapToolsTest, TheZoomToolShowsABandWhileDragging)
 {
   MapCanvas canvas;
   showFixture(canvas);
-  canvas.setToolKind(MapToolKind::Zoom);
+  canvas.setToolKind(MapToolKind::ZoomIn);
 
   press(canvas, QPoint(200, 100));
   moveTo(canvas, QPoint(400, 300));
 
-  auto *band = canvas.findChild<QRubberBand *>(QStringLiteral("zoomRubberBand"));
+  auto *band = canvas.findChild<QRubberBand *>(QStringLiteral("mapRubberBand"));
   ASSERT_NE(band, nullptr) << "no rubber band, so the drag is invisible";
 
   // isVisibleTo(), not isVisible(): the canvas here is never shown, so
@@ -242,12 +244,12 @@ TEST_F(MapToolsTest, SwitchingToolsMidDragLeavesNoBandBehind)
 {
   MapCanvas canvas;
   showFixture(canvas);
-  canvas.setToolKind(MapToolKind::Zoom);
+  canvas.setToolKind(MapToolKind::ZoomIn);
 
   press(canvas, QPoint(200, 100));
   moveTo(canvas, QPoint(400, 300));
 
-  ASSERT_NE(canvas.findChild<QRubberBand *>(QStringLiteral("zoomRubberBand")),
+  ASSERT_NE(canvas.findChild<QRubberBand *>(QStringLiteral("mapRubberBand")),
             nullptr);
 
   canvas.setToolKind(MapToolKind::Pan);
@@ -255,7 +257,7 @@ TEST_F(MapToolsTest, SwitchingToolsMidDragLeavesNoBandBehind)
   // Looked up again rather than held: the band belongs to the tool, and the
   // tool has just been destroyed — keeping the pointer across the switch
   // reads freed memory, which is how this test first "passed" by crashing.
-  EXPECT_EQ(canvas.findChild<QRubberBand *>(QStringLiteral("zoomRubberBand")),
+  EXPECT_EQ(canvas.findChild<QRubberBand *>(QStringLiteral("mapRubberBand")),
             nullptr)
     << "a band belonging to a tool that is no longer active is still on "
        "screen, with nothing left to finish it";
@@ -274,7 +276,7 @@ TEST_F(MapToolsTest, ThePanToolDoesNotZoomAndTheZoomToolDoesNotPan)
 
   QSignalSpy spy(&canvas, &MapCanvas::featurePicked);
 
-  canvas.setToolKind(MapToolKind::Zoom);
+  canvas.setToolKind(MapToolKind::ZoomIn);
 
   const QRectF before = canvas.transform().visibleExtent();
 
@@ -290,4 +292,159 @@ TEST_F(MapToolsTest, ThePanToolDoesNotZoomAndTheZoomToolDoesNotPan)
 
   EXPECT_EQ(spy.count(), 0)
     << "the zoom tool identified a feature, which is the pan tool's job";
+}
+
+TEST_F(MapToolsTest, TheSelectToolTakesEveryFeatureTheBandCrosses)
+{
+  LayerStackModel stack;
+  MapCanvas canvas;
+  canvas.setModel(&stack);
+  showFixture(canvas);
+
+  auto *layer = new Testing::VectorProbe(QStringLiteral("network"));
+
+  // Three short lines at x = -200, 0 and 200, which in the fixture are
+  // screen x = 200, 400 and 600.
+  layer->addLine({QPointF(-200.0, -20.0), QPointF(-200.0, 20.0)},
+                 QStringLiteral("west"));
+  layer->addLine({QPointF(0.0, -20.0), QPointF(0.0, 20.0)},
+                 QStringLiteral("middle"));
+  layer->addLine({QPointF(200.0, -20.0), QPointF(200.0, 20.0)},
+                 QStringLiteral("east"));
+
+  ASSERT_GE(stack.addLayer(layer), 0);
+
+  canvas.setToolKind(MapToolKind::Select);
+
+  // A box over the western two only: screen x 150 to 450 catches the lines
+  // at 200 and 400 and leaves the one at 600.
+  drag(canvas, QPoint(150, 150), QPoint(450, 250));
+
+  EXPECT_EQ(layer->selection().size(), 2)
+    << "the band did not take exactly the features it crossed";
+  EXPECT_TRUE(layer->selection().contains(0));
+  EXPECT_TRUE(layer->selection().contains(1));
+  EXPECT_FALSE(layer->selection().contains(2))
+    << "a feature outside the band was selected";
+
+  // A click still selects one, and replaces the band's selection rather
+  // than adding to it.
+  press(canvas, QPoint(600, 200));
+  release(canvas, QPoint(600, 200));
+
+  EXPECT_EQ(layer->selection().size(), 1);
+  EXPECT_TRUE(layer->selection().contains(2));
+
+  // A band over empty map clears the selection, which is how a user says
+  // "nothing" — the same as a click on empty map.
+  drag(canvas, QPoint(700, 320), QPoint(780, 380));
+
+  EXPECT_TRUE(layer->selection().isEmpty());
+}
+
+TEST_F(MapToolsTest, ABandTakesALineThatMerelyCrossesIt)
+{
+  LayerStackModel stack;
+  MapCanvas canvas;
+  canvas.setModel(&stack);
+  showFixture(canvas);
+
+  auto *layer = new Testing::VectorProbe(QStringLiteral("network"));
+
+  // One long conduit right across the view. Neither end is anywhere near
+  // the small box below, and it is still something the user dragged over —
+  // a band that took only features with a vertex inside would select
+  // nothing on a network of long lines.
+  layer->addLine({QPointF(-380.0, 0.0), QPointF(380.0, 0.0)},
+                 QStringLiteral("trunk"));
+
+  ASSERT_GE(stack.addLayer(layer), 0);
+
+  canvas.setToolKind(MapToolKind::Select);
+
+  drag(canvas, QPoint(390, 180), QPoint(430, 220));
+
+  EXPECT_EQ(layer->selection().size(), 1)
+    << "a line crossing the band was missed because neither end was inside";
+}
+
+TEST_F(MapToolsTest, ZoomOutFitsTheViewIntoTheBoxItWasGiven)
+{
+  MapCanvas canvas;
+  showFixture(canvas);
+  canvas.setToolKind(MapToolKind::ZoomOut);
+
+  const QRectF before = canvas.transform().visibleExtent();
+
+  // A box a quarter of the viewport across: everything on screen has to fit
+  // inside it, so the view widens by about four. "About", because a QRect
+  // spans both its edges — the box a 300→500 drag makes is 201 pixels wide,
+  // not 200 — and the expectation is computed the same way rather than
+  // rounded to a number that looks tidier than the arithmetic.
+  drag(canvas, QPoint(300, 150), QPoint(500, 250));
+
+  const QRectF after = canvas.transform().visibleExtent();
+
+  const double expected =
+    before.width() * 800.0 / double(QRect(QPoint(300, 150),
+                                          QPoint(500, 250)).width());
+
+  EXPECT_NEAR(after.width(), expected, 1.0)
+    << "the drag's size did not decide how far it zoomed out";
+
+  // And it is the inverse of zooming in on the same box: dragging it again
+  // under Zoom In returns to where this started.
+  canvas.setToolKind(MapToolKind::ZoomIn);
+  drag(canvas, QPoint(300, 150), QPoint(500, 250));
+
+  EXPECT_NEAR(canvas.transform().visibleExtent().width(), before.width(),
+              before.width() * 0.02)
+    << "zoom in and zoom out on the same box are not inverses";
+}
+
+TEST_F(MapToolsTest, ASmallerBoxZoomsOutFurther)
+{
+  MapCanvas wide;
+  showFixture(wide);
+  wide.setToolKind(MapToolKind::ZoomOut);
+
+  MapCanvas narrow;
+  showFixture(narrow);
+  narrow.setToolKind(MapToolKind::ZoomOut);
+
+  const double before = wide.transform().visibleExtent().width();
+
+  // Half the viewport …
+  drag(wide, QPoint(200, 100), QPoint(600, 300));
+
+  // … against a quarter of it.
+  drag(narrow, QPoint(300, 150), QPoint(500, 250));
+
+  EXPECT_GT(narrow.transform().visibleExtent().width(),
+            wide.transform().visibleExtent().width())
+    << "both boxes zoomed out by the same amount, so the size was ignored";
+
+  EXPECT_GT(wide.transform().visibleExtent().width(), before);
+}
+
+TEST_F(MapToolsTest, AClickUnderTheZoomToolsGoesTheRightWay)
+{
+  MapCanvas canvas;
+  showFixture(canvas);
+
+  const double before = canvas.transform().visibleExtent().width();
+
+  canvas.setToolKind(MapToolKind::ZoomIn);
+  press(canvas, QPoint(400, 200));
+  release(canvas, QPoint(400, 200));
+
+  const double zoomedIn = canvas.transform().visibleExtent().width();
+  EXPECT_LT(zoomedIn, before);
+
+  canvas.setToolKind(MapToolKind::ZoomOut);
+  press(canvas, QPoint(400, 200));
+  release(canvas, QPoint(400, 200));
+
+  EXPECT_NEAR(canvas.transform().visibleExtent().width(), before, 1.0)
+    << "a click out did not undo a click in";
 }

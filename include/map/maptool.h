@@ -38,12 +38,25 @@ namespace HydroCouple::Composer
    */
   enum class MapToolKind
   {
-    //! Drag to pan, click to identify. The default, and what the map has
-    //! always done.
+    //! Click to identify one feature; drag a band to take every feature it
+    //! crosses.
+    Select,
+
+    //! Drag to pan. The default, and what the map has always done.
     Pan,
 
-    //! Drag a rectangle to zoom to it, click to zoom in about the point.
-    Zoom,
+    //! Drag a rectangle to zoom to it; click to zoom in about the point.
+    ZoomIn,
+
+    /*!
+     * \brief Drag a rectangle to zoom out into it.
+     *
+     * The GIS convention, and the inverse of ZoomIn on the same rectangle:
+     * what is on screen now is shrunk to fit inside the box drawn, so a
+     * small box zooms out a long way and a nearly-full-screen one barely
+     * moves.
+     */
+    ZoomOut,
   };
 
   /*!
@@ -93,6 +106,10 @@ namespace HydroCouple::Composer
 
   /*!
    * \brief Drag to pan; click to identify what is underneath.
+   *
+   * A click still identifies under Pan, as it always has. Select exists for
+   * people who want the mode named and want to drag a band; taking the click
+   * away from Pan would remove a thing the map has always done.
    */
   class PanTool : public MapTool
   {
@@ -112,28 +129,87 @@ namespace HydroCouple::Composer
   };
 
   /*!
-   * \brief Drag a rectangle to zoom to it; click to zoom in about the point.
+   * \brief A tool that drags a rectangle out on the canvas.
+   *
+   * Three of the four do this and differ only in what they do with the
+   * rectangle at the end, so the band — showing it, resizing it, telling a
+   * drag from a click — lives here once.
    */
-  class ZoomTool : public MapTool
+  class RubberBandTool : public MapTool
   {
     public:
-      explicit ZoomTool(MapCanvas *canvas);
+      explicit RubberBandTool(MapCanvas *canvas);
 
-      ~ZoomTool() override;
+      ~RubberBandTool() override;
 
       bool press(QMouseEvent *event) override;
       bool move(QMouseEvent *event) override;
       bool release(QMouseEvent *event) override;
 
-      [[nodiscard]] QCursor idleCursor() const override;
+    protected:
+      /*!
+       * \brief Acts on a rectangle the user dragged out.
+       * \param rectangle The band's final geometry, in widget pixels.
+       */
+      virtual void useRectangle(const QRect &rectangle) = 0;
+
+      /*!
+       * \brief Acts on a press and release too close together to be a drag.
+       * \param pixel Where the click landed.
+       */
+      virtual void useClick(const QPoint &pixel) = 0;
 
     private:
-      //! Hides the band and forgets the gesture.
       void endGesture();
 
       bool m_dragging = false;
       QPoint m_origin;
       std::unique_ptr<QRubberBand> m_band;
+  };
+
+  /*!
+   * \brief Click to identify one feature; drag a band to take several.
+   */
+  class SelectTool : public RubberBandTool
+  {
+    public:
+      using RubberBandTool::RubberBandTool;
+
+      [[nodiscard]] QCursor idleCursor() const override;
+
+    protected:
+      void useRectangle(const QRect &rectangle) override;
+      void useClick(const QPoint &pixel) override;
+  };
+
+  /*!
+   * \brief Drag a rectangle to zoom to it; click to zoom in about the point.
+   */
+  class ZoomInTool : public RubberBandTool
+  {
+    public:
+      using RubberBandTool::RubberBandTool;
+
+      [[nodiscard]] QCursor idleCursor() const override;
+
+    protected:
+      void useRectangle(const QRect &rectangle) override;
+      void useClick(const QPoint &pixel) override;
+  };
+
+  /*!
+   * \brief Drag a rectangle to zoom out into it; click to zoom out.
+   */
+  class ZoomOutTool : public RubberBandTool
+  {
+    public:
+      using RubberBandTool::RubberBandTool;
+
+      [[nodiscard]] QCursor idleCursor() const override;
+
+    protected:
+      void useRectangle(const QRect &rectangle) override;
+      void useClick(const QPoint &pixel) override;
   };
 
 } // namespace HydroCouple::Composer

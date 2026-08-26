@@ -555,22 +555,29 @@ namespace HydroCouple::Composer
 
   void LayerStackModel::selectOnly(MapLayer *layer, int feature)
   {
+    // In terms of the set: one feature is a set of one, and a negative index
+    // is the empty set, which is how a click on empty map says "nothing".
+    selectOnly(layer, feature >= 0 ? QSet<int>{feature} : QSet<int>{});
+  }
+
+  void LayerStackModel::selectOnly(MapLayer *layer, const QSet<int> &features)
+  {
     for (MapLayer *candidate : m_layers)
     {
-      auto *features = dynamic_cast<FeatureLayer *>(candidate);
+      auto *layerFeatures = dynamic_cast<FeatureLayer *>(candidate);
 
-      if (!features)
+      if (!layerFeatures)
       {
         continue;
       }
 
-      if (features == layer && feature >= 0)
+      if (layerFeatures == layer && !features.isEmpty())
       {
-        features->setSelection({ feature });
+        layerFeatures->setSelection(features);
       }
       else
       {
-        features->clearSelection();
+        layerFeatures->clearSelection();
       }
     }
   }

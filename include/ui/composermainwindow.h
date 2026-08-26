@@ -233,8 +233,10 @@ namespace HydroCouple::Composer
       QAction *m_zoomOutAction = nullptr;
       QAction *m_layerPropertiesAction = nullptr;
       QAction *m_mapCrsAction = nullptr;
+      QAction *m_selectToolAction = nullptr;
       QAction *m_panToolAction = nullptr;
-      QAction *m_zoomToolAction = nullptr;
+      QAction *m_zoomInToolAction = nullptr;
+      QAction *m_zoomOutToolAction = nullptr;
       QAction *m_perspectiveAction = nullptr;
       QAction *m_orthographicAction = nullptr;
       QDoubleSpinBox *m_exaggerationSpin = nullptr;

@@ -23,6 +23,7 @@
 #define HYDROCOUPLECOMPOSER_MAP_LAYERSTACKMODEL_H
 
 #include <QAbstractItemModel>
+#include <QSet>
 #include <QHash>
 #include <QVector>
 
@@ -170,6 +171,20 @@ namespace HydroCouple::Composer
        * \param feature Index within \a layer, or -1.
        */
       void selectOnly(MapLayer *layer, int feature);
+
+      /*!
+       * \brief Gives \a layer the whole of \a features, clearing the rest.
+       *
+       * The rubber band's route in. One layer holds the selection at a time
+       * — the same rule a click follows — because a table shows one layer's
+       * rows and a selection spread across three of them is one the user
+       * can only ever see a third of.
+       *
+       * \param layer The layer to select in; nullptr clears everything.
+       * \param features Feature indices; out-of-range ones are dropped by
+       *        the layer.
+       */
+      void selectOnly(MapLayer *layer, const QSet<int> &features);
 
       /*!
        * \brief Whether \a index is a legend row rather than a layer.

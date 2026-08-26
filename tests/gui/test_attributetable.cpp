@@ -405,6 +405,45 @@ namespace
     EXPECT_EQ(rows.first().row(), 1);
   }
 
+  TEST_F(AttributeTableTest, SeveralSelectedFeaturesShowAsSeveralRows)
+  {
+    // C5c's band selects more than one, and the table is the other view of
+    // that selection: one that could only ever show a single row would
+    // describe a fraction of what the map is highlighting.
+    m_stack->selectOnly(m_conduits, QSet<int>({ 0, 2 }));
+
+    const QModelIndexList rows =
+      m_panel->view()->selectionModel()->selectedRows();
+
+    ASSERT_EQ(rows.size(), 2);
+
+    QSet<int> shown;
+
+    for (const QModelIndex &row : rows)
+    {
+      shown.insert(row.row());
+    }
+
+    EXPECT_EQ(shown, QSet<int>({ 0, 2 }));
+  }
+
+  TEST_F(AttributeTableTest, SelectingSeveralRowsSelectsSeveralFeatures)
+  {
+    // And the same the other way, since a table that could read a
+    // multi-selection but not write one would lose it the moment the user
+    // adjusted it here.
+    QItemSelectionModel *selection = m_panel->view()->selectionModel();
+
+    selection->select(m_panel->view()->model()->index(1, 0),
+                      QItemSelectionModel::Select
+                        | QItemSelectionModel::Rows);
+    selection->select(m_panel->view()->model()->index(2, 0),
+                      QItemSelectionModel::Select
+                        | QItemSelectionModel::Rows);
+
+    EXPECT_EQ(m_conduits->selection(), QSet<int>({ 1, 2 }));
+  }
+
   TEST_F(AttributeTableTest, ADestroyedLayerIsLetGoOf)
   {
     // The model reads through the layer on every cell, so it has to let go

@@ -97,6 +97,24 @@ namespace HydroCouple::Composer
       [[nodiscard]] int pickAt(const QPointF &point, double tolerance) const;
 
       /*!
+       * \brief Every feature that meets \a rectangle.
+       *
+       * What a rubber band asks. Touching counts, not only containment: a
+       * conduit that runs across the box is inside what the user dragged
+       * over even though neither of its ends is, and a band that took only
+       * whole features would select nothing at all on a network of long
+       * lines.
+       *
+       * Linear over the layer, deliberately. The centroid index answers
+       * "nearest to a point", which is the wrong question here, and a band
+       * is dragged once by hand rather than evaluated per frame.
+       *
+       * \param rectangle World-coordinate rectangle, in the map's CRS.
+       * \returns The features it caught; empty when it caught none.
+       */
+      [[nodiscard]] QSet<int> pickIn(const QRectF &rectangle) const;
+
+      /*!
        * \brief The features currently selected, by index.
        *
        * Held on the layer rather than on whichever view did the selecting,

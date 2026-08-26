@@ -93,13 +93,13 @@ namespace HydroCouple::Composer
     return Qt::OpenHandCursor;
   }
 
-  // ── ZoomTool ──────────────────────────────────────────────────────────────
+  // ── RubberBandTool ────────────────────────────────────────────────────────
 
-  ZoomTool::ZoomTool(MapCanvas *canvas) : MapTool(canvas) {}
+  RubberBandTool::RubberBandTool(MapCanvas *canvas) : MapTool(canvas) {}
 
-  ZoomTool::~ZoomTool() = default;
+  RubberBandTool::~RubberBandTool() = default;
 
-  bool ZoomTool::press(QMouseEvent *event)
+  bool RubberBandTool::press(QMouseEvent *event)
   {
     if (event->button() != Qt::LeftButton || !m_canvas->transform().isValid())
     {
@@ -113,7 +113,7 @@ namespace HydroCouple::Composer
     {
       m_band = std::make_unique<QRubberBand>(QRubberBand::Rectangle,
                                              m_canvas);
-      m_band->setObjectName(QStringLiteral("zoomRubberBand"));
+      m_band->setObjectName(QStringLiteral("mapRubberBand"));
     }
 
     m_band->setGeometry(QRect(m_origin, QSize()));
@@ -122,7 +122,7 @@ namespace HydroCouple::Composer
     return true;
   }
 
-  bool ZoomTool::move(QMouseEvent *event)
+  bool RubberBandTool::move(QMouseEvent *event)
   {
     if (!m_dragging)
     {
@@ -136,7 +136,7 @@ namespace HydroCouple::Composer
     return true;
   }
 
-  bool ZoomTool::release(QMouseEvent *event)
+  bool RubberBandTool::release(QMouseEvent *event)
   {
     if (!m_dragging || event->button() != Qt::LeftButton)
     {
@@ -154,20 +154,17 @@ namespace HydroCouple::Composer
     if (rectangle.width() > kClickSlopPixels &&
         rectangle.height() > kClickSlopPixels)
     {
-      m_canvas->zoomToScreenRect(rectangle);
+      useRectangle(rectangle);
     }
     else
     {
-      // Too small to be a rectangle, so it was a click. Zooming about the
-      // point is what every GIS does with one, and framing a degenerate
-      // rectangle is what the alternative would do.
-      m_canvas->zoomAtPixel(kClickZoomFactor, event->pos());
+      useClick(event->pos());
     }
 
     return true;
   }
 
-  void ZoomTool::endGesture()
+  void RubberBandTool::endGesture()
   {
     m_dragging = false;
 
@@ -177,7 +174,56 @@ namespace HydroCouple::Composer
     }
   }
 
-  QCursor ZoomTool::idleCursor() const
+  // ── SelectTool ────────────────────────────────────────────────────────────
+
+  void SelectTool::useRectangle(const QRect &rectangle)
+  {
+    m_canvas->selectIn(rectangle);
+  }
+
+  void SelectTool::useClick(const QPoint &pixel)
+  {
+    m_canvas->pickAndSelectAt(pixel);
+  }
+
+  QCursor SelectTool::idleCursor() const
+  {
+    return Qt::ArrowCursor;
+  }
+
+  // ── ZoomInTool ────────────────────────────────────────────────────────────
+
+  void ZoomInTool::useRectangle(const QRect &rectangle)
+  {
+    m_canvas->zoomToScreenRect(rectangle);
+  }
+
+  void ZoomInTool::useClick(const QPoint &pixel)
+  {
+    // Too small to be a rectangle, so it was a click. Zooming about the
+    // point is what every GIS does with one, and framing a degenerate
+    // rectangle is what the alternative would do.
+    m_canvas->zoomAtPixel(kClickZoomFactor, pixel);
+  }
+
+  QCursor ZoomInTool::idleCursor() const
+  {
+    return Qt::CrossCursor;
+  }
+
+  // ── ZoomOutTool ───────────────────────────────────────────────────────────
+
+  void ZoomOutTool::useRectangle(const QRect &rectangle)
+  {
+    m_canvas->zoomOutToScreenRect(rectangle);
+  }
+
+  void ZoomOutTool::useClick(const QPoint &pixel)
+  {
+    m_canvas->zoomAtPixel(1.0 / kClickZoomFactor, pixel);
+  }
+
+  QCursor ZoomOutTool::idleCursor() const
   {
     return Qt::CrossCursor;
   }

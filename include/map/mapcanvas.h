@@ -222,6 +222,31 @@ namespace HydroCouple::Composer
       void zoomToScreenRect(const QRect &rectangle);
 
       /*!
+       * \brief Shrinks what is on screen to fit inside \a rectangle.
+       *
+       * The inverse of zoomToScreenRect() on the same box, and the GIS
+       * convention for a zoom-out drag: a small box zooms out a long way, a
+       * nearly-full-screen one barely moves. Expressed as a ratio of the
+       * viewport to the box rather than as a fixed step, which is what makes
+       * it the inverse rather than merely the opposite direction.
+       *
+       * \param rectangle Screen rectangle; ignored when degenerate.
+       */
+      void zoomOutToScreenRect(const QRect &rectangle);
+
+      /*!
+       * \brief Selects every feature \a rectangle catches.
+       *
+       * In the topmost visible layer that catches anything, so that one
+       * layer holds the selection exactly as it does after a click. A band
+       * spread over three layers is a selection the table can only ever
+       * show a third of.
+       *
+       * \param rectangle Screen rectangle to select within.
+       */
+      void selectIn(const QRect &rectangle);
+
+      /*!
        * \brief Identifies what is under \a screen and selects it.
        *
        * Selecting nothing when nothing is there, which is how a user says

@@ -373,6 +373,39 @@ namespace HydroCouple::Composer
   namespace
   {
     /*!
+     * \brief Whether any segment of \a part crosses \a box.
+     *
+     * The case a vertex test misses: a line that runs clean across the
+     * rectangle has no vertex inside it, and is still something the user
+     * dragged over.
+     */
+    bool crossesRect(const QPolygonF &part, const QRectF &box)
+    {
+      const QPointF corners[5] = {box.topLeft(), box.topRight(),
+                                  box.bottomRight(), box.bottomLeft(),
+                                  box.topLeft()};
+
+      for (int i = 0; i + 1 < part.size(); ++i)
+      {
+        const QLineF segment(part.at(i), part.at(i + 1));
+
+        for (int edge = 0; edge < 4; ++edge)
+        {
+          QPointF crossing;
+
+          if (segment.intersects(QLineF(corners[edge], corners[edge + 1]),
+                                 &crossing)
+              == QLineF::BoundedIntersection)
+          {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    }
+
+    /*!
      * \brief Shortest distance from \a point to the segment \a from-\a to.
      */
     double distanceToSegment(const QPointF &point, const QPointF &from,
@@ -608,6 +641,71 @@ namespace HydroCouple::Composer
     return m_pickIndex.findNearest(
       point, reach,
       [&](int feature) { return featureHit(feature, point, reach); });
+  }
+
+  QSet<int> FeatureLayer::pickIn(const QRectF &rectangle) const
+  {
+    QSet<int> caught;
+
+    const QRectF box = rectangle.normalized();
+
+    if (box.isEmpty())
+    {
+      return caught;
+    }
+
+    const QVector<QVector<QPolygonF>> &projected = projectedFeatures();
+
+    for (int feature = 0; feature < projected.size(); ++feature)
+    {
+      for (const QPolygonF &part : projected.at(feature))
+      {
+        // A part's own bounds first, which rejects most of a large layer
+        // for the cost of four comparisons.
+        //
+        // Compared edge by edge rather than with QRectF::intersects(),
+        // which answers false for an empty rectangle — and the bounds of a
+        // vertical conduit, a horizontal one, or a single point are all
+        // empty. That is the same degenerate-rectangle trap C4a hit with
+        // isNull() and united(), and it silently selected nothing here.
+        const QRectF bounds = part.boundingRect();
+
+        if (bounds.left() > box.right() || bounds.right() < box.left()
+            || bounds.top() > box.bottom() || bounds.bottom() < box.top())
+        {
+          continue;
+        }
+
+        bool hit = false;
+
+        for (const QPointF &vertex : part)
+        {
+          if (box.contains(vertex))
+          {
+            hit = true;
+            break;
+          }
+        }
+
+        // A segment can cross the box with neither end inside it — a long
+        // conduit over a small band — and a polygon can swallow the box
+        // whole. Both are things the user dragged over.
+        if (!hit)
+        {
+          hit = crossesRect(part, box)
+                || (m_kind == GeometryKind::Polygon && part.size() > 2
+                    && part.containsPoint(box.center(), Qt::OddEvenFill));
+        }
+
+        if (hit)
+        {
+          caught.insert(feature);
+          break;
+        }
+      }
+    }
+
+    return caught;
   }
 
   const QSet<int> &FeatureLayer::selection() const

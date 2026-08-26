@@ -611,8 +611,16 @@ namespace HydroCouple::Composer
 
     switch (kind)
     {
-      case MapToolKind::Zoom:
-        m_tool = std::make_unique<ZoomTool>(this);
+      case MapToolKind::Select:
+        m_tool = std::make_unique<SelectTool>(this);
+        break;
+
+      case MapToolKind::ZoomIn:
+        m_tool = std::make_unique<ZoomInTool>(this);
+        break;
+
+      case MapToolKind::ZoomOut:
+        m_tool = std::make_unique<ZoomOutTool>(this);
         break;
 
       case MapToolKind::Pan:
@@ -694,6 +702,85 @@ namespace HydroCouple::Composer
     // to the commands that frame data, not to one the user drew.
     setVisibleExtent(world);
     m_viewMovedByUser = true;
+  }
+
+  void MapCanvas::zoomOutToScreenRect(const QRect &rectangle)
+  {
+    syncViewport();
+
+    if (!m_transform.isValid() || rectangle.width() <= 0
+        || rectangle.height() <= 0 || width() <= 0 || height() <= 0)
+    {
+      return;
+    }
+
+    // The viewport over the box, on whichever axis needs the most room:
+    // fitting the view *into* the box means every part of what is on screen
+    // has to end up inside it, and the tighter axis is what decides that.
+    const double factor =
+      std::min(double(rectangle.width()) / double(width()),
+               double(rectangle.height()) / double(height()));
+
+    if (factor <= 0.0)
+    {
+      return;
+    }
+
+    // Anchored at the box's centre, so what the user drew stays where they
+    // drew it rather than sliding to the middle of the window.
+    zoomAtPixel(factor, rectangle.center());
+  }
+
+  void MapCanvas::selectIn(const QRect &rectangle)
+  {
+    syncViewport();
+
+    if (!m_model || !m_transform.isValid() || rectangle.width() <= 0
+        || rectangle.height() <= 0)
+    {
+      return;
+    }
+
+    const QRectF world =
+      QRectF(m_transform.toWorld(QPointF(rectangle.topLeft())),
+             m_transform.toWorld(QPointF(rectangle.bottomRight())))
+        .normalized();
+
+    // layers() is top-first, so the first layer that catches anything is the
+    // one the user can see — the same rule a click follows.
+    for (MapLayer *layer : m_model->layers())
+    {
+      if (!layer->isVisible())
+      {
+        continue;
+      }
+
+      auto *features = dynamic_cast<FeatureLayer *>(layer);
+
+      if (!features)
+      {
+        continue;
+      }
+
+      const QSet<int> caught = features->pickIn(world);
+
+      if (!caught.isEmpty())
+      {
+        m_model->selectOnly(features, caught);
+
+        // The count, not one index: a band that caught forty features has
+        // no single feature to name, and -1 would read as "nothing".
+        Q_EMIT featurePicked(features, *caught.constBegin());
+
+        return;
+      }
+    }
+
+    // Caught nothing, which is how a user says "nothing" — the same as a
+    // click on empty map.
+    m_model->selectOnly(nullptr, QSet<int>{});
+
+    Q_EMIT featurePicked(nullptr, -1);
   }
 
   void MapCanvas::pickAndSelectAt(const QPoint &screen)

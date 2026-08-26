@@ -247,6 +247,8 @@ qt_add_resources(composer_core "composer_icons"
         resources/icons/dock_layers.svg
         resources/icons/extent.svg
         resources/icons/pan.svg
+        resources/icons/select.svg
+        resources/icons/zoom_rect_out.svg
         resources/icons/zoom_rect.svg
         resources/icons/globe.svg
         resources/icons/layer_styling.svg
