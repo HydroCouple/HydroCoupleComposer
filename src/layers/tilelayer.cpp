@@ -30,6 +30,14 @@ namespace HydroCouple::Composer
     return m_source ? m_source->attribution() : QString();
   }
 
+  QString TileLayer::sourceDescription() const
+  {
+    // The attribution names the provider, which is what a basemap's source
+    // is; asking the source interface for a second, near-identical string
+    // would widen it for nothing.
+    return attribution();
+  }
+
   ITileSource *TileLayer::source() const
   {
     return m_source.get();

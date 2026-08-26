@@ -79,7 +79,7 @@ namespace HydroCouple::Composer
       /*!
        * \brief Asks for the selected layer's style editor.
        */
-      void styleCurrent();
+      void openProperties();
 
     Q_SIGNALS:
       /*!
@@ -98,7 +98,7 @@ namespace HydroCouple::Composer
        * \brief Emitted when the user asks to restyle a layer.
        * \param layer The layer to style.
        */
-      void styleLayerRequested(HydroCouple::Composer::MapLayer *layer);
+      void layerPropertiesRequested(HydroCouple::Composer::MapLayer *layer);
 
     private:
       void updateButtons();
@@ -109,7 +109,7 @@ namespace HydroCouple::Composer
       QToolButton *m_downButton = nullptr;
       QToolButton *m_removeButton = nullptr;
       QToolButton *m_zoomButton = nullptr;
-      QToolButton *m_styleButton = nullptr;
+      QToolButton *m_propertiesButton = nullptr;
   };
 
 } // namespace HydroCouple::Composer

@@ -158,6 +158,18 @@ namespace HydroCouple::Composer
       [[nodiscard]] virtual QString attribution() const;
 
       /*!
+       * \brief Where the layer's data came from, or empty when it is built
+       *        in memory.
+       *
+       * One string of provenance — a file path, a URL, a provider name — for
+       * the properties dialog to show, not a second copy of the data source.
+       * A layer that computes it from something it already holds overrides
+       * this; one that is simply told at construction uses
+       * setSourceDescription() and inherits the accessor.
+       */
+      [[nodiscard]] virtual QString sourceDescription() const;
+
+      /*!
        * \brief The CRS the map is being drawn in, or nullptr.
        */
       [[nodiscard]] const SpatialReference *mapCrs() const;
@@ -226,6 +238,12 @@ namespace HydroCouple::Composer
 
     protected:
       /*!
+       * \brief Records where this layer's data came from.
+       * \param description A file path, URL or provider name.
+       */
+      void setSourceDescription(const QString &description);
+
+      /*!
        * \brief Announces that the extent changed, for subclasses.
        */
       void notifyExtentChanged();
@@ -244,6 +262,7 @@ namespace HydroCouple::Composer
       double m_opacity = 1.0;
       std::shared_ptr<SpatialReference> m_crs;
       std::shared_ptr<SpatialReference> m_mapCrs;
+      QString m_sourceDescription;
   };
 
 } // namespace HydroCouple::Composer

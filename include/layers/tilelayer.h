@@ -163,6 +163,15 @@ namespace HydroCouple::Composer
       [[nodiscard]] QString attribution() const override;
 
       /*!
+       * \brief The tile provider the layer is reading from.
+       *
+       * Computed from the source rather than stored, because the source can
+       * be replaced and a remembered string would then name the wrong
+       * provider.
+       */
+      [[nodiscard]] QString sourceDescription() const override;
+
+      /*!
        * \brief Call when a requested tile has arrived.
        */
       void onTileReady();

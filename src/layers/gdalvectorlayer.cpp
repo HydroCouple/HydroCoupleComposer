@@ -69,6 +69,7 @@ namespace HydroCouple::Composer
   GdalVectorLayer::GdalVectorLayer(const QString &name, const QString &filePath)
     : FeatureLayer(name), m_filePath(filePath)
   {
+    setSourceDescription(filePath);
   }
 
   GdalVectorLayer::~GdalVectorLayer() = default;

@@ -13,7 +13,7 @@
 #include "scene/sceneview.h"
 #include "map/maplayer.h"
 #include "project/hcpimporter.h"
-#include "ui/dialogs/layerstyledialog.h"
+#include "ui/dialogs/layerpropertiesdialog.h"
 #include "ui/panels/attributetablepanel.h"
 #include "ui/panels/layertreepanel.h"
 #include "ui/theme/iconfactory.h"
@@ -326,11 +326,12 @@ namespace HydroCouple::Composer
     connect(m_addComponentLayersAction, &QAction::triggered, this,
             &ComposerMainWindow::onAddComponentLayers);
 
-    m_styleLayerAction = new QAction(tr("&Style Layer…"), this);
-    m_styleLayerAction->setObjectName(QStringLiteral("styleLayerAction"));
-    m_styleLayerAction->setEnabled(false);
-    connect(m_styleLayerAction, &QAction::triggered, this,
-            [this] { m_layerTree->styleCurrent(); });
+    m_layerPropertiesAction = new QAction(tr("Layer &Properties…"), this);
+    m_layerPropertiesAction->setObjectName(
+      QStringLiteral("layerPropertiesAction"));
+    m_layerPropertiesAction->setEnabled(false);
+    connect(m_layerPropertiesAction, &QAction::triggered, this,
+            [this] { m_layerTree->openProperties(); });
 
     m_zoomOutAction = new QAction(tr("Zoom &Out"), this);
     m_zoomOutAction->setObjectName(QStringLiteral("zoomOutAction"));
@@ -559,7 +560,7 @@ namespace HydroCouple::Composer
     viewMenu->addAction(m_zoomFullAction);
     viewMenu->addAction(m_zoomInAction);
     viewMenu->addAction(m_zoomOutAction);
-    viewMenu->addAction(m_styleLayerAction);
+    viewMenu->addAction(m_layerPropertiesAction);
     viewMenu->addSeparator();
 
     QMenu *appearanceMenu = viewMenu->addMenu(tr("&Appearance"));
@@ -691,7 +692,7 @@ namespace HydroCouple::Composer
 
     RibbonGroup *symbology =
       m_ribbon->addGroup(QStringLiteral("map"), tr("Symbology"));
-    symbology->addAction(m_styleLayerAction, tr("Style\nLayer"));
+    symbology->addAction(m_layerPropertiesAction, tr("Layer\nProperties"));
 
     m_ribbon->addTab(QStringLiteral("view"), tr("View"));
 
@@ -716,7 +717,7 @@ namespace HydroCouple::Composer
     ensureIcon(m_zoomFullAction, QStringLiteral("extent"));
     ensureIcon(m_zoomInAction, QStringLiteral("zoomin"));
     ensureIcon(m_zoomOutAction, QStringLiteral("zoomout"));
-    ensureIcon(m_styleLayerAction, QStringLiteral("layer_styling"));
+    ensureIcon(m_layerPropertiesAction, QStringLiteral("layer_styling"));
     ensureIcon(m_addVectorAction, QStringLiteral("add_vector"));
     ensureIcon(m_addRasterAction, QStringLiteral("add_raster"));
     ensureIcon(m_addComponentLayersAction, QStringLiteral("add_component_layers"));
@@ -755,14 +756,14 @@ namespace HydroCouple::Composer
     tabifyDockWidget(paletteDock, layerDock);
     paletteDock->raise();
 
-    connect(m_layerTree, &LayerTreePanel::styleLayerRequested, this,
-            &ComposerMainWindow::onStyleLayer);
+    connect(m_layerTree, &LayerTreePanel::layerPropertiesRequested, this,
+            &ComposerMainWindow::onLayerProperties);
 
     connect(m_layerTree, &LayerTreePanel::currentLayerChanged, this,
             [this](MapLayer *layer)
             {
-              m_styleLayerAction->setEnabled(
-                LayerStyleDialog::canStyle(layer));
+              m_layerPropertiesAction->setEnabled(
+                LayerPropertiesDialog::canEdit(layer));
             });
 
     connect(m_layerTree, &LayerTreePanel::zoomToLayerRequested, this,
@@ -1058,20 +1059,20 @@ namespace HydroCouple::Composer
     log(tr("Basemap: %1 — %2").arg(provider.name, provider.attribution));
   }
 
-  void ComposerMainWindow::onStyleLayer(MapLayer *layer)
+  void ComposerMainWindow::onLayerProperties(MapLayer *layer)
   {
-    if (!LayerStyleDialog::canStyle(layer))
+    if (!LayerPropertiesDialog::canEdit(layer))
     {
       return;
     }
 
     // Shown from an action's triggered() or a button's clicked() — a release,
     // never a press: a modal opened from a mouse press wedges input on macOS.
-    LayerStyleDialog dialog(layer, this);
+    LayerPropertiesDialog dialog(layer, this);
 
     if (dialog.exec() == QDialog::Accepted)
     {
-      log(tr("Restyled %1.").arg(layer->name()));
+      log(tr("Updated %1.").arg(layer->name()));
     }
   }
 

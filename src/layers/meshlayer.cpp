@@ -351,9 +351,18 @@ namespace HydroCouple::Composer
 
     const QString name = QString::fromStdString(mesh.meshName);
 
-    return create(name.isEmpty() ? QFileInfo(filePath).completeBaseName()
-                                 : name,
-                  mesh, entity, message);
+    std::unique_ptr<MeshLayer> layer =
+      create(name.isEmpty() ? QFileInfo(filePath).completeBaseName() : name,
+             mesh, entity, message);
+
+    if (layer)
+    {
+      // Recorded here rather than in create(), which also builds meshes that
+      // came from a component's data item and have no file behind them.
+      layer->setSourceDescription(filePath);
+    }
+
+    return layer;
   }
 
   bool MeshLayer::isRegularGrid(const HydroCouple::IComponentDataItem *item)

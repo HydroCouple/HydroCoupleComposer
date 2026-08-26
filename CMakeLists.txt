@@ -183,8 +183,8 @@ set(COMPOSER_SOURCES
     src/scene/sceneimage.cpp
     include/scene/sceneview.h
     src/scene/sceneview.cpp
-    include/ui/dialogs/layerstyledialog.h
-    src/ui/dialogs/layerstyledialog.cpp
+    include/ui/dialogs/layerpropertiesdialog.h
+    src/ui/dialogs/layerpropertiesdialog.cpp
     include/ui/panels/layertreepanel.h
     src/ui/panels/layertreepanel.cpp
     include/ui/panels/attributetablemodel.h

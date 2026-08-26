@@ -53,6 +53,7 @@ namespace HydroCouple::Composer
     : MapLayer(name), m_filePath(filePath),
       m_ramp(ColorRamp::builtin(QStringLiteral("Viridis")))
   {
+    setSourceDescription(filePath);
   }
 
   GdalRasterLayer::~GdalRasterLayer()

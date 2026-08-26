@@ -43,6 +43,16 @@ namespace HydroCouple::Composer
     return {};
   }
 
+  QString MapLayer::sourceDescription() const
+  {
+    return m_sourceDescription;
+  }
+
+  void MapLayer::setSourceDescription(const QString &description)
+  {
+    m_sourceDescription = description;
+  }
+
   const SpatialReference *MapLayer::mapCrs() const
   {
     return m_mapCrs.get();

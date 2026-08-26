@@ -128,7 +128,7 @@ namespace HydroCouple::Composer
 
     private Q_SLOTS:
       void onSelectionChanged();
-      void onStyleLayer(HydroCouple::Composer::MapLayer *layer);
+      void onLayerProperties(HydroCouple::Composer::MapLayer *layer);
       void onAddVectorLayer();
       void onAddRasterLayer();
       void onAddComponentLayers();
@@ -203,7 +203,7 @@ namespace HydroCouple::Composer
       QAction *m_zoomFullAction = nullptr;
       QAction *m_zoomInAction = nullptr;
       QAction *m_zoomOutAction = nullptr;
-      QAction *m_styleLayerAction = nullptr;
+      QAction *m_layerPropertiesAction = nullptr;
       QAction *m_addVectorAction = nullptr;
       QAction *m_addRasterAction = nullptr;
       QAction *m_addComponentLayersAction = nullptr;

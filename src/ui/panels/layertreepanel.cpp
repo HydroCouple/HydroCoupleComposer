@@ -64,9 +64,9 @@ namespace HydroCouple::Composer
     m_zoomButton = makeButton(this, QStringLiteral("layerZoomButton"),
                               QStringLiteral("extent"),
                               tr("Zoom to layer"));
-    m_styleButton = makeButton(this, QStringLiteral("layerStyleButton"),
+    m_propertiesButton = makeButton(this, QStringLiteral("layerPropertiesButton"),
                                QStringLiteral("layer_styling"),
-                               tr("Style layer…"));
+                               tr("Layer properties…"));
     m_removeButton = makeButton(this, QStringLiteral("layerRemoveButton"),
                                 QStringLiteral("delete"), tr("Remove layer"));
 
@@ -75,7 +75,7 @@ namespace HydroCouple::Composer
     buttons->addWidget(m_upButton);
     buttons->addWidget(m_downButton);
     buttons->addWidget(m_zoomButton);
-    buttons->addWidget(m_styleButton);
+    buttons->addWidget(m_propertiesButton);
     buttons->addStretch(1);
     buttons->addWidget(m_removeButton);
 
@@ -100,13 +100,13 @@ namespace HydroCouple::Composer
               }
             });
 
-    connect(m_styleButton, &QToolButton::clicked, this,
-            &LayerTreePanel::styleCurrent);
+    connect(m_propertiesButton, &QToolButton::clicked, this,
+            &LayerTreePanel::openProperties);
 
     connect(m_view, &QTreeView::doubleClicked, this,
             [this](const QModelIndex &index)
             {
-              // Double-clicking a class opens the layer's style editor, which
+              // Double-clicking a class opens the layer's properties, which
               // is where a class's colour is changed; double-clicking the
               // layer frames it, the more common intent.
               if (LayerStackModel::isLegendIndex(index))
@@ -114,7 +114,7 @@ namespace HydroCouple::Composer
                 if (MapLayer *owner = m_model ? m_model->layerFor(index)
                                               : nullptr)
                 {
-                  Q_EMIT styleLayerRequested(owner);
+                  Q_EMIT layerPropertiesRequested(owner);
                 }
 
                 return;
@@ -247,11 +247,11 @@ namespace HydroCouple::Composer
     }
   }
 
-  void LayerTreePanel::styleCurrent()
+  void LayerTreePanel::openProperties()
   {
     if (MapLayer *layer = currentLayer())
     {
-      Q_EMIT styleLayerRequested(layer);
+      Q_EMIT layerPropertiesRequested(layer);
     }
   }
 
@@ -269,7 +269,7 @@ namespace HydroCouple::Composer
 
     // Styling is offered only where there is a style to edit: a basemap has
     // none, and an empty editor is worse than no menu entry.
-    m_styleButton->setEnabled(hasLayer
+    m_propertiesButton->setEnabled(hasLayer
                               && currentLayer()->style() != nullptr);
   }
 
