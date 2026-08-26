@@ -104,12 +104,85 @@ namespace HydroCouple::Composer
   };
 
   /*!
+   * \brief How a layer places itself against the terrain.
+   *
+   * On the scene interface rather than on any one layer type, because every
+   * source has to answer it: a vector layer has no third coordinate of its
+   * own, and a basemap has no third coordinate either. It lived on
+   * FeatureLayer until C5d, which is why a draped basemap could not be turned
+   * off — the two surface layers had no say in it at all.
+   */
+  enum class SceneDrape
+  {
+    //! At z = 0. What a layer over a stack with no terrain in it gets.
+    Flat,
+
+    //! Laid on the terrain, densified finely enough to follow it.
+    Terrain,
+
+    /*!
+     * \brief A vertical curtain from the terrain up to a set height.
+     *
+     * How a buried or a low-relief network stays legible: a line lying on a
+     * hillside is hidden by the first fold of ground in front of it, and a
+     * pipe network that disappears behind terrain is not a view of a network.
+     *
+     * Meaningless for something that is already a surface — see
+     * supportsExtrusion() — where it reads as Terrain.
+     */
+    Extruded
+  };
+
+  /*!
    * \brief Supplies geometry for the 3D scene.
    */
   class ISceneSource
   {
     public:
       virtual ~ISceneSource() = default;
+
+      /*!
+       * \brief Where this source sits relative to the terrain.
+       */
+      [[nodiscard]] SceneDrape drape() const { return m_drape; }
+
+      /*!
+       * \brief Sets where this source sits relative to the terrain.
+       *
+       * Virtual because storing the choice is only half of it: a layer that
+       * caches built geometry has to throw that cache away and ask to be
+       * redrawn, and only the layer knows what it cached.
+       *
+       * \param drape The placement wanted.
+       */
+      virtual void setDrape(SceneDrape drape) { m_drape = drape; }
+
+      /*!
+       * \brief How far an extruded source stands up, in map units.
+       */
+      [[nodiscard]] double extrusionHeight() const
+      {
+        return m_extrusionHeight;
+      }
+
+      /*!
+       * \brief Sets the extrusion height.
+       * \param height Height in map units; the unit is whatever the map's CRS
+       *        measures in, so there is no sensible default but zero.
+       */
+      virtual void setExtrusionHeight(double height)
+      {
+        m_extrusionHeight = height;
+      }
+
+      /*!
+       * \brief Whether Extruded means anything for this source.
+       *
+       * False for anything that is already a surface. An editor uses this to
+       * offer only the placements that will do something, rather than listing
+       * one that silently behaves as another.
+       */
+      [[nodiscard]] virtual bool supportsExtrusion() const { return false; }
 
       /*!
        * \brief The geometry batches to draw, in draw order.
@@ -144,6 +217,23 @@ namespace HydroCouple::Composer
       {
         return nullptr;
       }
+
+    protected:
+      /*!
+       * \brief The terrain to compose against, honouring the drape choice.
+       *
+       * \param context What the layer is being composed with.
+       * \returns The context's terrain, or nullptr when this source is to
+       *          stay flat.
+       */
+      [[nodiscard]] const ITerrainSource *drapeTarget(
+        const SceneContext &context) const
+      {
+        return m_drape == SceneDrape::Flat ? nullptr : context.terrain;
+      }
+
+      SceneDrape m_drape = SceneDrape::Terrain;
+      double m_extrusionHeight = 0.0;
   };
 
 } // namespace HydroCouple::Composer

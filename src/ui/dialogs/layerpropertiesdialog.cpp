@@ -4,6 +4,7 @@
 #include "map/maplayer.h"
 #include "ui/dialogs/crsselectiondialog.h"
 #include "render/attributeprovider.h"
+#include "scene/scenesource.h"
 #include "render/layerstyle.h"
 
 #include <QCheckBox>
@@ -492,7 +493,60 @@ namespace HydroCouple::Composer
     m_opacitySpin->setSuffix(tr(" %"));
     form->addRow(tr("Opacity"), m_opacitySpin);
 
+    ISceneSource *scene = sceneSource();
+
+    // Only for a layer that is actually in the 3D scene: a point layer and a
+    // layer with no geometry have nothing to place against a terrain, and a
+    // drape control on them would be a setting with no effect.
+    if (!scene)
+    {
+      return page;
+    }
+
+    m_drapeCombo = new QComboBox(page);
+    m_drapeCombo->setObjectName(QStringLiteral("renderingDrapeCombo"));
+    m_drapeCombo->addItem(
+      tr("Flat — at zero elevation"),
+      QVariant::fromValue(static_cast<int>(SceneDrape::Flat)));
+    m_drapeCombo->addItem(
+      tr("Draped over the terrain"),
+      QVariant::fromValue(static_cast<int>(SceneDrape::Terrain)));
+
+    // Offered only where it does something. A surface is already a surface,
+    // so extruding it would silently behave as draping and read as a control
+    // that does not work.
+    if (scene->supportsExtrusion())
+    {
+      m_drapeCombo->addItem(
+        tr("Extruded above the terrain"),
+        QVariant::fromValue(static_cast<int>(SceneDrape::Extruded)));
+    }
+
+    form->addRow(tr("3D placement"), m_drapeCombo);
+
+    if (scene->supportsExtrusion())
+    {
+      m_extrusionSpin = new QDoubleSpinBox(page);
+      m_extrusionSpin->setObjectName(
+        QStringLiteral("renderingExtrusionSpin"));
+
+      // Wide, and in map units: the unit is whatever the map's CRS measures
+      // in, so the same number is metres in one system and degrees in
+      // another and no range narrower than this fits both.
+      m_extrusionSpin->setRange(-100000.0, 100000.0);
+      m_extrusionSpin->setDecimals(3);
+      form->addRow(tr("Extrusion height"), m_extrusionSpin);
+    }
+
+    connect(m_drapeCombo, &QComboBox::currentIndexChanged, this,
+            [this](int) { updateEnabledState(); });
+
     return page;
+  }
+
+  ISceneSource *LayerPropertiesDialog::sceneSource() const
+  {
+    return m_layer ? m_layer->sceneSource() : nullptr;
   }
 
   QWidget *LayerPropertiesDialog::buildMetadataTab()
@@ -526,6 +580,22 @@ namespace HydroCouple::Composer
     m_nameEdit->setText(m_layer->name());
     m_visibleCheck->setChecked(m_layer->isVisible());
     m_opacitySpin->setValue(qRound(m_layer->opacity() * 100.0));
+
+    if (const ISceneSource *scene = sceneSource(); scene && m_drapeCombo)
+    {
+      const int index =
+        m_drapeCombo->findData(static_cast<int>(scene->drape()));
+
+      // A layer left on Extruded whose combo no longer offers it cannot be
+      // shown truthfully, so it falls back rather than showing the first row
+      // as though that were the setting.
+      m_drapeCombo->setCurrentIndex(index >= 0 ? index : 0);
+
+      if (m_extrusionSpin)
+      {
+        m_extrusionSpin->setValue(scene->extrusionHeight());
+      }
+    }
 
     const LayerStyle *style = m_layer->style();
 
@@ -585,6 +655,15 @@ namespace HydroCouple::Composer
 
   void LayerPropertiesDialog::updateEnabledState()
   {
+    if (m_extrusionSpin && m_drapeCombo)
+    {
+      // A height only means something to a curtain; on a flat or draped
+      // layer it is a number that changes nothing.
+      m_extrusionSpin->setEnabled(
+        static_cast<SceneDrape>(m_drapeCombo->currentData().toInt())
+        == SceneDrape::Extruded);
+    }
+
     if (!hasStyle())
     {
       return;
@@ -623,6 +702,17 @@ namespace HydroCouple::Composer
     m_layer->setName(m_nameEdit->text());
     m_layer->setVisible(m_visibleCheck->isChecked());
     m_layer->setOpacity(m_opacitySpin->value() / 100.0);
+
+    if (ISceneSource *scene = sceneSource(); scene && m_drapeCombo)
+    {
+      scene->setDrape(
+        static_cast<SceneDrape>(m_drapeCombo->currentData().toInt()));
+
+      if (m_extrusionSpin)
+      {
+        scene->setExtrusionHeight(m_extrusionSpin->value());
+      }
+    }
 
     LayerStyle *style = m_layer->style();
 

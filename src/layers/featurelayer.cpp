@@ -647,10 +647,15 @@ namespace HydroCouple::Composer
 
   SceneDrape FeatureLayer::sceneDrape() const
   {
-    return m_drape;
+    return drape();
   }
 
   void FeatureLayer::setSceneDrape(SceneDrape drape)
+  {
+    setDrape(drape);
+  }
+
+  void FeatureLayer::setDrape(SceneDrape drape)
   {
     if (m_drape == drape)
     {
@@ -660,11 +665,6 @@ namespace HydroCouple::Composer
     m_drape = drape;
 
     notifyAppearanceChanged();
-  }
-
-  double FeatureLayer::extrusionHeight() const
-  {
-    return m_extrusionHeight;
   }
 
   void FeatureLayer::setExtrusionHeight(double height)

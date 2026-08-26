@@ -112,6 +112,24 @@ namespace HydroCouple::Composer
        */
       void setVerticalExaggeration(double factor);
 
+      //! \returns The exaggeration currently applied to world Z.
+      [[nodiscard]] double verticalExaggeration() const;
+
+      //! \returns Whether the view is drawn in perspective or parallel.
+      [[nodiscard]] CameraProjection projection() const;
+
+      /*!
+       * \brief Switches between perspective and parallel projection.
+       *
+       * The camera matches the two through the ground extent, so what is on
+       * screen stays on screen across the switch — which is the whole point:
+       * a toggle that reframed would read as a navigation command rather than
+       * a change of how the same view is drawn.
+       *
+       * \param projection The projection to draw in.
+       */
+      void setProjection(CameraProjection projection);
+
       /*!
        * \brief The colour drawn behind the scene.
        */

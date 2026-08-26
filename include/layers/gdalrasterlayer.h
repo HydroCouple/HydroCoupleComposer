@@ -108,6 +108,15 @@ namespace HydroCouple::Composer
       [[nodiscard]] const ISceneSource *sceneSource() const override;
 
       /*!
+       * \brief Sets where the raster sits, and asks for a redraw.
+       *
+       * See TileLayer::setDrape(): the scene caches what it was handed.
+       *
+       * \param drape The placement wanted.
+       */
+      void setDrape(SceneDrape drape) override;
+
+      /*!
        * \brief The ground itself, wearing this raster.
        *
        * A raster has no geometry — it is a picture of a place — so its 3D

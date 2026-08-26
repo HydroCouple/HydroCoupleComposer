@@ -38,31 +38,6 @@ namespace HydroCouple::Composer
   };
 
   /*!
-   * \brief How a feature layer places itself in the 3D scene.
-   *
-   * A vector layer has no third coordinate of its own, so it has to be given
-   * one. These are the three answers that mean something: leave it flat, lay
-   * it on the ground, or stand it up so it is visible over the ground.
-   */
-  enum class SceneDrape
-  {
-    //! At z = 0. What a layer over a stack with no terrain in it gets.
-    Flat,
-
-    //! Laid on the terrain, densified finely enough to follow it.
-    Terrain,
-
-    /*!
-     * \brief A vertical curtain from the terrain up to a set height.
-     *
-     * How a buried or a low-relief network stays legible: a line lying on a
-     * hillside is hidden by the first fold of ground in front of it, and a
-     * pipe network that disappears behind terrain is not a view of a network.
-     */
-    Extruded
-  };
-
-  /*!
    * \brief One feature: its geometry and its attributes.
    */
   struct VectorFeature
@@ -143,6 +118,10 @@ namespace HydroCouple::Composer
 
       /*!
        * \brief How the layer places itself in the 3D scene.
+       *
+       * The scene interface owns the choice since C5d; these two names are
+       * kept because they read better at a feature layer's call sites and
+       * because renaming them would churn every one of them.
        */
       [[nodiscard]] SceneDrape sceneDrape() const;
 
@@ -157,21 +136,13 @@ namespace HydroCouple::Composer
        */
       void setSceneDrape(SceneDrape drape);
 
-      /*!
-       * \brief How far an extruded curtain rises above the ground.
-       */
-      [[nodiscard]] double extrusionHeight() const;
+      void setDrape(SceneDrape drape) override;
 
-      /*!
-       * \brief Sets the extrusion height, in world units.
-       *
-       * Zero is legal and leaves the crest line alone on the ground, which
-       * is what a curtain of no height is; there is no default worth
-       * inventing, because the unit is whatever the map's CRS measures in.
-       *
-       * \param height Height above the terrain; negative values hang below.
-       */
-      void setExtrusionHeight(double height);
+      void setExtrusionHeight(double height) override;
+
+      //! A line or a ring can stand up; that is what extrusion is for.
+      [[nodiscard]] bool supportsExtrusion() const override { return true; }
+
 
       // ── MapLayer ─────────────────────────────────────────────────────────
 
@@ -305,8 +276,6 @@ namespace HydroCouple::Composer
       mutable QVector<QVector<QPolygonF>> m_projected;
       mutable bool m_projectionValid = false;
 
-      SceneDrape m_drape = SceneDrape::Terrain;
-      double m_extrusionHeight = 0.0;
 
       QSet<int> m_selection;
 

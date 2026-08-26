@@ -194,6 +194,18 @@ namespace HydroCouple::Composer
     return m_extent;
   }
 
+  void GdalRasterLayer::setDrape(SceneDrape drape)
+  {
+    if (this->drape() == drape)
+    {
+      return;
+    }
+
+    ISceneSource::setDrape(drape);
+
+    notifyAppearanceChanged();
+  }
+
   void GdalRasterLayer::onProjectionChanged()
   {
     if (m_warped)
@@ -423,7 +435,11 @@ namespace HydroCouple::Composer
       m_groundValid = true;
     }
 
-    SceneGeometry ground = buildGroundPlane(m_ground, context.terrain);
+    // drapeTarget(), not the context's terrain outright: a surface set
+    // Flat is asking to lie at z = 0 even though the stack has a terrain
+    // in it, and passing the terrain regardless is what made draping
+    // unconditional before C5d.
+    SceneGeometry ground = buildGroundPlane(m_ground, drapeTarget(context));
 
     if (!ground.isEmpty())
     {

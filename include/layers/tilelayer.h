@@ -172,6 +172,17 @@ namespace HydroCouple::Composer
       [[nodiscard]] QString sourceDescription() const override;
 
       /*!
+       * \brief Sets where the basemap sits, and asks for a redraw.
+       *
+       * The scene caches the batches it was given, so a placement recorded
+       * without a redraw request would sit in the layer, correct and
+       * invisible, until something unrelated disturbed the scene.
+       *
+       * \param drape The placement wanted.
+       */
+      void setDrape(SceneDrape drape) override;
+
+      /*!
        * \brief Call when a requested tile has arrived.
        */
       void onTileReady();

@@ -139,6 +139,17 @@ namespace HydroCouple::Composer
       [[nodiscard]] virtual const ISceneSource *sceneSource() const;
 
       /*!
+       * \brief The layer's 3D geometry supplier for editing, or nullptr.
+       *
+       * The non-const half of the pair, matching style()'s, so the properties
+       * dialog can change how a layer drapes without casting the const away.
+       * Defined once here in terms of the const half: every layer that has a
+       * scene source returns itself from it, so an override would be the same
+       * line written five times.
+       */
+      [[nodiscard]] ISceneSource *sceneSource();
+
+      /*!
        * \brief Whether this layer is a backdrop rather than data.
        *
        * A basemap covers the whole world, so framing "everything" would

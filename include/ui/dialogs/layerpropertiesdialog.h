@@ -32,6 +32,7 @@ class QTabWidget;
 
 namespace HydroCouple::Composer
 {
+  class ISceneSource;
   class MapLayer;
   class SpatialReference;
 
@@ -111,6 +112,9 @@ namespace HydroCouple::Composer
       //! \returns True when the layer carries a style to edit.
       [[nodiscard]] bool hasStyle() const;
 
+      //! \returns The layer's scene source, or nullptr when it has no 3D form.
+      [[nodiscard]] ISceneSource *sceneSource() const;
+
       MapLayer *m_layer = nullptr;
 
       QTabWidget *m_tabs = nullptr;
@@ -129,6 +133,8 @@ namespace HydroCouple::Composer
 
       QCheckBox *m_visibleCheck = nullptr;
       QSpinBox *m_opacitySpin = nullptr;
+      QComboBox *m_drapeCombo = nullptr;
+      QDoubleSpinBox *m_extrusionSpin = nullptr;
 
       QComboBox *m_modeCombo = nullptr;
       QComboBox *m_attributeCombo = nullptr;

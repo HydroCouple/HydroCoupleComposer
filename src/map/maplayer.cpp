@@ -43,6 +43,12 @@ namespace HydroCouple::Composer
     return {};
   }
 
+  ISceneSource *MapLayer::sceneSource()
+  {
+    return const_cast<ISceneSource *>(
+      static_cast<const MapLayer *>(this)->sceneSource());
+  }
+
   QString MapLayer::sourceDescription() const
   {
     return m_sourceDescription;

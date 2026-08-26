@@ -10,6 +10,7 @@
 #include "gis/spatialreference.h"
 #include "map/layerstackmodel.h"
 #include "map/mapcanvas.h"
+#include "scene/camera.h"
 #include "scene/sceneview.h"
 #include "map/maplayer.h"
 #include "project/hcpimporter.h"
@@ -25,6 +26,7 @@
 #include <QActionGroup>
 #include <QApplication>
 #include <QDockWidget>
+#include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QInputDialog>
 #include <QLabel>
@@ -338,6 +340,29 @@ namespace HydroCouple::Composer
     m_mapCrsAction->setObjectName(QStringLiteral("mapCrsAction"));
     connect(m_mapCrsAction, &QAction::triggered, this,
             &ComposerMainWindow::onSetMapCrs);
+
+    m_perspectiveAction = new QAction(tr("&Perspective"), this);
+    m_perspectiveAction->setObjectName(QStringLiteral("perspectiveAction"));
+    m_perspectiveAction->setCheckable(true);
+    m_perspectiveAction->setChecked(true);
+
+    m_orthographicAction = new QAction(tr("&Orthographic"), this);
+    m_orthographicAction->setObjectName(
+      QStringLiteral("orthographicAction"));
+    m_orthographicAction->setCheckable(true);
+
+    // Exclusive, because a view is drawn one way or the other and two
+    // independent checkboxes would let the UI show a state the camera has no
+    // way to be in.
+    auto *projectionGroup = new QActionGroup(this);
+    projectionGroup->setExclusive(true);
+    projectionGroup->addAction(m_perspectiveAction);
+    projectionGroup->addAction(m_orthographicAction);
+
+    connect(m_perspectiveAction, &QAction::triggered, this,
+            &ComposerMainWindow::onProjectionChosen);
+    connect(m_orthographicAction, &QAction::triggered, this,
+            &ComposerMainWindow::onProjectionChosen);
 
     m_zoomOutAction = new QAction(tr("Zoom &Out"), this);
     m_zoomOutAction->setObjectName(QStringLiteral("zoomOutAction"));
@@ -706,6 +731,33 @@ namespace HydroCouple::Composer
       m_ribbon->addGroup(QStringLiteral("map"), tr("Reference"));
     reference->addAction(m_mapCrsAction, tr("Coordinate\nSystem"));
 
+    m_ribbon->addTab(QStringLiteral("scene"), tr("3D"));
+
+    RibbonGroup *projection =
+      m_ribbon->addGroup(QStringLiteral("scene"), tr("Projection"));
+    projection->addAction(m_perspectiveAction, tr("Perspective"));
+    projection->addAction(m_orthographicAction, tr("Ortho\ngraphic"));
+
+    RibbonGroup *relief =
+      m_ribbon->addGroup(QStringLiteral("scene"), tr("Relief"));
+
+    m_exaggerationSpin = new QDoubleSpinBox(relief);
+    m_exaggerationSpin->setObjectName(QStringLiteral("exaggerationSpin"));
+    m_exaggerationSpin->setPrefix(tr("Vertical ×"));
+    m_exaggerationSpin->setRange(0.1, 100.0);
+    m_exaggerationSpin->setSingleStep(0.5);
+    m_exaggerationSpin->setValue(m_sceneView->verticalExaggeration());
+    m_exaggerationSpin->setToolTip(
+      tr("How much to stretch elevation, for reading low relief."));
+
+    connect(m_exaggerationSpin, &QDoubleSpinBox::valueChanged, this,
+            [this](double factor)
+            {
+              m_sceneView->setVerticalExaggeration(factor);
+            });
+
+    relief->addWidget(m_exaggerationSpin);
+
     m_ribbon->addTab(QStringLiteral("view"), tr("View"));
 
     RibbonGroup *appearance =
@@ -735,6 +787,11 @@ namespace HydroCouple::Composer
     // the one thing on the ribbon that is about the earth rather than about
     // the data drawn on it.
     ensureIcon(m_mapCrsAction, QStringLiteral("globe"));
+
+    // The 3D glyph for the projection a 3D view is normally read in, and the
+    // extent rectangle for the parallel one, which is what a plan view is.
+    ensureIcon(m_perspectiveAction, QStringLiteral("scene_3d"));
+    ensureIcon(m_orthographicAction, QStringLiteral("extent"));
     ensureIcon(m_addVectorAction, QStringLiteral("add_vector"));
     ensureIcon(m_addRasterAction, QStringLiteral("add_raster"));
     ensureIcon(m_addComponentLayersAction, QStringLiteral("add_component_layers"));
@@ -1125,6 +1182,17 @@ namespace HydroCouple::Composer
     m_mapCanvas->setCrs(std::move(chosen));
 
     log(tr("Map coordinate system: %1").arg(described));
+  }
+
+  void ComposerMainWindow::onProjectionChosen()
+  {
+    m_sceneView->setProjection(m_orthographicAction->isChecked()
+                                 ? CameraProjection::Orthographic
+                                 : CameraProjection::Perspective);
+
+    // Brought forward, because a projection is a property of a view nobody
+    // can see the effect of from another tab.
+    m_workspace->setCurrentWidget(m_sceneView);
   }
 
   void ComposerMainWindow::createStatusBar()

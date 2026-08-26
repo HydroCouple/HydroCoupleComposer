@@ -24,6 +24,9 @@
 
 #include <gtest/gtest.h>
 
+#include <QAction>
+#include <QDoubleSpinBox>
+
 #include <QApplication>
 #include <QRectF>
 #include <QTabWidget>
@@ -269,6 +272,81 @@ namespace
     // The orientation is the user's and is not the map's to change.
     EXPECT_DOUBLE_EQ(m_window->sceneView()->camera().elevation(), 35.0);
     EXPECT_DOUBLE_EQ(m_window->sceneView()->camera().azimuth(), 20.0);
+  }
+
+  TEST_F(ViewHandoffTest, SwitchingProjectionKeepsWhatIsOnScreen)
+  {
+    // C5d. The toggle changes how the same view is drawn, not where it looks
+    // — a projection switch that reframed would read as a navigation command.
+    // Straight down, for the same reason the round-trip test is: that is
+    // where the two projections describe the same rectangle exactly.
+    addTerrain();
+    showTab(m_window->sceneView());
+
+    SceneView *view = m_window->sceneView();
+
+    Camera camera = view->camera();
+    camera.setElevation(90.0);
+    camera.setTarget(QVector3D(180.0f, 140.0f, 0.0f));
+    view->setCamera(camera);
+
+    ASSERT_EQ(view->projection(), CameraProjection::Perspective);
+
+    const QRectF before = view->groundExtent();
+    ASSERT_FALSE(before.isEmpty());
+
+    view->setProjection(CameraProjection::Orthographic);
+
+    EXPECT_EQ(view->projection(), CameraProjection::Orthographic);
+    EXPECT_LT(relativeDifference(before, view->groundExtent()), 1.0e-3)
+      << "switching to a parallel projection moved the view";
+
+    view->setProjection(CameraProjection::Perspective);
+
+    EXPECT_EQ(view->projection(), CameraProjection::Perspective);
+    EXPECT_LT(relativeDifference(before, view->groundExtent()), 1.0e-3)
+      << "switching back moved the view";
+  }
+
+  TEST_F(ViewHandoffTest, TheProjectionToggleIsReachableAndExclusive)
+  {
+    auto *perspective =
+      m_window->findChild<QAction *>(QStringLiteral("perspectiveAction"));
+    auto *orthographic =
+      m_window->findChild<QAction *>(QStringLiteral("orthographicAction"));
+
+    ASSERT_NE(perspective, nullptr);
+    ASSERT_NE(orthographic, nullptr);
+
+    EXPECT_TRUE(perspective->isChecked());
+
+    orthographic->trigger();
+
+    EXPECT_EQ(m_window->sceneView()->projection(),
+              CameraProjection::Orthographic);
+    EXPECT_FALSE(perspective->isChecked())
+      << "both projections were checked at once, which the camera cannot be";
+
+    perspective->trigger();
+
+    EXPECT_EQ(m_window->sceneView()->projection(),
+              CameraProjection::Perspective);
+    EXPECT_FALSE(orthographic->isChecked());
+  }
+
+  TEST_F(ViewHandoffTest, TheExaggerationControlReachesTheCamera)
+  {
+    auto *spin =
+      m_window->findChild<QDoubleSpinBox *>(QStringLiteral("exaggerationSpin"));
+    ASSERT_NE(spin, nullptr);
+
+    addTerrain();
+    showTab(m_window->sceneView());
+
+    spin->setValue(4.0);
+
+    EXPECT_NEAR(m_window->sceneView()->verticalExaggeration(), 4.0, 1.0e-9)
+      << "the spin box moved but the camera did not";
   }
 
   TEST_F(ViewHandoffTest, LaterGeometryDoesNotReframeAChosenView)

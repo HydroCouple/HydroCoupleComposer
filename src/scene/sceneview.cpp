@@ -166,6 +166,32 @@ namespace HydroCouple::Composer
     zoomToFullExtent();
   }
 
+  double SceneView::verticalExaggeration() const
+  {
+    return m_camera.verticalExaggeration();
+  }
+
+  CameraProjection SceneView::projection() const
+  {
+    return m_camera.projection();
+  }
+
+  void SceneView::setProjection(CameraProjection projection)
+  {
+    if (m_camera.projection() == projection)
+    {
+      return;
+    }
+
+    const double aspect =
+      height() > 0 ? double(width()) / double(height()) : 1.0;
+
+    m_camera.setProjection(projection, aspect);
+
+    update();
+    Q_EMIT cameraChanged();
+  }
+
   QColor SceneView::backgroundColor() const
   {
     return m_background;

@@ -32,9 +32,11 @@
 #include <QApplication>
 #include <QDir>
 #include <QImage>
+#include <QSignalSpy>
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -661,6 +663,141 @@ namespace
                 rasterExtent().width(), 1.0e-6);
     EXPECT_NEAR(geometry.first().textureExtent.height(),
                 rasterExtent().height(), 1.0e-6);
+  }
+
+  // ── the drape is a choice (C5d) ─────────────────────────────────────────
+
+  TEST_F(GroundPlaneTest, ARasterSetFlatStaysOffTheTerrain)
+  {
+    LayerStackModel stack;
+
+    MeshLayer *terrain = terrainLayer(tilted(8, 20.0)).release();
+    ASSERT_TRUE(terrain);
+    ASSERT_GE(stack.addLayer(terrain), 0);
+
+    GdalRasterLayer *layer = openGroundRaster().release();
+    ASSERT_TRUE(layer);
+    ASSERT_GE(stack.addLayer(layer), 0);
+
+    SceneContext context;
+    context.terrain = terrain->sceneSource()->terrain();
+    context.focus = layer->extent();
+
+    // Draped by default, which is what a raster over a terrain should do
+    // without being asked.
+    const QVector<SceneGeometry> draped = layer->sceneGeometry(context);
+    ASSERT_EQ(draped.size(), 1);
+
+    float lowest = std::numeric_limits<float>::max();
+    float highest = std::numeric_limits<float>::lowest();
+
+    for (const SceneVertex &vertex : draped.first().vertices)
+    {
+      lowest = std::min(lowest, vertex.z);
+      highest = std::max(highest, vertex.z);
+    }
+
+    ASSERT_GT(highest - lowest, 1.0)
+      << "the fixture terrain must have relief for this to mean anything";
+
+    // Now asked to stay flat. Before C5d the surface layers passed the
+    // context's terrain through unconditionally, so this was impossible to
+    // express and a basemap draped whether or not anyone wanted it to.
+    layer->setDrape(SceneDrape::Flat);
+
+    const QVector<SceneGeometry> flat = layer->sceneGeometry(context);
+    ASSERT_EQ(flat.size(), 1);
+
+    for (const SceneVertex &vertex : flat.first().vertices)
+    {
+      EXPECT_NEAR(double(vertex.z), 0.0, 1.0e-6)
+        << "a raster set Flat is still following the terrain";
+    }
+  }
+
+  TEST_F(GroundPlaneTest, ABasemapSetFlatStaysOffTheTerrain)
+  {
+    LayerStackModel stack;
+
+    TileLayer *tiles = new TileLayer(
+      QStringLiteral("basemap"),
+      std::make_unique<SolidTiles>(QColor(200, 120, 40)));
+    ASSERT_GE(stack.addLayer(tiles), 0);
+
+    MeshLayer *terrain = terrainLayer(tilted(8, 20.0)).release();
+    ASSERT_TRUE(terrain);
+    ASSERT_GE(stack.addLayer(terrain), 0);
+
+    SceneContext context;
+    context.terrain = terrain->sceneSource()->terrain();
+    context.focus = terrain->extent();
+
+    const QVector<SceneGeometry> draped = tiles->sceneGeometry(context);
+    ASSERT_EQ(draped.size(), 1);
+
+    bool anyOffZero = false;
+
+    for (const SceneVertex &vertex : draped.first().vertices)
+    {
+      anyOffZero = anyOffZero || std::abs(double(vertex.z)) > 1.0;
+    }
+
+    EXPECT_TRUE(anyOffZero) << "the basemap did not drape by default";
+
+    tiles->setDrape(SceneDrape::Flat);
+
+    const QVector<SceneGeometry> flat = tiles->sceneGeometry(context);
+    ASSERT_EQ(flat.size(), 1);
+
+    for (const SceneVertex &vertex : flat.first().vertices)
+    {
+      EXPECT_NEAR(double(vertex.z), 0.0, 1.0e-6);
+    }
+  }
+
+  TEST_F(GroundPlaneTest, ChangingASurfacesDrapeAsksForARedraw)
+  {
+    // The scene caches the batches each layer hands it and rebuilds on this
+    // signal, so a drape recorded silently would sit in the layer, correct
+    // and invisible, until something unrelated disturbed the scene.
+    GdalRasterLayer *raster = openGroundRaster().release();
+    ASSERT_TRUE(raster);
+
+    QSignalSpy rasterSpy(raster, &MapLayer::appearanceChanged);
+
+    raster->setDrape(SceneDrape::Flat);
+    EXPECT_EQ(rasterSpy.count(), 1);
+
+    // Setting what is already set is not a change, and a redraw for it would
+    // be a redraw of the whole scene for nothing.
+    raster->setDrape(SceneDrape::Flat);
+    EXPECT_EQ(rasterSpy.count(), 1);
+
+    TileLayer tiles(QStringLiteral("basemap"),
+                    std::make_unique<SolidTiles>(QColor(200, 120, 40)));
+
+    QSignalSpy tileSpy(&tiles, &MapLayer::appearanceChanged);
+
+    tiles.setDrape(SceneDrape::Flat);
+    EXPECT_EQ(tileSpy.count(), 1);
+
+    delete raster;
+  }
+
+  TEST_F(GroundPlaneTest, OnlyThingsThatAreNotSurfacesCanBeExtruded)
+  {
+    GdalRasterLayer *raster = openGroundRaster().release();
+    ASSERT_TRUE(raster);
+
+    TileLayer tiles(QStringLiteral("basemap"),
+                    std::make_unique<SolidTiles>(QColor(200, 120, 40)));
+
+    // Extruding something that is already a surface would silently behave as
+    // draping it, so an editor is told not to offer it.
+    EXPECT_FALSE(raster->supportsExtrusion());
+    EXPECT_FALSE(tiles.supportsExtrusion());
+
+    delete raster;
   }
 
   // ── basemaps ────────────────────────────────────────────────────────────
