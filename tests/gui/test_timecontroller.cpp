@@ -12,6 +12,7 @@
 #include "core/composerapplication.h"
 #include "layers/dataitemlayer.h"
 #include "map/layerstackmodel.h"
+#include "render/layerstyle.h"
 #include "results/timecontroller.h"
 #include "spatialstubs.h"
 
@@ -312,4 +313,207 @@ TEST_F(TimeControllerTest, AStaticLayerIsLeftAlone)
   EXPECT_FALSE(layer->setTimeIndex(2)) << "a static item accepted a level";
   EXPECT_NEAR(valueOf(*layer, 0), 7.0, 1.0e-9)
     << "stepping changed a layer that has no time axis";
+}
+
+// ── D2b: class breaks that hold still while the map animates ──────────────
+//
+// A graduated style reclassifies on every restyle, and a data-item layer
+// restyles on every step. Left alone, that recomputes the class breaks from
+// whichever level is on screen: the same colour stands for a different number
+// at every frame, and the legend beside the map is only correct for the frame
+// it was last computed on. The layer answers with every level it carries, so
+// the breaks are the run's, not the frame's.
+
+namespace
+{
+  //! Turns \a layer's style into a graduated theme over its recorded values.
+  void themeByValue(DataItemLayer &layer, int classes)
+  {
+    LayerStyle *style = layer.style();
+    style->setMode(StyleMode::Graduated);
+    style->setAttribute(layer.valueAttribute());
+    style->classification().setMethod(ClassificationMethod::EqualInterval);
+    style->classification().setClassCount(classes);
+  }
+
+  //! The full span the classes cover, low to high.
+  [[nodiscard]] QPair<double, double> coveredRange(const DataItemLayer &layer)
+  {
+    const QVector<ClassBreak> &breaks = layer.style()->classification().breaks();
+
+    return breaks.isEmpty() ? QPair<double, double>{0.0, 0.0}
+                            : QPair<double, double>{breaks.first().lower,
+                                                    breaks.last().upper};
+  }
+}
+
+TEST_F(TimeControllerTest, BreaksCoverTheRunAndNotTheFrameOnScreen)
+{
+  // Values are step*100 + geometry over four steps: 0, 1, 100, 101, …, 301.
+  const std::unique_ptr<Testing::StubTimeGeometryItem> item =
+    makeItem("depth", 4, kEpoch, 1.0);
+
+  QString message;
+  const std::unique_ptr<DataItemLayer> layer =
+    DataItemLayer::create(item.get(), message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  themeByValue(*layer, 4);
+  ASSERT_TRUE(layer->restyle());
+
+  // The whole record, not the last level's 300–301. A theme built from one
+  // frame would give a range of width 1 here, which is the vacuous result
+  // this test exists to rule out.
+  const QPair<double, double> whole = coveredRange(*layer);
+  EXPECT_NEAR(whole.first, 0.0, 1.0e-9);
+  EXPECT_NEAR(whole.second, 301.0, 1.0e-9);
+
+  // And the first level's 0–1 is not the answer either, from either end.
+  ASSERT_TRUE(layer->setTimeIndex(0));
+
+  const QPair<double, double> afterStepping = coveredRange(*layer);
+  EXPECT_NEAR(afterStepping.first, whole.first, 1.0e-9);
+  EXPECT_NEAR(afterStepping.second, whole.second, 1.0e-9)
+    << "stepping to the first level shrank the theme to that level";
+}
+
+TEST_F(TimeControllerTest, AValueKeepsItsColourAsTimeMoves)
+{
+  const std::unique_ptr<Testing::StubTimeGeometryItem> item =
+    makeItem("depth", 4, kEpoch, 1.0);
+
+  QString message;
+  const std::unique_ptr<DataItemLayer> layer =
+    DataItemLayer::create(item.get(), message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  themeByValue(*layer, 4);
+  ASSERT_TRUE(layer->restyle());
+
+  const QVector<ClassBreak> reference =
+    layer->style()->classification().breaks();
+  ASSERT_FALSE(reference.isEmpty());
+
+  for (int level = 0; level < layer->timeCount(); ++level)
+  {
+    ASSERT_TRUE(layer->setTimeIndex(level));
+
+    const QVector<ClassBreak> &now = layer->style()->classification().breaks();
+
+    ASSERT_EQ(now.size(), reference.size())
+      << "the class count moved at level " << level;
+
+    for (int index = 0; index < now.size(); ++index)
+    {
+      EXPECT_NEAR(now.at(index).lower, reference.at(index).lower, 1.0e-9)
+        << "class " << index << " moved at level " << level;
+      EXPECT_NEAR(now.at(index).upper, reference.at(index).upper, 1.0e-9)
+        << "class " << index << " moved at level " << level;
+      EXPECT_EQ(now.at(index).color, reference.at(index).color)
+        << "class " << index << " changed colour at level " << level;
+    }
+
+    // Nothing falls out of the map on the way through. A break set computed
+    // from a subset of the levels leaves values past its end unclassified,
+    // and an unclassified value is not drawn at all.
+    for (int feature = 0; feature < layer->featureCount(); ++feature)
+    {
+      EXPECT_TRUE(layer->style()->colorFor(*layer, feature).isValid())
+        << "feature " << feature << " was not drawn at level " << level;
+    }
+  }
+}
+
+TEST_F(TimeControllerTest, EachLevelIsReadOnceForTheTheme)
+{
+  const std::unique_ptr<Testing::StubTimeGeometryItem> item =
+    makeItem("depth", 4, kEpoch, 1.0);
+
+  QString message;
+  const std::unique_ptr<DataItemLayer> layer =
+    DataItemLayer::create(item.get(), message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  themeByValue(*layer, 4);
+  ASSERT_TRUE(layer->restyle());
+
+  item->resetReads();
+
+  // Stepping costs the one slab the step itself needs. Pooling the record
+  // again on every step would make an animation cost a pass through the run
+  // per frame instead of a pass through the run per layer.
+  ASSERT_TRUE(layer->setTimeIndex(1));
+
+  EXPECT_EQ(item->reads(), 1)
+    << "stepping re-read levels that had already been pooled";
+}
+
+TEST_F(TimeControllerTest, ALayerOfOneLevelClassifiesOverWhatItHolds)
+{
+  // One level is the whole record, so pooling and showing agree — and the
+  // theme must not somehow come out different from the values on screen.
+  const std::unique_ptr<Testing::StubTimeGeometryItem> item =
+    makeItem("depth", 1, kEpoch, 1.0);
+
+  QString message;
+  const std::unique_ptr<DataItemLayer> layer =
+    DataItemLayer::create(item.get(), message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  themeByValue(*layer, 2);
+  ASSERT_TRUE(layer->restyle());
+
+  const QPair<double, double> covered = coveredRange(*layer);
+  EXPECT_NEAR(covered.first, 0.0, 1.0e-9);
+  EXPECT_NEAR(covered.second, 1.0, 1.0e-9);
+}
+
+TEST_F(TimeControllerTest, AStaticLayerIsThemedByWhatItHolds)
+{
+  // A static item has no levels to pool. Answering the classifier with the
+  // pooled read anyway would hand it an empty set and leave the layer with
+  // no classes at all — a layer that draws nothing rather than a layer with
+  // one colour.
+  Testing::StubGeometryItem still(
+    "bathymetry",
+    std::vector<HydroCouple::Spatial::IGeometry *>{
+      static_cast<HydroCouple::Spatial::IGeometry *>(m_a.get()),
+      static_cast<HydroCouple::Spatial::IGeometry *>(m_b.get())});
+  still.setValue(0, 7.0);
+  still.setValue(1, 9.0);
+
+  QString message;
+  const std::unique_ptr<DataItemLayer> layer =
+    DataItemLayer::create(&still, message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  ASSERT_EQ(layer->timeCount(), 0);
+
+  themeByValue(*layer, 2);
+  ASSERT_TRUE(layer->restyle());
+
+  const QPair<double, double> covered = coveredRange(*layer);
+  EXPECT_NEAR(covered.first, 7.0, 1.0e-9);
+  EXPECT_NEAR(covered.second, 9.0, 1.0e-9);
+}
+
+TEST_F(TimeControllerTest, AnotherFieldIsNotAnsweredWithTheRecord)
+{
+  const std::unique_ptr<Testing::StubTimeGeometryItem> item =
+    makeItem("depth", 4, kEpoch, 1.0);
+
+  QString message;
+  const std::unique_ptr<DataItemLayer> layer =
+    DataItemLayer::create(item.get(), message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  // Only the recorded values are pooled across levels. A style carried over
+  // from another dataset names a field this layer does not have, and the
+  // honest answer to that is nothing — not this layer's whole record under
+  // someone else's column name.
+  EXPECT_TRUE(layer->numericValues(QStringLiteral("elevation")).isEmpty())
+    << "a field the layer does not have was answered with its values";
+
+  EXPECT_EQ(layer->numericValues(layer->valueAttribute()).size(),
+            layer->featureCount() * layer->timeCount());
 }

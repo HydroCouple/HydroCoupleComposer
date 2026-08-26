@@ -124,6 +124,20 @@ namespace HydroCouple::Composer
       [[nodiscard]] int nearestTime(double julianDay) const;
 
       /*!
+       * \brief Every value of \a field, across every level the item carries.
+       *
+       * For the value attribute of an item recorded through time this is the
+       * whole record, not the level on screen. Class breaks come from this,
+       * so a colour means the same number at every step and the legend can
+       * be read against the map while it animates. Any other field — one
+       * derived from the geometry, which does not move — answers as usual.
+       *
+       * \param field Field to read.
+       */
+      [[nodiscard]] QVector<double> numericValues(
+        const QString &field) const override;
+
+      /*!
        * \brief Re-reads the item's values and restyles.
        *
        * Geometry is not re-read: a component's mesh does not move between
@@ -144,6 +158,15 @@ namespace HydroCouple::Composer
        */
       [[nodiscard]] int entityAxis() const;
 
+      /*!
+       * \brief Values across every level, for classification.
+       *
+       * Extended rather than rebuilt: a component still running records more
+       * levels as it goes, and re-reading the whole record on each of them
+       * would cost a pass per step instead of a pass per run.
+       */
+      [[nodiscard]] const QVector<double> &valuesAcrossTime() const;
+
       HydroCouple::IComponentDataItem *m_item = nullptr;
       QString m_valueAttribute;
 
@@ -153,6 +176,10 @@ namespace HydroCouple::Composer
 
       //! Which time level is shown; -1 until chosen, meaning the last.
       int m_timeIndex = -1;
+
+      //! Values pooled across levels, and how many levels they cover.
+      mutable QVector<double> m_acrossTime;
+      mutable int m_acrossTimeLevels = 0;
   };
 
 } // namespace HydroCouple::Composer

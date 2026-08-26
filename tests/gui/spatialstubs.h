@@ -327,7 +327,21 @@ namespace HydroCouple::Composer::Testing
         std::span<const int64_t> start, std::span<const int64_t> count,
         std::string *message = nullptr) const override
       {
+        ++m_reads;
+
         return Store::getSlab(destination, start, count, message);
+      }
+
+      //! How many slabs have been read out of this item.
+      [[nodiscard]] int reads() const
+      {
+        return m_reads;
+      }
+
+      //! Forgets the count, so a test can measure one operation.
+      void resetReads()
+      {
+        m_reads = 0;
       }
 
       [[nodiscard]] bool setValuesFrom(
@@ -377,6 +391,10 @@ namespace HydroCouple::Composer::Testing
       std::vector<std::unique_ptr<HydroCouple::SDK::Temporal::TimeData>> m_times;
       std::vector<double> m_julianDays;
       HydroCouple::SDK::Temporal::TimeSpan m_span;
+
+      //! Slab reads served, so a test can tell a cached answer from a
+      //! re-read one. Mutable because reading does not change the item.
+      mutable int m_reads = 0;
       HydroCouple::SDK::Dimension m_timeDimension;
       HydroCouple::SDK::Dimension m_dimension;
       HydroCouple::SDK::Spatial::EnvelopeAdapter m_envelope;

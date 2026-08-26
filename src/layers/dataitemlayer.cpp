@@ -80,6 +80,14 @@ namespace HydroCouple::Composer
      * show, and for any other axis it is no more arbitrary than the first.
      * Choosing a step explicitly is the results viewer's job.
      */
+    //! Axis zero is where the interface puts time — "the time dimension is
+    //! dimension 0 of shape(); any additional dimensions follow" — and an
+    //! item with no time axis answers -1 from timeIndex(), so the axis is
+    //! never consulted for one. A function to work out which axis was written
+    //! first and deleted: it could only ever return zero or contradict a
+    //! documented invariant.
+    constexpr int kTimeAxis = 0;
+
     bool readEntityValues(const IComponentDataItem &item, int entityAxis,
                           int timeAxis, int timeIndex,
                           QVector<double> &values, QString &message)
@@ -507,6 +515,43 @@ namespace HydroCouple::Composer
     return nearest;
   }
 
+  const QVector<double> &DataItemLayer::valuesAcrossTime() const
+  {
+    const int levels = timeCount();
+
+    // Only the levels not read yet: a component still running records more of
+    // them as it goes, and the ones already pooled do not change.
+    for (int level = m_acrossTimeLevels; level < levels; ++level)
+    {
+      QVector<double> values;
+      QString message;
+
+      if (readEntityValues(*m_item, entityAxis(), kTimeAxis, level, values,
+                           message))
+      {
+        m_acrossTime.append(values);
+      }
+    }
+
+    m_acrossTimeLevels = levels;
+
+    return m_acrossTime;
+  }
+
+  QVector<double> DataItemLayer::numericValues(const QString &field) const
+  {
+    // The value attribute is the only one recorded through time; anything
+    // else belongs to the geometry, which does not move between levels. A
+    // static item has no levels to pool, and asking it for one would answer
+    // with nothing rather than with what it holds.
+    if (!m_item || field != m_valueAttribute || timeCount() < 1)
+    {
+      return FeatureLayer::numericValues(field);
+    }
+
+    return valuesAcrossTime();
+  }
+
   bool DataItemLayer::refreshValues()
   {
     if (!m_item)
@@ -516,14 +561,6 @@ namespace HydroCouple::Composer
 
     QVector<double> values;
     QString message;
-
-    // Axis zero is where the interface puts time — "the time dimension is
-    // dimension 0 of shape(); any additional dimensions follow" — and an
-    // item with no time axis answers -1 from timeIndex(), so the axis is
-    // never consulted for one. A function to work out which axis was written
-    // first and deleted: it could only ever return zero or contradict a
-    // documented invariant.
-    constexpr int kTimeAxis = 0;
 
     if (!readEntityValues(*m_item, entityAxis(), kTimeAxis, timeIndex(),
                           values, message))

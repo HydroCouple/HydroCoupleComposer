@@ -76,9 +76,19 @@ namespace HydroCouple::Composer
        * zero: a missing measurement is not a measurement of nothing, and
        * treating it as one drags the breaks towards the origin.
        *
+       * Virtual because "every value of this field" is not always "every
+       * value the layer is showing": a layer whose values were recorded
+       * through time holds a level per instant, and breaks computed from the
+       * level on screen would mean something different at every step of an
+       * animation. Answering here rather than freezing the breaks afterwards
+       * keeps the decision in the layer that owns the data, so a restyle
+       * after a step and a restyle after a style edit agree without either
+       * knowing that time exists.
+       *
        * \param field Field to read.
        */
-      [[nodiscard]] QVector<double> numericValues(const QString &field) const;
+      [[nodiscard]] virtual QVector<double> numericValues(
+        const QString &field) const;
 
       /*!
        * \brief Every distinct value of \a field, in first-seen order.
