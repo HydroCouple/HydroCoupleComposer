@@ -16,10 +16,13 @@
 #ifndef HYDROCOUPLECOMPOSER_UI_PANELS_SERIESPLOTPANEL_H
 #define HYDROCOUPLECOMPOSER_UI_PANELS_SERIESPLOTPANEL_H
 
+#include "results/seriesexport.h"
+
 #include <QWidget>
 
 class QLabel;
 class QStackedLayout;
+class QToolButton;
 
 class QChart;
 class QChartView;
@@ -83,7 +86,35 @@ namespace HydroCouple::Composer
        */
       [[nodiscard]] QVector<double> seriesValues(int index) const;
 
+      /*!
+       * \brief What is plotted, ready to be written out.
+       *
+       * Kept as the chart is built rather than reconstructed from it, so an
+       * export holds exactly the series on screen — the same features, the
+       * same instants, the same points dropped — instead of a second reading
+       * that could differ from the picture it came from. Reading it back off
+       * the axis would mean inverting the conversion that put it there,
+       * which is a rounding no export should be built on.
+       */
+      [[nodiscard]] const QVector<ExportSeries> &exportSeries() const;
+
+      /*!
+       * \brief Writes what is plotted to \a path.
+       *
+       * The suffix chooses the format: `.dat` writes SWMM time series, one
+       * file per series; anything else writes one CSV.
+       *
+       * \param path Destination file.
+       * \param[out] message Diagnostic on failure.
+       * \returns The files written, or empty on failure.
+       */
+      [[nodiscard]] QStringList exportTo(const QString &path,
+                                         QString &message) const;
+
     private:
+      //! Asks where to write, then writes.
+      void onExportRequested();
+
       //! Re-reads the selection and rebuilds the chart.
       void refresh();
 
@@ -102,11 +133,15 @@ namespace HydroCouple::Composer
       QValueAxis *m_valueAxis = nullptr;
       QLabel *m_status = nullptr;
       QStackedLayout *m_pages = nullptr;
+      QToolButton *m_exportButton = nullptr;
 
       LayerStackModel *m_model = nullptr;
 
       //! The layer the plotted series came from; not owned.
       const DataItemLayer *m_layer = nullptr;
+
+      //! What is on the chart, in the order it was drawn.
+      QVector<ExportSeries> m_plotted;
   };
 
 } // namespace HydroCouple::Composer

@@ -61,6 +61,10 @@ composer_add_gui_test(test_dataitemlayers)
 composer_add_gui_test(test_timecontroller)
 composer_add_gui_test(test_timecontrols)
 composer_add_gui_test(test_seriesplot)
+# The export suite writes real CSV and .dat files, next to the run fixtures,
+# so what it checked can be opened and read rather than taken on trust.
+target_compile_definitions(test_seriesplot PRIVATE
+    COMPOSER_RESULTS_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/results")
 target_compile_definitions(test_dataitemlayers PRIVATE
     COMPOSER_GIS_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/gis")
 target_compile_definitions(test_gdallayers PRIVATE

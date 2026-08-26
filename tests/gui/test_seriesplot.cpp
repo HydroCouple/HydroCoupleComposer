@@ -13,6 +13,7 @@
 #include "layers/dataitemlayer.h"
 #include "map/layerstackmodel.h"
 #include "results/julianday.h"
+#include "results/seriesexport.h"
 #include "spatialstubs.h"
 #include "ui/panels/seriesplotpanel.h"
 
@@ -21,9 +22,14 @@
 #include <QChart>
 #include <QChartView>
 #include <QDateTimeAxis>
+#include <QDir>
+#include <QFile>
 #include <QLineSeries>
+#include <QToolButton>
 #include <QValueAxis>
 
+#include <cmath>
+#include <limits>
 #include <memory>
 
 using namespace HydroCouple::Composer;
@@ -476,4 +482,268 @@ TEST_F(SeriesPlotTest, SeriesArePlottedInFeatureOrder)
     EXPECT_NEAR(values.first(), series, 1.0e-9)
       << "series " << series << " is not feature " << series;
   }
+}
+
+// ── D3b: writing the plotted series out ─────────────────────────────────────
+//
+// The formats are the deliverable, so these check the text itself: a CSV that
+// lines two series up against one column of instants, and a .dat SWMM can
+// read back. Files land under tests/fixtures/results/export so they can be
+// opened and read by hand.
+
+namespace
+{
+  //! Where the export tests write, so their output can be inspected.
+  QString exportDir()
+  {
+    const QString directory =
+      QStringLiteral(COMPOSER_RESULTS_FIXTURE_DIR) + QStringLiteral("/export");
+
+    QDir().mkpath(directory);
+
+    return directory;
+  }
+
+  //! A named series of \a count daily values from \a first, starting at \a base.
+  ExportSeries makeSeries(const QString &name, double first, int count,
+                          double base)
+  {
+    ExportSeries series;
+    series.name = name;
+
+    for (int level = 0; level < count; ++level)
+    {
+      series.julianDays.append(first + level);
+      series.values.append(base + level);
+    }
+
+    return series;
+  }
+}
+
+TEST_F(SeriesPlotTest, CsvLinesEverySeriesUpAgainstOneColumnOfInstants)
+{
+  // Two series an instant apart: the first covers days 0-2, the second days
+  // 1-3. Resampling one onto the other would invent readings; a shared time
+  // column with gaps says exactly what each one recorded.
+  const QVector<ExportSeries> series{
+    makeSeries(QStringLiteral("early"), kEpoch, 3, 10.0),
+    makeSeries(QStringLiteral("late"), kEpoch + 1.0, 3, 100.0)};
+
+  const QStringList lines =
+    seriesToCsv(series).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+
+  ASSERT_EQ(lines.size(), 5) << "expected a header and four instants";
+
+  EXPECT_EQ(lines.at(0), QStringLiteral("Date/Time,early,late"));
+
+  // Day 0: only the first series has a reading, and the other field is empty
+  // rather than zero -- a gap in a record is not a measurement of nothing.
+  EXPECT_EQ(lines.at(1), QStringLiteral("2000-01-01 12:00:00,10,"));
+  EXPECT_EQ(lines.at(2), QStringLiteral("2000-01-02 12:00:00,11,100"));
+  EXPECT_EQ(lines.at(3), QStringLiteral("2000-01-03 12:00:00,12,101"));
+  EXPECT_EQ(lines.at(4), QStringLiteral("2000-01-04 12:00:00,,102"));
+}
+
+TEST_F(SeriesPlotTest, InstantsThatDifferInTheLastBitsShareOneRow)
+{
+  ExportSeries first = makeSeries(QStringLiteral("a"), kEpoch, 3, 1.0);
+  ExportSeries second = makeSeries(QStringLiteral("b"), kEpoch, 3, 10.0);
+
+  // The same instants, arrived at by a different route. Two layers recording
+  // "the same" time routinely differ in the last bits of a Julian day, and a
+  // row keyed on the raw double would give them a row each -- two half-empty
+  // rows a hundredth of a second apart, for one reading.
+  for (double &instant : second.julianDays)
+  {
+    instant = std::nextafter(instant, std::numeric_limits<double>::max());
+  }
+
+  ASSERT_NE(first.julianDays.at(0), second.julianDays.at(0))
+    << "the fixture did not actually perturb the instants";
+
+  const QStringList lines =
+    seriesToCsv({first, second}).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+
+  ASSERT_EQ(lines.size(), 4) << "the same instant was written as two rows";
+  EXPECT_EQ(lines.at(1), QStringLiteral("2000-01-01 12:00:00,1,10"));
+  EXPECT_EQ(lines.at(3), QStringLiteral("2000-01-03 12:00:00,3,12"));
+}
+
+TEST_F(SeriesPlotTest, CsvQuotesOnlyTheNamesThatNeedIt)
+{
+  QVector<ExportSeries> series{makeSeries(QStringLiteral("plain"), kEpoch, 1,
+                                          1.0),
+                               makeSeries(QStringLiteral("flow, m3/s"), kEpoch,
+                                          1, 2.0)};
+
+  const QString header = seriesToCsv(series).section(QLatin1Char('\n'), 0, 0);
+
+  // A comma inside a name would otherwise split the header into a column the
+  // file does not have, and every row below it would be read one field out.
+  EXPECT_EQ(header, QStringLiteral("Date/Time,plain,\"flow, m3/s\""));
+}
+
+TEST_F(SeriesPlotTest, DatCarriesItsNameAndSwmmsOwnDateFormat)
+{
+  ExportSeries series = makeSeries(QStringLiteral("depth"), kEpoch, 2, 5.0);
+
+  // A gap the model never produced. SWMM reads a .dat as a stream of
+  // readings, so a non-finite one has to be left out rather than written as
+  // text SWMM would reject.
+  series.julianDays.append(kEpoch + 2.0);
+  series.values.append(std::numeric_limits<double>::quiet_NaN());
+
+  const QStringList lines =
+    seriesToDat(series).split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+
+  ASSERT_EQ(lines.size(), 3);
+  EXPECT_EQ(lines.at(0), QStringLiteral(";depth"));
+  EXPECT_EQ(lines.at(1), QStringLiteral("01/01/2000 12:00:00 5"));
+  EXPECT_EQ(lines.at(2), QStringLiteral("01/02/2000 12:00:00 6"));
+}
+
+TEST_F(SeriesPlotTest, SeveralSeriesFanOutIntoSeveralDatFiles)
+{
+  const QVector<ExportSeries> series{
+    makeSeries(QStringLiteral("Feature 0"), kEpoch, 2, 1.0),
+    makeSeries(QStringLiteral("Feature 2"), kEpoch, 2, 3.0)};
+
+  const QString path = exportDir() + QStringLiteral("/fanout.dat");
+  QString message;
+
+  const QStringList written = writeSeriesDat(path, series, message);
+
+  // One .dat holds one series, so writing both into the file the user named
+  // would produce something SWMM cannot read -- silently, since the extra
+  // column looks like the next reading.
+  ASSERT_EQ(written.size(), 2) << message.toStdString();
+
+  for (int index = 0; index < written.size(); ++index)
+  {
+    SCOPED_TRACE(written.at(index).toStdString());
+
+    EXPECT_TRUE(written.at(index).contains(
+      sanitizedFileToken(series.at(index).name)))
+      << "the file is not named after the series it holds";
+
+    QFile file(written.at(index));
+    ASSERT_TRUE(file.open(QIODevice::ReadOnly | QIODevice::Text));
+
+    const QString text = QString::fromUtf8(file.readAll());
+
+    EXPECT_TRUE(text.startsWith(QLatin1Char(';') + series.at(index).name));
+    EXPECT_EQ(text.count(QLatin1Char('\n')), 3);
+  }
+
+  // One series goes to the file the user named, rather than to a fan-out of
+  // one with a suffix they did not ask for.
+  const QString single = exportDir() + QStringLiteral("/single.dat");
+  const QStringList one =
+    writeSeriesDat(single, {series.first()}, message);
+
+  ASSERT_EQ(one.size(), 1) << message.toStdString();
+  EXPECT_EQ(one.first(), single);
+}
+
+TEST_F(SeriesPlotTest, AFileTokenNeverCollapsesToNothing)
+{
+  EXPECT_EQ(sanitizedFileToken(QStringLiteral("Feature 0")),
+            QStringLiteral("Feature_0"));
+
+  // Two series whose names are all punctuation would otherwise both become
+  // the empty token and land on one file, the second overwriting the first.
+  EXPECT_FALSE(sanitizedFileToken(QStringLiteral("///")).isEmpty());
+  EXPECT_FALSE(sanitizedFileToken(QString()).isEmpty());
+}
+
+TEST_F(SeriesPlotTest, ThePanelExportsExactlyWhatItPlots)
+{
+  LayerStackModel stack;
+  SeriesPlotPanel panel;
+  panel.setModel(&stack);
+
+  const std::unique_ptr<Testing::StubTimeGeometryItem> item = makeItem(4);
+
+  QString message;
+  DataItemLayer *layer = DataItemLayer::create(item.get(), message).release();
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+  ASSERT_GE(stack.addLayer(layer), 0);
+
+  stack.selectOnly(layer, QSet<int>{0, 2});
+  ASSERT_EQ(panel.seriesCount(), 2);
+
+  const QVector<ExportSeries> &exported = panel.exportSeries();
+  ASSERT_EQ(exported.size(), 2);
+
+  for (int index = 0; index < exported.size(); ++index)
+  {
+    SCOPED_TRACE(index);
+
+    // The instants as recorded, not as the axis positions them: the axis
+    // carries a shifted instant so its labels read in UTC, and an export
+    // taken from it would be off by the exporter's own time zone.
+    ASSERT_EQ(exported.at(index).julianDays.size(), 4);
+    EXPECT_NEAR(exported.at(index).julianDays.first(), kEpoch, 1.0e-9);
+    EXPECT_NEAR(exported.at(index).julianDays.last(), kEpoch + 3.0, 1.0e-9);
+
+    // And the same values the chart is drawing.
+    EXPECT_EQ(exported.at(index).values, panel.seriesValues(index));
+  }
+
+  const QString path = exportDir() + QStringLiteral("/panel.csv");
+  const QStringList written = panel.exportTo(path, message);
+
+  ASSERT_EQ(written.size(), 1) << message.toStdString();
+
+  QFile file(path);
+  ASSERT_TRUE(file.open(QIODevice::ReadOnly | QIODevice::Text));
+
+  const QStringList lines = QString::fromUtf8(file.readAll())
+                              .split(QLatin1Char('\n'), Qt::SkipEmptyParts);
+
+  ASSERT_EQ(lines.size(), 5);
+  EXPECT_EQ(lines.at(0), QStringLiteral("Date/Time,Feature 0,Feature 2"));
+  EXPECT_EQ(lines.at(1), QStringLiteral("2000-01-01 12:00:00,0,2"));
+  EXPECT_EQ(lines.at(4), QStringLiteral("2000-01-04 12:00:00,30,32"));
+}
+
+TEST_F(SeriesPlotTest, ExportingNothingIsRefusedRatherThanWritingAnEmptyFile)
+{
+  LayerStackModel stack;
+  SeriesPlotPanel panel;
+  panel.setModel(&stack);
+
+  auto *button =
+    panel.findChild<QToolButton *>(QStringLiteral("exportSeriesButton"));
+  ASSERT_NE(button, nullptr);
+
+  // Nothing plotted: the control says so rather than offering to write a
+  // file with a header and no rows, which reads as a run that recorded none.
+  EXPECT_FALSE(button->isEnabled());
+
+  QString message;
+  const QString path = exportDir() + QStringLiteral("/empty.csv");
+
+  // Removed first, because the claim below is that nothing was written --
+  // and a file left behind by an earlier run would make that claim about
+  // someone else's file. (A mutation run does exactly that.)
+  QFile::remove(path);
+  ASSERT_FALSE(QFile::exists(path));
+
+  EXPECT_TRUE(panel.exportTo(path, message).isEmpty());
+  EXPECT_FALSE(message.isEmpty());
+  EXPECT_FALSE(QFile::exists(path)) << "an empty export left a file behind";
+
+  const std::unique_ptr<Testing::StubTimeGeometryItem> item = makeItem(3);
+
+  DataItemLayer *layer = DataItemLayer::create(item.get(), message).release();
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+  ASSERT_GE(stack.addLayer(layer), 0);
+
+  stack.selectOnly(layer, QSet<int>{1});
+  EXPECT_TRUE(button->isEnabled());
+
+  stack.selectOnly(nullptr, QSet<int>{});
+  EXPECT_FALSE(button->isEnabled());
 }

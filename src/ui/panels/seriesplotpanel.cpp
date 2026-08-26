@@ -3,13 +3,18 @@
 #include "layers/dataitemlayer.h"
 #include "map/layerstackmodel.h"
 #include "results/julianday.h"
+#include "results/seriesexport.h"
 
 #include <QChart>
 #include <QChartView>
 #include <QDateTimeAxis>
 #include <QLabel>
+#include <QFileDialog>
 #include <QLineSeries>
+#include <QMessageBox>
 #include <QStackedLayout>
+#include <QToolButton>
+#include <QVBoxLayout>
 #include <QValueAxis>
 
 namespace HydroCouple::Composer
@@ -66,10 +71,30 @@ namespace HydroCouple::Composer
     // Stacked rather than hidden side by side: the message stands *where* the
     // plot would be, so an empty chart is never mistaken for a run that
     // recorded nothing.
-    m_pages = new QStackedLayout(this);
+    m_exportButton = new QToolButton(this);
+    m_exportButton->setObjectName(QStringLiteral("exportSeriesButton"));
+    m_exportButton->setText(tr("Export…"));
+    m_exportButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    m_exportButton->setToolTip(tr("Write the plotted series to CSV or .dat"));
+    m_exportButton->setEnabled(false);
+
+    connect(m_exportButton, &QToolButton::clicked, this,
+            &SeriesPlotPanel::onExportRequested);
+
+    auto *buttons = new QHBoxLayout;
+    buttons->setContentsMargins(0, 0, 0, 0);
+    buttons->addWidget(m_exportButton);
+    buttons->addStretch(1);
+
+    m_pages = new QStackedLayout;
     m_pages->setContentsMargins(0, 0, 0, 0);
     m_pages->addWidget(m_view);
     m_pages->addWidget(m_status);
+
+    auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addLayout(buttons);
+    layout->addLayout(m_pages, 1);
 
     showMessage(tr("Select a feature to plot what it recorded."));
   }
@@ -155,6 +180,83 @@ namespace HydroCouple::Composer
     return values;
   }
 
+  const QVector<ExportSeries> &SeriesPlotPanel::exportSeries() const
+  {
+    return m_plotted;
+  }
+
+  QStringList SeriesPlotPanel::exportTo(const QString &path,
+                                       QString &message) const
+  {
+    const QVector<ExportSeries> &exportable = exportSeries();
+
+    // Nothing plotted is refused by the writers themselves, which is where
+    // it has to be refused anyway: a CSV of no series is a header and no
+    // rows, and that is a file, not a failure to write one.
+    if (path.endsWith(QStringLiteral(".dat"), Qt::CaseInsensitive))
+    {
+      return writeSeriesDat(path, exportable, message);
+    }
+
+    return writeSeriesCsv(path, exportable, message) ? QStringList{path}
+                                                     : QStringList{};
+  }
+
+  void SeriesPlotPanel::onExportRequested()
+  {
+    // From clicked(), which is a release: a modal opened from a mouse press
+    // wedges input on macOS.
+    QString selectedFilter;
+    QString path = QFileDialog::getSaveFileName(
+      this, tr("Export plotted series"), QStringLiteral("series.csv"),
+      tr("CSV file (*.csv);;SWMM time series (*.dat)"), &selectedFilter);
+
+    if (path.isEmpty())
+    {
+      return;
+    }
+
+    // The native dialog does not always swap the suffix when the filter
+    // changes, and the suffix is what chooses the format below.
+    const bool wantsDat = selectedFilter.contains(QStringLiteral("*.dat"));
+
+    if (wantsDat && !path.endsWith(QStringLiteral(".dat"), Qt::CaseInsensitive))
+    {
+      if (path.endsWith(QStringLiteral(".csv"), Qt::CaseInsensitive))
+      {
+        path.chop(4);
+      }
+
+      path += QStringLiteral(".dat");
+    }
+    else if (!wantsDat
+             && !path.endsWith(QStringLiteral(".csv"), Qt::CaseInsensitive)
+             && !path.endsWith(QStringLiteral(".dat"), Qt::CaseInsensitive))
+    {
+      path += QStringLiteral(".csv");
+    }
+
+    QString message;
+    const QStringList written = exportTo(path, message);
+
+    if (written.isEmpty())
+    {
+      QMessageBox::warning(this, tr("Export failed"), message);
+      return;
+    }
+
+    if (written.size() > 1)
+    {
+      // Said out loud, because the user asked for one file and got several
+      // and would otherwise find only the last one they named.
+      QMessageBox::information(
+        this, tr("Export"),
+        tr("A .dat file holds one series, so %1 files were written:\n%2")
+          .arg(written.size())
+          .arg(written.join(QLatin1Char('\n'))));
+    }
+  }
+
   DataItemLayer *SeriesPlotPanel::plottableLayer(QString &reason) const
   {
     if (!m_model)
@@ -192,6 +294,7 @@ namespace HydroCouple::Composer
   void SeriesPlotPanel::refresh()
   {
     m_chart->removeAllSeries();
+    m_plotted.clear();
     m_layer = nullptr;
 
     QString reason;
@@ -239,6 +342,9 @@ namespace HydroCouple::Composer
       auto *line = new QLineSeries;
       line->setName(tr("Feature %1").arg(feature));
 
+      ExportSeries record;
+      record.name = line->name();
+
       for (int level = 0; level < values.size() && level < instants.size();
            ++level)
       {
@@ -255,6 +361,12 @@ namespace HydroCouple::Composer
         line->append(static_cast<qreal>(at.toMSecsSinceEpoch()),
                      values.at(level));
 
+        // The instant as recorded, not as positioned: the axis carries a
+        // shifted one so its labels read in UTC, and an export written from
+        // that would be off by the exporter's own time zone.
+        record.julianDays.append(instants.at(level));
+        record.values.append(values.at(level));
+
         lowest = std::min(lowest, values.at(level));
         highest = std::max(highest, values.at(level));
       }
@@ -268,11 +380,13 @@ namespace HydroCouple::Composer
       m_chart->addSeries(line);
       line->attachAxis(m_timeAxis);
       line->attachAxis(m_valueAxis);
+      m_plotted.append(record);
       any = true;
     }
 
     if (!any)
     {
+      m_plotted.clear();
       showMessage(tr("Nothing selected on \"%1\" has values to plot.")
                     .arg(source->name()));
       return;
@@ -312,13 +426,16 @@ namespace HydroCouple::Composer
     m_chart->setTitle(source->name());
     m_status->clear();
     m_pages->setCurrentWidget(m_view);
+    m_exportButton->setEnabled(true);
   }
 
   void SeriesPlotPanel::showMessage(const QString &text)
   {
     m_layer = nullptr;
+    m_plotted.clear();
     m_status->setText(text);
     m_pages->setCurrentWidget(m_status);
+    m_exportButton->setEnabled(false);
   }
 
 } // namespace HydroCouple::Composer

@@ -106,6 +106,8 @@ set(COMPOSER_SOURCES
     src/results/runbrowsermodel.cpp
     include/results/julianday.h
     src/results/julianday.cpp
+    include/results/seriesexport.h
+    src/results/seriesexport.cpp
     include/results/runsession.h
     src/results/runsession.cpp
     include/gis/crscatalog.h
