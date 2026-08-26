@@ -39,6 +39,11 @@ composer_add_gui_test(test_maptools)
 composer_add_gui_test(test_styling)
 composer_add_gui_test(test_labelling)
 composer_add_gui_test(test_crs)
+
+composer_add_gui_test(test_runbrowser)
+target_compile_definitions(test_runbrowser PRIVATE
+    COMPOSER_RESULTS_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/results"
+    COMPOSER_SDK_REOPEN_MANIFEST="${COMPOSER_SDK_REOPEN_MANIFEST}")
 composer_add_gui_test(test_mapstatusbar)
 composer_add_gui_test(test_layerproperties)
 

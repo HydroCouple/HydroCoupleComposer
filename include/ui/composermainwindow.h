@@ -20,7 +20,9 @@
 #include "project/componentinstances.h"
 #include "project/compositiondocument.h"
 #include "simulation/simulationmanager.h"
+#include "results/runbrowsermodel.h"
 #include "ui/panels/mapstatusbar.h"
+#include "ui/panels/runbrowserpanel.h"
 
 #include <QMainWindow>
 
@@ -104,6 +106,24 @@ namespace HydroCouple::Composer
       [[nodiscard]] AttributeTablePanel *attributeTable() const;
 
       /*!
+       * \brief The run browser panel.
+       */
+      [[nodiscard]] RunBrowserPanel *runBrowser() const;
+
+      /*!
+       * \brief The open runs.
+       */
+      [[nodiscard]] RunBrowserModel *runs() const;
+
+      /*!
+       * \brief Opens a finished run's manifest.
+       * \param manifestPath The run manifest to read.
+       * \param[out] message Diagnostic on failure.
+       * \returns True when the run was added.
+       */
+      bool openRun(const QString &manifestPath, QString &message);
+
+      /*!
        * \brief The 3D view of the same layer stack.
        */
       [[nodiscard]] SceneView *sceneView() const;
@@ -132,6 +152,7 @@ namespace HydroCouple::Composer
       void onSelectionChanged();
       void onLayerProperties(HydroCouple::Composer::MapLayer *layer);
       void onSetMapCrs();
+      void onOpenRun();
       void onMapToolChosen();
       void onProjectionChosen();
       void onAddVectorLayer();
@@ -189,6 +210,8 @@ namespace HydroCouple::Composer
       SceneView *m_sceneView = nullptr;
       LayerTreePanel *m_layerTree = nullptr;
       AttributeTablePanel *m_attributeTable = nullptr;
+      RunBrowserPanel *m_runBrowser = nullptr;
+      RunBrowserModel *m_runs = nullptr;
       MapStatusBar *m_mapStatus = nullptr;
 
       RibbonBar *m_ribbon = nullptr;

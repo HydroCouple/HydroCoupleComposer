@@ -100,6 +100,10 @@ set(COMPOSER_SOURCES
     src/plugins/componentlibrary.cpp
     include/plugins/componentregistry.h
     src/plugins/componentregistry.cpp
+    include/results/runbrowsermodel.h
+    src/results/runbrowsermodel.cpp
+    include/results/runsession.h
+    src/results/runsession.cpp
     include/gis/crscatalog.h
     src/gis/crscatalog.cpp
     include/gis/spatialreference.h
@@ -193,6 +197,8 @@ set(COMPOSER_SOURCES
     src/ui/dialogs/layerpropertiesdialog.cpp
     include/ui/panels/layertreepanel.h
     src/ui/panels/layertreepanel.cpp
+    include/ui/panels/runbrowserpanel.h
+    src/ui/panels/runbrowserpanel.cpp
     include/ui/panels/mapstatusbar.h
     src/ui/panels/mapstatusbar.cpp
     include/ui/panels/attributetablemodel.h
@@ -362,6 +368,21 @@ if(NOT COMPOSER_SDK_EXAMPLE_COMPOSITION)
     message(STATUS
         "SDK example composition not found — its round-trip test will skip.")
     set(COMPOSER_SDK_EXAMPLE_COMPOSITION "")
+endif()
+
+# ── Locate the SDK's reopen fixture (recorded run, four formats) ──────────
+# The catalog D1 has to read faithfully, produced by the SDK's own tests. Kept
+# optional the way the example composition is: a checkout without the SDK's
+# test artifacts still builds, and the test that needs them says it skipped.
+find_file(COMPOSER_SDK_REOPEN_MANIFEST
+    NAMES run.json
+    PATHS "${CMAKE_CURRENT_SOURCE_DIR}/../HydroCoupleSDK/tests/artifacts/reopen/slabs"
+    NO_DEFAULT_PATH)
+if(NOT COMPOSER_SDK_REOPEN_MANIFEST)
+    message(STATUS
+        "SDK reopen fixture not found — the run browser's catalog test will "
+        "fall back to its own fixture only.")
+    set(COMPOSER_SDK_REOPEN_MANIFEST "")
 endif()
 
 # ── Tests ───────────────────────────────────────────────────────────────────

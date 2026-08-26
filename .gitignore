@@ -261,3 +261,4 @@ artifacts/
 
 # Test fixtures the tests write themselves (inspectable, not committed)
 tests/fixtures/gis/generated-*
+tests/fixtures/results/

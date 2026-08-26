@@ -18,6 +18,7 @@
 #include "ui/dialogs/layerpropertiesdialog.h"
 #include "ui/panels/attributetablepanel.h"
 #include "ui/panels/layertreepanel.h"
+#include "ui/panels/runbrowserpanel.h"
 #include "ui/theme/iconfactory.h"
 #include "ui/theme/thememanager.h"
 #include "ui/toolbars/ribbonbar.h"
@@ -889,6 +890,21 @@ namespace HydroCouple::Composer
 
     addDockWidget(Qt::BottomDockWidgetArea, attributeDock);
 
+    // ── Runs ─────────────────────────────────────────────────────────────
+    auto *runDock = new QDockWidget(tr("Runs"), this);
+    runDock->setObjectName(QStringLiteral("runDock"));
+
+    m_runs = new RunBrowserModel(this);
+
+    m_runBrowser = new RunBrowserPanel(runDock);
+    m_runBrowser->setModel(m_runs);
+    runDock->setWidget(m_runBrowser);
+
+    connect(m_runBrowser, &RunBrowserPanel::openRunRequested, this,
+            &ComposerMainWindow::onOpenRun);
+
+    addDockWidget(Qt::BottomDockWidgetArea, runDock);
+
     // ── Log ──────────────────────────────────────────────────────────────
     auto *logDock = new QDockWidget(tr("Log"), this);
     logDock->setObjectName(QStringLiteral("logDock"));
@@ -902,6 +918,7 @@ namespace HydroCouple::Composer
     addDockWidget(Qt::BottomDockWidgetArea, logDock);
     // Tabbed with the attribute table: both are things you look *down* at
     // while working on the map above, and only one at a time.
+    tabifyDockWidget(attributeDock, runDock);
     tabifyDockWidget(attributeDock, logDock);
     attributeDock->raise();
   }
@@ -1223,6 +1240,55 @@ namespace HydroCouple::Composer
     // Brought forward, because a projection is a property of a view nobody
     // can see the effect of from another tab.
     m_workspace->setCurrentWidget(m_sceneView);
+  }
+
+  RunBrowserPanel *ComposerMainWindow::runBrowser() const
+  {
+    return m_runBrowser;
+  }
+
+  RunBrowserModel *ComposerMainWindow::runs() const
+  {
+    return m_runs;
+  }
+
+  bool ComposerMainWindow::openRun(const QString &manifestPath,
+                                   QString &message)
+  {
+    const RunSession *session = m_runs->addRun(manifestPath, message);
+
+    if (!session)
+    {
+      return false;
+    }
+
+    log(tr("Opened run %1 — %2 recorded item(s) from %3 component(s).")
+          .arg(session->title())
+          .arg(session->manifest().results.size())
+          .arg(session->componentIds().size()));
+
+    return true;
+  }
+
+  void ComposerMainWindow::onOpenRun()
+  {
+    // From a button's clicked() — a release, never a press: a modal opened
+    // from a mouse press wedges input on macOS.
+    const QString path = QFileDialog::getOpenFileName(
+      this, tr("Open run manifest"), QString(),
+      tr("Run manifests (*.json);;All files (*)"));
+
+    if (path.isEmpty())
+    {
+      return;
+    }
+
+    QString message;
+
+    if (!openRun(path, message))
+    {
+      QMessageBox::warning(this, tr("Cannot open that run"), message);
+    }
   }
 
   void ComposerMainWindow::createStatusBar()
