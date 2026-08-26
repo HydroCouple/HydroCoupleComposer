@@ -365,4 +365,20 @@ TEST_F(IconTest, EveryWorkspaceTabAndLayerButtonCarriesAnIcon)
     EXPECT_GT(inkedPixels(button->icon()), 8)
       << button->objectName().toStdString() << " has a blank icon";
   }
+
+  // The transport carries no text, so an SVG that failed to reach the
+  // resource set leaves a button that looks like a gap in the layout.
+  auto *transport =
+    window.findChild<QWidget *>(QStringLiteral("timeControlPanel"));
+  ASSERT_NE(transport, nullptr);
+
+  const QList<QToolButton *> transportButtons =
+    transport->findChildren<QToolButton *>();
+  ASSERT_GE(transportButtons.size(), 6);
+
+  for (QToolButton *button : transportButtons)
+  {
+    EXPECT_GT(inkedPixels(button->icon()), 8)
+      << button->objectName().toStdString() << " has a blank icon";
+  }
 }

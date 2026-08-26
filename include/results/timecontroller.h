@@ -20,6 +20,8 @@
 #include <QObject>
 #include <QVector>
 
+class QTimer;
+
 namespace HydroCouple::Composer
 {
   class LayerStackModel;
@@ -100,6 +102,49 @@ namespace HydroCouple::Composer
        */
       void advance(int delta);
 
+      // ── Playback ─────────────────────────────────────────────────────
+
+      //! \returns Whether the clock is running.
+      [[nodiscard]] bool isPlaying() const;
+
+      //! \returns Steps shown per second while running.
+      [[nodiscard]] double speed() const;
+
+      /*!
+       * \brief Sets how fast playback runs.
+       * \param stepsPerSecond Clamped to [0.1, 120]; takes effect at once,
+       *        so a run can be slowed down while it is playing.
+       */
+      void setSpeed(double stepsPerSecond);
+
+      //! \returns Whether playback restarts after the last step.
+      [[nodiscard]] bool isLooping() const;
+
+      /*!
+       * \brief Sets whether playback restarts after the last step.
+       * \param looping True to cycle.
+       */
+      void setLooping(bool looping);
+
+    public Q_SLOTS:
+      /*!
+       * \brief Starts playing, from the beginning when already at the end.
+       *
+       * Pressing play on a finished run should replay it rather than do
+       * nothing, which is what starting from a clock parked on the last
+       * step would otherwise mean.
+       */
+      void play();
+
+      //! Stops playing, leaving the clock where it is.
+      void pause();
+
+      //! Shows the earliest instant any layer carries.
+      void toFirst();
+
+      //! Shows the latest instant any layer carries.
+      void toLast();
+
     Q_SIGNALS:
       /*!
        * \brief Emitted when the instant shown changes.
@@ -115,14 +160,30 @@ namespace HydroCouple::Composer
        */
       void spanChanged();
 
+      /*!
+       * \brief Emitted when playback starts or stops.
+       * \param playing Whether the clock is now running.
+       *
+       * Including when it stops by reaching the end, which is the case a
+       * play button that only tracked its own clicks would get wrong.
+       */
+      void playingChanged(bool playing);
+
     private:
       //! Moves every time-aware layer to the level nearest the current time.
       void applyToLayers();
+
+      //! Shows the next step, stopping or cycling at the end.
+      void onTick();
 
       LayerStackModel *m_model = nullptr;
 
       QVector<double> m_steps;
       double m_current = 0.0;
+
+      QTimer *m_timer = nullptr;
+      double m_speed = 4.0;
+      bool m_looping = false;
   };
 
 } // namespace HydroCouple::Composer

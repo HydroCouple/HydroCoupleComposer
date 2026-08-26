@@ -59,6 +59,7 @@ composer_add_gui_test(test_gdallayers)
 # bases, exactly as a component would be.
 composer_add_gui_test(test_dataitemlayers)
 composer_add_gui_test(test_timecontroller)
+composer_add_gui_test(test_timecontrols)
 target_compile_definitions(test_dataitemlayers PRIVATE
     COMPOSER_GIS_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/gis")
 target_compile_definitions(test_gdallayers PRIVATE

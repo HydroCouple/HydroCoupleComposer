@@ -203,6 +203,8 @@ set(COMPOSER_SOURCES
     src/ui/panels/runbrowserpanel.cpp
     include/ui/panels/mapstatusbar.h
     src/ui/panels/mapstatusbar.cpp
+    include/ui/panels/timecontrolpanel.h
+    src/ui/panels/timecontrolpanel.cpp
     include/ui/panels/attributetablemodel.h
     src/ui/panels/attributetablemodel.cpp
     include/ui/panels/attributetablepanel.h
@@ -258,12 +260,17 @@ qt_add_resources(composer_core "composer_icons"
         resources/icons/move_up.svg
         resources/icons/new.svg
         resources/icons/open.svg
+        resources/icons/cycle.svg
         resources/icons/pause.svg
         resources/icons/play.svg
         resources/icons/plugins.svg
         resources/icons/redo.svg
         resources/icons/save.svg
         resources/icons/scene_3d.svg
+        resources/icons/skip_first.svg
+        resources/icons/skip_last.svg
+        resources/icons/step_back.svg
+        resources/icons/step_forward.svg
         resources/icons/stop.svg
         resources/icons/sun.svg
         resources/icons/system.svg

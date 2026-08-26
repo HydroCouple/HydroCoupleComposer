@@ -104,7 +104,17 @@ TEST_F(ShellTest, MainWindowAssemblesShell)
   auto *workspace =
     window.findChild<QTabWidget *>(QStringLiteral("workspaceTabs"));
   ASSERT_NE(workspace, nullptr);
-  EXPECT_EQ(window.centralWidget(), workspace);
+
+  // The workspace shares the central area with the transport controls: the
+  // clock has to stay in view while the bottom docks are tabbed over one
+  // another, so it cannot be one of them.
+  ASSERT_NE(window.centralWidget(), nullptr);
+  EXPECT_EQ(workspace->parentWidget(), window.centralWidget());
+
+  auto *transport =
+    window.findChild<QWidget *>(QStringLiteral("timeControlPanel"));
+  ASSERT_NE(transport, nullptr);
+  EXPECT_EQ(transport->parentWidget(), window.centralWidget());
   EXPECT_NE(workspace->indexOf(window.canvas()), -1);
   EXPECT_NE(workspace->indexOf(window.mapCanvas()), -1);
 

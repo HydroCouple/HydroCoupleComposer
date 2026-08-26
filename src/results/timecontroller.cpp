@@ -3,6 +3,8 @@
 #include "layers/dataitemlayer.h"
 #include "map/layerstackmodel.h"
 
+#include <QTimer>
+
 #include <algorithm>
 #include <cmath>
 
@@ -221,6 +223,108 @@ namespace HydroCouple::Composer
     }
 
     setStep(std::clamp(base + delta, 0, int(m_steps.size()) - 1));
+  }
+
+  // ── Playback ─────────────────────────────────────────────────────────────
+
+  bool TimeController::isPlaying() const
+  {
+    return m_timer && m_timer->isActive();
+  }
+
+  double TimeController::speed() const
+  {
+    return m_speed;
+  }
+
+  void TimeController::setSpeed(double stepsPerSecond)
+  {
+    m_speed = std::clamp(stepsPerSecond, 0.1, 120.0);
+
+    if (m_timer)
+    {
+      // Applied while running as well as before: an animation that can only
+      // be slowed down by stopping it first cannot be slowed down to look
+      // at the moment that needed slowing down.
+      m_timer->setInterval(static_cast<int>(std::lround(1000.0 / m_speed)));
+    }
+  }
+
+  bool TimeController::isLooping() const
+  {
+    return m_looping;
+  }
+
+  void TimeController::setLooping(bool looping)
+  {
+    m_looping = looping;
+  }
+
+  void TimeController::play()
+  {
+    if (m_steps.size() < 2 || isPlaying())
+    {
+      return;
+    }
+
+    // Parked on the last step, play means replay. Otherwise pressing play on
+    // a run that has just finished does nothing at all.
+    if (step() == m_steps.size() - 1)
+    {
+      setStep(0);
+    }
+
+    if (!m_timer)
+    {
+      m_timer = new QTimer(this);
+      connect(m_timer, &QTimer::timeout, this, &TimeController::onTick);
+    }
+
+    m_timer->setInterval(static_cast<int>(std::lround(1000.0 / m_speed)));
+    m_timer->start();
+
+    Q_EMIT playingChanged(true);
+  }
+
+  void TimeController::pause()
+  {
+    if (!isPlaying())
+    {
+      return;
+    }
+
+    m_timer->stop();
+
+    Q_EMIT playingChanged(false);
+  }
+
+  void TimeController::toFirst()
+  {
+    setStep(0);
+  }
+
+  void TimeController::toLast()
+  {
+    setStep(m_steps.size() - 1);
+  }
+
+  void TimeController::onTick()
+  {
+    const int last = m_steps.size() - 1;
+
+    if (step() >= last)
+    {
+      if (!m_looping)
+      {
+        pause();
+        return;
+      }
+
+      setStep(0);
+      return;
+    }
+
+    advance(1);
   }
 
   void TimeController::applyToLayers()

@@ -14,11 +14,13 @@
 #include "scene/sceneview.h"
 #include "map/maplayer.h"
 #include "project/hcpimporter.h"
+#include "results/timecontroller.h"
 #include "ui/dialogs/crsselectiondialog.h"
 #include "ui/dialogs/layerpropertiesdialog.h"
 #include "ui/panels/attributetablepanel.h"
 #include "ui/panels/layertreepanel.h"
 #include "ui/panels/runbrowserpanel.h"
+#include "ui/panels/timecontrolpanel.h"
 #include "ui/theme/iconfactory.h"
 #include "ui/theme/thememanager.h"
 #include "ui/toolbars/ribbonbar.h"
@@ -39,6 +41,7 @@
 #include <QStatusBar>
 #include <QStyle>
 #include <QTabWidget>
+#include <QVBoxLayout>
 #include <QToolBar>
 #include <QUndoStack>
 
@@ -71,7 +74,23 @@ namespace HydroCouple::Composer
     m_workspace->addTab(m_canvas,
                         IconFactory::icon(QStringLiteral("composition")),
                         tr("Composition"));
-    setCentralWidget(m_workspace);
+
+    // The transport sits under the views rather than in a dock beside them.
+    // The bottom docks are tabbed, and a clock that could be tabbed behind
+    // the attribute table would be a clock you cannot see while reading the
+    // values it is stepping through.
+    m_clock = new TimeController(this);
+    m_timeControls = new TimeControlPanel(this);
+    m_timeControls->setController(m_clock);
+
+    auto *central = new QWidget(this);
+    auto *centralLayout = new QVBoxLayout(central);
+    centralLayout->setContentsMargins(0, 0, 0, 0);
+    centralLayout->setSpacing(0);
+    centralLayout->addWidget(m_workspace, 1);
+    centralLayout->addWidget(m_timeControls);
+
+    setCentralWidget(central);
 
     createMapView();
 
@@ -197,6 +216,8 @@ namespace HydroCouple::Composer
   void ComposerMainWindow::createMapView()
   {
     m_layerStack = new LayerStackModel(this);
+
+    m_clock->setModel(m_layerStack);
 
     m_mapCanvas = new MapCanvas(this);
     m_mapCanvas->setModel(m_layerStack);

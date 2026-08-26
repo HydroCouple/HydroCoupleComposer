@@ -45,6 +45,8 @@ namespace HydroCouple::Composer
   class SceneView;
   class MapLayer;
   class RibbonBar;
+  class TimeController;
+  class TimeControlPanel;
 }
 
 namespace HydroCouple::Composer
@@ -214,6 +216,8 @@ namespace HydroCouple::Composer
       RunBrowserPanel *m_runBrowser = nullptr;
       RunBrowserModel *m_runs = nullptr;
       MapStatusBar *m_mapStatus = nullptr;
+      TimeController *m_clock = nullptr;
+      TimeControlPanel *m_timeControls = nullptr;
 
       RibbonBar *m_ribbon = nullptr;
 
