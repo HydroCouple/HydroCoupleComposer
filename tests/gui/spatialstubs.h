@@ -26,6 +26,7 @@
 #include "hydrocouplesdk/core/dimension.h"
 #include "hydrocouplesdk/core/identity.h"
 #include "hydrocouplesdk/spatial/geometryadapters.h"
+#include "hydrocouplesdk/io/meshdefinition.h"
 #include "hydrocouplesdk/spatial/meshadapters.h"
 
 #include <ogr_geometry.h>
@@ -407,6 +408,191 @@ namespace HydroCouple::Composer::Testing
    * IRegularGrid2D is an IIdentity, which carries the description and signal
    * plumbing no test wants to reimplement.
    */
+  /*!
+   * \brief A recorded mesh item: values through time on one mesh entity.
+   *
+   * The surface is the SDK's own adapter over a MeshDefinition, so a test of
+   * how a layer draws a mesh is a test against what a component actually
+   * publishes -- including the bulk view, which is the only place a
+   * surface's edges exist.
+   */
+  class StubTimeSurfaceItem
+    : public HydroCouple::SDK::AbstractComponentDataItem,
+      public HydroCouple::SDK::ComponentDataItem2D<double>,
+      public virtual Spatial::IPolyhedralSurfaceComponentDataItem,
+      public virtual HydroCouple::Temporal::ITimeSeriesComponentDataItem
+  {
+      using Store = HydroCouple::SDK::ComponentDataItem2D<double>;
+
+    public:
+      /*!
+       * \brief Builds an item of \a timeSteps over \a mesh.
+       *
+       * \param attachedTo Which entity the values belong to; the entity
+       *        count follows from it, because that is the relationship a
+       *        layer has to get right.
+       */
+      StubTimeSurfaceItem(std::string_view id,
+                          const HydroCouple::SDK::IO::MeshDefinition &mesh,
+                          Spatial::MeshDataObjectType attachedTo,
+                          int timeSteps)
+        : AbstractComponentDataItem(id, {&m_timeDimension, &m_entityDimension},
+                                    nullptr, nullptr),
+          Store(timeSteps, static_cast<int>(entityCount(mesh, attachedTo)),
+                0.0),
+          m_surface(
+            std::make_unique<HydroCouple::SDK::Spatial::PolyhedralSurfaceAdapter>(
+              HydroCouple::SDK::Spatial::polyhedralSurfaceFromMesh(mesh),
+              mesh)),
+          m_attachedTo(attachedTo),
+          m_timeDimension("time", "Time dimension"),
+          m_entityDimension("entity", "Mesh entity dimension"),
+          m_span("span", 2451545.0, timeSteps > 0 ? timeSteps - 1 : 0)
+      {
+        for (int step = 0; step < timeSteps; ++step)
+        {
+          const double instant = 2451545.0 + step;
+
+          m_times.push_back(
+            std::make_unique<HydroCouple::SDK::Temporal::TimeData>(
+              "t" + std::to_string(step), instant));
+          m_julianDays.push_back(instant);
+        }
+      }
+
+      //! How many entities of \a attachedTo the mesh holds.
+      [[nodiscard]] static int64_t entityCount(
+        const HydroCouple::SDK::IO::MeshDefinition &mesh,
+        Spatial::MeshDataObjectType attachedTo)
+      {
+        switch (attachedTo)
+        {
+          case Spatial::MeshDataObjectType::Vertex:
+            return mesh.nodeCount();
+          case Spatial::MeshDataObjectType::Edge:
+            return mesh.edgeCount();
+          default:
+            return mesh.faceCount();
+        }
+      }
+
+      //! Sets the value of one entity at one time step.
+      void setValue(int step, int entity, double value)
+      {
+        Store::operator()(step, entity) = value;
+      }
+
+      // ── IPolyhedralSurfaceComponentDataItem ──────────────────────────
+      [[nodiscard]] Spatial::MeshDataObjectType meshDataObjectType()
+        const override
+      {
+        return m_attachedTo;
+      }
+
+      [[nodiscard]] Spatial::SpatialDataType meshDataType() const override
+      {
+        return Spatial::SpatialDataType::Scalar;
+      }
+
+      [[nodiscard]] Spatial::IPolyhedralSurface *polyhedralSurface()
+        const override
+      {
+        return m_surface.get();
+      }
+
+      [[nodiscard]] HydroCouple::IDimension *patchDimension() const override
+      {
+        return m_attachedTo == Spatial::MeshDataObjectType::Cell
+                 ? const_cast<HydroCouple::SDK::Dimension *>(&m_entityDimension)
+                 : nullptr;
+      }
+
+      [[nodiscard]] HydroCouple::IDimension *edgeDimension() const override
+      {
+        return m_attachedTo == Spatial::MeshDataObjectType::Edge
+                 ? const_cast<HydroCouple::SDK::Dimension *>(&m_entityDimension)
+                 : nullptr;
+      }
+
+      [[nodiscard]] HydroCouple::IDimension *vertexDimension() const override
+      {
+        return m_attachedTo == Spatial::MeshDataObjectType::Vertex
+                 ? const_cast<HydroCouple::SDK::Dimension *>(&m_entityDimension)
+                 : nullptr;
+      }
+
+      // ── ITimeSeriesComponentDataItem ─────────────────────────────────
+      [[nodiscard]] const HydroCouple::Temporal::IDateTime *time(
+        int64_t timeIndex) const override
+      {
+        return timeIndex >= 0
+                   && timeIndex < static_cast<int64_t>(m_times.size())
+                 ? m_times[static_cast<size_t>(timeIndex)].get()
+                 : nullptr;
+      }
+
+      [[nodiscard]] int64_t timeCount() const override
+      {
+        return static_cast<int64_t>(m_times.size());
+      }
+
+      [[nodiscard]] HydroCouple::IDimension *timeDimension() const override
+      {
+        return const_cast<HydroCouple::SDK::Dimension *>(&m_timeDimension);
+      }
+
+      [[nodiscard]] std::span<const double> times() const override
+      {
+        return {m_julianDays.data(), m_julianDays.size()};
+      }
+
+      [[nodiscard]] HydroCouple::Temporal::ITimeSpan *timeSpan()
+        const override
+      {
+        return const_cast<HydroCouple::SDK::Temporal::TimeSpan *>(&m_span);
+      }
+
+      // ── IComponentDataItem ───────────────────────────────────────────
+      [[nodiscard]] std::vector<int64_t> shape() const override
+      {
+        return Store::storageShape();
+      }
+
+      [[nodiscard]] HydroCouple::DataKind dataKind() const override
+      {
+        return Store::storageKind();
+      }
+
+      [[nodiscard]] bool getValuesInto(
+        const HydroCouple::BufferDescriptor &destination,
+        std::span<const int64_t> start, std::span<const int64_t> count,
+        std::string *message = nullptr) const override
+      {
+        return Store::getSlab(destination, start, count, message);
+      }
+
+      [[nodiscard]] bool setValuesFrom(
+        const HydroCouple::BufferDescriptor &source,
+        std::span<const int64_t> start, std::span<const int64_t> count,
+        std::string *message = nullptr) override
+      {
+        return Store::setSlab(source, start, count, message);
+      }
+
+    private:
+      std::unique_ptr<HydroCouple::SDK::Spatial::PolyhedralSurfaceAdapter>
+        m_surface;
+
+      Spatial::MeshDataObjectType m_attachedTo;
+
+      HydroCouple::SDK::Dimension m_timeDimension;
+      HydroCouple::SDK::Dimension m_entityDimension;
+
+      std::vector<std::unique_ptr<HydroCouple::SDK::Temporal::TimeData>> m_times;
+      std::vector<double> m_julianDays;
+      HydroCouple::SDK::Temporal::TimeSpan m_span;
+  };
+
   class StubGrid : public HydroCouple::SDK::Identity,
                    public virtual Spatial::IRegularGrid2D
   {

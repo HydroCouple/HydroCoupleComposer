@@ -162,6 +162,64 @@ namespace HydroCouple::Composer
       return true;
     }
 
+    /*!
+     * \brief Appends one line feature per edge of \a view.
+     *
+     * \param[out] features Receives the edges.
+     * \param view The surface's bulk view; null or edgeless appends nothing.
+     * \returns True when at least one edge was appended.
+     */
+    bool appendMeshEdges(QVector<VectorFeature> &features,
+                         const Spatial::IMeshView *view)
+    {
+      if (!view || view->edgeCount() <= 0)
+      {
+        return false;
+      }
+
+      const std::span<const int64_t> ends = view->edgeNodes();
+      const std::span<const double> xs = view->nodeX();
+      const std::span<const double> ys = view->nodeY();
+
+      // Edge e joins ends[2e] and ends[2e + 1], which is the interface's own
+      // layout; a short span is a malformed view rather than a shorter mesh.
+      if (ends.size() < static_cast<size_t>(view->edgeCount()) * 2)
+      {
+        return false;
+      }
+
+      for (int64_t edge = 0; edge < view->edgeCount(); ++edge)
+      {
+        const int64_t origin = ends[static_cast<size_t>(edge) * 2];
+        const int64_t destination = ends[static_cast<size_t>(edge) * 2 + 1];
+
+        // An index outside the node arrays would read past them. Skipped
+        // rather than clamped: a clamped edge is drawn somewhere definite
+        // and wrong.
+        if (origin < 0 || destination < 0
+            || static_cast<size_t>(origin) >= xs.size()
+            || static_cast<size_t>(destination) >= xs.size()
+            || xs.size() != ys.size())
+        {
+          continue;
+        }
+
+        VectorFeature feature;
+        feature.kind = GeometryKind::Line;
+
+        QPolygonF part;
+        part.append(QPointF(xs[static_cast<size_t>(origin)],
+                            ys[static_cast<size_t>(origin)]));
+        part.append(QPointF(xs[static_cast<size_t>(destination)],
+                            ys[static_cast<size_t>(destination)]));
+        feature.parts.append(part);
+
+        features.append(feature);
+      }
+
+      return !features.isEmpty();
+    }
+
     void appendPointFeature(QVector<VectorFeature> &features,
                             const Spatial::IPoint *point)
     {
@@ -364,15 +422,32 @@ namespace HydroCouple::Composer
         return false;
       }
 
-      const bool onVertices =
-        surfaceItem->meshDataObjectType()
-        == Spatial::MeshDataObjectType::Vertex;
+      // Three entities, three shapes. The values are attached to one of
+      // them, and drawing a different one draws the right number of features
+      // only by coincidence -- a triangle has as many edges as vertices, and
+      // a mesh of them has neither as many faces.
+      const Spatial::MeshDataObjectType attachedTo =
+        surfaceItem->meshDataObjectType();
 
-      if (onVertices)
+      if (attachedTo == Spatial::MeshDataObjectType::Vertex)
       {
         for (int64_t i = 0; i < surface->vertexCount(); ++i)
         {
           appendPointFeature(collected, surface->vertex(i));
+        }
+      }
+      else if (attachedTo == Spatial::MeshDataObjectType::Edge)
+      {
+        // Through the bulk view: a surface hands out patches and vertices as
+        // objects, and its edges only as connectivity. The standard promises
+        // meshView() is never null and is what a consumer reads geometry
+        // from in bulk.
+        if (!appendMeshEdges(collected, surface->meshView()))
+        {
+          message = QObject::tr(
+            "The mesh data item records values on edges, but its surface "
+            "carries no edges to draw them on.");
+          return false;
         }
       }
       else

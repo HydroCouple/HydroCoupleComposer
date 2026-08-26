@@ -530,3 +530,159 @@ TEST_F(DataItemLayerTest, ExplainsAUgridFileItCannotRead)
   EXPECT_TRUE(MeshLayer::ugridMeshNames(QStringLiteral("/no/such/mesh.nc"))
                 .isEmpty());
 }
+
+// ── Polyhedral surface data items ───────────────────────────────────────────
+//
+// A component's mesh item attaches its values to one of three entities, and
+// the mesh below has a different number of each -- 4 nodes, 5 edges, 2 faces.
+// Drawing the wrong one is therefore visible in the count alone, which is the
+// point: a triangle has as many edges as vertices, so a fixture where the
+// counts coincide would pass whatever was drawn.
+
+namespace
+{
+  //! A mesh item of \a steps levels with value = step*100 + entity.
+  std::unique_ptr<Testing::StubTimeSurfaceItem> surfaceItem(
+    HydroCouple::Spatial::MeshDataObjectType attachedTo, int steps = 3)
+  {
+    auto item = std::make_unique<Testing::StubTimeSurfaceItem>(
+      "depth", twoTriangleMesh(), attachedTo, steps);
+
+    const int entities = static_cast<int>(
+      Testing::StubTimeSurfaceItem::entityCount(twoTriangleMesh(), attachedTo));
+
+    for (int step = 0; step < steps; ++step)
+    {
+      for (int entity = 0; entity < entities; ++entity)
+      {
+        item->setValue(step, entity, step * 100.0 + entity);
+      }
+    }
+
+    return item;
+  }
+}
+
+TEST_F(DataItemLayerTest, ASurfaceItemIsDrawnOnTheEntityItsValuesBelongTo)
+{
+  struct Expectation
+  {
+      HydroCouple::Spatial::MeshDataObjectType attachedTo;
+      int features;
+      GeometryKind kind;
+      const char *what;
+  };
+
+  const Expectation cases[] = {
+    {HydroCouple::Spatial::MeshDataObjectType::Vertex, 4, GeometryKind::Point, "vertex"},
+    {HydroCouple::Spatial::MeshDataObjectType::Edge, 5, GeometryKind::Line, "edge"},
+    {HydroCouple::Spatial::MeshDataObjectType::Cell, 2, GeometryKind::Polygon, "cell"},
+  };
+
+  for (const Expectation &expected : cases)
+  {
+    SCOPED_TRACE(expected.what);
+
+    const std::unique_ptr<Testing::StubTimeSurfaceItem> item =
+      surfaceItem(expected.attachedTo);
+
+    QString message;
+    const std::unique_ptr<DataItemLayer> layer =
+      DataItemLayer::create(item.get(), message);
+    ASSERT_NE(layer, nullptr) << message.toStdString();
+
+    // One feature per entity the values are on. An edge item drawn as faces
+    // would carry five values on two features -- three of them lost, and the
+    // two shown attached to the wrong shapes.
+    EXPECT_EQ(layer->featureCount(), expected.features);
+    EXPECT_EQ(layer->geometryKind(), expected.kind);
+
+    // And the values follow the same order the entities do.
+    EXPECT_NEAR(
+      layer->attributeValue(0, layer->valueAttribute()).toDouble(),
+      200.0, 1.0e-9);
+    EXPECT_NEAR(
+      layer->attributeValue(expected.features - 1, layer->valueAttribute())
+        .toDouble(),
+      200.0 + expected.features - 1, 1.0e-9);
+  }
+}
+
+TEST_F(DataItemLayerTest, AnEdgeItemsFeaturesAreTheMeshsEdges)
+{
+  const std::unique_ptr<Testing::StubTimeSurfaceItem> item =
+    surfaceItem(HydroCouple::Spatial::MeshDataObjectType::Edge);
+
+  QString message;
+  const std::unique_ptr<DataItemLayer> layer =
+    DataItemLayer::create(item.get(), message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  const MeshDefinition mesh = twoTriangleMesh();
+  ASSERT_EQ(layer->featureCount(), static_cast<int>(mesh.edgeCount()));
+
+  // Endpoints, not just counts: five lines of the right length in the wrong
+  // places would satisfy every count assertion above.
+  for (int64_t edge = 0; edge < mesh.edgeCount(); ++edge)
+  {
+    SCOPED_TRACE("edge " + std::to_string(edge));
+
+    const QVector<QPolygonF> &parts =
+      layer->features().at(static_cast<int>(edge)).parts;
+    ASSERT_EQ(parts.size(), 1);
+    ASSERT_EQ(parts.first().size(), 2);
+
+    const size_t origin =
+      static_cast<size_t>(mesh.edgeNodes[static_cast<size_t>(edge)][0]);
+    const size_t destination =
+      static_cast<size_t>(mesh.edgeNodes[static_cast<size_t>(edge)][1]);
+
+    EXPECT_NEAR(parts.first().first().x(), mesh.nodeX[origin], 1.0e-9);
+    EXPECT_NEAR(parts.first().first().y(), mesh.nodeY[origin], 1.0e-9);
+    EXPECT_NEAR(parts.first().last().x(), mesh.nodeX[destination], 1.0e-9);
+    EXPECT_NEAR(parts.first().last().y(), mesh.nodeY[destination], 1.0e-9);
+  }
+}
+
+TEST_F(DataItemLayerTest, AnEdgeItemOnASurfaceWithNoEdgesIsRefused)
+{
+  MeshDefinition faceless = twoTriangleMesh();
+  faceless.edgeNodes.clear();
+
+  Testing::StubTimeSurfaceItem item("depth", faceless,
+                                    HydroCouple::Spatial::MeshDataObjectType::Edge, 3);
+
+  QString message;
+  const std::unique_ptr<DataItemLayer> layer =
+    DataItemLayer::create(&item, message);
+
+  // Refused rather than quietly drawn as faces. Two polygons for five edge
+  // values is a map that looks right and is not, and the entity a value
+  // belongs to is not something a viewer gets to substitute.
+  EXPECT_EQ(layer, nullptr)
+    << "an edge item was drawn on a surface that has no edges";
+  EXPECT_TRUE(message.contains(QStringLiteral("edge")))
+    << message.toStdString();
+}
+
+TEST_F(DataItemLayerTest, SkipsEdgesWhoseEndpointsPointOutsideTheMesh)
+{
+  MeshDefinition malformed = twoTriangleMesh();
+
+  // One edge naming a node the mesh does not have. Dereferencing it would
+  // read past the coordinate arrays; clamping it would draw a line somewhere
+  // definite and wrong.
+  malformed.edgeNodes.push_back({0, 99});
+
+  Testing::StubTimeSurfaceItem item("depth", malformed,
+                                    HydroCouple::Spatial::MeshDataObjectType::Edge,
+                                    2);
+
+  QString message;
+  const std::unique_ptr<DataItemLayer> layer =
+    DataItemLayer::create(&item, message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  // The five good edges are drawn and the sixth is not.
+  EXPECT_EQ(layer->featureCount(), 5);
+}
