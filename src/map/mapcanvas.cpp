@@ -9,6 +9,10 @@
 #include <QFontMetricsF>
 #include <QMouseEvent>
 #include <QPainter>
+#include <QtMath>
+#include <QWindow>
+#include <QScreen>
+#include <QGuiApplication>
 #include <QResizeEvent>
 #include <QVector>
 #include <QWheelEvent>
@@ -180,6 +184,13 @@ namespace HydroCouple::Composer
 
     publishCrs();
     update();
+
+    Q_EMIT crsChanged();
+
+    // The scale is measured in metres on the ground, and how many metres a
+    // world unit is worth is a property of the system — so a change of CRS
+    // changes the scale without the view having moved at all.
+    announceTransformChanged();
   }
 
   void MapCanvas::publishCrs()
@@ -240,7 +251,7 @@ namespace HydroCouple::Composer
     m_framedExtent = extent;
     m_viewMovedByUser = false;
 
-    Q_EMIT transformChanged();
+    announceTransformChanged();
     update();
   }
 
@@ -307,8 +318,137 @@ namespace HydroCouple::Composer
     m_transform.zoomAt(factor, QPointF(width() * 0.5, height() * 0.5));
     m_viewMovedByUser = true;
 
-    Q_EMIT transformChanged();
+    announceTransformChanged();
     update();
+  }
+
+  namespace
+  {
+    //! Metres per inch, for turning a screen's DPI into a physical pixel size.
+    constexpr double kMetresPerInch = 0.0254;
+
+    //! What to assume before the widget belongs to a window with a screen.
+    constexpr double kFallbackDpi = 96.0;
+
+    //! The earth's equatorial radius, for sizing a degree of longitude.
+    constexpr double kEarthRadiusMetres = 6378137.0;
+
+    /*!
+     * \brief The screen's dots per inch, or a sensible assumption.
+     *
+     * Read rather than assumed: a hard-coded 96 is out by about twice on a
+     * Retina display, which makes every scale readout wrong by the same.
+     *
+     * \param widget The widget whose screen to ask.
+     */
+    double screenDpi(const QWidget *widget)
+    {
+      const QScreen *screen = nullptr;
+
+      if (const QWindow *window =
+            widget->window() ? widget->window()->windowHandle() : nullptr)
+      {
+        screen = window->screen();
+      }
+
+      if (!screen)
+      {
+        screen = QGuiApplication::primaryScreen();
+      }
+
+      const double dpi = screen ? screen->logicalDotsPerInchX() : 0.0;
+
+      return dpi > 0.0 ? dpi : kFallbackDpi;
+    }
+  }
+
+  double MapCanvas::metresPerWorldUnit() const
+  {
+    if (!m_crs)
+    {
+      // Nothing declared: the numbers are taken as they are, which for a
+      // scale means treating them as metres. Saying 1:1 instead would be a
+      // different kind of wrong, not a safer one.
+      return 1.0;
+    }
+
+    if (m_crs->isGeographic())
+    {
+      // A degree of longitude shrinks with the cosine of latitude, so the
+      // same view is a different scale in Norway than at the equator. Taken
+      // at the centre of what is on screen.
+      const double latitude = m_transform.visibleExtent().center().y();
+      const double metres = (M_PI / 180.0) * kEarthRadiusMetres
+                            * std::abs(std::cos(qDegreesToRadians(latitude)));
+
+      // At the pole the cosine is zero and every scale would be infinite;
+      // one metre per degree is meaningless but finite, and the alternative
+      // is a readout of "inf".
+      return metres > 1.0 ? metres : 1.0;
+    }
+
+    return m_crs->linearUnitsToMetres();
+  }
+
+  double MapCanvas::scaleDenominator() const
+  {
+    syncViewport();
+
+    if (!m_transform.isValid() || m_transform.scale() <= 0.0)
+    {
+      return 1.0;
+    }
+
+    // scale() is pixels per world unit, so its reciprocal is what one pixel
+    // covers on the ground.
+    const double groundMetresPerPixel =
+      metresPerWorldUnit() / m_transform.scale();
+
+    return groundMetresPerPixel / (kMetresPerInch / screenDpi(this));
+  }
+
+  void MapCanvas::setScaleDenominator(double denominator)
+  {
+    syncViewport();
+
+    if (denominator <= 0.0 || !m_transform.isValid())
+    {
+      return;
+    }
+
+    const double current = scaleDenominator();
+
+    if (current <= 0.0)
+    {
+      return;
+    }
+
+    // Expressed as a zoom about the viewport centre rather than as a rebuilt
+    // extent: the centre is then held exactly, and the arithmetic that turns
+    // a denominator into world units lives in one place instead of two that
+    // can disagree.
+    m_transform.zoomAt(current / denominator,
+                       QPointF(width() * 0.5, height() * 0.5));
+    m_viewMovedByUser = true;
+
+    announceTransformChanged();
+    update();
+  }
+
+  void MapCanvas::announceTransformChanged()
+  {
+    Q_EMIT transformChanged();
+
+    const double denominator = scaleDenominator();
+
+    // Only when it moved. A pan changes the view without changing the scale,
+    // and a readout rewritten on every pan would fight anyone typing into it.
+    if (!qFuzzyCompare(denominator + 1.0, m_lastDenominator + 1.0))
+    {
+      m_lastDenominator = denominator;
+
+      Q_EMIT scaleChanged(denominator);
+    }
   }
 
   QColor MapCanvas::backgroundColor() const
@@ -423,7 +563,7 @@ namespace HydroCouple::Composer
       onStackChanged();
     }
 
-    Q_EMIT transformChanged();
+    announceTransformChanged();
   }
 
   void MapCanvas::onStackChanged()
@@ -444,7 +584,7 @@ namespace HydroCouple::Composer
         m_fitted = true;
         m_framedExtent = extent;
 
-        Q_EMIT transformChanged();
+        announceTransformChanged();
       }
     }
 
@@ -483,7 +623,7 @@ namespace HydroCouple::Composer
       m_lastPanPosition = event->pos();
       m_viewMovedByUser = true;
 
-      Q_EMIT transformChanged();
+      announceTransformChanged();
       update();
 
       event->accept();
@@ -594,7 +734,7 @@ namespace HydroCouple::Composer
                        event->position());
     m_viewMovedByUser = true;
 
-    Q_EMIT transformChanged();
+    announceTransformChanged();
     update();
 
     event->accept();

@@ -92,6 +92,24 @@ namespace HydroCouple::Composer
       [[nodiscard]] bool isGeographic() const;
 
       /*!
+       * \brief Whether coordinates are linear — metres, feet, and the like.
+       */
+      [[nodiscard]] bool isProjected() const;
+
+      /*!
+       * \brief How many metres one of this system's linear units is.
+       *
+       * One for a metre-based system, 0.3048 for a foot-based one. Needed
+       * wherever a length on the ground has to become a length in the world:
+       * a scale computed without it reads the same 1:N over a survey-foot
+       * state plane as over a metric one, and is wrong by 3.28 in the first.
+       *
+       * \returns The conversion factor, or 1 for a system with no linear
+       *          units — a geographic one, whose units are degrees.
+       */
+      [[nodiscard]] double linearUnitsToMetres() const;
+
+      /*!
        * \brief Whether this and \a other describe the same system.
        * \param other CRS to compare with.
        */

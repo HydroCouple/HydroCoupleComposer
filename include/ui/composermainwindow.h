@@ -20,6 +20,7 @@
 #include "project/componentinstances.h"
 #include "project/compositiondocument.h"
 #include "simulation/simulationmanager.h"
+#include "ui/panels/mapstatusbar.h"
 
 #include <QMainWindow>
 
@@ -187,7 +188,7 @@ namespace HydroCouple::Composer
       SceneView *m_sceneView = nullptr;
       LayerTreePanel *m_layerTree = nullptr;
       AttributeTablePanel *m_attributeTable = nullptr;
-      QLabel *m_coordinateLabel = nullptr;
+      MapStatusBar *m_mapStatus = nullptr;
 
       RibbonBar *m_ribbon = nullptr;
 

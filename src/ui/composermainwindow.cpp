@@ -259,21 +259,6 @@ namespace HydroCouple::Composer
               }
             });
 
-    connect(m_mapCanvas, &MapCanvas::cursorMoved, this,
-            [this](const QPointF &world)
-            {
-              if (!m_coordinateLabel)
-              {
-                return;
-              }
-
-              // Six decimals resolves roughly a tenth of a metre in degrees
-              // and a micrometre in metres — enough for either without
-              // pretending to a precision the data does not have.
-              m_coordinateLabel->setText(QStringLiteral("%1, %2")
-                                           .arg(world.x(), 0, 'f', 6)
-                                           .arg(world.y(), 0, 'f', 6));
-            });
   }
 
   void ComposerMainWindow::createActions()
@@ -1200,12 +1185,26 @@ namespace HydroCouple::Composer
     statusBar()->showMessage(
       tr("HydroCouple Composer %1").arg(ComposerApplication::versionString()));
 
-    m_coordinateLabel = new QLabel(statusBar());
-    m_coordinateLabel->setObjectName(QStringLiteral("coordinateLabel"));
+    m_mapStatus = new MapStatusBar(statusBar());
+    m_mapStatus->setCanvas(m_mapCanvas);
 
-    // A permanent widget, so a transient status message cannot cover the one
-    // readout that has to stay put while the pointer moves.
-    statusBar()->addPermanentWidget(m_coordinateLabel);
+    connect(m_mapStatus, &MapStatusBar::crsRequested, this,
+            &ComposerMainWindow::onSetMapCrs);
+
+    // A permanent widget, so a transient status message cannot cover the
+    // readouts that have to stay put while the pointer moves.
+    statusBar()->addPermanentWidget(m_mapStatus);
+
+    // Live only where they mean something. A perspective camera has no
+    // single scale, so on the other tabs the controls go dead rather than
+    // show a number that quietly means nothing.
+    const auto followTab = [this]
+    { m_mapStatus->setLive(m_workspace->currentWidget() == m_mapCanvas); };
+
+    connect(m_workspace, &QTabWidget::currentChanged, this,
+            [followTab](int) { followTab(); });
+
+    followTab();
   }
 
   void ComposerMainWindow::refreshTitle()

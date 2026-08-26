@@ -191,6 +191,8 @@ set(COMPOSER_SOURCES
     src/ui/dialogs/layerpropertiesdialog.cpp
     include/ui/panels/layertreepanel.h
     src/ui/panels/layertreepanel.cpp
+    include/ui/panels/mapstatusbar.h
+    src/ui/panels/mapstatusbar.cpp
     include/ui/panels/attributetablemodel.h
     src/ui/panels/attributetablemodel.cpp
     include/ui/panels/attributetablepanel.h

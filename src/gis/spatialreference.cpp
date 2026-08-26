@@ -170,6 +170,23 @@ namespace HydroCouple::Composer
     return m_reference && m_reference->IsGeographic();
   }
 
+  bool SpatialReference::isProjected() const
+  {
+    return m_reference && m_reference->IsProjected();
+  }
+
+  double SpatialReference::linearUnitsToMetres() const
+  {
+    if (!m_reference)
+    {
+      return 1.0;
+    }
+
+    // A geographic system has no linear units and GDAL answers 1 for one,
+    // which is the right answer anyway: there is nothing to convert.
+    return m_reference->GetLinearUnits(nullptr);
+  }
+
   bool SpatialReference::isSameAs(const SpatialReference &other) const
   {
     if (!m_reference || !other.m_reference)

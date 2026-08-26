@@ -118,6 +118,36 @@ namespace HydroCouple::Composer
       void zoomBy(double factor);
 
       /*!
+       * \brief The current scale as the N of a 1:N ratio.
+       *
+       * Ground metres per pixel divided by the physical size of a screen
+       * pixel, so it answers the question a printed scale bar answers:
+       * how much smaller than life is this.
+       *
+       * Two conversions are not optional. The screen's own DPI is read
+       * rather than assumed to be 96 — the assumption is wrong by about
+       * twice on a Retina display. And the map's CRS decides what a world
+       * unit is worth: metres for one projected system, feet for another,
+       * degrees for a geographic one, where a degree of longitude is worth
+       * less the further from the equator the view sits.
+       *
+       * \returns The denominator, or 1 when there is no valid view to
+       *          measure.
+       */
+      [[nodiscard]] double scaleDenominator() const;
+
+      /*!
+       * \brief Zooms to exactly 1:\a denominator, keeping the centre.
+       *
+       * The exact inverse of scaleDenominator(), so setting a scale and
+       * reading it back returns what was set.
+       *
+       * \param denominator The N of the 1:N wanted; ignored when not
+       *        positive.
+       */
+      void setScaleDenominator(double denominator);
+
+      /*!
        * \brief The background colour drawn beneath the layers.
        */
       [[nodiscard]] QColor backgroundColor() const;
@@ -164,10 +194,30 @@ namespace HydroCouple::Composer
       void transformChanged();
 
       /*!
+       * \brief Emitted when the 1:N scale changes.
+       *
+       * Separate from transformChanged() because a pan moves the view
+       * without changing the scale, and a scale readout that rewrote itself
+       * on every pan would fight anyone typing into it.
+       *
+       * \param denominator The new N of the 1:N.
+       */
+      void scaleChanged(double denominator);
+
+      /*!
        * \brief Emitted as the pointer moves over the map.
        * \param world Pointer position in the map's CRS.
        */
       void cursorMoved(const QPointF &world);
+
+      /*!
+       * \brief Emitted when the map's coordinate reference system changes.
+       *
+       * What a CRS indicator listens to. Distinct from transformChanged():
+       * changing the system redraws every layer without moving the view,
+       * and moving the view does not change the system.
+       */
+      void crsChanged();
 
     protected:
       void paintEvent(QPaintEvent *event) override;
@@ -218,6 +268,25 @@ namespace HydroCouple::Composer
 
       LayerStackModel *m_model = nullptr;
       std::shared_ptr<SpatialReference> m_crs;
+
+      //! What scaleChanged() last reported, so a pan does not re-announce it.
+      mutable double m_lastDenominator = 0.0;
+
+      /*!
+       * \brief Emits transformChanged(), and scaleChanged() when it moved.
+       *
+       * One place, so every route that moves the view — a fit, a wheel, a
+       * typed scale — reports it the same way.
+       */
+      void announceTransformChanged();
+
+      /*!
+       * \brief How many metres one unit of the map's CRS is worth.
+       *
+       * Linear units for a projected system; a degree of longitude at the
+       * view's centre latitude for a geographic one.
+       */
+      [[nodiscard]] double metresPerWorldUnit() const;
 
       //! Mutable so the viewport can be synchronised from const accessors;
       //! the view it describes is a cache of the widget's geometry, not

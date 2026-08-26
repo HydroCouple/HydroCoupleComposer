@@ -38,6 +38,7 @@ composer_add_gui_test(test_mapcanvas)
 composer_add_gui_test(test_styling)
 composer_add_gui_test(test_labelling)
 composer_add_gui_test(test_crs)
+composer_add_gui_test(test_mapstatusbar)
 composer_add_gui_test(test_layerproperties)
 
 # C1d — basemaps and GDAL import. The tile-grid suite is arithmetic; the
