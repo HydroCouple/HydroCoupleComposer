@@ -13,21 +13,28 @@
  */
 
 #include "core/composerapplication.h"
+#include "layers/dataitemlayer.h"
+#include "map/layerstackmodel.h"
+#include "map/mapcanvas.h"
 #include "results/runbrowsermodel.h"
 #include "results/runsession.h"
 #include "ui/composermainwindow.h"
 #include "ui/panels/runbrowserpanel.h"
 
 #include "hydrocouplesdk/io/runmanifest.h"
+#include "hydrocoupletemporal.h"
 
 #include <gtest/gtest.h>
 
 #include <QDir>
 #include <QFile>
 #include <QTextStream>
+#include <QSignalSpy>
+#include <QTabWidget>
 #include <QToolButton>
 #include <QTreeView>
 
+#include <algorithm>
 #include <filesystem>
 
 using namespace HydroCouple::Composer;
@@ -517,4 +524,169 @@ TEST_F(RunBrowserTest, TheWindowOpensARunIntoItsBrowser)
   EXPECT_EQ(window.runs()->runCount(), 0);
   EXPECT_FALSE(close->isEnabled())
     << "the close button offers to close a run that is no longer open";
+}
+
+// ── D2a: a recorded item becomes a layer ─────────────────────────────────
+//
+// Browsing a run and seeing it are two different things, and until this
+// slice the browser could do only the first. The gate is that the layer the
+// map gets is built from what the run recorded -- the geometry and the
+// values -- rather than from a plausible reconstruction of either.
+
+TEST_F(RunBrowserTest, ARecordedItemBecomesALayerOnTheMap)
+{
+  const QString sdkManifest = QStringLiteral(COMPOSER_SDK_REOPEN_MANIFEST);
+
+  if (sdkManifest.isEmpty() || !QFile::exists(sdkManifest))
+  {
+    GTEST_SKIP() << "the SDK's reopen fixture is not in this checkout";
+  }
+
+  ComposerMainWindow window;
+  window.setAttribute(Qt::WA_QuitOnClose, false);
+
+  QString message;
+  ASSERT_TRUE(window.openRun(sdkManifest, message)) << message.toStdString();
+
+  RunSession *session = window.runs()->run(0);
+  ASSERT_NE(session, nullptr);
+
+  const QStringList components = session->componentIds();
+  ASSERT_FALSE(components.isEmpty());
+
+  const QVector<const SDK::IO::ResultEntry *> entries =
+    session->entriesFor(components.first());
+  ASSERT_FALSE(entries.isEmpty());
+
+  // The entry that names a mesh: the fixture records one item into four
+  // artifacts and only some of them carry geometry, which is the whole
+  // reason the catalog names the attachment per entry.
+  const auto spatial =
+    std::find_if(entries.begin(), entries.end(),
+                 [](const SDK::IO::ResultEntry *entry)
+                 { return !entry->mesh.empty(); });
+
+  if (spatial == entries.end())
+  {
+    GTEST_SKIP() << "this build recorded no format that carries geometry";
+  }
+
+  const int before = window.layerStack()->rowCount();
+
+  ASSERT_TRUE(window.showRunItem(
+    0, components.first(), QString::fromStdString((*spatial)->itemId),
+    message))
+    << message.toStdString();
+
+  ASSERT_EQ(window.layerStack()->rowCount(), before + 1);
+
+  auto *layer = dynamic_cast<DataItemLayer *>(
+    window.layerStack()->layerAt(window.layerStack()->rowCount() - 1));
+  ASSERT_NE(layer, nullptr) << "what was added is not a data-item layer";
+
+  // One feature per recorded entity, and one time level per recorded step:
+  // both come from the manifest, so a layer that agreed with neither would
+  // still have drawn something.
+  ASSERT_EQ((*spatial)->shape.size(), 2u);
+  EXPECT_EQ(layer->featureCount(), static_cast<int>((*spatial)->shape[1]));
+  EXPECT_EQ(layer->timeCount(), static_cast<int>((*spatial)->shape[0]));
+
+  // The run is in the name, because holding two runs open to compare them is
+  // what the browser is for, and two layers called "flow" are not comparable.
+  EXPECT_TRUE(layer->name().contains(session->title()))
+    << "the layer does not say which run it came from: "
+    << layer->name().toStdString();
+
+  // Brought forward. A layer added from a dock at the bottom of the window
+  // is otherwise drawn behind whichever tab happens to be showing, and the
+  // user is left looking at the tab they were already on wondering whether
+  // anything happened.
+  auto *workspace =
+    window.findChild<QTabWidget *>(QStringLiteral("workspaceTabs"));
+  ASSERT_NE(workspace, nullptr);
+  EXPECT_EQ(workspace->currentWidget(),
+            static_cast<QWidget *>(window.mapCanvas()));
+
+  // The values on the map are the values in the artifact, read a second time
+  // through the item itself rather than through the layer.
+  auto *item = dynamic_cast<HydroCouple::Temporal::ITimeSeriesComponentDataItem *>(
+    layer->dataItem());
+  ASSERT_NE(item, nullptr);
+  EXPECT_EQ(item->timeCount(), layer->timeCount());
+}
+
+TEST_F(RunBrowserTest, AnItemRecordedWithoutGeometrySaysSoRatherThanFailing)
+{
+  ComposerMainWindow window;
+  window.setAttribute(Qt::WA_QuitOnClose, false);
+
+  QString message;
+  ASSERT_TRUE(window.openRun(s_manifestPath, message))
+    << message.toStdString();
+
+  const int before = window.layerStack()->rowCount();
+
+  // The local fixture is a CSV of values with no mesh anywhere -- a complete
+  // recording, and nothing to draw.
+  EXPECT_FALSE(window.showRunItem(0, QStringLiteral("channel"),
+                                  QStringLiteral("flow"), message));
+
+  EXPECT_EQ(window.layerStack()->rowCount(), before)
+    << "a layer was added for an item with no geometry";
+
+  // And it says which item and why, rather than failing silently or
+  // reporting something that reads like a broken file.
+  EXPECT_TRUE(message.contains(QStringLiteral("flow")))
+    << message.toStdString();
+  EXPECT_TRUE(message.contains(QStringLiteral("geometry")))
+    << message.toStdString();
+}
+
+TEST_F(RunBrowserTest, ShowingIsOfferedOnlyForRowsThatNameAnItem)
+{
+  RunBrowserModel model;
+  QString message;
+  ASSERT_NE(model.addRun(s_manifestPath, message), nullptr)
+    << message.toStdString();
+
+  RunBrowserPanel panel;
+  panel.setModel(&model);
+
+  auto *tree = panel.findChild<QTreeView *>(QStringLiteral("runTree"));
+  auto *show = panel.findChild<QToolButton *>(QStringLiteral("showItemButton"));
+  ASSERT_NE(tree, nullptr);
+  ASSERT_NE(show, nullptr);
+
+  const QModelIndex run = model.index(0, 0);
+  ASSERT_TRUE(run.isValid());
+
+  tree->selectionModel()->setCurrentIndex(run,
+                                          QItemSelectionModel::ClearAndSelect);
+  EXPECT_FALSE(show->isEnabled()) << "a run row offered to be drawn";
+
+  const QModelIndex component = model.index(0, 0, run);
+  ASSERT_TRUE(component.isValid());
+
+  // A component row carries a component id too, so a check that only looked
+  // for one would light this up and then have no item to ask for.
+  tree->selectionModel()->setCurrentIndex(component,
+                                          QItemSelectionModel::ClearAndSelect);
+  EXPECT_FALSE(show->isEnabled()) << "a component row offered to be drawn";
+
+  const QModelIndex item = model.index(0, 0, component);
+  ASSERT_TRUE(item.isValid());
+
+  tree->selectionModel()->setCurrentIndex(item,
+                                          QItemSelectionModel::ClearAndSelect);
+  EXPECT_TRUE(show->isEnabled());
+
+  QSignalSpy asked(&panel, &RunBrowserPanel::showItemRequested);
+  show->click();
+
+  ASSERT_EQ(asked.size(), 1);
+  EXPECT_EQ(asked.at(0).at(0).toInt(), 0);
+  EXPECT_FALSE(asked.at(0).at(1).toString().isEmpty())
+    << "the request named no component";
+  EXPECT_FALSE(asked.at(0).at(2).toString().isEmpty())
+    << "the request named no item";
 }

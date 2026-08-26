@@ -118,6 +118,21 @@ namespace HydroCouple::Composer
       [[nodiscard]] RunBrowserModel *runs() const;
 
       /*!
+       * \brief Draws one recorded item of an open run on the map.
+       *
+       * The bridge between browsing a run and seeing it: the catalog row
+       * names an item, and this is what turns that name into a layer.
+       *
+       * \param runRow Which open run it belongs to.
+       * \param componentId The component that recorded it.
+       * \param itemId The item's identifier.
+       * \param[out] message Diagnostic on failure.
+       * \returns True when a layer was added.
+       */
+      bool showRunItem(int runRow, const QString &componentId,
+                       const QString &itemId, QString &message);
+
+      /*!
        * \brief Opens a finished run's manifest.
        * \param manifestPath The run manifest to read.
        * \param[out] message Diagnostic on failure.
@@ -155,6 +170,10 @@ namespace HydroCouple::Composer
       void onLayerProperties(HydroCouple::Composer::MapLayer *layer);
       void onSetMapCrs();
       void onOpenRun();
+
+      //! Draws the recorded item the run browser asked for.
+      void onShowRunItem(int runRow, const QString &componentId,
+                         const QString &itemId);
       void onMapToolChosen();
       void onProjectionChosen();
       void onSceneToolChosen();

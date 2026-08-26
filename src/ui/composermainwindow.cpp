@@ -14,6 +14,8 @@
 #include "scene/sceneview.h"
 #include "map/maplayer.h"
 #include "project/hcpimporter.h"
+#include "results/runbrowsermodel.h"
+#include "results/runsession.h"
 #include "results/timecontroller.h"
 #include "ui/dialogs/crsselectiondialog.h"
 #include "ui/dialogs/layerpropertiesdialog.h"
@@ -997,6 +999,8 @@ namespace HydroCouple::Composer
 
     connect(m_runBrowser, &RunBrowserPanel::openRunRequested, this,
             &ComposerMainWindow::onOpenRun);
+    connect(m_runBrowser, &RunBrowserPanel::showItemRequested, this,
+            &ComposerMainWindow::onShowRunItem);
 
     addDockWidget(Qt::BottomDockWidgetArea, runDock);
 
@@ -1400,6 +1404,76 @@ namespace HydroCouple::Composer
           .arg(session->componentIds().size()));
 
     return true;
+  }
+
+  bool ComposerMainWindow::showRunItem(int runRow, const QString &componentId,
+                                      const QString &itemId, QString &message)
+  {
+    RunSession *session = m_runs->run(runRow);
+
+    if (!session)
+    {
+      message = tr("That run is no longer open.");
+      return false;
+    }
+
+    HydroCouple::IComponentDataItem *item =
+      session->item(componentId, itemId, message);
+
+    if (!item)
+    {
+      return false;
+    }
+
+    if (!DataItemLayer::isSpatial(item))
+    {
+      // Said plainly rather than as a failure to draw. A recorded run may
+      // hold values with no geometry at all — a CSV of a gauge, a scalar
+      // series — and that is a complete recording, not a broken one.
+      message = tr("\"%1\" was recorded without geometry, so there is "
+                   "nothing to draw. It can still be plotted.")
+                  .arg(itemId);
+      return false;
+    }
+
+    std::unique_ptr<DataItemLayer> layer = DataItemLayer::create(item, message);
+
+    if (!layer)
+    {
+      return false;
+    }
+
+    // The run is in the name because two runs of the same model produce two
+    // layers of the same component and item, and comparing them is the whole
+    // point of holding two runs open.
+    layer->setName(tr("%1 — %2 — %3")
+                     .arg(session->title(), componentId, layer->name()));
+
+    DataItemLayer *added = layer.release();
+    m_layerStack->addLayer(added);
+
+    log(tr("Added %1 (%2 feature(s), %3 recorded time(s)).")
+          .arg(added->name())
+          .arg(added->featureCount())
+          .arg(added->timeCount()));
+
+    // Brought forward, because a layer added from a dock at the bottom of the
+    // window is otherwise drawn behind whichever tab happens to be showing.
+    m_workspace->setCurrentWidget(m_mapCanvas);
+    m_mapCanvas->zoomToLayer(added);
+
+    return true;
+  }
+
+  void ComposerMainWindow::onShowRunItem(int runRow, const QString &componentId,
+                                         const QString &itemId)
+  {
+    QString message;
+
+    if (!showRunItem(runRow, componentId, itemId, message))
+    {
+      QMessageBox::warning(this, tr("Cannot show that item"), message);
+    }
   }
 
   void ComposerMainWindow::onOpenRun()

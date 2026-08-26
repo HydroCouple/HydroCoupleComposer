@@ -15,6 +15,7 @@
 #ifndef HYDROCOUPLECOMPOSER_UI_PANELS_RUNBROWSERPANEL_H
 #define HYDROCOUPLECOMPOSER_UI_PANELS_RUNBROWSERPANEL_H
 
+#include <QModelIndex>
 #include <QWidget>
 
 class QToolButton;
@@ -61,12 +62,31 @@ namespace HydroCouple::Composer
       //! Emitted when the user asks to open a run.
       void openRunRequested();
 
+      /*!
+       * \brief Emitted when the user asks to see a recorded item on the map.
+       * \param runRow Which open run it belongs to.
+       * \param componentId The component that recorded it.
+       * \param itemId The item's identifier.
+       *
+       * Identifiers rather than the item itself: the panel browses a catalog
+       * and does not open artifacts, and whoever owns the runs is the one
+       * that can say whether this one will open at all.
+       */
+      void showItemRequested(int runRow, const QString &componentId,
+                             const QString &itemId);
+
     private:
+      /*!
+       * \brief The selected row when it names a recorded item, else invalid.
+       */
+      [[nodiscard]] QModelIndex currentItemIndex() const;
+
       void updateButtons();
 
       QTreeView *m_tree = nullptr;
       QToolButton *m_openButton = nullptr;
       QToolButton *m_closeButton = nullptr;
+      QToolButton *m_showButton = nullptr;
 
       RunBrowserModel *m_model = nullptr;
   };

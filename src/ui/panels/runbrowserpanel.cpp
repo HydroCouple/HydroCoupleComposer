@@ -43,10 +43,32 @@ namespace HydroCouple::Composer
               }
             });
 
+    m_showButton = new QToolButton(this);
+    m_showButton->setObjectName(QStringLiteral("showItemButton"));
+    m_showButton->setText(tr("Show on Map"));
+    m_showButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
+
+    connect(m_showButton, &QToolButton::clicked, this,
+            [this]
+            {
+              const QModelIndex index = currentItemIndex();
+
+              if (!index.isValid())
+              {
+                return;
+              }
+
+              Q_EMIT showItemRequested(
+                currentRunRow(),
+                index.data(RunBrowserModel::ComponentIdRole).toString(),
+                index.data(RunBrowserModel::ItemIdRole).toString());
+            });
+
     auto *buttons = new QHBoxLayout;
     buttons->setContentsMargins(0, 0, 0, 0);
     buttons->addWidget(m_openButton);
     buttons->addWidget(m_closeButton);
+    buttons->addWidget(m_showButton);
     buttons->addStretch(1);
 
     auto *layout = new QVBoxLayout(this);
@@ -112,9 +134,27 @@ namespace HydroCouple::Composer
     return index.isValid() ? index.row() : -1;
   }
 
+  QModelIndex RunBrowserPanel::currentItemIndex() const
+  {
+    if (!m_model || !m_tree->selectionModel())
+    {
+      return {};
+    }
+
+    const QModelIndex index = m_tree->selectionModel()->currentIndex();
+
+    // An item row, not a run or a component. Both of those carry a component
+    // id as well, and only a row that names an item names something that can
+    // be drawn.
+    return index.data(RunBrowserModel::ItemIdRole).toString().isEmpty()
+             ? QModelIndex()
+             : index;
+  }
+
   void RunBrowserPanel::updateButtons()
   {
     m_closeButton->setEnabled(m_model && currentRunRow() >= 0);
+    m_showButton->setEnabled(currentItemIndex().isValid());
   }
 
 } // namespace HydroCouple::Composer
