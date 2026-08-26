@@ -5,9 +5,12 @@
 
 #include "hydrocouple.h"
 #include "hydrocouplespatial.h"
+#include "hydrocoupletemporal.h"
 
 #include <QObject>
 
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 namespace HydroCouple::Composer
@@ -78,6 +81,7 @@ namespace HydroCouple::Composer
      * Choosing a step explicitly is the results viewer's job.
      */
     bool readEntityValues(const IComponentDataItem &item, int entityAxis,
+                          int timeAxis, int timeIndex,
                           QVector<double> &values, QString &message)
     {
       const std::vector<int64_t> shape = item.shape();
@@ -107,10 +111,17 @@ namespace HydroCouple::Composer
 
       for (size_t i = 0; i < shape.size(); ++i)
       {
-        if (i != axis && shape[i] > 0)
+        if (i == axis || shape[i] <= 0)
         {
-          start[i] = shape[i] - 1;
+          continue;
         }
+
+        // The time axis goes where it was asked for; every other axis is
+        // pinned to its last index, which for a layer index or a component
+        // of a vector is the convention this had before time was a choice.
+        start[i] = int(i) == timeAxis && timeIndex >= 0
+                     ? std::min<int64_t>(timeIndex, shape[i] - 1)
+                     : shape[i] - 1;
       }
 
       std::vector<double> buffer(static_cast<size_t>(count), 0.0);
@@ -405,6 +416,97 @@ namespace HydroCouple::Composer
     return true;
   }
 
+  int DataItemLayer::timeCount() const
+  {
+    const auto *series =
+      dynamic_cast<const HydroCouple::Temporal::ITimeSeriesComponentDataItem *>(
+        m_item);
+
+    return series ? int(series->timeCount()) : 0;
+  }
+
+  int DataItemLayer::timeIndex() const
+  {
+    const int count = timeCount();
+
+    if (count <= 0)
+    {
+      return -1;
+    }
+
+    // Unchosen means the last level, which for a component still running is
+    // "now" — and is what a layer showed before time was a choice at all.
+    // Resolved here rather than in the constructor, where the item has not
+    // been asked how many levels it has.
+    return m_timeIndex < 0 ? count - 1 : std::min(m_timeIndex, count - 1);
+  }
+
+  bool DataItemLayer::setTimeIndex(int index)
+  {
+    const int count = timeCount();
+
+    if (count <= 0)
+    {
+      return false;
+    }
+
+    const int wanted = std::clamp(index, 0, count - 1);
+
+    if (wanted == timeIndex())
+    {
+      return true;
+    }
+
+    m_timeIndex = wanted;
+
+    return refreshValues();
+  }
+
+  double DataItemLayer::timeAt(int index) const
+  {
+    const auto *series =
+      dynamic_cast<const HydroCouple::Temporal::ITimeSeriesComponentDataItem *>(
+        m_item);
+
+    if (!series || index < 0 || index >= int(series->timeCount()))
+    {
+      return 0.0;
+    }
+
+    const HydroCouple::Temporal::IDateTime *at = series->time(index);
+
+    return at ? at->julianDay() : 0.0;
+  }
+
+  int DataItemLayer::nearestTime(double julianDay) const
+  {
+    const int count = timeCount();
+
+    if (count <= 0)
+    {
+      return -1;
+    }
+
+    int nearest = 0;
+    double best = std::abs(timeAt(0) - julianDay);
+
+    for (int index = 1; index < count; ++index)
+    {
+      const double distance = std::abs(timeAt(index) - julianDay);
+
+      // Strictly closer, so the earliest of two equally near levels wins
+      // rather than the later one — a tie should not depend on which way
+      // the loop happens to run.
+      if (distance < best)
+      {
+        best = distance;
+        nearest = index;
+      }
+    }
+
+    return nearest;
+  }
+
   bool DataItemLayer::refreshValues()
   {
     if (!m_item)
@@ -415,7 +517,16 @@ namespace HydroCouple::Composer
     QVector<double> values;
     QString message;
 
-    if (!readEntityValues(*m_item, entityAxis(), values, message))
+    // Axis zero is where the interface puts time — "the time dimension is
+    // dimension 0 of shape(); any additional dimensions follow" — and an
+    // item with no time axis answers -1 from timeIndex(), so the axis is
+    // never consulted for one. A function to work out which axis was written
+    // first and deleted: it could only ever return zero or contradict a
+    // documented invariant.
+    constexpr int kTimeAxis = 0;
+
+    if (!readEntityValues(*m_item, entityAxis(), kTimeAxis, timeIndex(),
+                          values, message))
     {
       return false;
     }

@@ -16,7 +16,10 @@
 #ifndef HYDROCOUPLECOMPOSER_TESTS_SPATIALSTUBS_H
 #define HYDROCOUPLECOMPOSER_TESTS_SPATIALSTUBS_H
 
+#include "hydrocouplesdk/temporal/timedata.h"
+
 #include "hydrocouplespatial.h"
+#include "hydrocoupletemporal.h"
 
 #include "hydrocouplesdk/data/abstractcomponentdataitem.h"
 #include "hydrocouplesdk/data/componentdataitem.h"
@@ -230,20 +233,76 @@ namespace HydroCouple::Composer::Testing
   class StubTimeGeometryItem
     : public HydroCouple::SDK::AbstractComponentDataItem,
       public HydroCouple::SDK::ComponentDataItem2D<double>,
-      public virtual Spatial::IGeometryComponentDataItem
+      public virtual Spatial::IGeometryComponentDataItem,
+      public virtual HydroCouple::Temporal::ITimeSeriesComponentDataItem
   {
       using Store = HydroCouple::SDK::ComponentDataItem2D<double>;
 
     public:
+      /*!
+       * \brief Builds an item of \a timeSteps over \a geometries.
+       *
+       * \param firstJulianDay The instant of step zero.
+       * \param spacingDays How far apart the steps are; the two together
+       *        are what lets a test put two items on different axes and
+       *        check that a shared clock still lines them up.
+       */
       StubTimeGeometryItem(std::string_view id, int timeSteps,
-                           std::vector<Spatial::IGeometry *> geometries)
+                           std::vector<Spatial::IGeometry *> geometries,
+                           double firstJulianDay = 2451545.0,
+                           double spacingDays = 1.0)
         : AbstractComponentDataItem(id, {&m_timeDimension, &m_dimension},
                                     nullptr, nullptr),
           Store(timeSteps, static_cast<int>(geometries.size()), 0.0),
           m_geometries(std::move(geometries)),
           m_timeDimension("time", "Time dimension"),
-          m_dimension("geometries", "Geometry dimension")
+          m_dimension("geometries", "Geometry dimension"),
+          m_span("span", firstJulianDay,
+                 timeSteps > 0 ? (timeSteps - 1) * spacingDays : 0.0)
       {
+        m_times.reserve(static_cast<size_t>(timeSteps));
+        m_julianDays.reserve(static_cast<size_t>(timeSteps));
+
+        for (int step = 0; step < timeSteps; ++step)
+        {
+          const double instant = firstJulianDay + step * spacingDays;
+
+          m_times.push_back(std::make_unique<HydroCouple::SDK::Temporal::TimeData>(
+            "t" + std::to_string(step), instant));
+          m_julianDays.push_back(instant);
+        }
+
+      }
+
+      // ── ITimeSeriesComponentDataItem ─────────────────────────────────
+      [[nodiscard]] const HydroCouple::Temporal::IDateTime *time(
+        int64_t timeIndex) const override
+      {
+        return timeIndex >= 0
+                   && timeIndex < static_cast<int64_t>(m_times.size())
+                 ? m_times[static_cast<size_t>(timeIndex)].get()
+                 : nullptr;
+      }
+
+      [[nodiscard]] int64_t timeCount() const override
+      {
+        return static_cast<int64_t>(m_times.size());
+      }
+
+      [[nodiscard]] HydroCouple::IDimension *timeDimension() const override
+      {
+        return const_cast<HydroCouple::SDK::Dimension *>(&m_timeDimension);
+      }
+
+      [[nodiscard]] std::span<const double> times() const override
+      {
+        return {m_julianDays.data(), m_julianDays.size()};
+      }
+
+      [[nodiscard]] HydroCouple::Temporal::ITimeSpan *timeSpan()
+        const override
+      {
+        return const_cast<HydroCouple::SDK::Temporal::TimeSpan *>(&m_span);
       }
 
       //! Sets the value of one geometry at one time step.
@@ -315,6 +374,9 @@ namespace HydroCouple::Composer::Testing
 
     private:
       std::vector<Spatial::IGeometry *> m_geometries;
+      std::vector<std::unique_ptr<HydroCouple::SDK::Temporal::TimeData>> m_times;
+      std::vector<double> m_julianDays;
+      HydroCouple::SDK::Temporal::TimeSpan m_span;
       HydroCouple::SDK::Dimension m_timeDimension;
       HydroCouple::SDK::Dimension m_dimension;
       HydroCouple::SDK::Spatial::EnvelopeAdapter m_envelope;

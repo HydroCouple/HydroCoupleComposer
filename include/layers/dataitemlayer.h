@@ -69,6 +69,61 @@ namespace HydroCouple::Composer
       [[nodiscard]] QString valueAttribute() const;
 
       /*!
+       * \brief How many time levels the item carries; 0 when it is static.
+       *
+       * From the item's own time-series interface rather than from its
+       * shape: an axis of length 6 is only a time axis if the item says so,
+       * and a mesh with six layers has the same shape as a mesh over six
+       * times.
+       */
+      [[nodiscard]] int timeCount() const;
+
+      /*!
+       * \brief Which time level is being shown.
+       *
+       * The last level until something chooses otherwise: for a component
+       * still running that is "now", and it is what a layer showed before
+       * time was a choice.
+       *
+       * \returns The index, or -1 for a static item.
+       */
+      [[nodiscard]] int timeIndex() const;
+
+      /*!
+       * \brief Shows the values at \a index.
+       *
+       * Geometry is untouched — see refreshValues() — so stepping through a
+       * run costs one hyperslab read per layer per step and nothing else.
+       *
+       * \param index Time level; clamped to what the item carries.
+       * \returns True when the values were read.
+       */
+      bool setTimeIndex(int index);
+
+      /*!
+       * \brief The time at \a index, as a Julian day.
+       *
+       * What a clock shared between layers compares: two items recorded on
+       * different axes have nothing in common but the instant they name.
+       *
+       * \param index Time level.
+       * \returns The Julian day, or 0 when the item is static.
+       */
+      [[nodiscard]] double timeAt(int index) const;
+
+      /*!
+       * \brief The time level nearest \a julianDay.
+       *
+       * Nearest rather than interpolated: a value recorded at one instant
+       * is what the model computed, and showing a blend of two would put a
+       * number on the map the model never produced.
+       *
+       * \param julianDay The instant wanted.
+       * \returns The index, or -1 for a static item.
+       */
+      [[nodiscard]] int nearestTime(double julianDay) const;
+
+      /*!
        * \brief Re-reads the item's values and restyles.
        *
        * Geometry is not re-read: a component's mesh does not move between
@@ -95,6 +150,9 @@ namespace HydroCouple::Composer
       //! Values are the last field, so geometry-derived fields keep their
       //! indices when the values are re-read.
       int m_valueFieldIndex = -1;
+
+      //! Which time level is shown; -1 until chosen, meaning the last.
+      int m_timeIndex = -1;
   };
 
 } // namespace HydroCouple::Composer

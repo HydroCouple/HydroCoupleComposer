@@ -100,6 +100,8 @@ set(COMPOSER_SOURCES
     src/plugins/componentlibrary.cpp
     include/plugins/componentregistry.h
     src/plugins/componentregistry.cpp
+    include/results/timecontroller.h
+    src/results/timecontroller.cpp
     include/results/runbrowsermodel.h
     src/results/runbrowsermodel.cpp
     include/results/runsession.h
