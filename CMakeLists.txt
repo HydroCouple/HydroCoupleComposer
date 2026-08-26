@@ -104,6 +104,8 @@ set(COMPOSER_SOURCES
     src/results/timecontroller.cpp
     include/results/runbrowsermodel.h
     src/results/runbrowsermodel.cpp
+    include/results/julianday.h
+    src/results/julianday.cpp
     include/results/runsession.h
     src/results/runsession.cpp
     include/gis/crscatalog.h
@@ -205,6 +207,8 @@ set(COMPOSER_SOURCES
     src/ui/panels/mapstatusbar.cpp
     include/ui/panels/timecontrolpanel.h
     src/ui/panels/timecontrolpanel.cpp
+    include/ui/panels/seriesplotpanel.h
+    src/ui/panels/seriesplotpanel.cpp
     include/ui/panels/attributetablemodel.h
     src/ui/panels/attributetablemodel.cpp
     include/ui/panels/attributetablepanel.h

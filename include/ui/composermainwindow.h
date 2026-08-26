@@ -45,6 +45,7 @@ namespace HydroCouple::Composer
   class SceneView;
   class MapLayer;
   class RibbonBar;
+  class SeriesPlotPanel;
   class TimeController;
   class TimeControlPanel;
 }
@@ -116,6 +117,9 @@ namespace HydroCouple::Composer
        * \brief The open runs.
        */
       [[nodiscard]] RunBrowserModel *runs() const;
+
+      //! \returns The plot of what the selection recorded.
+      [[nodiscard]] SeriesPlotPanel *seriesPlot() const;
 
       /*!
        * \brief Draws one recorded item of an open run on the map.
@@ -237,6 +241,7 @@ namespace HydroCouple::Composer
       MapStatusBar *m_mapStatus = nullptr;
       TimeController *m_clock = nullptr;
       TimeControlPanel *m_timeControls = nullptr;
+      SeriesPlotPanel *m_seriesPlot = nullptr;
 
       RibbonBar *m_ribbon = nullptr;
 

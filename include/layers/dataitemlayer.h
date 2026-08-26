@@ -138,6 +138,29 @@ namespace HydroCouple::Composer
         const QString &field) const override;
 
       /*!
+       * \brief One feature's whole recorded series, oldest level first.
+       *
+       * The transpose of the read the map does: a map wants every entity at
+       * one instant, a plot wants one entity at every instant. Both are one
+       * hyperslab of the same item, so neither has to hold the other's.
+       *
+       * \param feature Feature index, in [0, featureCount).
+       * \param[out] values Receives one value per time level.
+       * \param[out] message Diagnostic on failure.
+       * \returns True when the series was read; false for a static item,
+       *          which has no series to plot.
+       */
+      [[nodiscard]] bool valuesOverTime(int feature, QVector<double> &values,
+                                        QString &message) const;
+
+      /*!
+       * \brief Every instant this layer carries, as Julian days.
+       *
+       * The x of a plot, paired with valuesOverTime()'s y.
+       */
+      [[nodiscard]] QVector<double> times() const;
+
+      /*!
        * \brief Re-reads the item's values and restyles.
        *
        * Geometry is not re-read: a component's mesh does not move between

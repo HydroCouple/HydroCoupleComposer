@@ -1,9 +1,8 @@
 #include "ui/panels/timecontrolpanel.h"
 
+#include "results/julianday.h"
 #include "results/timecontroller.h"
 #include "ui/theme/iconfactory.h"
-
-#include "hydrocouplesdk/temporal/timedata.h"
 
 #include <QDoubleSpinBox>
 #include <QHBoxLayout>
@@ -15,33 +14,11 @@ namespace HydroCouple::Composer
 {
   namespace
   {
-    /*!
-     * \brief \a julianDay as a calendar instant.
-     *
-     * Through the SDK's own conversion rather than a second one written
-     * here: the times on the slider came from the SDK, and two conversions
-     * that disagree by a rounding would put the readout a step away from
-     * the map it labels.
-     */
+    //! \a julianDay as the readout shows it.
     QString formatInstant(double julianDay)
     {
-      int year = 0;
-      int month = 0;
-      int day = 0;
-      int hour = 0;
-      int minute = 0;
-      double second = 0.0;
-
-      HydroCouple::SDK::Temporal::TimeData::julianDayToGregorian(
-        julianDay, year, month, day, hour, minute, second);
-
-      return QStringLiteral("%1-%2-%3 %4:%5:%6")
-        .arg(year, 4, 10, QLatin1Char('0'))
-        .arg(month, 2, 10, QLatin1Char('0'))
-        .arg(day, 2, 10, QLatin1Char('0'))
-        .arg(hour, 2, 10, QLatin1Char('0'))
-        .arg(minute, 2, 10, QLatin1Char('0'))
-        .arg(static_cast<int>(second), 2, 10, QLatin1Char('0'));
+      return dateTimeFromJulianDay(julianDay).toString(
+        QStringLiteral("yyyy-MM-dd HH:mm:ss"));
     }
 
     //! A transport button: icon, tooltip, and nothing else to get wrong.

@@ -25,6 +25,7 @@
 #include "hydrocouplesdk/data/componentdataitem.h"
 #include "hydrocouplesdk/core/dimension.h"
 #include "hydrocouplesdk/core/identity.h"
+#include "hydrocouplesdk/core/valuedefinition.h"
 #include "hydrocouplesdk/spatial/geometryadapters.h"
 #include "hydrocouplesdk/io/meshdefinition.h"
 #include "hydrocouplesdk/spatial/meshadapters.h"
@@ -251,9 +252,14 @@ namespace HydroCouple::Composer::Testing
       StubTimeGeometryItem(std::string_view id, int timeSteps,
                            std::vector<Spatial::IGeometry *> geometries,
                            double firstJulianDay = 2451545.0,
-                           double spacingDays = 1.0)
-        : AbstractComponentDataItem(id, {&m_timeDimension, &m_dimension},
-                                    nullptr, nullptr),
+                           double spacingDays = 1.0,
+                           std::string_view valueCaption = {})
+        : AbstractComponentDataItem(
+            id, {&m_timeDimension, &m_dimension},
+            valueCaption.empty()
+              ? nullptr
+              : HydroCouple::SDK::Quantity::unitLess(valueCaption),
+            nullptr),
           Store(timeSteps, static_cast<int>(geometries.size()), 0.0),
           m_geometries(std::move(geometries)),
           m_timeDimension("time", "Time dimension"),

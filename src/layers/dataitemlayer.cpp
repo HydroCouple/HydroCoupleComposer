@@ -34,8 +34,24 @@ namespace HydroCouple::Composer
 
       const auto *identity = dynamic_cast<const HydroCouple::IIdentity *>(item);
 
-      return identity ? QString::fromStdString(identity->caption())
-                      : QObject::tr("Data item");
+      if (!identity)
+      {
+        return QObject::tr("Data item");
+      }
+
+      // The caption first, then the id. A component that named its item and
+      // gave it no caption still named it, and a layer called nothing at all
+      // cannot be told from another in the tree, the legend or a plot.
+      const QString caption = QString::fromStdString(identity->caption());
+
+      if (!caption.isEmpty())
+      {
+        return caption;
+      }
+
+      const QString id = QString::fromStdString(identity->id());
+
+      return id.isEmpty() ? QObject::tr("Data item") : id;
     }
 
     /*!
@@ -625,6 +641,107 @@ namespace HydroCouple::Composer
     }
 
     return valuesAcrossTime();
+  }
+
+  bool DataItemLayer::valuesOverTime(int feature, QVector<double> &values,
+                                     QString &message) const
+  {
+    values.clear();
+
+    const int levels = timeCount();
+
+    if (!m_item || levels <= 0)
+    {
+      message = QObject::tr("This data item was not recorded through time.");
+      return false;
+    }
+
+    if (feature < 0 || feature >= featureCount())
+    {
+      message = QObject::tr("There is no feature %1 to read.").arg(feature);
+      return false;
+    }
+
+    const std::vector<int64_t> shape = m_item->shape();
+    const int entity = entityAxis();
+
+    if (entity < 0 || entity >= static_cast<int>(shape.size())
+        || kTimeAxis >= static_cast<int>(shape.size()))
+    {
+      message = QObject::tr("The data item's shape has no time and entity "
+                            "axis to read across.");
+      return false;
+    }
+
+    std::vector<int64_t> start(shape.size(), 0);
+    std::vector<int64_t> extent(shape.size(), 1);
+
+    // One entity, every level. Every other axis is pinned to its last index,
+    // matching what the map shows -- so a plot and the map under it are
+    // reading the same layer of a layered item rather than two.
+    for (size_t i = 0; i < shape.size(); ++i)
+    {
+      if (shape[i] <= 0)
+      {
+        message = QObject::tr("The data item has no values to read.");
+        return false;
+      }
+
+      if (static_cast<int>(i) == kTimeAxis)
+      {
+        extent[i] = levels;
+      }
+      else if (static_cast<int>(i) == entity)
+      {
+        start[i] = feature;
+      }
+      else
+      {
+        start[i] = shape[i] - 1;
+      }
+    }
+
+    std::vector<double> buffer(static_cast<size_t>(levels), 0.0);
+    const int64_t bufferShape = levels;
+
+    HydroCouple::BufferDescriptor destination;
+    destination.data = buffer.data();
+    destination.kind = DataKind::Float64;
+    destination.rank = 1;
+    destination.shape = &bufferShape;
+
+    std::string reason;
+
+    if (!m_item->getValuesInto(destination, start, extent, &reason))
+    {
+      message = QString::fromStdString(reason);
+      return false;
+    }
+
+    values.resize(levels);
+
+    for (int level = 0; level < levels; ++level)
+    {
+      values[level] = buffer[static_cast<size_t>(level)];
+    }
+
+    message.clear();
+    return true;
+  }
+
+  QVector<double> DataItemLayer::times() const
+  {
+    QVector<double> instants;
+    const int levels = timeCount();
+
+    instants.reserve(levels);
+
+    for (int level = 0; level < levels; ++level)
+    {
+      instants.append(timeAt(level));
+    }
+
+    return instants;
   }
 
   bool DataItemLayer::refreshValues()

@@ -22,6 +22,7 @@
 #include "ui/panels/attributetablepanel.h"
 #include "ui/panels/layertreepanel.h"
 #include "ui/panels/runbrowserpanel.h"
+#include "ui/panels/seriesplotpanel.h"
 #include "ui/panels/timecontrolpanel.h"
 #include "ui/theme/iconfactory.h"
 #include "ui/theme/thememanager.h"
@@ -1004,6 +1005,16 @@ namespace HydroCouple::Composer
 
     addDockWidget(Qt::BottomDockWidgetArea, runDock);
 
+    // ── Plot ─────────────────────────────────────────────────────────────
+    auto *plotDock = new QDockWidget(tr("Plot"), this);
+    plotDock->setObjectName(QStringLiteral("plotDock"));
+
+    m_seriesPlot = new SeriesPlotPanel(plotDock);
+    m_seriesPlot->setModel(m_layerStack);
+    plotDock->setWidget(m_seriesPlot);
+
+    addDockWidget(Qt::BottomDockWidgetArea, plotDock);
+
     // ── Log ──────────────────────────────────────────────────────────────
     auto *logDock = new QDockWidget(tr("Log"), this);
     logDock->setObjectName(QStringLiteral("logDock"));
@@ -1018,6 +1029,7 @@ namespace HydroCouple::Composer
     // Tabbed with the attribute table: both are things you look *down* at
     // while working on the map above, and only one at a time.
     tabifyDockWidget(attributeDock, runDock);
+    tabifyDockWidget(attributeDock, plotDock);
     tabifyDockWidget(attributeDock, logDock);
     attributeDock->raise();
   }
@@ -1386,6 +1398,11 @@ namespace HydroCouple::Composer
   RunBrowserModel *ComposerMainWindow::runs() const
   {
     return m_runs;
+  }
+
+  SeriesPlotPanel *ComposerMainWindow::seriesPlot() const
+  {
+    return m_seriesPlot;
   }
 
   bool ComposerMainWindow::openRun(const QString &manifestPath,
