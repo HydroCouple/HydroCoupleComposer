@@ -369,6 +369,46 @@ namespace HydroCouple::Composer
               &ComposerMainWindow::onMapToolChosen);
     }
 
+    m_orbitToolAction = new QAction(tr("Or&bit"), this);
+    m_orbitToolAction->setObjectName(QStringLiteral("orbitToolAction"));
+    m_orbitToolAction->setCheckable(true);
+    m_orbitToolAction->setChecked(true);
+    m_orbitToolAction->setToolTip(
+      tr("Drag to turn the scene; click to identify what is underneath."));
+
+    m_sceneSelectToolAction = new QAction(tr("Se&lect in 3D"), this);
+    m_sceneSelectToolAction->setObjectName(
+      QStringLiteral("sceneSelectToolAction"));
+    m_sceneSelectToolAction->setCheckable(true);
+    m_sceneSelectToolAction->setToolTip(
+      tr("Click to select one feature; drag a box to select what it covers."));
+
+    m_sceneZoomInToolAction = new QAction(tr("Zoom In Box (3D)"), this);
+    m_sceneZoomInToolAction->setObjectName(
+      QStringLiteral("sceneZoomInToolAction"));
+    m_sceneZoomInToolAction->setCheckable(true);
+    m_sceneZoomInToolAction->setToolTip(
+      tr("Drag a box to frame the ground under it; click to move closer."));
+
+    m_sceneZoomOutToolAction = new QAction(tr("Zoom Out Box (3D)"), this);
+    m_sceneZoomOutToolAction->setObjectName(
+      QStringLiteral("sceneZoomOutToolAction"));
+    m_sceneZoomOutToolAction->setCheckable(true);
+    m_sceneZoomOutToolAction->setToolTip(
+      tr("Drag a box to fit the view into it; click to move away."));
+
+    auto *sceneToolGroup = new QActionGroup(this);
+    sceneToolGroup->setExclusive(true);
+
+    for (QAction *tool : {m_orbitToolAction, m_sceneSelectToolAction,
+                          m_sceneZoomInToolAction, m_sceneZoomOutToolAction})
+    {
+      sceneToolGroup->addAction(tool);
+
+      connect(tool, &QAction::triggered, this,
+              &ComposerMainWindow::onSceneToolChosen);
+    }
+
     m_perspectiveAction = new QAction(tr("&Perspective"), this);
     m_perspectiveAction->setObjectName(QStringLiteral("perspectiveAction"));
     m_perspectiveAction->setCheckable(true);
@@ -772,6 +812,13 @@ namespace HydroCouple::Composer
 
     m_ribbon->addTab(QStringLiteral("scene"), tr("3D"));
 
+    RibbonGroup *sceneTools =
+      m_ribbon->addGroup(QStringLiteral("scene"), tr("Tools"));
+    sceneTools->addAction(m_orbitToolAction, tr("Orbit"));
+    sceneTools->addAction(m_sceneSelectToolAction, tr("Select"));
+    sceneTools->addAction(m_sceneZoomInToolAction, tr("Zoom In\nBox"));
+    sceneTools->addAction(m_sceneZoomOutToolAction, tr("Zoom Out\nBox"));
+
     RibbonGroup *projection =
       m_ribbon->addGroup(QStringLiteral("scene"), tr("Projection"));
     projection->addAction(m_perspectiveAction, tr("Perspective"));
@@ -833,6 +880,10 @@ namespace HydroCouple::Composer
 
     // The 3D glyph for the projection a 3D view is normally read in, and the
     // extent rectangle for the parallel one, which is what a plan view is.
+    ensureIcon(m_orbitToolAction, QStringLiteral("scene_3d"));
+    ensureIcon(m_sceneSelectToolAction, QStringLiteral("select"));
+    ensureIcon(m_sceneZoomInToolAction, QStringLiteral("zoom_rect"));
+    ensureIcon(m_sceneZoomOutToolAction, QStringLiteral("zoom_rect_out"));
     ensureIcon(m_perspectiveAction, QStringLiteral("scene_3d"));
     ensureIcon(m_orthographicAction, QStringLiteral("extent"));
     ensureIcon(m_addVectorAction, QStringLiteral("add_vector"));
@@ -1265,6 +1316,30 @@ namespace HydroCouple::Composer
     // Brought forward, because a gesture set is a property of a view nobody
     // can use from another tab.
     m_workspace->setCurrentWidget(m_mapCanvas);
+  }
+
+  void ComposerMainWindow::onSceneToolChosen()
+  {
+    SceneToolKind kind = SceneToolKind::Orbit;
+
+    if (m_sceneSelectToolAction->isChecked())
+    {
+      kind = SceneToolKind::Select;
+    }
+    else if (m_sceneZoomInToolAction->isChecked())
+    {
+      kind = SceneToolKind::ZoomIn;
+    }
+    else if (m_sceneZoomOutToolAction->isChecked())
+    {
+      kind = SceneToolKind::ZoomOut;
+    }
+
+    m_sceneView->setToolKind(kind);
+
+    // Brought forward, because a gesture set is a property of a view nobody
+    // can use from another tab.
+    m_workspace->setCurrentWidget(m_sceneView);
   }
 
   void ComposerMainWindow::onProjectionChosen()

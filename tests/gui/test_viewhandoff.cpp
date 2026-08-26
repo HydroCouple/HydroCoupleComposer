@@ -22,9 +22,13 @@
 #include "scene/sceneview.h"
 #include "ui/composermainwindow.h"
 
+#include "vectorprobe.h"
+
 #include <gtest/gtest.h>
 
 #include <QAction>
+#include <QMouseEvent>
+#include <QRubberBand>
 #include <QDoubleSpinBox>
 
 #include <QApplication>
@@ -470,4 +474,270 @@ namespace
       << "showing a rectangle padded it";
   }
 
+}
+
+namespace
+{
+  //! Sends one mouse event of \a type at \a at to \a widget.
+  void sendMouse(QWidget *widget, QEvent::Type type, const QPoint &at,
+                 Qt::MouseButton button)
+  {
+    QMouseEvent event(type, QPointF(at), widget->mapToGlobal(QPointF(at)),
+                      button,
+                      type == QEvent::MouseMove ? Qt::LeftButton : button,
+                      Qt::NoModifier);
+    QApplication::sendEvent(widget, &event);
+  }
+
+  void dragOn(QWidget *widget, const QPoint &from, const QPoint &to)
+  {
+    sendMouse(widget, QEvent::MouseButtonPress, from, Qt::LeftButton);
+    sendMouse(widget, QEvent::MouseMove, to, Qt::LeftButton);
+    sendMouse(widget, QEvent::MouseButtonRelease, to, Qt::LeftButton);
+  }
+}
+
+TEST_F(ViewHandoffTest, TheSceneStartsUnderOrbitAndDraggingTurnsIt)
+{
+  addTerrain();
+  showTab(m_window->sceneView());
+
+  SceneView *view = m_window->sceneView();
+
+  EXPECT_EQ(view->toolKind(), SceneToolKind::Orbit)
+    << "the scene opened under a gesture set nobody chose";
+
+  const double azimuth = view->camera().azimuth();
+
+  dragOn(view, QPoint(200, 150), QPoint(300, 150));
+
+  EXPECT_NE(view->camera().azimuth(), azimuth)
+    << "dragging under Orbit did not turn the scene";
+}
+
+TEST_F(ViewHandoffTest, ABandInTheSceneFramesTheGroundUnderIt)
+{
+  addTerrain();
+  showTab(m_window->sceneView());
+
+  SceneView *view = m_window->sceneView();
+
+  // Straight down, where a screen rectangle covers a ground rectangle
+  // exactly rather than a trapezoid.
+  Camera camera = view->camera();
+  camera.setElevation(90.0);
+  view->setCamera(camera);
+
+  view->setToolKind(SceneToolKind::ZoomIn);
+  EXPECT_EQ(view->toolKind(), SceneToolKind::ZoomIn);
+
+  const QRectF before = view->groundExtent();
+  ASSERT_FALSE(before.isEmpty());
+
+  const QRect band(view->width() / 4, view->height() / 4,
+                   view->width() / 4, view->height() / 4);
+
+  QRectF ground;
+  ASSERT_TRUE(view->groundRectUnder(band, ground))
+    << "the band's corners did not land on the terrain";
+
+  dragOn(view, band.topLeft(), band.bottomRight());
+
+  const QRectF after = view->groundExtent();
+
+  EXPECT_LT(after.width(), before.width())
+    << "framing a box did not move closer";
+
+  // It framed what was dragged, not merely something smaller: the band's
+  // own ground rectangle has to be inside what is now shown.
+  EXPECT_LT(std::abs(after.center().x() - ground.center().x()),
+            before.width() * 0.25)
+    << "it zoomed somewhere other than the box that was dragged";
+}
+
+TEST_F(ViewHandoffTest, ABandUnderZoomOutWidensTheScene)
+{
+  addTerrain();
+  showTab(m_window->sceneView());
+
+  SceneView *view = m_window->sceneView();
+
+  Camera camera = view->camera();
+  camera.setElevation(90.0);
+  view->setCamera(camera);
+
+  view->setToolKind(SceneToolKind::ZoomOut);
+
+  const QRectF before = view->groundExtent();
+  ASSERT_FALSE(before.isEmpty());
+
+  // A quarter of the viewport: everything on screen has to fit inside it,
+  // so the view widens by about four. Asserted as about four rather than as
+  // "wider", because a fixed step of two also widens and is exactly the
+  // mistake this is here to catch.
+  dragOn(view, QPoint(view->width() / 4, view->height() / 4),
+         QPoint(view->width() / 2, view->height() / 2));
+
+  const QRectF after = view->groundExtent();
+  const double ratio = after.width() / before.width();
+
+  EXPECT_GT(ratio, 3.0)
+    << "the band widened by " << ratio << ", so its size was ignored";
+  EXPECT_LT(ratio, 5.5) << "it widened by " << ratio;
+}
+
+TEST_F(ViewHandoffTest, ABandInTheSceneSelectsWhatItCovers)
+{
+  addTerrain();
+
+  auto *network = new Testing::VectorProbe(QStringLiteral("network"));
+  // One line, placed below once the band's ground rectangle has been
+  // measured. Nothing else is added: a second feature put somewhere guessed
+  // would end up under whichever band this test later claims is empty, and
+  // a perspective camera makes where that is a matter of field of view
+  // rather than of arithmetic anyone should do by hand.
+  network->addLine({QPointF(-9000.0, -9000.0), QPointF(-9000.0, -8990.0)},
+                   QStringLiteral("far away"));
+
+  ASSERT_GE(m_window->layerStack()->addLayer(network), 0);
+
+  showTab(m_window->sceneView());
+
+  SceneView *view = m_window->sceneView();
+
+  // Pointed at the network explicitly, through the same entry point the map
+  // hands its extent over by. The automatic first framing does not run in
+  // these offscreen tests, and a camera left on its default sits two world
+  // units across, covering none of the network below.
+  view->showGroundExtent(
+    network->extent().adjusted(-60.0, -60.0, 60.0, 60.0));
+  QApplication::processEvents();
+
+  view->setToolKind(SceneToolKind::Select);
+
+  // A band across the middle of the view, not out to its corners. A corner
+  // ray of a wide, shallow viewport leaves the eye at better than fifty
+  // degrees off axis and grazes the terrain rather than meeting it, so a
+  // band dragged right to the edges is testing the marcher rather than the
+  // tool. Noted rather than papered over — see the commit.
+  const QRect band(view->width() / 4, view->height() / 4,
+                   view->width() / 2, view->height() / 2);
+
+  QRectF ground;
+  ASSERT_TRUE(view->groundRectUnder(band, ground))
+    << "the band's corners did not land";
+
+  // The features go where the band actually looks, measured rather than
+  // assumed. A perspective camera compresses ground toward the edges, so
+  // how much of the world the middle half of the screen covers depends on
+  // the field of view — and a fixture that guessed would be testing the
+  // guess.
+  network->addLine({ground.center() + QPointF(0.0, -ground.height() * 0.2),
+                    ground.center() + QPointF(0.0, ground.height() * 0.2)},
+                   QStringLiteral("centre"));
+
+  // What the band covers, asked of the layer directly. The test is not that
+  // these two agree — they share pickIn — but that dragging reaches it at
+  // all, through the view, the stack and the layer, and that it takes more
+  // than one.
+  const QSet<int> expected = network->pickIn(ground);
+  ASSERT_FALSE(expected.isEmpty())
+    << "the band covers no part of the network, so it proves nothing";
+
+  dragOn(view, band.topLeft(), band.bottomRight());
+
+  EXPECT_EQ(network->selection(), expected)
+    << "dragging a band in 3D did not reach the layer's selection";
+
+  // And a band over ground with nothing on it clears the selection, exactly
+  // as the map's does. The band is moved off the features and checked
+  // against them first, so "empty" is a fact about this fixture rather than
+  // an assumption about where the camera happens to be looking.
+  network->setSelection({0});
+  ASSERT_FALSE(network->selection().isEmpty());
+
+  const QRect elsewhere = band.translated(0, -band.height());
+
+  QRectF emptyGround;
+  ASSERT_TRUE(view->groundRectUnder(elsewhere, emptyGround));
+  ASSERT_TRUE(network->pickIn(emptyGround).isEmpty())
+    << "the band moved off the features still covers some of them";
+
+  view->selectIn(elsewhere);
+
+  EXPECT_TRUE(network->selection().isEmpty())
+    << "a band over empty ground left the previous selection standing";
+}
+
+TEST_F(ViewHandoffTest, SwitchingSceneToolsMidDragLeavesNoBandBehind)
+{
+  addTerrain();
+  showTab(m_window->sceneView());
+
+  SceneView *view = m_window->sceneView();
+  view->setToolKind(SceneToolKind::ZoomIn);
+
+  sendMouse(view, QEvent::MouseButtonPress, QPoint(60, 40), Qt::LeftButton);
+  sendMouse(view, QEvent::MouseMove, QPoint(160, 120), Qt::LeftButton);
+
+  auto *band =
+    view->findChild<QRubberBand *>(QStringLiteral("sceneRubberBand"));
+  ASSERT_NE(band, nullptr) << "no band, so the drag is invisible";
+  ASSERT_TRUE(band->isVisibleTo(view));
+
+  // To the *other* band tool, not to Orbit: a stale gesture released under
+  // Orbit does nothing anyway, so switching there would hide whether the
+  // gesture was abandoned or merely harmless.
+  view->setToolKind(SceneToolKind::ZoomOut);
+
+  EXPECT_FALSE(band->isVisibleTo(view))
+    << "a band belonging to a tool that is no longer active is still on "
+       "screen, with nothing left to finish it";
+
+  // And the abandoned gesture does not finish when the button comes up: a
+  // release that still acted would zoom by a box the user had already left
+  // behind, under a tool they had just left.
+  const QRectF before = view->groundExtent();
+
+  sendMouse(view, QEvent::MouseButtonRelease, QPoint(160, 120),
+            Qt::LeftButton);
+
+  EXPECT_EQ(view->groundExtent(), before)
+    << "the abandoned band still acted on release";
+}
+
+TEST_F(ViewHandoffTest, TheSceneToolButtonsReachTheView)
+{
+  const struct
+  {
+      const char *name;
+      SceneToolKind kind;
+  } tools[] = {
+    {"sceneSelectToolAction", SceneToolKind::Select},
+    {"sceneZoomInToolAction", SceneToolKind::ZoomIn},
+    {"sceneZoomOutToolAction", SceneToolKind::ZoomOut},
+    {"orbitToolAction", SceneToolKind::Orbit},
+  };
+
+  for (const auto &tool : tools)
+  {
+    auto *action =
+      m_window->findChild<QAction *>(QLatin1String(tool.name));
+
+    ASSERT_NE(action, nullptr) << tool.name;
+
+    action->trigger();
+
+    EXPECT_EQ(m_window->sceneView()->toolKind(), tool.kind) << tool.name;
+  }
+
+  // Exclusive, so the UI cannot show a state the view cannot be in.
+  auto *orbit = m_window->findChild<QAction *>(QStringLiteral("orbitToolAction"));
+  auto *select =
+    m_window->findChild<QAction *>(QStringLiteral("sceneSelectToolAction"));
+
+  ASSERT_NE(orbit, nullptr);
+  ASSERT_NE(select, nullptr);
+  EXPECT_TRUE(orbit->isChecked());
+  EXPECT_FALSE(select->isChecked());
 }

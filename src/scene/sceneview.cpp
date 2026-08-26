@@ -2,9 +2,11 @@
 
 #include "layers/featurelayer.h"
 #include "map/layerstackmodel.h"
+#include "map/maplayer.h"
 #include "pick/terrainray.h"
 
 #include <QMouseEvent>
+#include <QRubberBand>
 #include <QWheelEvent>
 
 #include <rhi/qrhi.h>
@@ -37,6 +39,9 @@ namespace HydroCouple::Composer
     constexpr double kDegreesPerPixel = 0.4;
 
     constexpr double kZoomPerNotch = 1.15;
+
+    //! What a click under the zoom tools moves by, matching the map's.
+    constexpr double kBandZoomFactor = 2.0;
 
   }
 
@@ -259,17 +264,46 @@ namespace HydroCouple::Composer
     m_pressPosition = event->pos();
     m_lastMousePosition = event->pos();
 
-    // Left orbits, middle and right pan — the convention every GIS 3D view
-    // uses, so muscle memory carries over.
-    m_orbiting = event->button() == Qt::LeftButton;
+    // Middle and right always pan, under every tool — the convention every
+    // GIS 3D view uses, so muscle memory carries over and panning stays
+    // reachable whatever the left button has been given to.
     m_panning = event->button() == Qt::MiddleButton ||
                 event->button() == Qt::RightButton;
+
+    m_orbiting = event->button() == Qt::LeftButton
+                 && m_toolKind == SceneToolKind::Orbit;
+
+    m_banding = event->button() == Qt::LeftButton
+                && m_toolKind != SceneToolKind::Orbit;
+
+    if (m_banding)
+    {
+      if (!m_band)
+      {
+        m_band = std::make_unique<QRubberBand>(QRubberBand::Rectangle, this);
+        m_band->setObjectName(QStringLiteral("sceneRubberBand"));
+      }
+
+      m_band->setGeometry(QRect(m_pressPosition, QSize()));
+      m_band->show();
+    }
 
     QRhiWidget::mousePressEvent(event);
   }
 
   void SceneView::mouseMoveEvent(QMouseEvent *event)
   {
+    if (m_banding && m_band)
+    {
+      // normalized(), so dragging up and to the left draws a rectangle
+      // rather than a negative one that shows nothing.
+      m_band->setGeometry(QRect(m_pressPosition, event->pos()).normalized());
+
+      event->accept();
+
+      return;
+    }
+
     if (!m_orbiting && !m_panning)
     {
       QRhiWidget::mouseMoveEvent(event);
@@ -303,6 +337,30 @@ namespace HydroCouple::Composer
 
   void SceneView::mouseReleaseEvent(QMouseEvent *event)
   {
+    if (m_banding && event->button() == Qt::LeftButton)
+    {
+      const QRect rectangle =
+        QRect(m_pressPosition, event->pos()).normalized();
+
+      m_banding = false;
+
+      if (m_band)
+      {
+        m_band->hide();
+      }
+
+      // Width and height explicitly, not isNull(): a zero-area QRect reports
+      // itself null, which would throw away a legitimate thin drag.
+      const bool dragged = rectangle.width() > kClickSlopPixels
+                           && rectangle.height() > kClickSlopPixels;
+
+      applyBand(rectangle, dragged, event->pos());
+
+      event->accept();
+
+      return;
+    }
+
     const bool wasOrbiting = m_orbiting;
 
     m_orbiting = false;
@@ -329,6 +387,209 @@ namespace HydroCouple::Composer
     }
 
     QRhiWidget::mouseReleaseEvent(event);
+  }
+
+  SceneToolKind SceneView::toolKind() const
+  {
+    return m_toolKind;
+  }
+
+  void SceneView::setToolKind(SceneToolKind kind)
+  {
+    if (m_toolKind == kind)
+    {
+      return;
+    }
+
+    m_toolKind = kind;
+
+    // Abandoned rather than carried across: a band belonging to a tool that
+    // is no longer active would stay on screen with nothing to finish it.
+    m_banding = false;
+
+    if (m_band)
+    {
+      m_band->hide();
+    }
+
+    setCursor(kind == SceneToolKind::Orbit ? Qt::ArrowCursor
+                                           : Qt::CrossCursor);
+  }
+
+  bool SceneView::groundOrPlaneUnder(const QPoint &pixel,
+                                     QPointF &ground) const
+  {
+    if (groundUnder(pixel, ground))
+    {
+      return true;
+    }
+
+    QVector3D origin;
+    QVector3D direction;
+
+    if (!m_camera.rayThrough(QPointF(pixel), size(), origin, direction))
+    {
+      return false;
+    }
+
+    // Nullptr terrain, which is how rayGroundPoint spells "the plane at
+    // z = 0" — the surface the map is drawn on when nothing rises above it.
+    return rayGroundPoint(origin, direction, nullptr, m_camera.farPlane(),
+                          ground);
+  }
+
+  bool SceneView::groundRectUnder(const QRect &pixels, QRectF &ground) const
+  {
+    const QPoint corners[4] = {pixels.topLeft(), pixels.topRight(),
+                               pixels.bottomRight(), pixels.bottomLeft()};
+
+    QPointF first;
+
+    if (!groundOrPlaneUnder(corners[0], first))
+    {
+      return false;
+    }
+
+    QRectF box(first, first);
+
+    for (int corner = 1; corner < 4; ++corner)
+    {
+      QPointF landed;
+
+      // A corner that misses the terrain falls back to the ground plane
+      // rather than failing the gesture — see groundOrPlaneUnder().
+      if (!groundOrPlaneUnder(corners[corner], landed))
+      {
+        return false;
+      }
+
+      // Grown by hand rather than with united(), whose argument is a
+      // zero-area rectangle around a point — and QRectF calls that null.
+      box.setLeft(std::min(box.left(), landed.x()));
+      box.setRight(std::max(box.right(), landed.x()));
+      box.setTop(std::min(box.top(), landed.y()));
+      box.setBottom(std::max(box.bottom(), landed.y()));
+    }
+
+    ground = box.normalized();
+
+    return !ground.isEmpty();
+  }
+
+  void SceneView::selectIn(const QRect &pixels)
+  {
+    LayerStackModel *stack = m_renderer.model();
+
+    QRectF ground;
+
+    if (!stack || !groundRectUnder(pixels, ground))
+    {
+      return;
+    }
+
+    // layers() is top-first, so the first that catches anything is the one
+    // the user can see — the same rule the map's band follows, because the
+    // two views share one selection.
+    for (MapLayer *layer : stack->layers())
+    {
+      if (!layer->isVisible())
+      {
+        continue;
+      }
+
+      auto *features = dynamic_cast<FeatureLayer *>(layer);
+
+      if (!features)
+      {
+        continue;
+      }
+
+      const QSet<int> caught = features->pickIn(ground);
+
+      if (!caught.isEmpty())
+      {
+        stack->selectOnly(features, caught);
+
+        Q_EMIT featurePicked(features, *caught.constBegin());
+
+        return;
+      }
+    }
+
+    stack->selectOnly(nullptr, QSet<int>{});
+
+    Q_EMIT featurePicked(nullptr, -1);
+  }
+
+  void SceneView::applyBand(const QRect &rectangle, bool dragged,
+                            const QPoint &pixel)
+  {
+    switch (m_toolKind)
+    {
+      case SceneToolKind::Select:
+        if (dragged)
+        {
+          selectIn(rectangle);
+        }
+        else
+        {
+          int feature = -1;
+          FeatureLayer *layer = pickAt(pixel, feature);
+
+          if (LayerStackModel *stack = m_renderer.model())
+          {
+            stack->selectOnly(layer, feature);
+          }
+
+          Q_EMIT featurePicked(layer, feature);
+        }
+
+        break;
+
+      case SceneToolKind::ZoomIn:
+      {
+        QRectF ground;
+
+        if (dragged && groundRectUnder(rectangle, ground))
+        {
+          showGroundExtent(ground);
+        }
+        else
+        {
+          m_camera.dolly(1.0 / kBandZoomFactor);
+
+          update();
+          Q_EMIT cameraChanged();
+        }
+
+        break;
+      }
+
+      case SceneToolKind::ZoomOut:
+      {
+        // The viewport over the box, on whichever axis needs the most room:
+        // fitting the view *into* the box is what makes this the inverse of
+        // zooming in on the same box rather than merely the other direction.
+        const double factor =
+          dragged && width() > 0 && height() > 0
+            ? std::min(double(rectangle.width()) / double(width()),
+                       double(rectangle.height()) / double(height()))
+            : 1.0 / kBandZoomFactor;
+
+        if (factor > 0.0)
+        {
+          m_camera.dolly(1.0 / factor);
+
+          update();
+          Q_EMIT cameraChanged();
+        }
+
+        break;
+      }
+
+      case SceneToolKind::Orbit:
+        break;
+    }
   }
 
   bool SceneView::groundUnder(const QPoint &pixel, QPointF &ground) const

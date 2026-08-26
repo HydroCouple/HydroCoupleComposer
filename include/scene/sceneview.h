@@ -26,8 +26,34 @@
 #include <QPoint>
 #include <QRhiWidget>
 
+#include <memory>
+
+class QRubberBand;
+
 namespace HydroCouple::Composer
 {
+  /*!
+   * \brief Which gesture set the 3D view is under.
+   *
+   * The map's four, with Orbit where Pan is: the two views are read the same
+   * way and should be driven the same way, and turning a scene is what
+   * dragging in one is for.
+   */
+  enum class SceneToolKind
+  {
+    //! Drag to orbit, click to identify. The default.
+    Orbit,
+
+    //! Click to select one feature; drag a box to take what it covers.
+    Select,
+
+    //! Drag a box to frame the ground under it; click to move closer.
+    ZoomIn,
+
+    //! Drag a box to fit the view into it; click to move away.
+    ZoomOut,
+  };
+
   class FeatureLayer;
   class LayerStackModel;
   class MapLayer;
@@ -130,6 +156,47 @@ namespace HydroCouple::Composer
        */
       void setProjection(CameraProjection projection);
 
+      //! \returns Which gesture set the view is under.
+      [[nodiscard]] SceneToolKind toolKind() const;
+
+      /*!
+       * \brief Switches gesture set.
+       *
+       * A band in progress is abandoned, so one belonging to a tool that is
+       * no longer active cannot be left on screen.
+       *
+       * \param kind The gestures wanted.
+       */
+      void setToolKind(SceneToolKind kind);
+
+      /*!
+       * \brief The ground rectangle a screen rectangle covers.
+       *
+       * The bounding rectangle of where its four corners land, which is
+       * exact looking straight down and generous when tilted — a tilted
+       * camera sees a trapezoid, and its bounding box takes in a little
+       * more ground than the pixels enclosed. Stated rather than hidden:
+       * the alternative is a quadrilateral test that the layers have no
+       * entry point for.
+       *
+       * \param pixels Screen rectangle.
+       * \param[out] ground The ground it covers, in the map's CRS.
+       * \returns False when a corner does not land on the terrain at all.
+       */
+      [[nodiscard]] bool groundRectUnder(const QRect &pixels,
+                                         QRectF &ground) const;
+
+      /*!
+       * \brief Selects every feature under \a pixels.
+       *
+       * In the topmost visible layer that catches anything, exactly as the
+       * map's band does — the two views share one selection, so they have to
+       * share the rule that decides it.
+       *
+       * \param pixels Screen rectangle to select within.
+       */
+      void selectIn(const QRect &pixels);
+
       /*!
        * \brief The colour drawn behind the scene.
        */
@@ -214,6 +281,34 @@ namespace HydroCouple::Composer
       //! Frames the whole scene the first time there is something to frame.
       void frameOnFirstGeometry();
 
+      /*!
+       * \brief Acts on a finished band, per the active tool.
+       * \param rectangle The band's geometry, in widget pixels.
+       * \param dragged False when it was too small to be a drag.
+       * \param pixel Where the release landed.
+       */
+      void applyBand(const QRect &rectangle, bool dragged,
+                     const QPoint &pixel);
+
+      /*!
+       * \brief Where \a pixel meets the terrain, or failing that the ground.
+       *
+       * A band's corner routinely points past the edge of a terrain that
+       * covers only the modelled catchment, and refusing the whole gesture
+       * because one corner did would make the tool unusable exactly where
+       * models end. The plane at z = 0 is where the map's own geometry
+       * lives, so it is the right answer there rather than a guess.
+       *
+       * Distinct from groundUnder(), which a *click* uses and where failing
+       * is correct: clicking the sky should pick nothing.
+       *
+       * \param pixel Widget position.
+       * \param[out] ground Where it landed, in the map's CRS.
+       * \returns False only when the ray meets neither.
+       */
+      [[nodiscard]] bool groundOrPlaneUnder(const QPoint &pixel,
+                                            QPointF &ground) const;
+
       SceneRenderer m_renderer;
       Camera m_camera;
       QColor m_background = QColor(0x1a, 0x1d, 0x21);
@@ -222,6 +317,12 @@ namespace HydroCouple::Composer
       QPoint m_lastMousePosition;
       bool m_orbiting = false;
       bool m_panning = false;
+      bool m_banding = false;
+
+      SceneToolKind m_toolKind = SceneToolKind::Orbit;
+
+      //! Built on first use, because a view nobody drags never needs one.
+      std::unique_ptr<QRubberBand> m_band;
       bool m_framed = false;
   };
 
