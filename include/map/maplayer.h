@@ -249,11 +249,15 @@ namespace HydroCouple::Composer
       void notifyExtentChanged();
 
       /*!
-       * \brief Called after the map's CRS changes, for subclasses.
+       * \brief Called after either end of the projection changes.
        *
-       * A layer that caches reprojected geometry rebuilds it here.
+       * A layer that caches reprojected geometry rebuilds it here. Named for
+       * the projection rather than for the map's CRS because both ends move
+       * it: assigning the layer's own CRS invalidates exactly the same cache
+       * as changing the map's, and a hook that fired for only one of them
+       * left an assigned layer drawing where its old CRS had put it.
        */
-      virtual void onMapCrsChanged();
+      virtual void onProjectionChanged();
 
     private:
       QString m_id;

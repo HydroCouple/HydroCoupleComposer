@@ -100,6 +100,8 @@ set(COMPOSER_SOURCES
     src/plugins/componentlibrary.cpp
     include/plugins/componentregistry.h
     src/plugins/componentregistry.cpp
+    include/gis/crscatalog.h
+    src/gis/crscatalog.cpp
     include/gis/spatialreference.h
     src/gis/spatialreference.cpp
     include/project/presentation.h
@@ -183,6 +185,8 @@ set(COMPOSER_SOURCES
     src/scene/sceneimage.cpp
     include/scene/sceneview.h
     src/scene/sceneview.cpp
+    include/ui/dialogs/crsselectiondialog.h
+    src/ui/dialogs/crsselectiondialog.cpp
     include/ui/dialogs/layerpropertiesdialog.h
     src/ui/dialogs/layerpropertiesdialog.cpp
     include/ui/panels/layertreepanel.h

@@ -61,10 +61,10 @@ namespace HydroCouple::Composer
   void MapLayer::setMapCrs(std::shared_ptr<SpatialReference> crs)
   {
     m_mapCrs = std::move(crs);
-    onMapCrsChanged();
+    onProjectionChanged();
   }
 
-  void MapLayer::onMapCrsChanged()
+  void MapLayer::onProjectionChanged()
   {
   }
 
@@ -136,6 +136,12 @@ namespace HydroCouple::Composer
   void MapLayer::setCrs(std::shared_ptr<SpatialReference> crs)
   {
     m_crs = std::move(crs);
+
+    // Both ends of the projection matter, not just the map's: a layer that
+    // caches geometry reprojected from its own CRS into the map's holds a
+    // cache that is now wrong, and without this it goes on drawing in the
+    // place the old CRS put it.
+    onProjectionChanged();
 
     // The extent is unchanged in the layer's own coordinates, but its
     // position on a map in any other CRS is not, so listeners that placed it

@@ -125,7 +125,7 @@ namespace HydroCouple::Composer
       [[nodiscard]] Bounds3D sceneBounds() const override;
 
     protected:
-      void onMapCrsChanged() override;
+      void onProjectionChanged() override;
 
     private:
       GdalRasterLayer(const QString &name, const QString &filePath);

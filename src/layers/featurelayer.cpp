@@ -172,7 +172,7 @@ namespace HydroCouple::Composer
     }
   }
 
-  void FeatureLayer::onMapCrsChanged()
+  void FeatureLayer::onProjectionChanged()
   {
     m_projectionValid = false;
 

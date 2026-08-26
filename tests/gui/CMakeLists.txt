@@ -37,6 +37,7 @@ composer_add_gui_test(test_mapcanvas)
 # drawn is only observable in pixels.
 composer_add_gui_test(test_styling)
 composer_add_gui_test(test_labelling)
+composer_add_gui_test(test_crs)
 composer_add_gui_test(test_layerproperties)
 
 # C1d — basemaps and GDAL import. The tile-grid suite is arithmetic; the

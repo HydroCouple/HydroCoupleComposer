@@ -302,7 +302,7 @@ namespace HydroCouple::Composer
       [[nodiscard]] double terrainResolution() const override;
 
     protected:
-      void onMapCrsChanged() override;
+      void onProjectionChanged() override;
 
     private:
       MeshLayer(const QString &name, MeshEntity entity);

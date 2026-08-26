@@ -13,6 +13,7 @@
 #include "scene/sceneview.h"
 #include "map/maplayer.h"
 #include "project/hcpimporter.h"
+#include "ui/dialogs/crsselectiondialog.h"
 #include "ui/dialogs/layerpropertiesdialog.h"
 #include "ui/panels/attributetablepanel.h"
 #include "ui/panels/layertreepanel.h"
@@ -333,6 +334,11 @@ namespace HydroCouple::Composer
     connect(m_layerPropertiesAction, &QAction::triggered, this,
             [this] { m_layerTree->openProperties(); });
 
+    m_mapCrsAction = new QAction(tr("Map &Coordinate System…"), this);
+    m_mapCrsAction->setObjectName(QStringLiteral("mapCrsAction"));
+    connect(m_mapCrsAction, &QAction::triggered, this,
+            &ComposerMainWindow::onSetMapCrs);
+
     m_zoomOutAction = new QAction(tr("Zoom &Out"), this);
     m_zoomOutAction->setObjectName(QStringLiteral("zoomOutAction"));
     m_zoomOutAction->setShortcut(QKeySequence::ZoomOut);
@@ -556,6 +562,8 @@ namespace HydroCouple::Composer
               [this, name = provider.name] { setBasemap(name); });
     }
 
+    viewMenu->addAction(m_mapCrsAction);
+
     viewMenu->addSeparator();
     viewMenu->addAction(m_zoomFullAction);
     viewMenu->addAction(m_zoomInAction);
@@ -694,6 +702,10 @@ namespace HydroCouple::Composer
       m_ribbon->addGroup(QStringLiteral("map"), tr("Symbology"));
     symbology->addAction(m_layerPropertiesAction, tr("Layer\nProperties"));
 
+    RibbonGroup *reference =
+      m_ribbon->addGroup(QStringLiteral("map"), tr("Reference"));
+    reference->addAction(m_mapCrsAction, tr("Coordinate\nSystem"));
+
     m_ribbon->addTab(QStringLiteral("view"), tr("View"));
 
     RibbonGroup *appearance =
@@ -718,6 +730,11 @@ namespace HydroCouple::Composer
     ensureIcon(m_zoomInAction, QStringLiteral("zoomin"));
     ensureIcon(m_zoomOutAction, QStringLiteral("zoomout"));
     ensureIcon(m_layerPropertiesAction, QStringLiteral("layer_styling"));
+
+    // The globe, the same glyph the Map tab carries: a coordinate system is
+    // the one thing on the ribbon that is about the earth rather than about
+    // the data drawn on it.
+    ensureIcon(m_mapCrsAction, QStringLiteral("globe"));
     ensureIcon(m_addVectorAction, QStringLiteral("add_vector"));
     ensureIcon(m_addRasterAction, QStringLiteral("add_raster"));
     ensureIcon(m_addComponentLayersAction, QStringLiteral("add_component_layers"));
@@ -1074,6 +1091,40 @@ namespace HydroCouple::Composer
     {
       log(tr("Updated %1.").arg(layer->name()));
     }
+  }
+
+  void ComposerMainWindow::onSetMapCrs()
+  {
+    // Shown from an action's triggered() — a release, never a press: a modal
+    // opened from a mouse press wedges input on macOS.
+    CrsSelectionDialog chooser(this);
+    chooser.setCurrentCrs(m_mapCanvas->crs());
+
+    if (chooser.exec() != QDialog::Accepted)
+    {
+      return;
+    }
+
+    QString message;
+    std::shared_ptr<SpatialReference> chosen = chooser.selectedCrs(message);
+
+    if (!chosen)
+    {
+      QMessageBox::warning(this, tr("Cannot use that system"), message);
+
+      return;
+    }
+
+    const QString described =
+      QStringLiteral("%1 — %2")
+        .arg(chooser.selectedAuthCode(), chosen->description());
+
+    // Nothing is converted: every layer keeps its own coordinates and is
+    // reprojected as it is drawn, so changing the map's system re-draws the
+    // stack rather than rewriting it.
+    m_mapCanvas->setCrs(std::move(chosen));
+
+    log(tr("Map coordinate system: %1").arg(described));
   }
 
   void ComposerMainWindow::createStatusBar()

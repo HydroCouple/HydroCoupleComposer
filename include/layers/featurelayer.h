@@ -245,7 +245,7 @@ namespace HydroCouple::Composer
         const;
 
     protected:
-      void onMapCrsChanged() override;
+      void onProjectionChanged() override;
 
       /*!
        * \brief Declares the attribute fields, in value order.

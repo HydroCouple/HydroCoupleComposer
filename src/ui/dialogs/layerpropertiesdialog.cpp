@@ -2,6 +2,7 @@
 
 #include "gis/spatialreference.h"
 #include "map/maplayer.h"
+#include "ui/dialogs/crsselectiondialog.h"
 #include "render/attributeprovider.h"
 #include "render/layerstyle.h"
 
@@ -11,7 +12,9 @@
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QFormLayout>
+#include <QHBoxLayout>
 #include <QLabel>
+#include <QMessageBox>
 #include <QLineEdit>
 #include <QPainter>
 #include <QPixmap>
@@ -255,7 +258,105 @@ namespace HydroCouple::Composer
                  factLabel(source.isEmpty() ? tr("Built in memory") : source,
                            page, QStringLiteral("layerSourceLabel")));
 
+    m_crsLabel = factLabel(QString(), page, QStringLiteral("layerCrsLabel"));
+
+    auto *assign = new QPushButton(tr("Assign…"), page);
+    assign->setObjectName(QStringLiteral("assignCrsButton"));
+    assign->setToolTip(
+      tr("Declare what system this layer's coordinates are already in. This "
+         "does not move them."));
+
+    // From clicked(), a release — a modal opened from a mouse press wedges
+    // input on macOS.
+    connect(assign, &QPushButton::clicked, this,
+            [this] { assignCrs(); });
+
+    auto *crsRow = new QWidget(page);
+    auto *crsLayout = new QHBoxLayout(crsRow);
+    crsLayout->setContentsMargins(0, 0, 0, 0);
+    crsLayout->addWidget(m_crsLabel, 1);
+    crsLayout->addWidget(assign);
+
+    form->addRow(tr("Coordinate system"), crsRow);
+
+    refreshCrsRow();
+
     return page;
+  }
+
+  void LayerPropertiesDialog::refreshCrsRow()
+  {
+    if (!m_crsLabel)
+    {
+      return;
+    }
+
+    if (m_pendingCrs)
+    {
+      // Marked as pending rather than shown plainly, because until Apply the
+      // layer still holds the other one and the map still draws it there.
+      m_crsLabel->setText(tr("%1 — will be assigned")
+                            .arg(describeCrs(m_pendingCrs.get())));
+
+      return;
+    }
+
+    m_crsLabel->setText(describeCrs(m_layer ? m_layer->crs() : nullptr));
+  }
+
+  void LayerPropertiesDialog::assignCrs()
+  {
+    if (!m_layer)
+    {
+      return;
+    }
+
+    CrsSelectionDialog chooser(this);
+    chooser.setCurrentCrs(m_pendingCrs ? m_pendingCrs.get() : m_layer->crs());
+
+    if (chooser.exec() != QDialog::Accepted)
+    {
+      return;
+    }
+
+    QString message;
+    std::shared_ptr<SpatialReference> chosen = chooser.selectedCrs(message);
+
+    if (!chosen)
+    {
+      QMessageBox::warning(this, tr("Cannot use that system"), message);
+
+      return;
+    }
+
+    // A layer that already declares a system is the case worth stopping on:
+    // whoever is here usually means "put this in that system", which assigning
+    // does not do. The map already reprojects on the fly, so there is nothing
+    // to move — but saying that once is cheaper than a map silently landing
+    // in the wrong hemisphere.
+    if (m_layer->crs() && !m_layer->crs()->isSameAs(*chosen))
+    {
+      const QMessageBox::StandardButton answer = QMessageBox::question(
+        this, tr("Assign a different coordinate system?"),
+        tr("%1 is currently declared as %2.\n\n"
+           "Assigning %3 does not move its coordinates — it changes what they "
+           "are taken to mean, which is a correction to make when the file "
+           "declares the wrong system. The map already draws every layer in "
+           "the map's own system, so nothing needs converting to see them "
+           "together.")
+          .arg(m_layer->name(), describeCrs(m_layer->crs()),
+               describeCrs(chosen.get())),
+        QMessageBox::Cancel | QMessageBox::Ok, QMessageBox::Cancel);
+
+      if (answer != QMessageBox::Ok)
+      {
+        return;
+      }
+    }
+
+    m_pendingCrs = std::move(chosen);
+
+    refreshCrsRow();
   }
 
   QWidget *LayerPropertiesDialog::buildSymbologyTab()
@@ -510,6 +611,13 @@ namespace HydroCouple::Composer
     if (!m_layer)
     {
       return false;
+    }
+
+    if (m_pendingCrs)
+    {
+      m_layer->setCrs(m_pendingCrs);
+      m_pendingCrs.reset();
+      refreshCrsRow();
     }
 
     m_layer->setName(m_nameEdit->text());

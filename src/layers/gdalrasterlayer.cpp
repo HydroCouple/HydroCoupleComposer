@@ -194,7 +194,7 @@ namespace HydroCouple::Composer
     return m_extent;
   }
 
-  void GdalRasterLayer::onMapCrsChanged()
+  void GdalRasterLayer::onProjectionChanged()
   {
     if (m_warped)
     {

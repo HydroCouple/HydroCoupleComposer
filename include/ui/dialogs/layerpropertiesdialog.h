@@ -19,6 +19,8 @@
 
 #include <QDialog>
 
+#include <memory>
+
 class QCheckBox;
 class QComboBox;
 class QDoubleSpinBox;
@@ -31,6 +33,7 @@ class QTabWidget;
 namespace HydroCouple::Composer
 {
   class MapLayer;
+  class SpatialReference;
 
   /*!
    * \brief Edits one layer's identity, appearance and rendering.
@@ -91,6 +94,20 @@ namespace HydroCouple::Composer
       void loadFromLayer();
       void updateEnabledState();
 
+      /*!
+       * \brief Asks for a system to assign to this layer.
+       *
+       * Assigning changes what the layer's coordinates are taken to *mean*;
+       * it does not move them. On a layer that already declares a system that
+       * is almost always a correction to a wrong declaration, and almost
+       * never what someone wanting to reproject is after — so it is confirmed
+       * before it is recorded.
+       */
+      void assignCrs();
+
+      //! Shows the assigned system, or the layer's own when none is pending.
+      void refreshCrsRow();
+
       //! \returns True when the layer carries a style to edit.
       [[nodiscard]] bool hasStyle() const;
 
@@ -99,6 +116,16 @@ namespace HydroCouple::Composer
       QTabWidget *m_tabs = nullptr;
 
       QLineEdit *m_nameEdit = nullptr;
+      QLabel *m_crsLabel = nullptr;
+
+      /*!
+       * \brief The system chosen but not yet applied.
+       *
+       * Held rather than assigned on the spot so that Cancel means what it
+       * says — a CRS written straight through would survive a dialog the user
+       * then dismissed.
+       */
+      std::shared_ptr<SpatialReference> m_pendingCrs;
 
       QCheckBox *m_visibleCheck = nullptr;
       QSpinBox *m_opacitySpin = nullptr;

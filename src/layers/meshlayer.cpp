@@ -728,9 +728,9 @@ namespace HydroCouple::Composer
       QRectF extent;
   };
 
-  void MeshLayer::onMapCrsChanged()
+  void MeshLayer::onProjectionChanged()
   {
-    FeatureLayer::onMapCrsChanged();
+    FeatureLayer::onProjectionChanged();
 
     // The index holds projected positions, so a new map CRS invalidates every
     // one of them. Dropped rather than rebuilt: a stack whose CRS changed may
