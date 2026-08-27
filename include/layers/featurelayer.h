@@ -306,6 +306,24 @@ namespace HydroCouple::Composer
       LayerStyle m_style;
   };
 
+  /*!
+   * \brief Whether \a left and \a right stand on the same ground.
+   *
+   * Compared vertex by vertex, within a tolerance taken from the extent,
+   * because two runs of one model over one mesh write the same numbers and
+   * two runs over different meshes do not — and a matching feature count
+   * proves neither. What it buys is the right to treat feature N of one as
+   * feature N of the other, which is what both differencing two runs and
+   * overlaying their series depend on.
+   *
+   * \param left One layer's geometry.
+   * \param right The other's.
+   * \param[out] message Why they are not the same ground.
+   */
+  [[nodiscard]] bool sameGeometry(const FeatureLayer &left,
+                                  const FeatureLayer &right,
+                                  QString &message);
+
 } // namespace HydroCouple::Composer
 
 #endif // HYDROCOUPLECOMPOSER_LAYERS_FEATURELAYER_H

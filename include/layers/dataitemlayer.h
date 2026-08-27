@@ -67,7 +67,7 @@ namespace HydroCouple::Composer
       /*!
        * \brief The name of the attribute holding the item's values.
        */
-      [[nodiscard]] QString valueAttribute() const;
+      [[nodiscard]] QString valueAttribute() const override;
 
       /*!
        * \brief How many time levels the item carries; 0 when it is static.

@@ -86,6 +86,15 @@ namespace HydroCouple::Composer
        * The x of a plot, paired with valuesOverTime()'s y.
        */
       [[nodiscard]] virtual QVector<double> times() const = 0;
+
+      /*!
+       * \brief The attribute the recorded values are offered under.
+       *
+       * Here rather than guessed at from the field list, because a plot
+       * overlaying two layers has to know whether they are showing the same
+       * variable before it puts one label on the axis for both.
+       */
+      [[nodiscard]] virtual QString valueAttribute() const = 0;
   };
 
 } // namespace HydroCouple::Composer

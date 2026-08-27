@@ -45,7 +45,7 @@ namespace HydroCouple::Composer
       return nullptr;
     }
 
-    if (!sameGeometry(*baseLayer, *otherLayer, message))
+    if (!Composer::sameGeometry(*baseLayer, *otherLayer, message))
     {
       return nullptr;
     }
@@ -75,82 +75,6 @@ namespace HydroCouple::Composer
     }
 
     return layer;
-  }
-
-  bool DifferenceLayer::sameGeometry(const FeatureLayer &left,
-                                     const FeatureLayer &right,
-                                     QString &message)
-  {
-    if (left.featureCount() != right.featureCount())
-    {
-      message =
-        QObject::tr("The two runs recorded %1 and %2 features, so they are "
-                    "not the same geometry.")
-          .arg(left.featureCount())
-          .arg(right.featureCount());
-      return false;
-    }
-
-    if (left.featureCount() == 0)
-    {
-      message = QObject::tr("Neither run recorded any geometry to compare.");
-      return false;
-    }
-
-    // Taken from the extent rather than fixed, so the same mesh compares the
-    // same way whether it is measured in metres or in degrees.
-    const QRectF extent = left.extent();
-    const double diagonal =
-      std::hypot(extent.width(), extent.height());
-    const double tolerance =
-      diagonal > 0.0 ? diagonal * 1e-9 : 1e-9;
-
-    const QVector<VectorFeature> &here = left.features();
-    const QVector<VectorFeature> &there = right.features();
-
-    for (int index = 0; index < here.size(); ++index)
-    {
-      if (here.at(index).kind != there.at(index).kind
-          || here.at(index).parts.size() != there.at(index).parts.size())
-      {
-        message = QObject::tr("The two runs' geometries differ at feature %1, "
-                              "so they are not the same ground.")
-                    .arg(index);
-        return false;
-      }
-
-      for (int part = 0; part < here.at(index).parts.size(); ++part)
-      {
-        const QPolygonF &mine = here.at(index).parts.at(part);
-        const QPolygonF &yours = there.at(index).parts.at(part);
-
-        if (mine.size() != yours.size())
-        {
-          message =
-            QObject::tr("The two runs' geometries differ at feature %1, so "
-                        "they are not the same ground.")
-              .arg(index);
-          return false;
-        }
-
-        for (int vertex = 0; vertex < mine.size(); ++vertex)
-        {
-          if (std::abs(mine.at(vertex).x() - yours.at(vertex).x()) > tolerance
-              || std::abs(mine.at(vertex).y() - yours.at(vertex).y())
-                   > tolerance)
-          {
-            message =
-              QObject::tr("The two runs' geometries differ at feature %1, so "
-                          "they are not the same ground.")
-                .arg(index);
-            return false;
-          }
-        }
-      }
-    }
-
-    message.clear();
-    return true;
   }
 
   QString DifferenceLayer::valueAttribute() const

@@ -11,6 +11,14 @@
  * A view of the layer stack's selection, like the attribute table: picking
  * on the map, banding in the 3D view and selecting rows in the table all
  * arrive here through the one selection they already share.
+ *
+ * The selection names one layer — the stack allows no more — but the plot
+ * draws the same feature from every layer standing on the same ground.
+ * Two runs of one model are two layers, and overlaying what each recorded
+ * at one place is the comparison a plot is for: the one thing a difference
+ * map cannot show, since it gives the gap and not the two curves that
+ * produced it. Asking the user to select twice is not an option the stack
+ * offers, and it is not the gesture anyone would make.
  */
 
 #ifndef HYDROCOUPLECOMPOSER_UI_PANELS_SERIESPLOTPANEL_H
@@ -18,8 +26,10 @@
 
 #include "results/seriesexport.h"
 
+#include <QVector>
 #include <QWidget>
 
+class QCheckBox;
 class QLabel;
 class QStackedLayout;
 class QToolButton;
@@ -31,7 +41,7 @@ class QValueAxis;
 
 namespace HydroCouple::Composer
 {
-  class DataItemLayer;
+  class FeatureLayer;
   class LayerStackModel;
 
   /*!
@@ -60,9 +70,24 @@ namespace HydroCouple::Composer
       [[nodiscard]] LayerStackModel *model() const;
 
       /*!
+       * \brief Whether other runs on the same ground are drawn too.
+       *
+       * On by default: the panel is a results panel, and a comparison
+       * nobody switches on is a comparison nobody finds.
+       */
+      [[nodiscard]] bool overlaysOtherRuns() const;
+
+      /*!
+       * \brief Draws, or stops drawing, the other runs at the same place.
+       * \param overlay True to overlay.
+       */
+      void setOverlaysOtherRuns(bool overlay);
+
+      /*!
        * \brief How many series are plotted.
        *
-       * One per selected feature that had a series to read.
+       * One per selected feature that had a series to read, across every
+       * layer that had a selection.
        */
       [[nodiscard]] int seriesCount() const;
 
@@ -76,9 +101,13 @@ namespace HydroCouple::Composer
       [[nodiscard]] QString statusText() const;
 
       /*!
-       * \brief The layer being plotted, or nullptr.
+       * \brief The layers being plotted, topmost first.
+       *
+       * More than one whenever more than one has a selection, which is what
+       * an overlay is: the same feature of two runs, read from the two
+       * layers that carry them.
        */
-      [[nodiscard]] const DataItemLayer *layer() const;
+      [[nodiscard]] QVector<const FeatureLayer *> plottedLayers() const;
 
       /*!
        * \brief The values of series \a index, in the order plotted.
@@ -122,10 +151,16 @@ namespace HydroCouple::Composer
       void showMessage(const QString &text);
 
       /*!
-       * \brief The selected data-item layer with a time axis, or nullptr.
-       * \param[out] reason Why there is nothing to plot.
+       * \brief The selected layer, then every run standing beside it.
+       *
+       * The selected one first, because its selection is the feature every
+       * other layer is read at; the rest in stack order, so the legend does
+       * not reshuffle between two reads of one stack.
+       *
+       * \param[out] reason Why there is nothing to plot, when nothing is.
        */
-      [[nodiscard]] DataItemLayer *plottableLayer(QString &reason) const;
+      [[nodiscard]] QVector<FeatureLayer *> plottableLayers(
+        QString &reason) const;
 
       QChartView *m_view = nullptr;
       QChart *m_chart = nullptr;
@@ -134,11 +169,12 @@ namespace HydroCouple::Composer
       QLabel *m_status = nullptr;
       QStackedLayout *m_pages = nullptr;
       QToolButton *m_exportButton = nullptr;
+      QCheckBox *m_overlayCheck = nullptr;
 
       LayerStackModel *m_model = nullptr;
 
-      //! The layer the plotted series came from; not owned.
-      const DataItemLayer *m_layer = nullptr;
+      //! The layers the plotted series came from; not owned.
+      QVector<const FeatureLayer *> m_layers;
 
       //! What is on the chart, in the order it was drawn.
       QVector<ExportSeries> m_plotted;

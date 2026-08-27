@@ -11,6 +11,7 @@
 
 #include "core/composerapplication.h"
 #include "layers/dataitemlayer.h"
+#include "layers/differencelayer.h"
 #include "map/layerstackmodel.h"
 #include "results/julianday.h"
 #include "results/seriesexport.h"
@@ -19,6 +20,7 @@
 
 #include <gtest/gtest.h>
 
+#include <QCheckBox>
 #include <QChart>
 #include <QChartView>
 #include <QDateTimeAxis>
@@ -275,7 +277,8 @@ TEST_F(SeriesPlotTest, ThePlotFollowsTheSelection)
   stack.selectOnly(layer, QSet<int>{0, 2});
 
   ASSERT_EQ(panel.seriesCount(), 2);
-  EXPECT_EQ(panel.layer(), layer);
+  ASSERT_EQ(panel.plottedLayers().size(), 1);
+  EXPECT_EQ(panel.plottedLayers().first(), layer);
   EXPECT_TRUE(panel.statusText().isEmpty());
 
   // Sorted by feature, so the same selection always plots in the same order
@@ -746,4 +749,357 @@ TEST_F(SeriesPlotTest, ExportingNothingIsRefusedRatherThanWritingAnEmptyFile)
 
   stack.selectOnly(nullptr, QSet<int>{});
   EXPECT_FALSE(button->isEnabled());
+}
+
+// ── D4b — overlaying what more than one run recorded ────────────────────────
+
+TEST_F(SeriesPlotTest, OneSelectionDrawsTheSameFeatureFromEveryRun)
+{
+  // The stack holds one selection, so an overlay cannot come from selecting
+  // twice. Picking a place on one run draws what every run recorded there —
+  // which is the gesture anyone comparing two runs would actually make.
+  LayerStackModel stack;
+  SeriesPlotPanel panel;
+  panel.setModel(&stack);
+
+  const std::unique_ptr<Testing::StubTimeGeometryItem> first = makeItem(4);
+  const std::unique_ptr<Testing::StubTimeGeometryItem> second = makeItem(4);
+
+  for (int step = 0; step < 4; ++step)
+  {
+    for (int feature = 0; feature < 3; ++feature)
+    {
+      // Offset, so a curve read from the wrong run is a different set of
+      // numbers rather than a second copy of the first.
+      second->setValue(step, feature, step * 10.0 + feature + 1000.0);
+    }
+  }
+
+  QString message;
+  DataItemLayer *runA = DataItemLayer::create(first.get(), message).release();
+  ASSERT_NE(runA, nullptr) << message.toStdString();
+  runA->setName(QStringLiteral("run A — depth"));
+  ASSERT_GE(stack.addLayer(runA), 0);
+
+  DataItemLayer *runB = DataItemLayer::create(second.get(), message).release();
+  ASSERT_NE(runB, nullptr) << message.toStdString();
+  runB->setName(QStringLiteral("run B — depth"));
+  ASSERT_GE(stack.addLayer(runB), 0);
+
+  // One feature, on one layer. The stack clears every other selection.
+  stack.selectOnly(runA, QSet<int>{1});
+  ASSERT_TRUE(runB->selection().isEmpty())
+    << "the stack let two layers hold a selection at once";
+
+  ASSERT_EQ(panel.seriesCount(), 2)
+    << "one run was plotted where two stand on the same mesh";
+  ASSERT_EQ(panel.plottedLayers().size(), 2);
+
+  // The values are each run's own, at the feature that was picked.
+  const QVector<double> mine = panel.seriesValues(0);
+  const QVector<double> theirs = panel.seriesValues(1);
+
+  ASSERT_EQ(mine.size(), 4);
+  ASSERT_EQ(theirs.size(), 4);
+
+  for (int level = 0; level < 4; ++level)
+  {
+    EXPECT_DOUBLE_EQ(mine.at(level), level * 10.0 + 1.0);
+    EXPECT_DOUBLE_EQ(theirs.at(level), level * 10.0 + 1.0 + 1000.0);
+  }
+}
+
+TEST_F(SeriesPlotTest, AnOverlaidSeriesSaysWhichRunItCameFrom)
+{
+  // The plan's gate. Two curves that do not say which run each belongs to
+  // are two curves nobody can act on, and the layer name is where the run's
+  // provenance already lives.
+  LayerStackModel stack;
+  SeriesPlotPanel panel;
+  panel.setModel(&stack);
+
+  const std::unique_ptr<Testing::StubTimeGeometryItem> first = makeItem(3);
+  const std::unique_ptr<Testing::StubTimeGeometryItem> second = makeItem(3);
+
+  QString message;
+  DataItemLayer *runA = DataItemLayer::create(first.get(), message).release();
+  runA->setName(QStringLiteral("baseline 2019 — hydro — depth"));
+  ASSERT_GE(stack.addLayer(runA), 0);
+
+  DataItemLayer *runB = DataItemLayer::create(second.get(), message).release();
+  runB->setName(QStringLiteral("scenario 2050 — hydro — depth"));
+  ASSERT_GE(stack.addLayer(runB), 0);
+
+  stack.selectOnly(runA, QSet<int>{2});
+
+  ASSERT_EQ(panel.seriesCount(), 2);
+
+  const QVector<ExportSeries> &written = panel.exportSeries();
+  ASSERT_EQ(written.size(), 2);
+
+  EXPECT_TRUE(written.at(0).name.contains(QStringLiteral("baseline 2019")))
+    << written.at(0).name.toStdString();
+  EXPECT_TRUE(written.at(1).name.contains(QStringLiteral("scenario 2050")))
+    << written.at(1).name.toStdString();
+
+  // Both name the feature too: the run alone does not say where.
+  EXPECT_TRUE(written.at(0).name.contains(QStringLiteral("2")));
+
+  // And the chart carries no single title, because there is no one run it
+  // is of — a title naming one of two runs is worse than none.
+  auto *chart = panel.findChild<QChartView *>(QStringLiteral("seriesPlotView"))
+                  ->chart();
+  EXPECT_TRUE(chart->title().isEmpty()) << chart->title().toStdString();
+}
+
+TEST_F(SeriesPlotTest, ASingleRunKeepsItsPlainFeatureNamesAndItsTitle)
+{
+  // The other half of the rule: with one run there is nothing to tell apart,
+  // and prefixing every series with a layer name the title already carries
+  // is noise.
+  LayerStackModel stack;
+  SeriesPlotPanel panel;
+  panel.setModel(&stack);
+
+  const std::unique_ptr<Testing::StubTimeGeometryItem> item = makeItem(3);
+
+  QString message;
+  DataItemLayer *layer = DataItemLayer::create(item.get(), message).release();
+  layer->setName(QStringLiteral("only run — depth"));
+  ASSERT_GE(stack.addLayer(layer), 0);
+
+  stack.selectOnly(layer, QSet<int>{0});
+
+  ASSERT_EQ(panel.seriesCount(), 1);
+  EXPECT_EQ(panel.exportSeries().first().name, QStringLiteral("Feature 0"));
+
+  auto *chart = panel.findChild<QChartView *>(QStringLiteral("seriesPlotView"))
+                  ->chart();
+  EXPECT_EQ(chart->title(), QStringLiteral("only run — depth"));
+}
+
+TEST_F(SeriesPlotTest, ARunOnDifferentGroundIsNotOverlaid)
+{
+  // The check that keeps the overlay honest. Two layers of the same size
+  // over different places would overlay a curve from somewhere else
+  // entirely, and a matching feature count is exactly what makes that look
+  // reasonable.
+  LayerStackModel stack;
+  SeriesPlotPanel panel;
+  panel.setModel(&stack);
+
+  const std::unique_ptr<Testing::StubTimeGeometryItem> here = makeItem(3);
+
+  const std::unique_ptr<Testing::StubPoint> far0 =
+    Testing::makePoint(90.0, 40.0, 0, m_crs.get());
+  const std::unique_ptr<Testing::StubPoint> far1 =
+    Testing::makePoint(91.0, 41.0, 1, m_crs.get());
+  const std::unique_ptr<Testing::StubPoint> far2 =
+    Testing::makePoint(92.0, 42.0, 2, m_crs.get());
+
+  auto elsewhere = std::make_unique<Testing::StubTimeGeometryItem>(
+    "depth", 3,
+    std::vector<HydroCouple::Spatial::IGeometry *>{
+      static_cast<HydroCouple::Spatial::IGeometry *>(far0.get()),
+      static_cast<HydroCouple::Spatial::IGeometry *>(far1.get()),
+      static_cast<HydroCouple::Spatial::IGeometry *>(far2.get())},
+    kEpoch, 1.0);
+
+  for (int step = 0; step < 3; ++step)
+  {
+    for (int feature = 0; feature < 3; ++feature)
+    {
+      elsewhere->setValue(step, feature, 5.0);
+    }
+  }
+
+  QString message;
+  DataItemLayer *mine = DataItemLayer::create(here.get(), message).release();
+  ASSERT_GE(stack.addLayer(mine), 0);
+
+  DataItemLayer *theirs =
+    DataItemLayer::create(elsewhere.get(), message).release();
+  ASSERT_GE(stack.addLayer(theirs), 0);
+
+  ASSERT_EQ(mine->featureCount(), theirs->featureCount())
+    << "the fixture cannot show that a matching count proves nothing";
+
+  stack.selectOnly(mine, QSet<int>{0});
+
+  EXPECT_EQ(panel.seriesCount(), 1)
+    << "a run recorded somewhere else was overlaid on this one";
+  ASSERT_EQ(panel.plottedLayers().size(), 1);
+  EXPECT_EQ(panel.plottedLayers().first(), mine);
+}
+
+TEST_F(SeriesPlotTest, TheOverlayCanBeTurnedOff)
+{
+  LayerStackModel stack;
+  SeriesPlotPanel panel;
+  panel.setModel(&stack);
+
+  const std::unique_ptr<Testing::StubTimeGeometryItem> first = makeItem(3);
+  const std::unique_ptr<Testing::StubTimeGeometryItem> second = makeItem(3);
+
+  QString message;
+  DataItemLayer *runA = DataItemLayer::create(first.get(), message).release();
+  ASSERT_GE(stack.addLayer(runA), 0);
+  DataItemLayer *runB = DataItemLayer::create(second.get(), message).release();
+  ASSERT_GE(stack.addLayer(runB), 0);
+
+  stack.selectOnly(runA, QSet<int>{0});
+  ASSERT_EQ(panel.seriesCount(), 2);
+
+  auto *check =
+    panel.findChild<QCheckBox *>(QStringLiteral("overlayRunsCheck"));
+  ASSERT_NE(check, nullptr);
+  EXPECT_TRUE(check->isChecked()) << "the overlay is off by default";
+
+  check->setChecked(false);
+
+  EXPECT_EQ(panel.seriesCount(), 1)
+    << "turning the overlay off left the other run on the chart";
+}
+
+TEST_F(SeriesPlotTest, TheTimeAxisSpansEveryRunNotJustTheSelectedOne)
+{
+  // A longer run overlaid on a shorter one's axis would be cut off at the
+  // instant the shorter one stopped — with no sign that anything was
+  // missing, since the curve simply ends.
+  LayerStackModel stack;
+  SeriesPlotPanel panel;
+  panel.setModel(&stack);
+
+  const std::unique_ptr<Testing::StubTimeGeometryItem> shortRun = makeItem(2);
+  const std::unique_ptr<Testing::StubTimeGeometryItem> longRun = makeItem(6);
+
+  QString message;
+  DataItemLayer *runA =
+    DataItemLayer::create(shortRun.get(), message).release();
+  ASSERT_GE(stack.addLayer(runA), 0);
+  DataItemLayer *runB = DataItemLayer::create(longRun.get(), message).release();
+  ASSERT_GE(stack.addLayer(runB), 0);
+
+  stack.selectOnly(runA, QSet<int>{0});
+  ASSERT_EQ(panel.seriesCount(), 2);
+
+  auto *chart = panel.findChild<QChartView *>(QStringLiteral("seriesPlotView"))
+                  ->chart();
+  const QList<QAbstractAxis *> axes = chart->axes(Qt::Horizontal);
+  ASSERT_EQ(axes.size(), 1);
+
+  auto *time = qobject_cast<QDateTimeAxis *>(axes.first());
+  ASSERT_NE(time, nullptr);
+
+  // The long run ends five days after the epoch; the short one after one.
+  const QDateTime last = dateTimeFromJulianDay(kEpoch + 5.0);
+  EXPECT_EQ(time->max().date(), last.date())
+    << "the axis stopped where the shorter run did";
+}
+
+TEST_F(SeriesPlotTest, ADifferenceIsPlottedLikeAnyOtherRecordedLayer)
+{
+  // Through the capability, not the class. A difference layer is not a
+  // DataItemLayer, and a plot that asked for one by name could never draw
+  // the very comparison the phase exists to make.
+  LayerStackModel stack;
+  SeriesPlotPanel panel;
+  panel.setModel(&stack);
+
+  const std::unique_ptr<Testing::StubTimeGeometryItem> first = makeItem(3);
+  const std::unique_ptr<Testing::StubTimeGeometryItem> second = makeItem(3);
+
+  for (int step = 0; step < 3; ++step)
+  {
+    for (int feature = 0; feature < 3; ++feature)
+    {
+      second->setValue(step, feature, step * 10.0 + feature - 4.0);
+    }
+  }
+
+  QString message;
+  DifferenceLayer *gap =
+    DifferenceLayer::create(first.get(), second.get(), message).release();
+  ASSERT_NE(gap, nullptr) << message.toStdString();
+  ASSERT_GE(stack.addLayer(gap), 0);
+
+  stack.selectOnly(gap, QSet<int>{1});
+
+  ASSERT_EQ(panel.seriesCount(), 1);
+  ASSERT_EQ(panel.plottedLayers().size(), 1);
+  EXPECT_EQ(panel.plottedLayers().first(), gap);
+
+  const QVector<double> plotted = panel.seriesValues(0);
+  ASSERT_EQ(plotted.size(), 3);
+
+  for (const double value : plotted)
+  {
+    EXPECT_DOUBLE_EQ(value, 4.0);
+  }
+}
+
+TEST_F(SeriesPlotTest, TwoDifferentQuantitiesDoNotShareOneAxisLabel)
+{
+  // A run and the difference taken from it stand on the same ground, so both
+  // are drawn — but one is a depth and the other is a change in depth. One
+  // label for both would put a name on the axis that is wrong for half of
+  // what is on it.
+  LayerStackModel stack;
+  SeriesPlotPanel panel;
+  panel.setModel(&stack);
+
+  auto first = std::make_unique<Testing::StubTimeGeometryItem>(
+    "depth", 3,
+    std::vector<HydroCouple::Spatial::IGeometry *>{
+      static_cast<HydroCouple::Spatial::IGeometry *>(m_a.get()),
+      static_cast<HydroCouple::Spatial::IGeometry *>(m_b.get()),
+      static_cast<HydroCouple::Spatial::IGeometry *>(m_c.get())},
+    kEpoch, 1.0, "Water depth (m)");
+
+  auto second = std::make_unique<Testing::StubTimeGeometryItem>(
+    "depth", 3,
+    std::vector<HydroCouple::Spatial::IGeometry *>{
+      static_cast<HydroCouple::Spatial::IGeometry *>(m_a.get()),
+      static_cast<HydroCouple::Spatial::IGeometry *>(m_b.get()),
+      static_cast<HydroCouple::Spatial::IGeometry *>(m_c.get())},
+    kEpoch, 1.0, "Water depth (m)");
+
+  for (int step = 0; step < 3; ++step)
+  {
+    for (int feature = 0; feature < 3; ++feature)
+    {
+      first->setValue(step, feature, step + feature);
+      second->setValue(step, feature, step + feature - 2.0);
+    }
+  }
+
+  QString message;
+  DataItemLayer *run = DataItemLayer::create(first.get(), message).release();
+  ASSERT_GE(stack.addLayer(run), 0);
+
+  DifferenceLayer *gap =
+    DifferenceLayer::create(first.get(), second.get(), message).release();
+  ASSERT_NE(gap, nullptr) << message.toStdString();
+  ASSERT_GE(stack.addLayer(gap), 0);
+
+  stack.selectOnly(run, QSet<int>{0});
+  ASSERT_EQ(panel.plottedLayers().size(), 2);
+
+  auto *chart = panel.findChild<QChartView *>(QStringLiteral("seriesPlotView"))
+                  ->chart();
+  const QList<QAbstractAxis *> axes = chart->axes(Qt::Vertical);
+  ASSERT_EQ(axes.size(), 1);
+
+  EXPECT_EQ(axes.first()->titleText(), QStringLiteral("Value"))
+    << "one quantity's name was put on an axis carrying two";
+
+  // And with only the run on the chart, its own caption is used.
+  auto *check =
+    panel.findChild<QCheckBox *>(QStringLiteral("overlayRunsCheck"));
+  ASSERT_NE(check, nullptr);
+  check->setChecked(false);
+
+  ASSERT_EQ(panel.plottedLayers().size(), 1);
+  EXPECT_EQ(chart->axes(Qt::Vertical).first()->titleText(),
+            QStringLiteral("Water depth (m)"));
 }

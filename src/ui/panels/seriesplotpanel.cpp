@@ -1,10 +1,12 @@
 #include "ui/panels/seriesplotpanel.h"
 
-#include "layers/dataitemlayer.h"
+#include "layers/featurelayer.h"
+#include "layers/timelayer.h"
 #include "map/layerstackmodel.h"
 #include "results/julianday.h"
 #include "results/seriesexport.h"
 
+#include <QCheckBox>
 #include <QChart>
 #include <QChartView>
 #include <QDateTimeAxis>
@@ -40,6 +42,28 @@ namespace HydroCouple::Composer
       const QDateTime utc = dateTimeFromJulianDay(julianDay);
 
       return utc.isValid() ? QDateTime(utc.date(), utc.time()) : QDateTime();
+    }
+  }
+
+  namespace
+  {
+    /*!
+     * \brief What \a layer calls the values it recorded.
+     *
+     * The component's own caption for the variable, which is the only label
+     * it supplied; "Value" throws it away.
+     */
+    QString valueCaption(const FeatureLayer &layer, const ITimeLayer &recorded)
+    {
+      for (const AttributeField &field : layer.attributeFields())
+      {
+        if (field.name == recorded.valueAttribute())
+        {
+          return field.displayName;
+        }
+      }
+
+      return {};
     }
   }
 
@@ -81,9 +105,19 @@ namespace HydroCouple::Composer
     connect(m_exportButton, &QToolButton::clicked, this,
             &SeriesPlotPanel::onExportRequested);
 
+    m_overlayCheck = new QCheckBox(tr("Overlay other runs"), this);
+    m_overlayCheck->setObjectName(QStringLiteral("overlayRunsCheck"));
+    m_overlayCheck->setChecked(true);
+    m_overlayCheck->setToolTip(
+      tr("Also draw the same feature from every other run on this mesh."));
+
+    connect(m_overlayCheck, &QCheckBox::toggled, this,
+            [this](bool) { refresh(); });
+
     auto *buttons = new QHBoxLayout;
     buttons->setContentsMargins(0, 0, 0, 0);
     buttons->addWidget(m_exportButton);
+    buttons->addWidget(m_overlayCheck);
     buttons->addStretch(1);
 
     m_pages = new QStackedLayout;
@@ -148,9 +182,19 @@ namespace HydroCouple::Composer
     return m_pages->currentWidget() == m_status ? m_status->text() : QString();
   }
 
-  const DataItemLayer *SeriesPlotPanel::layer() const
+  bool SeriesPlotPanel::overlaysOtherRuns() const
   {
-    return m_layer;
+    return m_overlayCheck->isChecked();
+  }
+
+  void SeriesPlotPanel::setOverlaysOtherRuns(bool overlay)
+  {
+    m_overlayCheck->setChecked(overlay);
+  }
+
+  QVector<const FeatureLayer *> SeriesPlotPanel::plottedLayers() const
+  {
+    return m_layers;
   }
 
   QVector<double> SeriesPlotPanel::seriesValues(int index) const
@@ -257,145 +301,235 @@ namespace HydroCouple::Composer
     }
   }
 
-  DataItemLayer *SeriesPlotPanel::plottableLayer(QString &reason) const
+  QVector<FeatureLayer *> SeriesPlotPanel::plottableLayers(
+    QString &reason) const
   {
+    QVector<FeatureLayer *> plottable;
+
     if (!m_model)
     {
       reason = tr("Select a feature to plot what it recorded.");
-      return nullptr;
+      return plottable;
     }
 
-    for (int row = 0; row < m_model->rowCount(); ++row)
+    // Said separately from "nothing is selected": a selected feature on a
+    // layer that was never recorded through time is a different answer, and
+    // only one of the two is worth acting on.
+    QString untimed;
+    FeatureLayer *selected = nullptr;
+
+    for (int row = 0; row < m_model->rowCount() && !selected; ++row)
     {
-      auto *candidate = dynamic_cast<DataItemLayer *>(m_model->layerAt(row));
+      auto *candidate = dynamic_cast<FeatureLayer *>(m_model->layerAt(row));
 
       if (!candidate || candidate->selection().isEmpty())
       {
         continue;
       }
 
-      // Said separately from "nothing is selected", because a selected
-      // feature on a layer that was never recorded through time is a
-      // different answer and only one of the two is worth acting on.
-      if (candidate->timeCount() <= 0)
+      // Through the capability, not the class: a run's item and a difference
+      // between two runs are both recorded through time, and a plot that
+      // named one of them could only ever draw that one.
+      const auto *recorded = dynamic_cast<const ITimeLayer *>(candidate);
+
+      if (!recorded || recorded->timeCount() <= 0)
       {
-        reason = tr("\"%1\" holds one instant, so there is no series to plot.")
-                   .arg(candidate->name());
-        return nullptr;
+        if (untimed.isEmpty())
+        {
+          untimed = candidate->name();
+        }
+
+        continue;
       }
 
-      return candidate;
+      selected = candidate;
     }
 
-    reason = tr("Select a feature to plot what it recorded.");
-    return nullptr;
+    if (!selected)
+    {
+      reason = untimed.isEmpty()
+                 ? tr("Select a feature to plot what it recorded.")
+                 : tr("\"%1\" holds one instant, so there is no series to "
+                      "plot.")
+                     .arg(untimed);
+      return plottable;
+    }
+
+    plottable.append(selected);
+
+    if (!overlaysOtherRuns())
+    {
+      return plottable;
+    }
+
+    // Every other run at the same place. Feature N of one layer is feature N
+    // of another only when the two were recorded on the same ground, so that
+    // is asked outright rather than inferred from a matching count — which
+    // is what would silently overlay a curve from somewhere else entirely.
+    for (int row = 0; row < m_model->rowCount(); ++row)
+    {
+      auto *candidate = dynamic_cast<FeatureLayer *>(m_model->layerAt(row));
+
+      if (!candidate || candidate == selected)
+      {
+        continue;
+      }
+
+      const auto *recorded = dynamic_cast<const ITimeLayer *>(candidate);
+
+      if (!recorded || recorded->timeCount() <= 0)
+      {
+        continue;
+      }
+
+      QString elsewhere;
+
+      if (sameGeometry(*selected, *candidate, elsewhere))
+      {
+        plottable.append(candidate);
+      }
+    }
+
+    return plottable;
   }
 
   void SeriesPlotPanel::refresh()
   {
     m_chart->removeAllSeries();
     m_plotted.clear();
-    m_layer = nullptr;
+    m_layers.clear();
 
     QString reason;
-    DataItemLayer *source = plottableLayer(reason);
+    const QVector<FeatureLayer *> sources = plottableLayers(reason);
 
-    if (!source)
+    if (sources.isEmpty())
     {
       showMessage(reason);
       return;
     }
 
-    const QVector<double> instants = source->times();
-
-    if (instants.isEmpty())
-    {
-      showMessage(tr("\"%1\" records no instants to plot against.")
-                    .arg(source->name()));
-      return;
-    }
-
-    // Sorted, so the same selection always plots in the same order and the
-    // legend does not reshuffle itself between two reads of one run.
-    QList<int> features(source->selection().begin(), source->selection().end());
-    std::sort(features.begin(), features.end());
-
-    if (features.size() > kMaximumSeries)
-    {
-      features = features.mid(0, kMaximumSeries);
-    }
-
     double lowest = std::numeric_limits<double>::max();
     double highest = std::numeric_limits<double>::lowest();
-    bool any = false;
+    double earliest = std::numeric_limits<double>::max();
+    double latest = std::numeric_limits<double>::lowest();
 
-    for (int feature : features)
+    // Named by their layer only when there is more than one to tell apart.
+    // On a single run "Feature 3" is what the user picked; prefixing it with
+    // a layer name the chart title already carries is noise.
+    const bool overlaid = sources.size() > 1;
+
+    QString sharedCaption;
+    bool oneCaption = true;
+
+    for (FeatureLayer *source : sources)
     {
-      QVector<double> values;
-      QString failure;
+      const auto *recorded = dynamic_cast<const ITimeLayer *>(source);
+      const QVector<double> instants = recorded->times();
 
-      if (!source->valuesOverTime(feature, values, failure))
+      if (instants.isEmpty())
       {
         continue;
       }
 
-      auto *line = new QLineSeries;
-      line->setName(tr("Feature %1").arg(feature));
+      // The selected layer's features, read from every layer: the stack
+      // holds one selection, and the overlay is the same place seen in each
+      // run rather than a different place in each.
+      QList<int> features(sources.first()->selection().begin(),
+                          sources.first()->selection().end());
+      std::sort(features.begin(), features.end());
 
-      ExportSeries record;
-      record.name = line->name();
+      const QString caption = valueCaption(*source, *recorded);
 
-      for (int level = 0; level < values.size() && level < instants.size();
-           ++level)
+      for (int feature : features)
       {
-        const QDateTime at = axisInstant(instants.at(level));
+        if (m_plotted.size() >= kMaximumSeries)
+        {
+          break;
+        }
 
-        // A value the model never produced has no place on an axis: a
-        // non-finite one would collapse the range and take every real value
-        // with it.
-        if (!at.isValid() || !std::isfinite(values.at(level)))
+        QVector<double> values;
+        QString failure;
+
+        if (!recorded->valuesOverTime(feature, values, failure))
         {
           continue;
         }
 
-        line->append(static_cast<qreal>(at.toMSecsSinceEpoch()),
-                     values.at(level));
+        auto *line = new QLineSeries;
+        line->setName(overlaid
+                        ? tr("%1 — feature %2").arg(source->name()).arg(feature)
+                        : tr("Feature %1").arg(feature));
 
-        // The instant as recorded, not as positioned: the axis carries a
-        // shifted one so its labels read in UTC, and an export written from
-        // that would be off by the exporter's own time zone.
-        record.julianDays.append(instants.at(level));
-        record.values.append(values.at(level));
+        ExportSeries record;
+        record.name = line->name();
 
-        lowest = std::min(lowest, values.at(level));
-        highest = std::max(highest, values.at(level));
+        for (int level = 0; level < values.size() && level < instants.size();
+             ++level)
+        {
+          const QDateTime at = axisInstant(instants.at(level));
+
+          // A value the model never produced has no place on an axis: a
+          // non-finite one would collapse the range and take every real
+          // value with it.
+          if (!at.isValid() || !std::isfinite(values.at(level)))
+          {
+            continue;
+          }
+
+          line->append(static_cast<qreal>(at.toMSecsSinceEpoch()),
+                       values.at(level));
+
+          // The instant as recorded, not as positioned: the axis carries a
+          // shifted one so its labels read in UTC, and an export written
+          // from that would be off by the exporter's own time zone.
+          record.julianDays.append(instants.at(level));
+          record.values.append(values.at(level));
+
+          lowest = std::min(lowest, values.at(level));
+          highest = std::max(highest, values.at(level));
+          earliest = std::min(earliest, instants.at(level));
+          latest = std::max(latest, instants.at(level));
+        }
+
+        if (line->count() == 0)
+        {
+          delete line;
+          continue;
+        }
+
+        m_chart->addSeries(line);
+        line->attachAxis(m_timeAxis);
+        line->attachAxis(m_valueAxis);
+        m_plotted.append(record);
+
+        if (!m_layers.contains(source))
+        {
+          m_layers.append(source);
+        }
       }
 
-      if (line->count() == 0)
+      if (sharedCaption.isEmpty())
       {
-        delete line;
-        continue;
+        sharedCaption = caption;
       }
-
-      m_chart->addSeries(line);
-      line->attachAxis(m_timeAxis);
-      line->attachAxis(m_valueAxis);
-      m_plotted.append(record);
-      any = true;
+      else if (sharedCaption != caption)
+      {
+        oneCaption = false;
+      }
     }
 
-    if (!any)
+    if (m_plotted.isEmpty())
     {
-      m_plotted.clear();
+      m_layers.clear();
       showMessage(tr("Nothing selected on \"%1\" has values to plot.")
-                    .arg(source->name()));
+                    .arg(sources.first()->name()));
       return;
     }
 
-    m_layer = source;
-
-    m_timeAxis->setRange(axisInstant(instants.first()),
-                         axisInstant(instants.last()));
+    // The span of what is actually drawn, across every layer: two runs of
+    // different lengths overlaid on the first one's axis would cut the
+    // longer one off at the point the shorter one stopped.
+    m_timeAxis->setRange(axisInstant(earliest), axisInstant(latest));
 
     // A flat series would otherwise be drawn on a zero-height axis, which
     // renders as a line pinned to the frame and reads as missing data.
@@ -410,20 +544,18 @@ namespace HydroCouple::Composer
       m_valueAxis->setRange(lowest, highest);
     }
 
-    // The component's own caption for the values, which is the only label it
-    // supplied; "Value" throws it away.
-    const QVector<AttributeField> fields = source->attributeFields();
+    // One label for the axis only when every layer on it is showing the same
+    // variable. Two different quantities sharing an axis is a chart that has
+    // to say so rather than pick one of their names for both.
+    m_valueAxis->setTitleText(oneCaption && !sharedCaption.isEmpty()
+                                ? sharedCaption
+                                : tr("Value"));
 
-    for (const AttributeField &field : fields)
-    {
-      if (field.name == source->valueAttribute())
-      {
-        m_valueAxis->setTitleText(field.displayName);
-        break;
-      }
-    }
+    // No title when several layers are overlaid: there is no one thing the
+    // chart is of, and the legend already names every layer on it.
+    m_chart->setTitle(m_layers.size() == 1 ? m_layers.first()->name()
+                                           : QString());
 
-    m_chart->setTitle(source->name());
     m_status->clear();
     m_pages->setCurrentWidget(m_view);
     m_exportButton->setEnabled(true);
@@ -431,7 +563,7 @@ namespace HydroCouple::Composer
 
   void SeriesPlotPanel::showMessage(const QString &text)
   {
-    m_layer = nullptr;
+    m_layers.clear();
     m_plotted.clear();
     m_status->setText(text);
     m_pages->setCurrentWidget(m_status);

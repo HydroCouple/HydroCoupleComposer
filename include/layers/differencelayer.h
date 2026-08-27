@@ -60,7 +60,7 @@ namespace HydroCouple::Composer
       /*!
        * \brief The name of the attribute holding the differences.
        */
-      [[nodiscard]] QString valueAttribute() const;
+      [[nodiscard]] QString valueAttribute() const override;
 
       // ── ITimeLayer ───────────────────────────────────────────────────────
 
@@ -133,22 +133,6 @@ namespace HydroCouple::Composer
        */
       [[nodiscard]] bool differencesAt(int index, QVector<double> &values,
                                        QString &message) const;
-
-      /*!
-       * \brief Whether \a left and \a right drew the same ground.
-       *
-       * Compared vertex by vertex, within a tolerance taken from the extent,
-       * because two runs of one model over one mesh write the same numbers
-       * and two runs over different meshes do not — and a count that matches
-       * proves neither.
-       *
-       * \param left One layer's geometry.
-       * \param right The other's.
-       * \param[out] message Why they are not the same ground.
-       */
-      [[nodiscard]] static bool sameGeometry(const FeatureLayer &left,
-                                             const FeatureLayer &right,
-                                             QString &message);
 
       /*!
        * \brief The two runs' layers.
