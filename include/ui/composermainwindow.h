@@ -45,6 +45,7 @@ namespace HydroCouple::Composer
   class SceneView;
   class MapLayer;
   class RibbonBar;
+  class ProfilePlotPanel;
   class SeriesPlotPanel;
   class TimeController;
   class TimeControlPanel;
@@ -120,6 +121,9 @@ namespace HydroCouple::Composer
 
       //! \returns The plot of what the selection recorded.
       [[nodiscard]] SeriesPlotPanel *seriesPlot() const;
+
+      //! \returns The vertical profile of the selected column.
+      [[nodiscard]] ProfilePlotPanel *profilePlot() const;
 
       /*!
        * \brief Draws one recorded item of an open run on the map.
@@ -242,6 +246,7 @@ namespace HydroCouple::Composer
       TimeController *m_clock = nullptr;
       TimeControlPanel *m_timeControls = nullptr;
       SeriesPlotPanel *m_seriesPlot = nullptr;
+      ProfilePlotPanel *m_profilePlot = nullptr;
 
       RibbonBar *m_ribbon = nullptr;
 

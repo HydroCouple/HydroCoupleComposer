@@ -18,15 +18,20 @@
 #include "map/layerstackmodel.h"
 #include "render/classification.h"
 #include "render/layerstyle.h"
+#include "results/seriesexport.h"
 #include "scene/camera.h"
+#include "ui/panels/profileplotpanel.h"
 #include "scene/sceneimage.h"
 #include "scene/scenerenderer.h"
 
 #include <gtest/gtest.h>
 
 #include <QApplication>
+#include <QChartView>
+#include <QLineSeries>
 #include <QDir>
 #include <QFile>
+#include <QValueAxis>
 
 #include "hydrocouplesdk/io/netcdfugridwriter.h"
 
@@ -778,4 +783,314 @@ TEST_F(LayeredMeshTest, ALayeredMeshRendersAndPeelingChangesThePicture)
   // A single surface layer is a thin sheet where the stack was a solid body.
   EXPECT_LT(drawn(peeled), wholeDrawn)
     << "peeling to one layer drew as much as the whole stack";
+}
+
+// ── D3c: the water column under a picked face ───────────────────────────────
+//
+// A profile answers what a column holds from top to bottom. The gate is that
+// the values are the ones attached to that column's cells and the elevations
+// are the ones the layering puts them at -- both compared against the mesh
+// the test built, not against a second reading of the layer.
+
+namespace
+{
+  //! A layered strip whose cell values are column*100 + layer.
+  std::unique_ptr<MeshLayer> profiledLayer(int columns, int layers,
+                                           double bed, double surface,
+                                           QString &message)
+  {
+    const LayeredMesh mesh = flatStrip(columns, layers, bed, surface);
+
+    std::unique_ptr<MeshLayer> layer = layeredLayer(mesh, message);
+
+    if (!layer)
+    {
+      return nullptr;
+    }
+
+    QVector<double> values(static_cast<int>(mesh.cellCount()), 0.0);
+
+    for (int column = 0; column < columns; ++column)
+    {
+      for (int layer_ = 0; layer_ < layers; ++layer_)
+      {
+        values[static_cast<int>(mesh.cell(column, layer_))] =
+          column * 100.0 + layer_;
+      }
+    }
+
+    if (!layer->setLayeredValues(QStringLiteral("temperature"), values))
+    {
+      message = QStringLiteral("the layered values were refused");
+      return nullptr;
+    }
+
+    return layer;
+  }
+}
+
+TEST_F(LayeredMeshTest, AColumnProfileIsItsOwnCellsAtItsOwnElevations)
+{
+  QString message;
+
+  // Three columns so a profile of the wrong one is visible in the values,
+  // and four layers over a 20 m column so the elevations are not all equal.
+  const std::unique_ptr<MeshLayer> layer =
+    profiledLayer(3, 4, -20.0, 0.0, message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  for (int column = 0; column < 3; ++column)
+  {
+    SCOPED_TRACE("column " + std::to_string(column));
+
+    QVector<double> values;
+    QVector<double> elevations;
+
+    ASSERT_TRUE(layer->columnProfile(column, values, elevations, message))
+      << message.toStdString();
+
+    ASSERT_EQ(values.size(), 4);
+    ASSERT_EQ(elevations.size(), 4);
+
+    for (int level = 0; level < 4; ++level)
+    {
+      // Surface first, as the layering indexes them: reading the column the
+      // other way up transposes it into something that still looks like a
+      // profile.
+      EXPECT_NEAR(values.at(level), column * 100.0 + level, 1.0e-9)
+        << "layer " << level;
+
+      // Each layer is 5 m thick over a 20 m column, so its centre sits at
+      // -2.5, -7.5, -12.5, -17.5 -- the midpoint of its interfaces, not
+      // either boundary it shares with a neighbour.
+      EXPECT_NEAR(elevations.at(level), -2.5 - 5.0 * level, 1.0e-9)
+        << "layer " << level;
+    }
+  }
+}
+
+TEST_F(LayeredMeshTest, AProfileFollowsTheSurfaceItHangsUnder)
+{
+  QString message;
+
+  // The same layering, lifted: a sigma column stretches with its surface, so
+  // the elevations move and the values do not.
+  const std::unique_ptr<MeshLayer> layer =
+    profiledLayer(1, 2, -10.0, 6.0, message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  QVector<double> values;
+  QVector<double> elevations;
+
+  ASSERT_TRUE(layer->columnProfile(0, values, elevations, message))
+    << message.toStdString();
+
+  ASSERT_EQ(elevations.size(), 2);
+
+  // Surface 6, bed -10: two 8 m layers centred at 2 and -6.
+  EXPECT_NEAR(elevations.at(0), 2.0, 1.0e-9);
+  EXPECT_NEAR(elevations.at(1), -6.0, 1.0e-9);
+}
+
+TEST_F(LayeredMeshTest, AFlatMeshHasNoColumnToProfile)
+{
+  QString message;
+
+  const std::unique_ptr<MeshLayer> flat = MeshLayer::create(
+    QStringLiteral("flat"), strip(2), MeshEntity::Face, message);
+  ASSERT_NE(flat, nullptr) << message.toStdString();
+
+  QVector<double> values;
+  QVector<double> elevations;
+
+  EXPECT_FALSE(flat->columnProfile(0, values, elevations, message));
+  EXPECT_TRUE(message.contains(QStringLiteral("flat"))) << message.toStdString();
+}
+
+TEST_F(LayeredMeshTest, ALayeringWithoutValuesIsSaidRatherThanProfiled)
+{
+  QString message;
+
+  const LayeredMesh mesh = flatStrip(2, 3);
+  const std::unique_ptr<MeshLayer> layer = layeredLayer(mesh, message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  QVector<double> values;
+  QVector<double> elevations;
+
+  // A mesh carrying its shape and not its values would otherwise profile as
+  // a column of zeros, which reads as a model that computed them.
+  EXPECT_FALSE(layer->columnProfile(0, values, elevations, message));
+  EXPECT_FALSE(message.isEmpty());
+  EXPECT_TRUE(values.isEmpty());
+  EXPECT_TRUE(elevations.isEmpty());
+}
+
+TEST_F(LayeredMeshTest, AColumnOutsideTheMeshIsRefused)
+{
+  QString message;
+
+  const std::unique_ptr<MeshLayer> layer =
+    profiledLayer(2, 3, -10.0, 0.0, message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  QVector<double> values;
+  QVector<double> elevations;
+
+  EXPECT_FALSE(layer->columnProfile(2, values, elevations, message));
+  EXPECT_TRUE(message.contains(QStringLiteral("2"))) << message.toStdString();
+
+  EXPECT_FALSE(layer->columnProfile(-1, values, elevations, message));
+}
+
+TEST_F(LayeredMeshTest, TheProfilePanelFollowsTheSelection)
+{
+  LayerStackModel stack;
+  ProfilePlotPanel panel;
+  panel.setModel(&stack);
+
+  EXPECT_EQ(panel.profileCount(), 0);
+  EXPECT_FALSE(panel.statusText().isEmpty());
+
+  QString message;
+  MeshLayer *layer = profiledLayer(3, 4, -20.0, 0.0, message).release();
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+  ASSERT_GE(stack.addLayer(layer), 0);
+
+  stack.selectOnly(layer, QSet<int>{0, 2});
+
+  ASSERT_EQ(panel.profileCount(), 2);
+  EXPECT_EQ(panel.layer(), layer);
+  EXPECT_TRUE(panel.statusText().isEmpty());
+
+  // Sorted by column, and each profile carries its own column's values
+  // against its own elevations -- not the first column's twice.
+  const QVector<ExportSeries> &profiles = panel.profiles();
+  ASSERT_EQ(profiles.size(), 2);
+
+  EXPECT_EQ(profiles.at(0).name, QStringLiteral("Column 0"));
+  EXPECT_EQ(profiles.at(1).name, QStringLiteral("Column 2"));
+
+  ASSERT_EQ(profiles.at(0).values.size(), 4);
+  EXPECT_NEAR(profiles.at(0).values.first(), 0.0, 1.0e-9);
+  EXPECT_NEAR(profiles.at(1).values.first(), 200.0, 1.0e-9);
+
+  // The elevations ride along, because a value without the height it was
+  // measured at is not a profile.
+  EXPECT_NEAR(profiles.at(0).julianDays.first(), -2.5, 1.0e-9);
+
+  auto *view = panel.findChild<QChartView *>(QStringLiteral("profilePlotView"));
+  ASSERT_NE(view, nullptr);
+  EXPECT_EQ(view->chart()->series().size(), 2);
+
+  stack.selectOnly(nullptr, QSet<int>{});
+  EXPECT_EQ(panel.profileCount(), 0);
+  EXPECT_FALSE(panel.statusText().isEmpty());
+
+  // The chart is emptied too, not just the record of what it held: series
+  // left attached accumulate on every refresh and are drawn over the next
+  // selection's.
+  EXPECT_EQ(view->chart()->series().size(), 0);
+}
+
+TEST_F(LayeredMeshTest, TheProfilePanelSaysWhenAColumnIsNotWhatIsSelected)
+{
+  LayerStackModel stack;
+  ProfilePlotPanel panel;
+  panel.setModel(&stack);
+
+  QString message;
+
+  // A layered mesh drawn by its edges. An edge has no water column hanging
+  // under it, and profiling the face of the same index would answer with a
+  // column that is not the one picked.
+  //
+  // Named "sides" rather than "edges" on purpose: the layer's name goes into
+  // every message this panel produces, so a layer called "edges" would make
+  // the assertion below pass on any of them.
+  LayeredMesh mesh = flatStrip(3, 2);
+
+  // The strip carries faces and no edge list, and a layer asked to draw
+  // edges it does not have falls back to nodes -- so the edges are given
+  // here, or this test would be about the fallback instead.
+  mesh.horizontal.edgeNodes = {{0, 1}, {1, 2}};
+
+  MeshLayer *sides = MeshLayer::create(QStringLiteral("sides"),
+                                       mesh.horizontal, MeshEntity::Edge,
+                                       message)
+                       .release();
+  ASSERT_NE(sides, nullptr) << message.toStdString();
+  ASSERT_EQ(sides->entity(), MeshEntity::Edge)
+    << "the layer did not draw the entity this test is about";
+  ASSERT_TRUE(sides->setLayering(mesh, message)) << message.toStdString();
+
+  // And given values, so refusing to profile is a decision about *what* is
+  // selected rather than a layer that had nothing to draw anyway.
+  QVector<double> values(static_cast<int>(mesh.cellCount()), 1.0);
+  ASSERT_TRUE(sides->setLayeredValues(QStringLiteral("temperature"), values));
+
+  ASSERT_GE(stack.addLayer(sides), 0);
+
+  stack.selectOnly(sides, QSet<int>{0});
+
+  EXPECT_EQ(panel.profileCount(), 0);
+  EXPECT_TRUE(panel.statusText().contains(QStringLiteral("edge")))
+    << panel.statusText().toStdString();
+}
+
+TEST_F(LayeredMeshTest, TheProfileAxesAreValueAcrossAndElevationUp)
+{
+  LayerStackModel stack;
+  ProfilePlotPanel panel;
+  panel.setModel(&stack);
+
+  QString message;
+  MeshLayer *layer = profiledLayer(1, 4, -20.0, 0.0, message).release();
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+  ASSERT_GE(stack.addLayer(layer), 0);
+
+  stack.selectOnly(layer, QSet<int>{0});
+  ASSERT_EQ(panel.profileCount(), 1);
+
+  auto *view = panel.findChild<QChartView *>(QStringLiteral("profilePlotView"));
+  ASSERT_NE(view, nullptr);
+
+  const QList<QAbstractAxis *> vertical = view->chart()->axes(Qt::Vertical);
+  const QList<QAbstractAxis *> horizontal = view->chart()->axes(Qt::Horizontal);
+  ASSERT_FALSE(vertical.isEmpty());
+  ASSERT_FALSE(horizontal.isEmpty());
+
+  auto *elevation = qobject_cast<QValueAxis *>(vertical.first());
+  auto *value = qobject_cast<QValueAxis *>(horizontal.first());
+  ASSERT_NE(elevation, nullptr);
+  ASSERT_NE(value, nullptr);
+
+  // Elevation up. A profile drawn with the axes the other way round is a
+  // time series' shape, and reads as one.
+  EXPECT_NEAR(elevation->min(), -17.5, 1.0e-9);
+  EXPECT_NEAR(elevation->max(), -2.5, 1.0e-9);
+
+  EXPECT_NEAR(value->min(), 0.0, 1.0e-9);
+  EXPECT_NEAR(value->max(), 3.0, 1.0e-9);
+
+  // The points themselves, not only the ranges the axes were given: the two
+  // are computed separately, so a plot appending them the other way round
+  // still gets its axes right and draws the profile on its side.
+  ASSERT_EQ(view->chart()->series().size(), 1);
+
+  const auto *line =
+    qobject_cast<const QLineSeries *>(view->chart()->series().first());
+  ASSERT_NE(line, nullptr);
+  ASSERT_EQ(line->count(), 4);
+
+  for (int layer = 0; layer < 4; ++layer)
+  {
+    const QPointF point = line->at(layer);
+
+    EXPECT_NEAR(point.x(), layer, 1.0e-9) << "layer " << layer;
+    EXPECT_NEAR(point.y(), -2.5 - 5.0 * layer, 1.0e-9) << "layer " << layer;
+  }
+
+  // And the axis carries the name the values were attached under.
+  EXPECT_EQ(value->titleText(), QStringLiteral("temperature"));
 }

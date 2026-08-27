@@ -963,6 +963,55 @@ namespace HydroCouple::Composer
     return true;
   }
 
+  bool MeshLayer::columnProfile(int column, QVector<double> &values,
+                                QVector<double> &elevations,
+                                QString &message) const
+  {
+    values.clear();
+    elevations.clear();
+
+    if (!isLayered())
+    {
+      message = QObject::tr("\"%1\" has no vertical layering to profile.")
+                  .arg(name());
+      return false;
+    }
+
+    if (column < 0 || column >= m_layering.columnCount())
+    {
+      message = QObject::tr("There is no column %1 to profile.").arg(column);
+      return false;
+    }
+
+    if (m_cellValues.size() != m_layering.cellCount())
+    {
+      // Said rather than profiled from whatever is there: a mesh carrying
+      // its shape and not its values would otherwise draw a column of
+      // nothing, which looks like a model that computed zeros.
+      message = QObject::tr("\"%1\" carries no layered values to profile.")
+                  .arg(name());
+      return false;
+    }
+
+    values.reserve(m_layering.layerCount);
+    elevations.reserve(m_layering.layerCount);
+
+    for (int layer = 0; layer < m_layering.layerCount; ++layer)
+    {
+      values.append(m_cellValues.at(
+        static_cast<int>(m_layering.cell(column, layer))));
+
+      // The centre of the layer, between the interface above it and the one
+      // below. Plotting at an interface would put a cell's value at a
+      // boundary it shares with the cell above.
+      elevations.append(
+        (m_layering.z(column, layer) + m_layering.z(column, layer + 1)) / 2.0);
+    }
+
+    message.clear();
+    return true;
+  }
+
   void MeshLayer::setVisibleLayers(int first, int last)
   {
     if (!isLayered())

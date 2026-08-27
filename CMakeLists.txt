@@ -211,6 +211,8 @@ set(COMPOSER_SOURCES
     src/ui/panels/timecontrolpanel.cpp
     include/ui/panels/seriesplotpanel.h
     src/ui/panels/seriesplotpanel.cpp
+    include/ui/panels/profileplotpanel.h
+    src/ui/panels/profileplotpanel.cpp
     include/ui/panels/attributetablemodel.h
     src/ui/panels/attributetablemodel.cpp
     include/ui/panels/attributetablepanel.h

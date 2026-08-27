@@ -22,6 +22,7 @@
 #include "ui/panels/attributetablepanel.h"
 #include "ui/panels/layertreepanel.h"
 #include "ui/panels/runbrowserpanel.h"
+#include "ui/panels/profileplotpanel.h"
 #include "ui/panels/seriesplotpanel.h"
 #include "ui/panels/timecontrolpanel.h"
 #include "ui/theme/iconfactory.h"
@@ -1015,6 +1016,16 @@ namespace HydroCouple::Composer
 
     addDockWidget(Qt::BottomDockWidgetArea, plotDock);
 
+    // ── Profile ──────────────────────────────────────────────────────────
+    auto *profileDock = new QDockWidget(tr("Profile"), this);
+    profileDock->setObjectName(QStringLiteral("profileDock"));
+
+    m_profilePlot = new ProfilePlotPanel(profileDock);
+    m_profilePlot->setModel(m_layerStack);
+    profileDock->setWidget(m_profilePlot);
+
+    addDockWidget(Qt::BottomDockWidgetArea, profileDock);
+
     // ── Log ──────────────────────────────────────────────────────────────
     auto *logDock = new QDockWidget(tr("Log"), this);
     logDock->setObjectName(QStringLiteral("logDock"));
@@ -1030,6 +1041,7 @@ namespace HydroCouple::Composer
     // while working on the map above, and only one at a time.
     tabifyDockWidget(attributeDock, runDock);
     tabifyDockWidget(attributeDock, plotDock);
+    tabifyDockWidget(attributeDock, profileDock);
     tabifyDockWidget(attributeDock, logDock);
     attributeDock->raise();
   }
@@ -1403,6 +1415,11 @@ namespace HydroCouple::Composer
   SeriesPlotPanel *ComposerMainWindow::seriesPlot() const
   {
     return m_seriesPlot;
+  }
+
+  ProfilePlotPanel *ComposerMainWindow::profilePlot() const
+  {
+    return m_profilePlot;
   }
 
   bool ComposerMainWindow::openRun(const QString &manifestPath,

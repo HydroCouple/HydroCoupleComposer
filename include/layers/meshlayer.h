@@ -224,6 +224,25 @@ namespace HydroCouple::Composer
       bool setLayeredValues(const QString &name, const QVector<double> &values);
 
       /*!
+       * \brief One column's values against the elevations they sit at.
+       *
+       * The water column under a picked face, surface first. Values are the
+       * layered field attached by setLayeredValues(); elevations are the
+       * centre of each layer, because a cell value belongs to the whole
+       * layer rather than to either of the interfaces bounding it.
+       *
+       * \param column Column index — a face of the horizontal mesh, which
+       *        is what a selection on a face-drawn layer holds.
+       * \param[out] values One value per layer, surface first.
+       * \param[out] elevations The centre elevation of each layer.
+       * \param[out] message Diagnostic on failure.
+       * \returns True when a profile was read.
+       */
+      [[nodiscard]] bool columnProfile(int column, QVector<double> &values,
+                                       QVector<double> &elevations,
+                                       QString &message) const;
+
+      /*!
        * \brief The layers the scene draws, inclusive.
        *
        * Peeling: the whole point of a layered view is to look *inside*, and
