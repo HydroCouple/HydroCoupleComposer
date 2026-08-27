@@ -2,6 +2,7 @@
 
 #include "core/composerapplication.h"
 #include "layers/dataitemlayer.h"
+#include "layers/differencelayer.h"
 #include "layers/gdalrasterlayer.h"
 #include "layers/meshlayer.h"
 #include "layers/gdalvectorlayer.h"
@@ -1016,6 +1017,8 @@ namespace HydroCouple::Composer
             &ComposerMainWindow::onOpenRun);
     connect(m_runBrowser, &RunBrowserPanel::showItemRequested, this,
             &ComposerMainWindow::onShowRunItem);
+    connect(m_runBrowser, &RunBrowserPanel::compareItemRequested, this,
+            &ComposerMainWindow::onCompareRunItem);
 
     addDockWidget(Qt::BottomDockWidgetArea, runDock);
 
@@ -1535,6 +1538,124 @@ namespace HydroCouple::Composer
     m_mapCanvas->zoomToLayer(added);
 
     return true;
+  }
+
+  bool ComposerMainWindow::compareRunItem(int runRow, int otherRunRow,
+                                          const QString &componentId,
+                                          const QString &itemId,
+                                          QString &message)
+  {
+    RunSession *base = m_runs->run(runRow);
+    RunSession *other = m_runs->run(otherRunRow);
+
+    if (!base || !other)
+    {
+      message = tr("That run is no longer open.");
+      return false;
+    }
+
+    if (base == other)
+    {
+      message = tr("A run compared against itself is zero everywhere. Pick "
+                   "a different run.");
+      return false;
+    }
+
+    HydroCouple::IComponentDataItem *baseItem =
+      base->item(componentId, itemId, message);
+
+    if (!baseItem)
+    {
+      return false;
+    }
+
+    HydroCouple::IComponentDataItem *otherItem =
+      other->item(componentId, itemId, message);
+
+    if (!otherItem)
+    {
+      return false;
+    }
+
+    std::unique_ptr<DifferenceLayer> layer =
+      DifferenceLayer::create(baseItem, otherItem, message);
+
+    if (!layer)
+    {
+      return false;
+    }
+
+    // Both runs in the name, in the order they are subtracted: a difference
+    // map whose title does not say which way round it was taken is a map
+    // whose sign nobody can read.
+    layer->setName(tr("%1: %2 − %3")
+                     .arg(itemId, base->title(), other->title()));
+
+    DifferenceLayer *added = layer.release();
+    m_layerStack->addLayer(added);
+
+    log(tr("Comparing %1 (%2 feature(s), %3 recorded time(s)).")
+          .arg(added->name())
+          .arg(added->featureCount())
+          .arg(added->timeCount()));
+
+    m_workspace->setCurrentWidget(m_mapCanvas);
+    m_mapCanvas->zoomToLayer(added);
+
+    return true;
+  }
+
+  void ComposerMainWindow::onCompareRunItem(int runRow,
+                                            const QString &componentId,
+                                            const QString &itemId)
+  {
+    QVector<int> candidates = m_runs->runsCarrying(componentId, itemId);
+    candidates.removeAll(runRow);
+
+    if (candidates.isEmpty())
+    {
+      QMessageBox::information(
+        this, tr("Nothing to compare against"),
+        tr("No other open run recorded “%1”. Open a run that did, and try "
+           "again.")
+          .arg(itemId));
+      return;
+    }
+
+    int chosen = candidates.first();
+
+    if (candidates.size() > 1)
+    {
+      QStringList titles;
+
+      for (const int row : candidates)
+      {
+        titles.append(m_runs->run(row)->title());
+      }
+
+      bool accepted = false;
+
+      // From a button's clicked() — a release, never a press: a modal
+      // opened from a mouse press wedges input on macOS.
+      const QString picked = QInputDialog::getItem(
+        this, tr("Compare against"),
+        tr("Subtract which run from “%1”?").arg(m_runs->run(runRow)->title()),
+        titles, 0, false, &accepted);
+
+      if (!accepted)
+      {
+        return;
+      }
+
+      chosen = candidates.at(titles.indexOf(picked));
+    }
+
+    QString message;
+
+    if (!compareRunItem(runRow, chosen, componentId, itemId, message))
+    {
+      QMessageBox::warning(this, tr("Cannot compare that item"), message);
+    }
   }
 
   void ComposerMainWindow::onShowRunItem(int runRow, const QString &componentId,

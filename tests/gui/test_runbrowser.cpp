@@ -14,6 +14,7 @@
 
 #include "core/composerapplication.h"
 #include "layers/dataitemlayer.h"
+#include "layers/differencelayer.h"
 #include "map/layerstackmodel.h"
 #include "map/mapcanvas.h"
 #include "results/runbrowsermodel.h"
@@ -689,4 +690,187 @@ TEST_F(RunBrowserTest, ShowingIsOfferedOnlyForRowsThatNameAnItem)
     << "the request named no component";
   EXPECT_FALSE(asked.at(0).at(2).toString().isEmpty())
     << "the request named no item";
+}
+
+// ── D4a — comparing two runs ────────────────────────────────────────────────
+
+TEST_F(RunBrowserTest, TheModelSaysWhichOpenRunsCarryTheSameItem)
+{
+  // From the manifests, so asking costs no artifact reads: a viewer holding
+  // ten runs open should not have to read forty files to grey out a button.
+  RunBrowserModel model;
+  QString message;
+  ASSERT_NE(model.addRun(s_manifestPath, message), nullptr)
+    << message.toStdString();
+  ASSERT_NE(model.addRun(s_manifestPath, message), nullptr);
+
+  RunSession *session = model.run(0);
+  ASSERT_NE(session, nullptr);
+
+  const QStringList components = session->componentIds();
+  ASSERT_FALSE(components.isEmpty());
+
+  const QVector<const SDK::IO::ResultEntry *> entries =
+    session->entriesFor(components.first());
+  ASSERT_FALSE(entries.isEmpty());
+
+  const QString itemId = QString::fromStdString(entries.first()->itemId);
+
+  EXPECT_EQ(model.runsCarrying(components.first(), itemId),
+            (QVector<int>{0, 1}));
+
+  // An item neither run recorded, said as an empty answer rather than as a
+  // run that happens to hold something with the same component id.
+  EXPECT_TRUE(
+    model.runsCarrying(components.first(), QStringLiteral("nothing-like-it"))
+      .isEmpty());
+}
+
+TEST_F(RunBrowserTest, ComparingIsOfferedOnlyOnceASecondRunIsOpen)
+{
+  RunBrowserModel model;
+  QString message;
+  ASSERT_NE(model.addRun(s_manifestPath, message), nullptr)
+    << message.toStdString();
+
+  RunBrowserPanel panel;
+  panel.setModel(&model);
+
+  auto *tree = panel.findChild<QTreeView *>(QStringLiteral("runTree"));
+  auto *compare =
+    panel.findChild<QToolButton *>(QStringLiteral("compareItemButton"));
+  ASSERT_NE(tree, nullptr);
+  ASSERT_NE(compare, nullptr);
+
+  const QModelIndex item =
+    model.index(0, 0, model.index(0, 0, model.index(0, 0)));
+  ASSERT_TRUE(item.isValid());
+
+  tree->selectionModel()->setCurrentIndex(item,
+                                          QItemSelectionModel::ClearAndSelect);
+
+  // One run open: an item is selected and drawable, and there is still
+  // nothing to compare it against. Offered and then refused is worse.
+  EXPECT_FALSE(compare->isEnabled())
+    << "a comparison was offered with only one run open";
+
+  ASSERT_NE(model.addRun(s_manifestPath, message), nullptr);
+
+  EXPECT_TRUE(compare->isEnabled())
+    << "a second run did not enable the comparison";
+
+  QSignalSpy asked(&panel, &RunBrowserPanel::compareItemRequested);
+  compare->click();
+
+  ASSERT_EQ(asked.size(), 1);
+  EXPECT_EQ(asked.at(0).at(0).toInt(), 0);
+  EXPECT_FALSE(asked.at(0).at(2).toString().isEmpty())
+    << "the request named no item";
+}
+
+TEST_F(RunBrowserTest, ARunComparedAgainstACopyOfItselfDrawsZeroEverywhere)
+{
+  // The plan's gate, end to end: the same manifest opened twice, differenced
+  // through the window. Every feature reads exactly zero, and a comparison
+  // that had matched the wrong instants or the wrong entities would read
+  // nearly zero and look completely convincing.
+  const QString sdkManifest = QStringLiteral(COMPOSER_SDK_REOPEN_MANIFEST);
+
+  if (sdkManifest.isEmpty() || !QFile::exists(sdkManifest))
+  {
+    GTEST_SKIP() << "the SDK's reopen fixture is not in this checkout";
+  }
+
+  ComposerMainWindow window;
+  window.setAttribute(Qt::WA_QuitOnClose, false);
+
+  QString message;
+  ASSERT_TRUE(window.openRun(sdkManifest, message)) << message.toStdString();
+  ASSERT_TRUE(window.openRun(sdkManifest, message)) << message.toStdString();
+
+  RunSession *session = window.runs()->run(0);
+  ASSERT_NE(session, nullptr);
+
+  const QStringList components = session->componentIds();
+  ASSERT_FALSE(components.isEmpty());
+
+  const QVector<const SDK::IO::ResultEntry *> entries =
+    session->entriesFor(components.first());
+
+  const auto spatial =
+    std::find_if(entries.begin(), entries.end(),
+                 [](const SDK::IO::ResultEntry *entry)
+                 { return !entry->mesh.empty(); });
+
+  if (spatial == entries.end())
+  {
+    GTEST_SKIP() << "this build recorded no format that carries geometry";
+  }
+
+  const QString itemId = QString::fromStdString((*spatial)->itemId);
+  const int before = window.layerStack()->rowCount();
+
+  ASSERT_TRUE(
+    window.compareRunItem(0, 1, components.first(), itemId, message))
+    << message.toStdString();
+
+  ASSERT_EQ(window.layerStack()->rowCount(), before + 1);
+
+  auto *layer = dynamic_cast<DifferenceLayer *>(
+    window.layerStack()->layerAt(window.layerStack()->rowCount() - 1));
+  ASSERT_NE(layer, nullptr) << "what was added is not a difference layer";
+
+  ASSERT_GT(layer->featureCount(), 0);
+
+  for (int level = 0; level < layer->timeCount(); ++level)
+  {
+    ASSERT_TRUE(layer->setTimeIndex(level));
+
+    for (int feature = 0; feature < layer->featureCount(); ++feature)
+    {
+      const QVariant value =
+        layer->attributeValue(feature, layer->valueAttribute());
+
+      ASSERT_TRUE(value.isValid())
+        << "feature " << feature << " has no difference at level " << level;
+      EXPECT_DOUBLE_EQ(value.toDouble(), 0.0)
+        << "feature " << feature << " at level " << level;
+    }
+  }
+
+  // Both runs named, in the order they were subtracted: a difference map
+  // whose title does not say which way round it was taken has a sign nobody
+  // can read.
+  EXPECT_TRUE(layer->name().contains(QStringLiteral("−")))
+    << layer->name().toStdString();
+}
+
+TEST_F(RunBrowserTest, ARunComparedAgainstItselfIsRefusedRatherThanDrawn)
+{
+  ComposerMainWindow window;
+  window.setAttribute(Qt::WA_QuitOnClose, false);
+
+  QString message;
+  ASSERT_TRUE(window.openRun(s_manifestPath, message))
+    << message.toStdString();
+
+  RunSession *session = window.runs()->run(0);
+  ASSERT_NE(session, nullptr);
+
+  const QStringList components = session->componentIds();
+  ASSERT_FALSE(components.isEmpty());
+
+  const QVector<const SDK::IO::ResultEntry *> entries =
+    session->entriesFor(components.first());
+  ASSERT_FALSE(entries.isEmpty());
+
+  const int before = window.layerStack()->rowCount();
+
+  EXPECT_FALSE(window.compareRunItem(
+    0, 0, components.first(),
+    QString::fromStdString(entries.first()->itemId), message));
+  EXPECT_TRUE(message.contains(QStringLiteral("itself")))
+    << message.toStdString();
+  EXPECT_EQ(window.layerStack()->rowCount(), before)
+    << "a comparison of a run with itself still added a layer";
 }

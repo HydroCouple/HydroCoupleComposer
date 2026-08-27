@@ -165,6 +165,9 @@ set(COMPOSER_SOURCES
     src/layers/ogrgeometryreader.cpp
     include/layers/dataitemlayer.h
     src/layers/dataitemlayer.cpp
+    include/layers/timelayer.h
+    include/layers/differencelayer.h
+    src/layers/differencelayer.cpp
     include/layers/gdalvectorlayer.h
     src/layers/gdalvectorlayer.cpp
     include/layers/layeredmesh.h

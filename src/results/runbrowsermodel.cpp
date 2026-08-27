@@ -171,6 +171,27 @@ namespace HydroCouple::Composer
     return m_runs[size_t(row)].get();
   }
 
+  QVector<int> RunBrowserModel::runsCarrying(const QString &componentId,
+                                             const QString &itemId) const
+  {
+    QVector<int> rows;
+
+    const std::string component = componentId.toStdString();
+    const std::string item = itemId.toStdString();
+
+    for (int row = 0; row < runCount(); ++row)
+    {
+      const RunSession *session = run(row);
+
+      if (session && session->manifest().entry(component, item))
+      {
+        rows.append(row);
+      }
+    }
+
+    return rows;
+  }
+
   RunSession *RunBrowserModel::runFor(const QModelIndex &index) const
   {
     if (!index.isValid())

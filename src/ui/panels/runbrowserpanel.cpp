@@ -64,11 +64,35 @@ namespace HydroCouple::Composer
                 index.data(RunBrowserModel::ItemIdRole).toString());
             });
 
+    m_compareButton = new QToolButton(this);
+    m_compareButton->setObjectName(QStringLiteral("compareItemButton"));
+    m_compareButton->setText(tr("Compare…"));
+    m_compareButton->setToolButtonStyle(Qt::ToolButtonTextOnly);
+    m_compareButton->setToolTip(
+      tr("Draw this item as its difference against another open run."));
+
+    connect(m_compareButton, &QToolButton::clicked, this,
+            [this]
+            {
+              const QModelIndex index = currentItemIndex();
+
+              if (!index.isValid())
+              {
+                return;
+              }
+
+              Q_EMIT compareItemRequested(
+                currentRunRow(),
+                index.data(RunBrowserModel::ComponentIdRole).toString(),
+                index.data(RunBrowserModel::ItemIdRole).toString());
+            });
+
     auto *buttons = new QHBoxLayout;
     buttons->setContentsMargins(0, 0, 0, 0);
     buttons->addWidget(m_openButton);
     buttons->addWidget(m_closeButton);
     buttons->addWidget(m_showButton);
+    buttons->addWidget(m_compareButton);
     buttons->addStretch(1);
 
     auto *layout = new QVBoxLayout(this);
@@ -155,6 +179,11 @@ namespace HydroCouple::Composer
   {
     m_closeButton->setEnabled(m_model && currentRunRow() >= 0);
     m_showButton->setEnabled(currentItemIndex().isValid());
+
+    // A comparison needs something to compare against, so the button is off
+    // until a second run is open — rather than offered and then refused.
+    m_compareButton->setEnabled(currentItemIndex().isValid() && m_model
+                                && m_model->runCount() > 1);
   }
 
 } // namespace HydroCouple::Composer

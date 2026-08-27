@@ -1,7 +1,8 @@
 #include "results/timecontroller.h"
 
-#include "layers/dataitemlayer.h"
+#include "layers/timelayer.h"
 #include "map/layerstackmodel.h"
+#include "map/maplayer.h"
 
 #include <QTimer>
 
@@ -69,7 +70,7 @@ namespace HydroCouple::Composer
     {
       for (MapLayer *layer : m_model->layers())
       {
-        auto *item = dynamic_cast<DataItemLayer *>(layer);
+        auto *item = dynamic_cast<ITimeLayer *>(layer);
 
         if (!item)
         {
@@ -336,7 +337,7 @@ namespace HydroCouple::Composer
 
     for (MapLayer *layer : m_model->layers())
     {
-      auto *item = dynamic_cast<DataItemLayer *>(layer);
+      auto *item = dynamic_cast<ITimeLayer *>(layer);
 
       if (!item)
       {

@@ -18,6 +18,7 @@
 #include "results/runsession.h"
 
 #include <QAbstractItemModel>
+#include <QVector>
 
 #include <memory>
 #include <vector>
@@ -90,6 +91,19 @@ namespace HydroCouple::Composer
        * \param index Any index in the tree.
        */
       [[nodiscard]] RunSession *runFor(const QModelIndex &index) const;
+
+      /*!
+       * \brief Which open runs recorded \a componentId's \a itemId.
+       *
+       * From the manifests, so the answer costs no artifact reads: asking
+       * which runs could be compared should not open every file they name.
+       *
+       * \param componentId The component that recorded it.
+       * \param itemId The item's identifier.
+       * \returns Rows into the open runs, in the order they were opened.
+       */
+      [[nodiscard]] QVector<int> runsCarrying(const QString &componentId,
+                                              const QString &itemId) const;
 
       // ── QAbstractItemModel ───────────────────────────────────────────────
 

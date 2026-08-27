@@ -61,6 +61,8 @@ composer_add_gui_test(test_dataitemlayers)
 composer_add_gui_test(test_timecontroller)
 composer_add_gui_test(test_timecontrols)
 composer_add_gui_test(test_seriesplot)
+# D4a — one variable, two runs, drawn as the difference between them.
+composer_add_gui_test(test_difference)
 # D3d — a section line cut through a layered mesh. The slice arithmetic, the
 # layer's answer, the pixels the panel paints and the gesture that draws it.
 composer_add_gui_test(test_transect)

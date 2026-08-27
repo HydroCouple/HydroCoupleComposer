@@ -18,6 +18,7 @@
 #define HYDROCOUPLECOMPOSER_LAYERS_DATAITEMLAYER_H
 
 #include "layers/featurelayer.h"
+#include "layers/timelayer.h"
 
 #include <memory>
 
@@ -32,7 +33,7 @@ namespace HydroCouple::Composer
   /*!
    * \brief A spatial component data item drawn on the map.
    */
-  class DataItemLayer : public FeatureLayer
+  class DataItemLayer : public FeatureLayer, public ITimeLayer
   {
     public:
       /*!
@@ -76,7 +77,7 @@ namespace HydroCouple::Composer
        * and a mesh with six layers has the same shape as a mesh over six
        * times.
        */
-      [[nodiscard]] int timeCount() const;
+      [[nodiscard]] int timeCount() const override;
 
       /*!
        * \brief Which time level is being shown.
@@ -87,7 +88,7 @@ namespace HydroCouple::Composer
        *
        * \returns The index, or -1 for a static item.
        */
-      [[nodiscard]] int timeIndex() const;
+      [[nodiscard]] int timeIndex() const override;
 
       /*!
        * \brief Shows the values at \a index.
@@ -98,7 +99,7 @@ namespace HydroCouple::Composer
        * \param index Time level; clamped to what the item carries.
        * \returns True when the values were read.
        */
-      bool setTimeIndex(int index);
+      bool setTimeIndex(int index) override;
 
       /*!
        * \brief The time at \a index, as a Julian day.
@@ -109,7 +110,7 @@ namespace HydroCouple::Composer
        * \param index Time level.
        * \returns The Julian day, or 0 when the item is static.
        */
-      [[nodiscard]] double timeAt(int index) const;
+      [[nodiscard]] double timeAt(int index) const override;
 
       /*!
        * \brief The time level nearest \a julianDay.
@@ -121,7 +122,7 @@ namespace HydroCouple::Composer
        * \param julianDay The instant wanted.
        * \returns The index, or -1 for a static item.
        */
-      [[nodiscard]] int nearestTime(double julianDay) const;
+      [[nodiscard]] int nearestTime(double julianDay) const override;
 
       /*!
        * \brief Every value of \a field, across every level the item carries.
@@ -151,14 +152,30 @@ namespace HydroCouple::Composer
        *          which has no series to plot.
        */
       [[nodiscard]] bool valuesOverTime(int feature, QVector<double> &values,
-                                        QString &message) const;
+                                        QString &message) const override;
 
       /*!
        * \brief Every instant this layer carries, as Julian days.
        *
        * The x of a plot, paired with valuesOverTime()'s y.
        */
-      [[nodiscard]] QVector<double> times() const;
+      [[nodiscard]] QVector<double> times() const override;
+
+      /*!
+       * \brief Every entity's value at one instant.
+       *
+       * The read the map does, made available to a caller that is not this
+       * layer — a comparison of two runs needs one level of each, and
+       * reading it through the attribute the layer happens to be showing
+       * would make the answer depend on where the clock is standing.
+       *
+       * \param index Time level; a static item ignores it.
+       * \param[out] values Receives one value per entity.
+       * \param[out] message Diagnostic on failure.
+       * \returns True when the values were read.
+       */
+      [[nodiscard]] bool valuesAtTime(int index, QVector<double> &values,
+                                      QString &message) const;
 
       /*!
        * \brief Re-reads the item's values and restyles.

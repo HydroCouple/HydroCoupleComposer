@@ -75,6 +75,22 @@ namespace HydroCouple::Composer
       void showItemRequested(int runRow, const QString &componentId,
                              const QString &itemId);
 
+      /*!
+       * \brief Emitted when the user asks to compare an item against
+       *        another open run.
+       *
+       * Which other run is not decided here: the panel knows what is
+       * selected, and whoever owns the runs knows which of them recorded the
+       * same thing. Asking here would mean the panel opening artifacts to
+       * find out.
+       *
+       * \param runRow Which open run the selected item belongs to.
+       * \param componentId The component that recorded it.
+       * \param itemId The item's identifier.
+       */
+      void compareItemRequested(int runRow, const QString &componentId,
+                                const QString &itemId);
+
     private:
       /*!
        * \brief The selected row when it names a recorded item, else invalid.
@@ -87,6 +103,7 @@ namespace HydroCouple::Composer
       QToolButton *m_openButton = nullptr;
       QToolButton *m_closeButton = nullptr;
       QToolButton *m_showButton = nullptr;
+      QToolButton *m_compareButton = nullptr;
 
       RunBrowserModel *m_model = nullptr;
   };

@@ -744,6 +744,21 @@ namespace HydroCouple::Composer
     return instants;
   }
 
+  bool DataItemLayer::valuesAtTime(int index, QVector<double> &values,
+                                   QString &message) const
+  {
+    values.clear();
+
+    if (!m_item)
+    {
+      message = QObject::tr("This layer has no data item to read.");
+      return false;
+    }
+
+    return readEntityValues(*m_item, entityAxis(), kTimeAxis, index, values,
+                            message);
+  }
+
   bool DataItemLayer::refreshValues()
   {
     if (!m_item)
@@ -754,8 +769,7 @@ namespace HydroCouple::Composer
     QVector<double> values;
     QString message;
 
-    if (!readEntityValues(*m_item, entityAxis(), kTimeAxis, timeIndex(),
-                          values, message))
+    if (!valuesAtTime(timeIndex(), values, message))
     {
       return false;
     }

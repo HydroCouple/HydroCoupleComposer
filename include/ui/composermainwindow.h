@@ -130,6 +130,20 @@ namespace HydroCouple::Composer
       [[nodiscard]] TransectPanel *transect() const;
 
       /*!
+       * \brief Draws one item as its difference between two runs.
+       *
+       * \param runRow The run to subtract from.
+       * \param otherRunRow The run to subtract.
+       * \param componentId The component that recorded it in both.
+       * \param itemId The item's identifier.
+       * \param[out] message Diagnostic on failure.
+       * \returns True when the comparison was drawn.
+       */
+      bool compareRunItem(int runRow, int otherRunRow,
+                          const QString &componentId, const QString &itemId,
+                          QString &message);
+
+      /*!
        * \brief Draws one recorded item of an open run on the map.
        *
        * The bridge between browsing a run and seeing it: the catalog row
@@ -186,6 +200,10 @@ namespace HydroCouple::Composer
       //! Draws the recorded item the run browser asked for.
       void onShowRunItem(int runRow, const QString &componentId,
                          const QString &itemId);
+
+      //! Asks which other run to compare against, then draws the difference.
+      void onCompareRunItem(int runRow, const QString &componentId,
+                            const QString &itemId);
       void onMapToolChosen();
       void onProjectionChosen();
       void onSceneToolChosen();
