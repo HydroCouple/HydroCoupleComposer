@@ -46,6 +46,7 @@ namespace HydroCouple::Composer
   class MapLayer;
   class RibbonBar;
   class ProfilePlotPanel;
+  class TransectPanel;
   class SeriesPlotPanel;
   class TimeController;
   class TimeControlPanel;
@@ -124,6 +125,9 @@ namespace HydroCouple::Composer
 
       //! \returns The vertical profile of the selected column.
       [[nodiscard]] ProfilePlotPanel *profilePlot() const;
+
+      //! \returns The section cut by the line drawn on the map.
+      [[nodiscard]] TransectPanel *transect() const;
 
       /*!
        * \brief Draws one recorded item of an open run on the map.
@@ -247,6 +251,7 @@ namespace HydroCouple::Composer
       TimeControlPanel *m_timeControls = nullptr;
       SeriesPlotPanel *m_seriesPlot = nullptr;
       ProfilePlotPanel *m_profilePlot = nullptr;
+      TransectPanel *m_transect = nullptr;
 
       RibbonBar *m_ribbon = nullptr;
 
@@ -271,6 +276,7 @@ namespace HydroCouple::Composer
       QAction *m_panToolAction = nullptr;
       QAction *m_zoomInToolAction = nullptr;
       QAction *m_zoomOutToolAction = nullptr;
+      QAction *m_transectToolAction = nullptr;
       QAction *m_orbitToolAction = nullptr;
       QAction *m_sceneSelectToolAction = nullptr;
       QAction *m_sceneZoomInToolAction = nullptr;

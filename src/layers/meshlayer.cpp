@@ -10,6 +10,7 @@
 #include "hydrocouplespatial.h"
 
 #include <QFileInfo>
+#include <QLineF>
 #include <QObject>
 
 #include <QHash>
@@ -1006,6 +1007,115 @@ namespace HydroCouple::Composer
       // boundary it shares with the cell above.
       elevations.append(
         (m_layering.z(column, layer) + m_layering.z(column, layer + 1)) / 2.0);
+    }
+
+    message.clear();
+    return true;
+  }
+
+  bool MeshLayer::transect(const QPolygonF &line, TransectSection &section,
+                           QString &message) const
+  {
+    section = TransectSection{};
+
+    if (line.size() < 2)
+    {
+      message = QObject::tr("A section needs a line of at least two points.");
+      return false;
+    }
+
+    if (!isLayered())
+    {
+      message = QObject::tr("\"%1\" has no vertical layering to cut.")
+                  .arg(name());
+      return false;
+    }
+
+    if (m_entity != MeshEntity::Face)
+    {
+      message = QObject::tr("\"%1\" is drawn by %2, and a section cuts "
+                            "through columns, which hang under faces.")
+                  .arg(name(), m_entity == MeshEntity::Edge
+                                 ? QObject::tr("edge")
+                                 : QObject::tr("node"));
+      return false;
+    }
+
+    if (m_cellValues.size() != m_layering.cellCount())
+    {
+      // Said rather than cut from whatever is there — columnProfile()'s
+      // reasoning, and the same failure: a section of zeros is a picture of
+      // a model that computed them.
+      message = QObject::tr("\"%1\" carries no layered values to cut.")
+                  .arg(name());
+      return false;
+    }
+
+    // The projected rings, not the stored mesh: a section is cut on the map
+    // the user drew it on. Features whose connectivity fell outside the node
+    // array were skipped when the layer was built, so the column each ring
+    // belongs to is carried alongside rather than assumed to be its index.
+    const QVector<QVector<QPolygonF>> &projected = projectedFeatures();
+
+    QVector<QPolygonF> rings;
+    QVector<int> columns;
+    rings.reserve(projected.size());
+    columns.reserve(projected.size());
+
+    for (int feature = 0; feature < projected.size(); ++feature)
+    {
+      if (projected[feature].isEmpty() || feature >= m_entityIndex.size())
+      {
+        continue;
+      }
+
+      rings.append(projected[feature].first());
+      columns.append(static_cast<int>(m_entityIndex[feature]));
+    }
+
+    for (int vertex = 0; vertex + 1 < line.size(); ++vertex)
+    {
+      section.length += QLineF(line.at(vertex), line.at(vertex + 1)).length();
+    }
+
+    if (section.length <= 0.0)
+    {
+      message = QObject::tr("A section line of zero length cuts nothing.");
+      return false;
+    }
+
+    const QVector<TransectSpan> spans = spansAlongLine(rings, line);
+
+    for (const TransectSpan &span : spans)
+    {
+      const int column = columns.at(span.ring);
+
+      if (column < 0 || column >= m_layering.columnCount())
+      {
+        continue;
+      }
+
+      for (int layer = 0; layer < m_layering.layerCount; ++layer)
+      {
+        TransectCell cell;
+        cell.column = column;
+        cell.layer = layer;
+        cell.startDistance = span.start;
+        cell.endDistance = span.end;
+        cell.topElevation = m_layering.z(column, layer);
+        cell.bottomElevation = m_layering.z(column, layer + 1);
+        cell.value =
+          m_cellValues.at(static_cast<int>(m_layering.cell(column, layer)));
+
+        section.cells.append(cell);
+      }
+    }
+
+    if (section.cells.isEmpty())
+    {
+      message = QObject::tr("The section line does not cross \"%1\".")
+                  .arg(name());
+      return false;
     }
 
     message.clear();

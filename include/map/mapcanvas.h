@@ -22,6 +22,7 @@
 
 #include <QColor>
 #include <QPoint>
+#include <QPolygonF>
 #include "map/maptool.h"
 
 #include <QWidget>
@@ -257,7 +258,33 @@ namespace HydroCouple::Composer
        */
       void pickAndSelectAt(const QPoint &screen);
 
+      /*!
+       * \brief Sets the section line drawn across the map.
+       *
+       * The line is map state, not the section panel's: it is a thing the
+       * user drew on the map, it stays visible after the gesture, and every
+       * view that wants to know where the section was cut reads it from
+       * here. An empty polygon clears it.
+       *
+       * \param world The line in the map's CRS.
+       */
+      void setTransectLine(const QPolygonF &world);
+
+      //! \returns The section line, in the map's CRS; empty when none.
+      [[nodiscard]] const QPolygonF &transectLine() const;
+
     Q_SIGNALS:
+      /*!
+       * \brief Emitted when the section line changes, drag included.
+       *
+       * During the drag as well as at the end of it, so the section under
+       * the line is the section of the line being drawn. A cut costs one
+       * pass over the mesh, which is what the map itself costs to redraw.
+       *
+       * \param world The new line, or an empty polygon when cleared.
+       */
+      void transectDrawn(const QPolygonF &world);
+
       /*!
        * \brief Emitted when a click selects a feature, or selects nothing.
        *
@@ -340,6 +367,12 @@ namespace HydroCouple::Composer
       void paintAttribution(QPainter &painter);
 
       /*!
+       * \brief Draws the section line, if one has been cut.
+       * \param painter Painter to draw with.
+       */
+      void paintTransectLine(QPainter &painter) const;
+
+      /*!
        * \brief Brings the transform's viewport up to date with the widget.
        *
        * Called from every entry point that reads or moves the view rather
@@ -362,6 +395,9 @@ namespace HydroCouple::Composer
 
       std::unique_ptr<MapTool> m_tool;
       MapToolKind m_toolKind = MapToolKind::Pan;
+
+      //! Where a section was cut, in the map's CRS; empty when none.
+      QPolygonF m_transectLine;
 
       //! What scaleChanged() last reported, so a pan does not re-announce it.
       mutable double m_lastDenominator = 0.0;

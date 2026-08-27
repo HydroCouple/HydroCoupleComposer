@@ -23,6 +23,7 @@
 #include "ui/panels/layertreepanel.h"
 #include "ui/panels/runbrowserpanel.h"
 #include "ui/panels/profileplotpanel.h"
+#include "ui/panels/transectpanel.h"
 #include "ui/panels/seriesplotpanel.h"
 #include "ui/panels/timecontrolpanel.h"
 #include "ui/theme/iconfactory.h"
@@ -378,6 +379,13 @@ namespace HydroCouple::Composer
     m_zoomOutToolAction->setToolTip(
       tr("Drag a box to fit the current view into it; click to zoom out."));
 
+    m_transectToolAction = new QAction(tr("Sec&tion Line"), this);
+    m_transectToolAction->setObjectName(QStringLiteral("transectToolAction"));
+    m_transectToolAction->setCheckable(true);
+    m_transectToolAction->setToolTip(
+      tr("Drag a line across a layered mesh to cut a section through the "
+         "water column."));
+
     // Exclusive: the map is under one gesture set at a time, and four
     // independent checkboxes would let the UI show a state it cannot be in.
     auto *toolGroup = new QActionGroup(this);
@@ -386,9 +394,11 @@ namespace HydroCouple::Composer
     toolGroup->addAction(m_panToolAction);
     toolGroup->addAction(m_zoomInToolAction);
     toolGroup->addAction(m_zoomOutToolAction);
+    toolGroup->addAction(m_transectToolAction);
 
     for (QAction *tool : {m_selectToolAction, m_panToolAction,
-                          m_zoomInToolAction, m_zoomOutToolAction})
+                          m_zoomInToolAction, m_zoomOutToolAction,
+                          m_transectToolAction})
     {
       connect(tool, &QAction::triggered, this,
               &ComposerMainWindow::onMapToolChosen);
@@ -684,6 +694,7 @@ namespace HydroCouple::Composer
     viewMenu->addAction(m_panToolAction);
     viewMenu->addAction(m_zoomInToolAction);
     viewMenu->addAction(m_zoomOutToolAction);
+    viewMenu->addAction(m_transectToolAction);
     viewMenu->addAction(m_mapCrsAction);
 
     viewMenu->addSeparator();
@@ -814,6 +825,7 @@ namespace HydroCouple::Composer
     tools->addAction(m_panToolAction, tr("Pan"));
     tools->addAction(m_zoomInToolAction, tr("Zoom In\nBox"));
     tools->addAction(m_zoomOutToolAction, tr("Zoom Out\nBox"));
+    tools->addAction(m_transectToolAction, tr("Section\nLine"));
 
     RibbonGroup *navigate =
       m_ribbon->addGroup(QStringLiteral("map"), tr("Navigate"));
@@ -902,6 +914,7 @@ namespace HydroCouple::Composer
     ensureIcon(m_panToolAction, QStringLiteral("pan"));
     ensureIcon(m_zoomInToolAction, QStringLiteral("zoom_rect"));
     ensureIcon(m_zoomOutToolAction, QStringLiteral("zoom_rect_out"));
+    ensureIcon(m_transectToolAction, QStringLiteral("transect"));
 
     // The 3D glyph for the projection a 3D view is normally read in, and the
     // extent rectangle for the parallel one, which is what a plan view is.
@@ -1026,6 +1039,21 @@ namespace HydroCouple::Composer
 
     addDockWidget(Qt::BottomDockWidgetArea, profileDock);
 
+    // ── Section ──────────────────────────────────────────────────────────
+    auto *transectDock = new QDockWidget(tr("Section"), this);
+    transectDock->setObjectName(QStringLiteral("transectDock"));
+
+    m_transect = new TransectPanel(transectDock);
+    m_transect->setModel(m_layerStack);
+    transectDock->setWidget(m_transect);
+
+    // The map owns the line; the panel is a second view of it, so the panel
+    // never reaches back to the canvas.
+    connect(m_mapCanvas, &MapCanvas::transectDrawn, m_transect,
+            &TransectPanel::setLine);
+
+    addDockWidget(Qt::BottomDockWidgetArea, transectDock);
+
     // ── Log ──────────────────────────────────────────────────────────────
     auto *logDock = new QDockWidget(tr("Log"), this);
     logDock->setObjectName(QStringLiteral("logDock"));
@@ -1042,6 +1070,7 @@ namespace HydroCouple::Composer
     tabifyDockWidget(attributeDock, runDock);
     tabifyDockWidget(attributeDock, plotDock);
     tabifyDockWidget(attributeDock, profileDock);
+    tabifyDockWidget(attributeDock, transectDock);
     tabifyDockWidget(attributeDock, logDock);
     attributeDock->raise();
   }
@@ -1359,6 +1388,10 @@ namespace HydroCouple::Composer
     {
       kind = MapToolKind::ZoomOut;
     }
+    else if (m_transectToolAction->isChecked())
+    {
+      kind = MapToolKind::Transect;
+    }
 
     m_mapCanvas->setToolKind(kind);
 
@@ -1415,6 +1448,11 @@ namespace HydroCouple::Composer
   SeriesPlotPanel *ComposerMainWindow::seriesPlot() const
   {
     return m_seriesPlot;
+  }
+
+  TransectPanel *ComposerMainWindow::transect() const
+  {
+    return m_transect;
   }
 
   ProfilePlotPanel *ComposerMainWindow::profilePlot() const

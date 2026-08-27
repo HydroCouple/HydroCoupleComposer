@@ -17,6 +17,7 @@
 
 #include "layers/featurelayer.h"
 #include "layers/layeredmesh.h"
+#include "results/transect.h"
 #include "scene/scenesource.h"
 
 #include "hydrocouplesdk/io/meshdefinition.h"
@@ -243,6 +244,34 @@ namespace HydroCouple::Composer
                                        QString &message) const;
 
       /*!
+       * \brief The section a line cuts through the water column.
+       *
+       * The horizontal counterpart of columnProfile(): that reads one column
+       * from top to bottom, this reads every column a line crosses. Cells
+       * carry the distance along the line at which the column was entered
+       * and left, so a section drawn over cells of wildly different sizes is
+       * drawn to the ground it covers rather than to a cell count.
+       *
+       * The line is in the map's coordinate system, since it is a thing the
+       * user drew on the map, and it is sliced against the layer's projected
+       * geometry rather than its stored mesh — which is what makes a section
+       * cut in one projection and read in another describe the same ground.
+       *
+       * Peeling does not apply. The scene peels because a full stack of
+       * prisms shows only its own skin; a section is already a cut, and
+       * hiding layers within it would remove the thing it was opened for.
+       *
+       * \param line The section line, in the map's CRS.
+       * \param[out] section The cells crossed, ordered along the line.
+       * \param[out] message Diagnostic on failure.
+       * \returns True when a section was read; false with a reason when the
+       *          layer has nothing to cut.
+       */
+      [[nodiscard]] bool transect(const QPolygonF &line,
+                                  TransectSection &section,
+                                  QString &message) const;
+
+      /*!
        * \brief The layers the scene draws, inclusive.
        *
        * Peeling: the whole point of a layered view is to look *inside*, and
@@ -259,6 +288,20 @@ namespace HydroCouple::Composer
 
       //! \copybrief setVisibleLayers
       [[nodiscard]] int lastVisibleLayer() const;
+
+      /*!
+       * \brief The colour a cell value carries, from the layer's own style.
+       *
+       * Public because three views draw cell values now — the scene's
+       * prisms, the peeled faces, and the section — and a section coloured
+       * from its own ramp would disagree with the map beside it while
+       * looking equally authoritative.
+       *
+       * \param value The layered field's value in a cell.
+       * \returns The classified colour, or an invalid colour when the value
+       *          falls outside the classification and should not be drawn.
+       */
+      [[nodiscard]] QColor colorForCellValue(double value) const;
 
       /*!
        * \brief This layer, as the 3D scene's geometry supplier.
@@ -334,9 +377,6 @@ namespace HydroCouple::Composer
 
       //! Emits the prismatic cells a layered mesh draws.
       [[nodiscard]] QVector<SceneGeometry> prismGeometry() const;
-
-      //! Colour for a cell value, straight from the style's classification.
-      [[nodiscard]] QColor colorForCellValue(double value) const;
 
       /*!
        * \brief Which column lies across each of a column's edges.

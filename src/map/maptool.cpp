@@ -33,6 +33,8 @@ namespace HydroCouple::Composer
     return Qt::ArrowCursor;
   }
 
+  void MapTool::cancel() {}
+
   // ── PanTool ───────────────────────────────────────────────────────────────
 
   bool PanTool::press(QMouseEvent *event)
@@ -226,6 +228,81 @@ namespace HydroCouple::Composer
   QCursor ZoomOutTool::idleCursor() const
   {
     return Qt::CrossCursor;
+  }
+
+  // ── TransectTool ──────────────────────────────────────────────────────────
+
+  bool TransectTool::press(QMouseEvent *event)
+  {
+    if (event->button() != Qt::LeftButton || !m_canvas->transform().isValid())
+    {
+      return false;
+    }
+
+    m_drawing = true;
+    m_origin = event->pos();
+
+    return true;
+  }
+
+  bool TransectTool::move(QMouseEvent *event)
+  {
+    if (!m_drawing)
+    {
+      return false;
+    }
+
+    // Published as it is dragged, in world coordinates, so the preview stays
+    // over the same ground if the view moves under it.
+    m_canvas->setTransectLine(
+      QPolygonF({m_canvas->transform().toWorld(m_origin),
+                 m_canvas->transform().toWorld(event->pos())}));
+
+    return true;
+  }
+
+  bool TransectTool::release(QMouseEvent *event)
+  {
+    if (!m_drawing || event->button() != Qt::LeftButton)
+    {
+      return false;
+    }
+
+    m_drawing = false;
+
+    const QPoint travelled = event->pos() - m_origin;
+
+    // Width and height separately, as the band tools check theirs: a section
+    // drawn straight down a column is a vertical line, which has no width at
+    // all and is exactly the drag someone cutting across a channel makes.
+    if (std::abs(travelled.x()) <= kClickSlopPixels
+        && std::abs(travelled.y()) <= kClickSlopPixels)
+    {
+      // A click, not a line. The previous section is cleared rather than
+      // left standing, the way clicking empty map clears a selection.
+      m_canvas->setTransectLine({});
+      return true;
+    }
+
+    m_canvas->setTransectLine(
+      QPolygonF({m_canvas->transform().toWorld(m_origin),
+                 m_canvas->transform().toWorld(event->pos())}));
+
+    return true;
+  }
+
+  QCursor TransectTool::idleCursor() const
+  {
+    return Qt::CrossCursor;
+  }
+
+  void TransectTool::cancel()
+  {
+    if (m_drawing)
+    {
+      m_drawing = false;
+      m_canvas->setTransectLine({});
+    }
   }
 
 } // namespace HydroCouple::Composer

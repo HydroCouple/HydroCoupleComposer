@@ -108,6 +108,8 @@ set(COMPOSER_SOURCES
     src/results/julianday.cpp
     include/results/seriesexport.h
     src/results/seriesexport.cpp
+    include/results/transect.h
+    src/results/transect.cpp
     include/results/runsession.h
     src/results/runsession.cpp
     include/gis/crscatalog.h
@@ -213,6 +215,8 @@ set(COMPOSER_SOURCES
     src/ui/panels/seriesplotpanel.cpp
     include/ui/panels/profileplotpanel.h
     src/ui/panels/profileplotpanel.cpp
+    include/ui/panels/transectpanel.h
+    src/ui/panels/transectpanel.cpp
     include/ui/panels/attributetablemodel.h
     src/ui/panels/attributetablemodel.cpp
     include/ui/panels/attributetablepanel.h
@@ -281,6 +285,7 @@ qt_add_resources(composer_core "composer_icons"
         resources/icons/step_forward.svg
         resources/icons/stop.svg
         resources/icons/sun.svg
+        resources/icons/transect.svg
         resources/icons/system.svg
         resources/icons/undo.svg
         resources/icons/zoomin.svg

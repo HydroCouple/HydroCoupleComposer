@@ -500,7 +500,38 @@ namespace HydroCouple::Composer
       painter.restore();
     }
 
+    paintTransectLine(painter);
     paintAttribution(painter);
+  }
+
+  void MapCanvas::paintTransectLine(QPainter &painter) const
+  {
+    if (m_transectLine.size() < 2)
+    {
+      return;
+    }
+
+    QPolygonF onScreen;
+    onScreen.reserve(m_transectLine.size());
+
+    for (const QPointF &world : m_transectLine)
+    {
+      onScreen.append(m_transform.toScreen(world));
+    }
+
+    // Over the layers, not under them: the line is an annotation on the map
+    // rather than a thing in it, and a section line hidden by the very mesh
+    // it cuts through is a section line nobody can place.
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setOpacity(1.0);
+    painter.setPen(QPen(QColor(220, 40, 40), 2.0));
+    painter.drawPolyline(onScreen);
+
+    painter.setBrush(QColor(220, 40, 40));
+    painter.drawEllipse(onScreen.first(), 3.0, 3.0);
+    painter.drawEllipse(onScreen.last(), 3.0, 3.0);
+    painter.restore();
   }
 
   void MapCanvas::paintAttribution(QPainter &painter)
@@ -596,6 +627,24 @@ namespace HydroCouple::Composer
     return m_toolKind;
   }
 
+  void MapCanvas::setTransectLine(const QPolygonF &world)
+  {
+    if (m_transectLine == world)
+    {
+      return;
+    }
+
+    m_transectLine = world;
+    update();
+
+    Q_EMIT transectDrawn(m_transectLine);
+  }
+
+  const QPolygonF &MapCanvas::transectLine() const
+  {
+    return m_transectLine;
+  }
+
   void MapCanvas::setToolKind(MapToolKind kind)
   {
     if (m_tool && m_toolKind == kind)
@@ -603,10 +652,15 @@ namespace HydroCouple::Composer
       return;
     }
 
-    // Replacing the tool destroys it, and a rubber band is its child, so a
-    // gesture in progress ends by construction. An explicit cancel() before
-    // the swap was written first and deleted: nothing observable depended on
-    // it, and the falsification run said so.
+    // Cancelled, then replaced. A rubber band would end by construction —
+    // it is a child of the tool — but the section tool's preview lives on
+    // the canvas, and a tool cannot take that back from its own destructor
+    // without reaching into a canvas that may itself be going away.
+    if (m_tool)
+    {
+      m_tool->cancel();
+    }
+
     m_toolKind = kind;
 
     switch (kind)
@@ -625,6 +679,10 @@ namespace HydroCouple::Composer
 
       case MapToolKind::Pan:
         m_tool = std::make_unique<PanTool>(this);
+        break;
+
+      case MapToolKind::Transect:
+        m_tool = std::make_unique<TransectTool>(this);
         break;
     }
 

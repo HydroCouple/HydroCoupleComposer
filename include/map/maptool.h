@@ -57,6 +57,15 @@ namespace HydroCouple::Composer
      * moves.
      */
     ZoomOut,
+
+    /*!
+     * \brief Drag a line to cut a section through the layered mesh.
+     *
+     * A drag, not a click-per-vertex polyline: a section is read against
+     * one straight run of ground, and a tool that needs to be told when the
+     * user has finished is a tool that can be left half-drawn.
+     */
+    Transect,
   };
 
   /*!
@@ -99,6 +108,17 @@ namespace HydroCouple::Composer
 
       //! \returns The cursor this tool wants while idle.
       [[nodiscard]] virtual QCursor idleCursor() const;
+
+      /*!
+       * \brief Abandons a gesture in progress.
+       *
+       * Called before the canvas swaps this tool out, and never during the
+       * canvas's own destruction — which is why it is a method rather than
+       * a destructor. A tool that undid its half-finished work from ~Tool()
+       * would reach into a canvas that is being torn down, and the only
+       * observable form of that is heap corruption in whatever runs next.
+       */
+      virtual void cancel();
 
     protected:
       MapCanvas *m_canvas = nullptr;
@@ -210,6 +230,41 @@ namespace HydroCouple::Composer
     protected:
       void useRectangle(const QRect &rectangle) override;
       void useClick(const QPoint &pixel) override;
+  };
+
+  /*!
+   * \brief Drag a line; the map cuts a section along it.
+   *
+   * Not a RubberBandTool: what is being dragged out is a line, and the band
+   * base draws — and reasons about — a rectangle. The line is published to
+   * the canvas as it is dragged, so the section under it is visible where it
+   * was cut rather than only in the panel that reads it.
+   */
+  class TransectTool : public MapTool
+  {
+    public:
+      using MapTool::MapTool;
+
+      bool press(QMouseEvent *event) override;
+      bool move(QMouseEvent *event) override;
+      bool release(QMouseEvent *event) override;
+
+      [[nodiscard]] QCursor idleCursor() const override;
+
+      /*!
+       * \brief Takes back a half-drawn line.
+       *
+       * The preview lives on the canvas rather than in a child widget, so
+       * unlike a rubber band it does not disappear when the tool does.
+       * Switching tools mid-drag would otherwise leave a line on the map
+       * belonging to a gesture nobody is making — and a line the user
+       * finished drawing is not half-finished, so it stays.
+       */
+      void cancel() override;
+
+    private:
+      bool m_drawing = false;
+      QPoint m_origin;
   };
 
 } // namespace HydroCouple::Composer
