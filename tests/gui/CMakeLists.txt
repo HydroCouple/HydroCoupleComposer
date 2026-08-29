@@ -67,6 +67,9 @@ composer_add_gui_test(test_difference)
 # E1a — the ground a mesh will be generated over. Writes its round-tripped
 # sidecar next to the other fixtures, so what it checked can be opened.
 composer_add_gui_test(test_meshdomain)
+
+# E1b-1 — the domain on the map: four homogeneous layers over one model.
+composer_add_gui_test(test_domainlayer)
 target_compile_definitions(test_meshdomain PRIVATE
     COMPOSER_MESH_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/mesh")
 # D3d — a section line cut through a layered mesh. The slice arithmetic, the

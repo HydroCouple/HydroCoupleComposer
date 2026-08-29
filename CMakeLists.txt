@@ -168,6 +168,10 @@ set(COMPOSER_SOURCES
     include/layers/timelayer.h
     include/mesh/meshdomain.h
     src/mesh/meshdomain.cpp
+    include/mesh/meshdomainmodel.h
+    src/mesh/meshdomainmodel.cpp
+    include/layers/domainlayer.h
+    src/layers/domainlayer.cpp
     include/layers/differencelayer.h
     src/layers/differencelayer.cpp
     include/layers/gdalvectorlayer.h
