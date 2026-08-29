@@ -4,8 +4,10 @@
 #include "layers/dataitemlayer.h"
 #include "layers/differencelayer.h"
 #include "layers/domainlayer.h"
+#include "layers/featurelayer.h"
 #include "mesh/domaindrawtool.h"
 #include "mesh/domainedittool.h"
+#include "mesh/domainimport.h"
 #include "mesh/meshdomainmodel.h"
 #include "layers/gdalrasterlayer.h"
 #include "layers/meshlayer.h"
@@ -44,6 +46,7 @@
 #include <QInputDialog>
 #include <QLabel>
 #include <QListView>
+#include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPlainTextEdit>
@@ -53,6 +56,7 @@
 #include <QTabWidget>
 #include <QVBoxLayout>
 #include <QToolBar>
+#include <QToolButton>
 #include <QUndoStack>
 
 namespace HydroCouple::Composer
@@ -438,6 +442,42 @@ namespace HydroCouple::Composer
     m_editVerticesAction->setToolTip(
       tr("Drag a domain vertex to move it, click an edge to add one, "
          "right-click a vertex to remove it."));
+
+    // A command, not a gesture set: it acts once on what is already
+    // selected and leaves the map under whatever tool it was under, so it
+    // stays out of the exclusive group below and is never checkable.
+    m_importSelectionAction = new QAction(tr("From &Selection"), this);
+    m_importSelectionAction->setObjectName(
+      QStringLiteral("importSelectionAction"));
+    m_importSelectionAction->setToolTip(
+      tr("Add the selected features of the current layer to the domain."));
+
+    m_importSelectionMenu = new QMenu(this);
+
+    // One handler for four entries: which part the features become is
+    // carried on the action rather than written out four times.
+    const struct
+    {
+        const char *name;
+        QString text;
+        DomainPart part;
+    } importParts[] = {
+      {"importAsBoundaryAction", tr("As &Boundary"), DomainPart::Boundary},
+      {"importAsHoleAction", tr("As &Holes"), DomainPart::Holes},
+      {"importAsBreaklineAction", tr("As Break&lines"),
+       DomainPart::Breaklines},
+      {"importAsPointAction", tr("As Forced &Points"),
+       DomainPart::ForcedPoints}};
+
+    for (const auto &entry : importParts)
+    {
+      QAction *action = m_importSelectionMenu->addAction(entry.text);
+      action->setObjectName(QString::fromLatin1(entry.name));
+      action->setData(int(entry.part));
+
+      connect(action, &QAction::triggered, this,
+              &ComposerMainWindow::onImportSelectionAsDomainPart);
+    }
 
     // Exclusive: the map is under one gesture set at a time, and four
     // independent checkboxes would let the UI show a state it cannot be in.
@@ -929,6 +969,16 @@ namespace HydroCouple::Composer
     domain->addAction(m_drawPointAction, tr("Point"));
     domain->addAction(m_editVerticesAction, tr("Edit"));
 
+    // A menu on the button rather than four more faces: the Mesh tab has
+    // generation, vertical grids and boundary conditions still to come, and
+    // E1b-2 measured that crowding a tab changes the canvas it sits above.
+    if (QToolButton *button =
+          domain->addAction(m_importSelectionAction, tr("From\nSelection")))
+    {
+      button->setMenu(m_importSelectionMenu);
+      button->setPopupMode(QToolButton::InstantPopup);
+    }
+
     m_ribbon->addTab(QStringLiteral("scene"), tr("3D"));
 
     RibbonGroup *sceneTools =
@@ -1006,6 +1056,7 @@ namespace HydroCouple::Composer
     ensureIcon(m_drawBreaklineAction, QStringLiteral("domain_breakline"));
     ensureIcon(m_drawPointAction, QStringLiteral("domain_point"));
     ensureIcon(m_editVerticesAction, QStringLiteral("domain_edit"));
+    ensureIcon(m_importSelectionAction, QStringLiteral("domain_import"));
 
     // The 3D glyph for the projection a 3D view is normally read in, and the
     // extent rectangle for the parallel one, which is what a plan view is.
@@ -1523,6 +1574,51 @@ namespace HydroCouple::Composer
 
     // Brought forward, because a gesture set is a property of a view nobody
     // can use from another tab.
+    m_workspace->setCurrentWidget(m_mapCanvas);
+  }
+
+  void ComposerMainWindow::onImportSelectionAsDomainPart()
+  {
+    QAction *action = qobject_cast<QAction *>(sender());
+
+    if (!action)
+    {
+      return;
+    }
+
+    // The layer the user is pointing at in the tree, which is the one whose
+    // selection they can see. A raster or a mesh has no features to take.
+    auto *layer = dynamic_cast<FeatureLayer *>(m_layerTree->currentLayer());
+
+    if (!layer)
+    {
+      const QString message =
+        tr("Choose a vector layer in the Layers panel, and select the "
+           "features to import on the map.");
+
+      log(message);
+      QMessageBox::information(this, tr("Nothing to import"), message);
+
+      return;
+    }
+
+    // Created before the import rather than after it: the layers are made on
+    // first use, and a domain that arrives with nothing drawing it looks
+    // like an import that did nothing.
+    ensureDomainLayers();
+
+    const DomainImportResult result = importSelectionAsDomainPart(
+      *layer, DomainPart(action->data().toInt()), *m_meshDomain);
+
+    log(result.message);
+
+    if (!result.ok)
+    {
+      QMessageBox::information(this, tr("Nothing to import"), result.message);
+
+      return;
+    }
+
     m_workspace->setCurrentWidget(m_mapCanvas);
   }
 

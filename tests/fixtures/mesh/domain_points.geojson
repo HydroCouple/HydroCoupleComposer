@@ -1,0 +1,23 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "gauge" },
+      "geometry": { "type": "Point", "coordinates": [0.25, 0.25] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "outfall" },
+      "geometry": { "type": "Point", "coordinates": [0.75, 0.25] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "sondes", "note": "two points in one feature" },
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [[0.25, 0.75], [0.75, 0.75]]
+      }
+    }
+  ]
+}

@@ -32,6 +32,7 @@ class QAction;
 class QActionGroup;
 class QDoubleSpinBox;
 class QLabel;
+class QMenu;
 class QListView;
 class QPlainTextEdit;
 class QTabWidget;
@@ -213,6 +214,14 @@ namespace HydroCouple::Composer
       void onDomainToolChosen();
 
       /*!
+       * \brief Adds the current layer's selected features to the domain.
+       *
+       * Which part they become is carried on the action that sent this, so
+       * the four menu entries are one handler rather than four.
+       */
+      void onImportSelectionAsDomainPart();
+
+      /*!
        * \brief Adds the four layers that show the domain, once.
        *
        * Called when a domain first has something in it, or when the user
@@ -319,6 +328,10 @@ namespace HydroCouple::Composer
       QAction *m_drawBreaklineAction = nullptr;
       QAction *m_drawPointAction = nullptr;
       QAction *m_editVerticesAction = nullptr;
+
+      //! Hosts the menu of parts; never triggered itself.
+      QAction *m_importSelectionAction = nullptr;
+      QMenu *m_importSelectionMenu = nullptr;
       QAction *m_orbitToolAction = nullptr;
       QAction *m_sceneSelectToolAction = nullptr;
       QAction *m_sceneZoomInToolAction = nullptr;

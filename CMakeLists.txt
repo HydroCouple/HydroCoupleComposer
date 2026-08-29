@@ -178,6 +178,8 @@ set(COMPOSER_SOURCES
     src/mesh/domainsnap.cpp
     include/mesh/domainedittool.h
     src/mesh/domainedittool.cpp
+    include/mesh/domainimport.h
+    src/mesh/domainimport.cpp
     include/layers/differencelayer.h
     src/layers/differencelayer.cpp
     include/layers/gdalvectorlayer.h
@@ -279,6 +281,7 @@ qt_add_resources(composer_core "composer_icons"
         resources/icons/domain_breakline.svg
         resources/icons/domain_edit.svg
         resources/icons/domain_hole.svg
+        resources/icons/domain_import.svg
         resources/icons/domain_point.svg
         resources/icons/dock_layers.svg
         resources/icons/extent.svg

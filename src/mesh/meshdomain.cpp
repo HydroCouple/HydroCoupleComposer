@@ -127,6 +127,12 @@ namespace HydroCouple::Composer
     return !(*this == other);
   }
 
+  bool ringEnclosesArea(const QPolygonF &ring)
+  {
+    return ring.size() >= 3 && allFinite(ring)
+           && std::abs(signedDoubleArea(ring)) >= kAreaEpsilon;
+  }
+
   int minimumVertices(DomainPart part)
   {
     switch (part)
@@ -260,8 +266,7 @@ namespace HydroCouple::Composer
     {
       const QPolygonF &hole = holes.at(index);
 
-      if (hole.size() < 3 || !allFinite(hole)
-          || std::abs(signedDoubleArea(hole)) < kAreaEpsilon)
+      if (!ringEnclosesArea(hole))
       {
         message = QObject::tr("Hole %1 encloses no area.").arg(index + 1);
         return false;

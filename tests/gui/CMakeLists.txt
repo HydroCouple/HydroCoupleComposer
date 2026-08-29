@@ -77,6 +77,13 @@ composer_add_gui_test(test_domaindraw)
 # E1b-3 — the reach that decides what was clicked, and the drag, insert and
 # remove gestures built on it.
 composer_add_gui_test(test_domainedit)
+
+# E1c — features already on the map become part of the domain. Reads the
+# hand-authored GeoJSON beside the other mesh fixtures, so what a gate
+# checked can be opened and looked at.
+composer_add_gui_test(test_domainimport)
+target_compile_definitions(test_domainimport PRIVATE
+    COMPOSER_MESH_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/mesh")
 target_compile_definitions(test_meshdomain PRIVATE
     COMPOSER_MESH_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/mesh")
 # D3d — a section line cut through a layered mesh. The slice arithmetic, the

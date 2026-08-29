@@ -1,0 +1,47 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "big", "note": "outer ring with one hole in it" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0], [0.0, 0.0]],
+          [[0.2, 0.2], [0.2, 0.4], [0.4, 0.4], [0.4, 0.2], [0.2, 0.2]]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "small", "note": "a whole polygon inside big" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [[0.6, 0.6], [0.8, 0.6], [0.8, 0.8], [0.6, 0.8], [0.6, 0.6]]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "flat", "note": "three collinear points on a diagonal: a full box, and no ground" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [[0.0, 0.0], [0.5, 0.5], [1.0, 1.0], [0.0, 0.0]]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "pair", "note": "two disjoint polygons in one feature" },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [[[0.1, 0.6], [0.2, 0.6], [0.2, 0.7], [0.1, 0.7], [0.1, 0.6]]],
+          [[[0.3, 0.6], [0.4, 0.6], [0.4, 0.7], [0.3, 0.7], [0.3, 0.6]]]
+        ]
+      }
+    }
+  ]
+}

@@ -174,6 +174,18 @@ namespace HydroCouple::Composer
   [[nodiscard]] double signedDoubleArea(const QPolygonF &ring);
 
   /*!
+   * \brief Whether \a ring encloses any ground at all.
+   *
+   * Area, not the bounding box, and not the vertex count: three collinear
+   * points have a perfectly good box, three vertices and nothing inside
+   * them. Asked when a ring is validated and again when one arrives from a
+   * file, which is why it is not private to either.
+   *
+   * \param ring The ring to measure; its first point is not repeated.
+   */
+  [[nodiscard]] bool ringEnclosesArea(const QPolygonF &ring);
+
+  /*!
    * \brief How many vertices \a part needs to be what it is meant to be.
    *
    * Three for a ring, two for a line, one for a point. Asked when a shape is
