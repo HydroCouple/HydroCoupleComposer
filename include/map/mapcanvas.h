@@ -23,6 +23,7 @@
 #include <QColor>
 #include <QPoint>
 #include <QPolygonF>
+#include <QVector>
 #include "map/maptool.h"
 
 #include <QWidget>
@@ -291,6 +292,27 @@ namespace HydroCouple::Composer
       [[nodiscard]] const QPolygonF &sketch() const;
 
       /*!
+       * \brief Shows the vertices an editor is offering to move.
+       *
+       * Drawn by the canvas rather than by the layer, because a handle is not
+       * part of the data: it appears when an editing tool is picked up and
+       * goes when it is put down, while the layer draws the same shapes
+       * whether anyone is editing them or not.
+       *
+       * \param world The handle positions in the map's CRS; empty clears
+       *        them.
+       * \param active Index of the one under the pointer or being dragged,
+       *        or -1.
+       */
+      void setVertexHandles(const QVector<QPointF> &world, int active);
+
+      //! \returns The handle positions, in the map's CRS.
+      [[nodiscard]] const QVector<QPointF> &vertexHandles() const;
+
+      //! \returns The index of the highlighted handle, or -1.
+      [[nodiscard]] int activeVertexHandle() const;
+
+      /*!
        * \brief Installs a gesture set the canvas does not know by name.
        *
        * The kinds in MapToolKind are the map's own. A tool that acts on
@@ -408,6 +430,12 @@ namespace HydroCouple::Composer
       void paintSketch(QPainter &painter) const;
 
       /*!
+       * \brief Draws the vertex handles, if an editor published any.
+       * \param painter Painter to draw with.
+       */
+      void paintVertexHandles(QPainter &painter) const;
+
+      /*!
        * \brief Brings the transform's viewport up to date with the widget.
        *
        * Called from every entry point that reads or moves the view rather
@@ -443,6 +471,8 @@ namespace HydroCouple::Composer
       //! The shape being drawn right now; cleared when the gesture ends.
       QPolygonF m_sketch;
       bool m_sketchClosed = false;
+      QVector<QPointF> m_vertexHandles;
+      int m_activeVertexHandle = -1;
 
       //! What scaleChanged() last reported, so a pan does not re-announce it.
       mutable double m_lastDenominator = 0.0;

@@ -2,6 +2,7 @@
 
 #include "map/mapcanvas.h"
 #include "map/maptransform.h"
+#include "mesh/domainsnap.h"
 #include "mesh/meshdomainmodel.h"
 
 #include <QMouseEvent>
@@ -24,22 +25,18 @@ namespace HydroCouple::Composer
     return m_pending;
   }
 
-  int DomainDrawTool::minimumVertices(DomainPart part)
+  QPointF DomainDrawTool::snapped(const QPointF &world) const
   {
-    switch (part)
+    if (!m_model)
     {
-      case DomainPart::Boundary:
-      case DomainPart::Holes:
-        return 3;
-
-      case DomainPart::Breaklines:
-        return 2;
-
-      case DomainPart::ForcedPoints:
-        return 1;
+      return world;
     }
 
-    return 3;
+    const DomainSnap hit = nearestVertex(
+      m_model->domain(), world,
+      worldTolerance(kSnapPixels, m_canvas->transform().scale()));
+
+    return hit.hit ? hit.point : world;
   }
 
   bool DomainDrawTool::press(QMouseEvent *event)
@@ -63,7 +60,7 @@ namespace HydroCouple::Composer
       return false;
     }
 
-    m_pending.append(m_canvas->transform().toWorld(event->pos()));
+    m_pending.append(snapped(m_canvas->transform().toWorld(event->pos())));
 
     // A point has nothing to accumulate, so the first click is the whole
     // gesture.
@@ -88,7 +85,9 @@ namespace HydroCouple::Composer
     // The segment to the cursor is drawn but never stored: it shows where
     // the next vertex would go, and a version that appended it would grow
     // the shape by one vertex per mouse move.
-    refreshSketch(m_canvas->transform().toWorld(event->pos()), true);
+    // Snapped in the preview as well as on the click, so what the sketch
+    // shows is where the vertex would actually land.
+    refreshSketch(snapped(m_canvas->transform().toWorld(event->pos())), true);
 
     return true;
   }

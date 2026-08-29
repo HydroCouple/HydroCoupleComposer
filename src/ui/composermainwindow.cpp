@@ -5,6 +5,7 @@
 #include "layers/differencelayer.h"
 #include "layers/domainlayer.h"
 #include "mesh/domaindrawtool.h"
+#include "mesh/domainedittool.h"
 #include "mesh/meshdomainmodel.h"
 #include "layers/gdalrasterlayer.h"
 #include "layers/meshlayer.h"
@@ -431,6 +432,13 @@ namespace HydroCouple::Composer
     m_drawPointAction->setToolTip(
       tr("Click to force a mesh vertex where you click."));
 
+    m_editVerticesAction = new QAction(tr("&Edit Vertices"), this);
+    m_editVerticesAction->setObjectName(QStringLiteral("editVerticesAction"));
+    m_editVerticesAction->setCheckable(true);
+    m_editVerticesAction->setToolTip(
+      tr("Drag a domain vertex to move it, click an edge to add one, "
+         "right-click a vertex to remove it."));
+
     // Exclusive: the map is under one gesture set at a time, and four
     // independent checkboxes would let the UI show a state it cannot be in.
     auto *toolGroup = new QActionGroup(this);
@@ -447,9 +455,11 @@ namespace HydroCouple::Composer
     toolGroup->addAction(m_drawHoleAction);
     toolGroup->addAction(m_drawBreaklineAction);
     toolGroup->addAction(m_drawPointAction);
+    toolGroup->addAction(m_editVerticesAction);
 
     for (QAction *tool : {m_drawBoundaryAction, m_drawHoleAction,
-                          m_drawBreaklineAction, m_drawPointAction})
+                          m_drawBreaklineAction, m_drawPointAction,
+                          m_editVerticesAction})
     {
       connect(tool, &QAction::triggered, this,
               &ComposerMainWindow::onDomainToolChosen);
@@ -917,6 +927,7 @@ namespace HydroCouple::Composer
     domain->addAction(m_drawHoleAction, tr("Hole"));
     domain->addAction(m_drawBreaklineAction, tr("Break\nline"));
     domain->addAction(m_drawPointAction, tr("Point"));
+    domain->addAction(m_editVerticesAction, tr("Edit"));
 
     m_ribbon->addTab(QStringLiteral("scene"), tr("3D"));
 
@@ -988,11 +999,13 @@ namespace HydroCouple::Composer
     ensureIcon(m_transectToolAction, QStringLiteral("transect"));
 
     // The domain glyphs: the ring, the ring with a bite out of it, the
-    // breakline with its vertices, and the crosshair that forces one.
+    // breakline with its vertices, the crosshair that forces one, and the
+    // ring whose corners are drawn as the handles the editor offers.
     ensureIcon(m_drawBoundaryAction, QStringLiteral("domain_boundary"));
     ensureIcon(m_drawHoleAction, QStringLiteral("domain_hole"));
     ensureIcon(m_drawBreaklineAction, QStringLiteral("domain_breakline"));
     ensureIcon(m_drawPointAction, QStringLiteral("domain_point"));
+    ensureIcon(m_editVerticesAction, QStringLiteral("domain_edit"));
 
     // The 3D glyph for the projection a 3D view is normally read in, and the
     // extent rectangle for the parallel one, which is what a plan view is.
@@ -1480,6 +1493,15 @@ namespace HydroCouple::Composer
     // domain, so the rows to toggle appear then rather than after the first
     // shape lands.
     ensureDomainLayers();
+
+    if (m_editVerticesAction->isChecked())
+    {
+      m_mapCanvas->setTool(
+        std::make_unique<DomainEditTool>(m_mapCanvas, m_meshDomain));
+      m_workspace->setCurrentWidget(m_mapCanvas);
+
+      return;
+    }
 
     DomainPart part = DomainPart::Boundary;
 

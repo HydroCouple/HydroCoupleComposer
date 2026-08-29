@@ -68,20 +68,23 @@ namespace HydroCouple::Composer
       //! \returns The vertices placed so far.
       [[nodiscard]] const QPolygonF &pending() const;
 
-      /*!
-       * \brief How many vertices \a part needs before it can be finished.
-       *
-       * Three for a ring, two for a line, one for a point — the counts below
-       * which the shape is not yet the thing it is meant to become.
-       */
-      [[nodiscard]] static int minimumVertices(DomainPart part);
-
     private:
       //! Commits the pending shape to the model, if it has enough vertices.
       void finish();
 
       //! Shows the pending shape on the canvas.
       void refreshSketch(const QPointF &cursor, bool hasCursor);
+
+      /*!
+       * \brief \a world moved onto a domain vertex within reach of it.
+       *
+       * So that a breakline can be made to start exactly on the boundary it
+       * divides, rather than a hair off it — a gap of half a pixel is
+       * invisible on the map and is a hole the triangulator meshes through.
+       *
+       * \param world Where the pointer is, in world coordinates.
+       */
+      [[nodiscard]] QPointF snapped(const QPointF &world) const;
 
       MeshDomainModel *m_model = nullptr;
       DomainPart m_part = DomainPart::Boundary;

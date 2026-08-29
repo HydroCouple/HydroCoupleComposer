@@ -318,6 +318,7 @@ namespace HydroCouple::Composer
       QAction *m_drawHoleAction = nullptr;
       QAction *m_drawBreaklineAction = nullptr;
       QAction *m_drawPointAction = nullptr;
+      QAction *m_editVerticesAction = nullptr;
       QAction *m_orbitToolAction = nullptr;
       QAction *m_sceneSelectToolAction = nullptr;
       QAction *m_sceneZoomInToolAction = nullptr;

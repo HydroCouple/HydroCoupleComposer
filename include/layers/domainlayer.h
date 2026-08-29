@@ -22,23 +22,13 @@
 #define HYDROCOUPLECOMPOSER_LAYERS_DOMAINLAYER_H
 
 #include "layers/featurelayer.h"
+#include "mesh/meshdomain.h"
 
 #include <memory>
 
 namespace HydroCouple::Composer
 {
   class MeshDomainModel;
-
-  /*!
-   * \brief Which part of a domain a layer draws.
-   */
-  enum class DomainPart
-  {
-    Boundary,     //!< The outer ring, as a polygon.
-    Holes,        //!< The rings cut out of it, as polygons.
-    Breaklines,   //!< The constraint polylines, as lines.
-    ForcedPoints  //!< The interior points, as points.
-  };
 
   /*!
    * \brief One part of a mesh domain, drawn on the map.

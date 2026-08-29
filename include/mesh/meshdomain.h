@@ -42,6 +42,52 @@ namespace HydroCouple::Composer
 {
 
   /*!
+   * \brief Which part of a domain something belongs to.
+   *
+   * Named here rather than beside the layers that draw it, because the model
+   * addresses a part whenever a vertex is moved or removed — and a model that
+   * had to include a layer header to say "boundary" would be a model that
+   * knows about views.
+   */
+  enum class DomainPart
+  {
+    Boundary,     //!< The outer ring.
+    Holes,        //!< The rings cut out of it.
+    Breaklines,   //!< The constraint polylines.
+    ForcedPoints  //!< The interior points.
+  };
+
+  /*!
+   * \brief Where one vertex of a domain lives.
+   *
+   * Three numbers rather than a pointer, because the thing addressed is about
+   * to be edited: a pointer into a ring does not survive the insert the editor
+   * is performing, and an address does.
+   *
+   * A forced point is a shape of one vertex — \a shape says which point and
+   * \a vertex is always 0 — so a point is addressed with the same index the
+   * layer drawing it gives that feature.
+   */
+  struct DomainVertex
+  {
+      //! Which part of the domain.
+      DomainPart part = DomainPart::Boundary;
+
+      //! Which shape within that part; always 0 for the boundary.
+      int shape = -1;
+
+      //! Which vertex within that shape; always 0 for a forced point.
+      int vertex = -1;
+
+      //! Whether this addresses anything at all.
+      [[nodiscard]] bool isValid() const;
+
+      [[nodiscard]] bool operator==(const DomainVertex &other) const;
+
+      [[nodiscard]] bool operator!=(const DomainVertex &other) const;
+  };
+
+  /*!
    * \brief A boundary, its holes, its breaklines and its forced points.
    */
   struct MeshDomain
@@ -126,6 +172,46 @@ namespace HydroCouple::Composer
    * \param ring A ring whose first point is not repeated.
    */
   [[nodiscard]] double signedDoubleArea(const QPolygonF &ring);
+
+  /*!
+   * \brief How many vertices \a part needs to be what it is meant to be.
+   *
+   * Three for a ring, two for a line, one for a point. Asked when a shape is
+   * finished being drawn, and asked again when a vertex is taken out of one —
+   * which is why it belongs to neither the drawing tool nor the editor.
+   *
+   * \param part The part being drawn or edited.
+   */
+  [[nodiscard]] int minimumVertices(DomainPart part);
+
+  /*!
+   * \brief How many shapes \a domain holds in \a part.
+   * \param domain The domain to count in.
+   * \param part The part to count.
+   */
+  [[nodiscard]] int shapeCount(const MeshDomain &domain, DomainPart part);
+
+  /*!
+   * \brief How many vertices one shape holds.
+   * \param domain The domain to look in.
+   * \param part Which part the shape is in.
+   * \param shape Which shape.
+   * \returns 0 when there is no such shape.
+   */
+  [[nodiscard]] int shapeVertexCount(const MeshDomain &domain, DomainPart part,
+                                     int shape);
+
+  /*!
+   * \brief Where a vertex is.
+   * \param domain The domain to look in.
+   * \param at The vertex to locate.
+   * \param[out] position Its world coordinate.
+   * \returns False when \a at addresses nothing; \a position is then
+   *          untouched.
+   */
+  [[nodiscard]] bool vertexPosition(const MeshDomain &domain,
+                                    const DomainVertex &at,
+                                    QPointF &position);
 
 } // namespace HydroCouple::Composer
 

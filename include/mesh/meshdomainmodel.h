@@ -84,6 +84,45 @@ namespace HydroCouple::Composer
       void addPoint(const QPointF &point);
 
       /*!
+       * \brief Moves one vertex.
+       *
+       * The whole of dragging: the editor writes each position through here
+       * as the pointer moves, so what is on the map during a drag is the
+       * domain itself rather than a preview of it that could disagree.
+       *
+       * \param at Which vertex.
+       * \param to Where it goes, in world coordinates.
+       * \returns False when \a at addresses nothing, or when the vertex is
+       *          already there — an unchanged domain is not announced.
+       */
+      bool moveVertex(const DomainVertex &at, const QPointF &to);
+
+      /*!
+       * \brief Puts a new vertex at an address.
+       *
+       * \param at Where the new vertex goes; its index may be one past the
+       *        last, which appends.
+       * \param point The vertex, in world coordinates.
+       * \returns False when \a at addresses no shape, or an index outside
+       *          it.
+       */
+      bool insertVertex(const DomainVertex &at, const QPointF &point);
+
+      /*!
+       * \brief Takes a vertex out.
+       *
+       * A shape left below the count its part needs is **removed entirely**
+       * rather than kept: two corners is not a hole, and leaving one behind
+       * would put a shape in the domain that nothing downstream can use and
+       * the user cannot see is broken. Refusing instead would leave the
+       * gesture doing nothing with no way to say why.
+       *
+       * \param at Which vertex.
+       * \returns False when \a at addresses nothing.
+       */
+      bool removeVertex(const DomainVertex &at);
+
+      /*!
        * \brief Whether the domain can be meshed, and why not when it cannot.
        * \param[out] message What is wrong.
        */

@@ -225,10 +225,10 @@ TEST_F(DomainDrawTest, AShapeWithTooFewVerticesIsDiscardedNotCommitted)
 
 TEST_F(DomainDrawTest, EachPartKnowsHowManyVerticesItNeeds)
 {
-  EXPECT_EQ(DomainDrawTool::minimumVertices(DomainPart::Boundary), 3);
-  EXPECT_EQ(DomainDrawTool::minimumVertices(DomainPart::Holes), 3);
-  EXPECT_EQ(DomainDrawTool::minimumVertices(DomainPart::Breaklines), 2);
-  EXPECT_EQ(DomainDrawTool::minimumVertices(DomainPart::ForcedPoints), 1);
+  EXPECT_EQ(minimumVertices(DomainPart::Boundary), 3);
+  EXPECT_EQ(minimumVertices(DomainPart::Holes), 3);
+  EXPECT_EQ(minimumVertices(DomainPart::Breaklines), 2);
+  EXPECT_EQ(minimumVertices(DomainPart::ForcedPoints), 1);
 }
 
 TEST_F(DomainDrawTest, SwitchingToolsMidShapeCommitsNothingAndLeavesNoSketch)

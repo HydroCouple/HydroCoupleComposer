@@ -502,6 +502,7 @@ namespace HydroCouple::Composer
 
     paintTransectLine(painter);
     paintSketch(painter);
+    paintVertexHandles(painter);
     paintAttribution(painter);
   }
 
@@ -545,6 +546,36 @@ namespace HydroCouple::Composer
     for (const QPointF &vertex : onScreen)
     {
       painter.drawEllipse(vertex, 3.0, 3.0);
+    }
+
+    painter.restore();
+  }
+
+  void MapCanvas::paintVertexHandles(QPainter &painter) const
+  {
+    if (m_vertexHandles.isEmpty())
+    {
+      return;
+    }
+
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, false);
+    painter.setOpacity(1.0);
+
+    // Square handles, where the sketch draws round vertices: one shape says
+    // "this is being drawn" and the other says "this can be grabbed", and a
+    // user editing a domain they have just drawn should be able to tell
+    // which of the two they are looking at.
+    for (int index = 0; index < m_vertexHandles.size(); ++index)
+    {
+      const QPointF centre = m_transform.toScreen(m_vertexHandles.at(index));
+      const bool active = index == m_activeVertexHandle;
+      const double half = active ? 5.0 : 3.5;
+
+      painter.setPen(QPen(QColor(20, 20, 20), 1.0));
+      painter.setBrush(active ? QColor(255, 170, 40) : QColor(255, 255, 255));
+      painter.drawRect(QRectF(centre.x() - half, centre.y() - half,
+                              2.0 * half, 2.0 * half));
     }
 
     painter.restore();
@@ -706,6 +737,29 @@ namespace HydroCouple::Composer
   const QPolygonF &MapCanvas::sketch() const
   {
     return m_sketch;
+  }
+
+  void MapCanvas::setVertexHandles(const QVector<QPointF> &world, int active)
+  {
+    if (m_vertexHandles == world && m_activeVertexHandle == active)
+    {
+      return;
+    }
+
+    m_vertexHandles = world;
+    m_activeVertexHandle = active;
+
+    update();
+  }
+
+  const QVector<QPointF> &MapCanvas::vertexHandles() const
+  {
+    return m_vertexHandles;
+  }
+
+  int MapCanvas::activeVertexHandle() const
+  {
+    return m_activeVertexHandle;
   }
 
   void MapCanvas::setTool(std::unique_ptr<MapTool> tool)

@@ -111,6 +111,118 @@ namespace HydroCouple::Composer
     return total;
   }
 
+  bool DomainVertex::isValid() const
+  {
+    return shape >= 0 && vertex >= 0;
+  }
+
+  bool DomainVertex::operator==(const DomainVertex &other) const
+  {
+    return part == other.part && shape == other.shape
+           && vertex == other.vertex;
+  }
+
+  bool DomainVertex::operator!=(const DomainVertex &other) const
+  {
+    return !(*this == other);
+  }
+
+  int minimumVertices(DomainPart part)
+  {
+    switch (part)
+    {
+      case DomainPart::Boundary:
+      case DomainPart::Holes:
+        return 3;
+
+      case DomainPart::Breaklines:
+        return 2;
+
+      case DomainPart::ForcedPoints:
+        return 1;
+    }
+
+    return 3;
+  }
+
+  int shapeCount(const MeshDomain &domain, DomainPart part)
+  {
+    switch (part)
+    {
+      // One boundary, and none until it has been drawn — not "one, empty",
+      // which would offer an editor a shape with nothing in it.
+      case DomainPart::Boundary:
+        return domain.boundary.isEmpty() ? 0 : 1;
+
+      case DomainPart::Holes:
+        return int(domain.holes.size());
+
+      case DomainPart::Breaklines:
+        return int(domain.constraintLines.size());
+
+      case DomainPart::ForcedPoints:
+        return int(domain.points.size());
+    }
+
+    return 0;
+  }
+
+  int shapeVertexCount(const MeshDomain &domain, DomainPart part, int shape)
+  {
+    if (shape < 0 || shape >= shapeCount(domain, part))
+    {
+      return 0;
+    }
+
+    switch (part)
+    {
+      case DomainPart::Boundary:
+        return int(domain.boundary.size());
+
+      case DomainPart::Holes:
+        return int(domain.holes.at(shape).size());
+
+      case DomainPart::Breaklines:
+        return int(domain.constraintLines.at(shape).size());
+
+      case DomainPart::ForcedPoints:
+        return 1;
+    }
+
+    return 0;
+  }
+
+  bool vertexPosition(const MeshDomain &domain, const DomainVertex &at,
+                      QPointF &position)
+  {
+    if (!at.isValid() || at.vertex >= shapeVertexCount(domain, at.part,
+                                                       at.shape))
+    {
+      return false;
+    }
+
+    switch (at.part)
+    {
+      case DomainPart::Boundary:
+        position = domain.boundary.at(at.vertex);
+        return true;
+
+      case DomainPart::Holes:
+        position = domain.holes.at(at.shape).at(at.vertex);
+        return true;
+
+      case DomainPart::Breaklines:
+        position = domain.constraintLines.at(at.shape).at(at.vertex);
+        return true;
+
+      case DomainPart::ForcedPoints:
+        position = domain.points.at(at.shape);
+        return true;
+    }
+
+    return false;
+  }
+
   bool MeshDomain::isEmpty() const
   {
     return boundary.isEmpty() && holes.isEmpty() && constraintLines.isEmpty()

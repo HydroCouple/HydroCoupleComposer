@@ -73,6 +73,10 @@ composer_add_gui_test(test_domainlayer)
 
 # E1b-2 — drawing the domain's parts, driven through real mouse events.
 composer_add_gui_test(test_domaindraw)
+
+# E1b-3 — the reach that decides what was clicked, and the drag, insert and
+# remove gestures built on it.
+composer_add_gui_test(test_domainedit)
 target_compile_definitions(test_meshdomain PRIVATE
     COMPOSER_MESH_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/mesh")
 # D3d — a section line cut through a layered mesh. The slice arithmetic, the
