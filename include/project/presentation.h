@@ -14,10 +14,18 @@
  * The sidecar sits next to its document as `<name>.composer.json`. A missing
  * or unreadable sidecar is never an error — the composition remains fully
  * usable and the canvas simply lays out afresh.
+ *
+ * The mesh domain lives here for the same reason the canvas positions do: it
+ * is Composer-owned authoring state with nowhere to go in a conforming
+ * composition document. A composition names the mesh *file* a component
+ * reads; the domain is the ground that file was generated over, and losing
+ * it would mean a mesh nobody can regenerate or correct.
  */
 
 #ifndef HYDROCOUPLECOMPOSER_PROJECT_PRESENTATION_H
 #define HYDROCOUPLECOMPOSER_PROJECT_PRESENTATION_H
+
+#include "mesh/meshdomain.h"
 
 #include <QHash>
 #include <QPointF>
@@ -65,6 +73,24 @@ namespace HydroCouple::Composer
 
       [[nodiscard]] QStringList componentIds() const;
 
+      /*!
+       * \brief Whether a mesh domain has been drawn for this composition.
+       *
+       * Asked separately from reading it, because an empty domain and no
+       * domain are the same picture on the map and different answers to
+       * "has anything been drawn yet".
+       */
+      [[nodiscard]] bool hasMeshDomain() const;
+
+      //! \returns The mesh domain; empty when none was drawn.
+      [[nodiscard]] const MeshDomain &meshDomain() const;
+
+      /*!
+       * \brief Replaces the mesh domain.
+       * \param domain The domain to keep; an empty one clears it.
+       */
+      void setMeshDomain(const MeshDomain &domain);
+
       [[nodiscard]] bool isEmpty() const;
 
       void clear();
@@ -83,6 +109,7 @@ namespace HydroCouple::Composer
 
     private:
       QHash<QString, ComponentPresentation> m_components;
+      MeshDomain m_meshDomain;
   };
 
 } // namespace HydroCouple::Composer

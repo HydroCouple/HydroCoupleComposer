@@ -63,6 +63,12 @@ composer_add_gui_test(test_timecontrols)
 composer_add_gui_test(test_seriesplot)
 # D4a — one variable, two runs, drawn as the difference between them.
 composer_add_gui_test(test_difference)
+
+# E1a — the ground a mesh will be generated over. Writes its round-tripped
+# sidecar next to the other fixtures, so what it checked can be opened.
+composer_add_gui_test(test_meshdomain)
+target_compile_definitions(test_meshdomain PRIVATE
+    COMPOSER_MESH_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/mesh")
 # D3d — a section line cut through a layered mesh. The slice arithmetic, the
 # layer's answer, the pixels the panel paints and the gesture that draws it.
 composer_add_gui_test(test_transect)

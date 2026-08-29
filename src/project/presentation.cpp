@@ -70,12 +70,32 @@ namespace HydroCouple::Composer
 
   bool Presentation::isEmpty() const
   {
-    return m_components.isEmpty();
+    // The domain counts. Saving is gated on this, so a domain drawn over a
+    // composition that has no components yet — which is the order anyone
+    // building a model actually works in — would otherwise be written
+    // nowhere and be gone at the next open.
+    return m_components.isEmpty() && m_meshDomain.isEmpty();
   }
 
   void Presentation::clear()
   {
     m_components.clear();
+    m_meshDomain = MeshDomain{};
+  }
+
+  bool Presentation::hasMeshDomain() const
+  {
+    return !m_meshDomain.isEmpty();
+  }
+
+  const MeshDomain &Presentation::meshDomain() const
+  {
+    return m_meshDomain;
+  }
+
+  void Presentation::setMeshDomain(const MeshDomain &domain)
+  {
+    m_meshDomain = domain;
   }
 
   QByteArray Presentation::toJson() const
@@ -98,6 +118,14 @@ namespace HydroCouple::Composer
     QJsonObject root;
     root.insert(QStringLiteral("sidecar_version"), kSidecarVersion);
     root.insert(QStringLiteral("components"), components);
+
+    // Written only when there is one, so a composition that never drew a
+    // domain keeps a sidecar that says nothing about meshes rather than one
+    // carrying an empty section that reads as a domain someone cleared.
+    if (hasMeshDomain())
+    {
+      root.insert(QStringLiteral("mesh_domain"), m_meshDomain.toJson());
+    }
 
     return QJsonDocument(root).toJson(QJsonDocument::Indented);
   }
@@ -126,6 +154,22 @@ namespace HydroCouple::Composer
                                       entry.value(QStringLiteral("y")).toDouble());
 
       m_components.insert(it.key(), presentation);
+    }
+
+    const QJsonValue domain = document.object().value(
+      QStringLiteral("mesh_domain"));
+
+    if (domain.isObject())
+    {
+      QString message;
+
+      // A sidecar whose mesh section will not parse is not a sidecar that
+      // fails: the canvas positions beside it are still good, and throwing
+      // them away over a domain would cost more than it saved.
+      if (!MeshDomain::fromJson(domain.toObject(), m_meshDomain, message))
+      {
+        m_meshDomain = MeshDomain{};
+      }
     }
 
     return true;
