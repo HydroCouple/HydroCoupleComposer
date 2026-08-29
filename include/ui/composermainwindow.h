@@ -47,6 +47,7 @@ namespace HydroCouple::Composer
   class RibbonBar;
   class ProfilePlotPanel;
   class TransectPanel;
+  class MeshDomainModel;
   class SeriesPlotPanel;
   class TimeController;
   class TimeControlPanel;
@@ -129,6 +130,9 @@ namespace HydroCouple::Composer
       //! \returns The section cut by the line drawn on the map.
       [[nodiscard]] TransectPanel *transect() const;
 
+      //! \returns The mesh domain being drawn; never null.
+      [[nodiscard]] MeshDomainModel *meshDomain() const;
+
       /*!
        * \brief Draws one item as its difference between two runs.
        *
@@ -204,6 +208,19 @@ namespace HydroCouple::Composer
       //! Asks which other run to compare against, then draws the difference.
       void onCompareRunItem(int runRow, const QString &componentId,
                             const QString &itemId);
+
+      //! Installs the drawing tool for whichever domain action is checked.
+      void onDomainToolChosen();
+
+      /*!
+       * \brief Adds the four layers that show the domain, once.
+       *
+       * Called when a domain first has something in it, or when the user
+       * picks up a tool to draw one — not at startup, because four empty
+       * rows in every composition that never meshes anything is clutter,
+       * and empty layers still join the extent every view frames.
+       */
+      void ensureDomainLayers();
       void onMapToolChosen();
       void onProjectionChosen();
       void onSceneToolChosen();
@@ -270,6 +287,8 @@ namespace HydroCouple::Composer
       SeriesPlotPanel *m_seriesPlot = nullptr;
       ProfilePlotPanel *m_profilePlot = nullptr;
       TransectPanel *m_transect = nullptr;
+      MeshDomainModel *m_meshDomain = nullptr;
+      bool m_domainLayersShown = false;
 
       RibbonBar *m_ribbon = nullptr;
 
@@ -295,6 +314,10 @@ namespace HydroCouple::Composer
       QAction *m_zoomInToolAction = nullptr;
       QAction *m_zoomOutToolAction = nullptr;
       QAction *m_transectToolAction = nullptr;
+      QAction *m_drawBoundaryAction = nullptr;
+      QAction *m_drawHoleAction = nullptr;
+      QAction *m_drawBreaklineAction = nullptr;
+      QAction *m_drawPointAction = nullptr;
       QAction *m_orbitToolAction = nullptr;
       QAction *m_sceneSelectToolAction = nullptr;
       QAction *m_sceneZoomInToolAction = nullptr;

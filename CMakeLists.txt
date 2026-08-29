@@ -172,6 +172,8 @@ set(COMPOSER_SOURCES
     src/mesh/meshdomainmodel.cpp
     include/layers/domainlayer.h
     src/layers/domainlayer.cpp
+    include/mesh/domaindrawtool.h
+    src/mesh/domaindrawtool.cpp
     include/layers/differencelayer.h
     src/layers/differencelayer.cpp
     include/layers/gdalvectorlayer.h
@@ -269,6 +271,10 @@ qt_add_resources(composer_core "composer_icons"
         resources/icons/composition.svg
         resources/icons/dark.svg
         resources/icons/delete.svg
+        resources/icons/domain_boundary.svg
+        resources/icons/domain_breakline.svg
+        resources/icons/domain_hole.svg
+        resources/icons/domain_point.svg
         resources/icons/dock_layers.svg
         resources/icons/extent.svg
         resources/icons/pan.svg

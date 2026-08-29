@@ -56,6 +56,34 @@ namespace HydroCouple::Composer
       void setDomain(const MeshDomain &domain);
 
       /*!
+       * \brief Replaces the outer boundary.
+       *
+       * Replaces rather than appends, because there is exactly one: drawing
+       * a second boundary is how you correct the first.
+       *
+       * \param ring The new boundary; the first point is not repeated.
+       */
+      void setBoundary(const QPolygonF &ring);
+
+      /*!
+       * \brief Adds a hole.
+       *
+       * Accepted even when it lies outside the boundary. The model holds
+       * what was drawn and isValid() is the question you ask about it —
+       * a model that silently dropped a badly-placed hole would leave the
+       * user watching their gesture do nothing.
+       *
+       * \param ring The hole ring.
+       */
+      void addHole(const QPolygonF &ring);
+
+      //! \brief Adds a breakline. \param line The polyline.
+      void addConstraintLine(const QPolygonF &line);
+
+      //! \brief Adds a forced interior point. \param point Where.
+      void addPoint(const QPointF &point);
+
+      /*!
        * \brief Whether the domain can be meshed, and why not when it cannot.
        * \param[out] message What is wrong.
        */

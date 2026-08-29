@@ -501,7 +501,53 @@ namespace HydroCouple::Composer
     }
 
     paintTransectLine(painter);
+    paintSketch(painter);
     paintAttribution(painter);
+  }
+
+  void MapCanvas::paintSketch(QPainter &painter) const
+  {
+    if (m_sketch.isEmpty())
+    {
+      return;
+    }
+
+    QPolygonF onScreen;
+    onScreen.reserve(m_sketch.size());
+
+    for (const QPointF &world : m_sketch)
+    {
+      onScreen.append(m_transform.toScreen(world));
+    }
+
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setOpacity(1.0);
+    painter.setBrush(Qt::NoBrush);
+
+    // Dashed, so a shape still being drawn is never mistaken for one that
+    // has been committed and is now part of the domain.
+    QPen pen(QColor(30, 90, 200), 1.5, Qt::DashLine);
+    painter.setPen(pen);
+
+    if (m_sketchClosed && onScreen.size() > 2)
+    {
+      painter.drawPolygon(onScreen);
+    }
+    else
+    {
+      painter.drawPolyline(onScreen);
+    }
+
+    painter.setPen(QPen(QColor(30, 90, 200), 1.0));
+    painter.setBrush(QColor(255, 255, 255));
+
+    for (const QPointF &vertex : onScreen)
+    {
+      painter.drawEllipse(vertex, 3.0, 3.0);
+    }
+
+    painter.restore();
   }
 
   void MapCanvas::paintTransectLine(QPainter &painter) const
@@ -645,12 +691,53 @@ namespace HydroCouple::Composer
     return m_transectLine;
   }
 
-  void MapCanvas::setToolKind(MapToolKind kind)
+  void MapCanvas::setSketch(const QPolygonF &world, bool closed)
   {
-    if (m_tool && m_toolKind == kind)
+    if (m_sketch == world && m_sketchClosed == closed)
     {
       return;
     }
+
+    m_sketch = world;
+    m_sketchClosed = closed;
+    update();
+  }
+
+  const QPolygonF &MapCanvas::sketch() const
+  {
+    return m_sketch;
+  }
+
+  void MapCanvas::setTool(std::unique_ptr<MapTool> tool)
+  {
+    if (m_tool)
+    {
+      m_tool->cancel();
+    }
+
+    if (!tool)
+    {
+      setToolKind(MapToolKind::Pan);
+      return;
+    }
+
+    m_tool = std::move(tool);
+    m_customTool = true;
+    setCursor(m_tool->idleCursor());
+  }
+
+  void MapCanvas::setToolKind(MapToolKind kind)
+  {
+    // m_customTool as well as the kind: a custom tool leaves m_toolKind
+    // naming whatever was installed before it, so the kind alone would
+    // report that the requested tool was already in place and leave the
+    // custom one running for good.
+    if (m_tool && !m_customTool && m_toolKind == kind)
+    {
+      return;
+    }
+
+    m_customTool = false;
 
     // Cancelled, then replaced. A rubber band would end by construction —
     // it is a child of the tool — but the section tool's preview lives on

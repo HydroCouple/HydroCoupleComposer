@@ -37,6 +37,49 @@ namespace HydroCouple::Composer
     Q_EMIT domainChanged();
   }
 
+  void MeshDomainModel::setBoundary(const QPolygonF &ring)
+  {
+    if (m_domain.boundary == ring)
+    {
+      return;
+    }
+
+    m_domain.boundary = ring;
+
+    Q_EMIT domainChanged();
+  }
+
+  void MeshDomainModel::addHole(const QPolygonF &ring)
+  {
+    if (ring.isEmpty())
+    {
+      return;
+    }
+
+    m_domain.holes.append(ring);
+
+    Q_EMIT domainChanged();
+  }
+
+  void MeshDomainModel::addConstraintLine(const QPolygonF &line)
+  {
+    if (line.isEmpty())
+    {
+      return;
+    }
+
+    m_domain.constraintLines.append(line);
+
+    Q_EMIT domainChanged();
+  }
+
+  void MeshDomainModel::addPoint(const QPointF &point)
+  {
+    m_domain.points.append(point);
+
+    Q_EMIT domainChanged();
+  }
+
   bool MeshDomainModel::isValid(QString &message) const
   {
     return m_domain.isValid(message);

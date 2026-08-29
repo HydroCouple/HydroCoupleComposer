@@ -70,6 +70,9 @@ composer_add_gui_test(test_meshdomain)
 
 # E1b-1 — the domain on the map: four homogeneous layers over one model.
 composer_add_gui_test(test_domainlayer)
+
+# E1b-2 — drawing the domain's parts, driven through real mouse events.
+composer_add_gui_test(test_domaindraw)
 target_compile_definitions(test_meshdomain PRIVATE
     COMPOSER_MESH_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/mesh")
 # D3d — a section line cut through a layered mesh. The slice arithmetic, the

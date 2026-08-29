@@ -3,6 +3,9 @@
 #include "core/composerapplication.h"
 #include "layers/dataitemlayer.h"
 #include "layers/differencelayer.h"
+#include "layers/domainlayer.h"
+#include "mesh/domaindrawtool.h"
+#include "mesh/meshdomainmodel.h"
 #include "layers/gdalrasterlayer.h"
 #include "layers/meshlayer.h"
 #include "layers/gdalvectorlayer.h"
@@ -223,6 +226,21 @@ namespace HydroCouple::Composer
   {
     m_layerStack = new LayerStackModel(this);
 
+    m_meshDomain = new MeshDomainModel(this);
+
+    // The layers that show the domain appear when there is a domain to
+    // show, or when the user picks up a tool to draw one. Four permanent
+    // rows in every composition that never meshes anything is clutter, and
+    // it would put four empty layers into the extent every view frames.
+    connect(m_meshDomain, &MeshDomainModel::domainChanged, this,
+            [this]
+            {
+              if (!m_meshDomain->domain().isEmpty())
+              {
+                ensureDomainLayers();
+              }
+            });
+
     m_clock->setModel(m_layerStack);
 
     m_mapCanvas = new MapCanvas(this);
@@ -387,6 +405,32 @@ namespace HydroCouple::Composer
       tr("Drag a line across a layered mesh to cut a section through the "
          "water column."));
 
+    m_drawBoundaryAction = new QAction(tr("&Boundary"), this);
+    m_drawBoundaryAction->setObjectName(QStringLiteral("drawBoundaryAction"));
+    m_drawBoundaryAction->setCheckable(true);
+    m_drawBoundaryAction->setToolTip(
+      tr("Click to place the boundary's corners; right-click to finish."));
+
+    m_drawHoleAction = new QAction(tr("&Hole"), this);
+    m_drawHoleAction->setObjectName(QStringLiteral("drawHoleAction"));
+    m_drawHoleAction->setCheckable(true);
+    m_drawHoleAction->setToolTip(
+      tr("Click to cut a hole out of the domain; right-click to finish."));
+
+    m_drawBreaklineAction = new QAction(tr("Break&line"), this);
+    m_drawBreaklineAction->setObjectName(
+      QStringLiteral("drawBreaklineAction"));
+    m_drawBreaklineAction->setCheckable(true);
+    m_drawBreaklineAction->setToolTip(
+      tr("Click to draw a line the mesh must follow; right-click to "
+         "finish."));
+
+    m_drawPointAction = new QAction(tr("&Point"), this);
+    m_drawPointAction->setObjectName(QStringLiteral("drawPointAction"));
+    m_drawPointAction->setCheckable(true);
+    m_drawPointAction->setToolTip(
+      tr("Click to force a mesh vertex where you click."));
+
     // Exclusive: the map is under one gesture set at a time, and four
     // independent checkboxes would let the UI show a state it cannot be in.
     auto *toolGroup = new QActionGroup(this);
@@ -396,6 +440,20 @@ namespace HydroCouple::Composer
     toolGroup->addAction(m_zoomInToolAction);
     toolGroup->addAction(m_zoomOutToolAction);
     toolGroup->addAction(m_transectToolAction);
+
+    // The domain tools join the same group: they are gesture sets over the
+    // same map, and one of them being on means panning is off.
+    toolGroup->addAction(m_drawBoundaryAction);
+    toolGroup->addAction(m_drawHoleAction);
+    toolGroup->addAction(m_drawBreaklineAction);
+    toolGroup->addAction(m_drawPointAction);
+
+    for (QAction *tool : {m_drawBoundaryAction, m_drawHoleAction,
+                          m_drawBreaklineAction, m_drawPointAction})
+    {
+      connect(tool, &QAction::triggered, this,
+              &ComposerMainWindow::onDomainToolChosen);
+    }
 
     for (QAction *tool : {m_selectToolAction, m_panToolAction,
                           m_zoomInToolAction, m_zoomOutToolAction,
@@ -848,6 +906,18 @@ namespace HydroCouple::Composer
       m_ribbon->addGroup(QStringLiteral("map"), tr("Reference"));
     reference->addAction(m_mapCrsAction, tr("Coordinate\nSystem"));
 
+    // Meshing gets a tab rather than a corner of the Map tab: it is its own
+    // workflow, and phase E adds generation, vertical grids, terrain
+    // sampling and boundary conditions to it.
+    m_ribbon->addTab(QStringLiteral("mesh"), tr("Mesh"));
+
+    RibbonGroup *domain =
+      m_ribbon->addGroup(QStringLiteral("mesh"), tr("Domain"));
+    domain->addAction(m_drawBoundaryAction, tr("Boundary"));
+    domain->addAction(m_drawHoleAction, tr("Hole"));
+    domain->addAction(m_drawBreaklineAction, tr("Break\nline"));
+    domain->addAction(m_drawPointAction, tr("Point"));
+
     m_ribbon->addTab(QStringLiteral("scene"), tr("3D"));
 
     RibbonGroup *sceneTools =
@@ -916,6 +986,13 @@ namespace HydroCouple::Composer
     ensureIcon(m_zoomInToolAction, QStringLiteral("zoom_rect"));
     ensureIcon(m_zoomOutToolAction, QStringLiteral("zoom_rect_out"));
     ensureIcon(m_transectToolAction, QStringLiteral("transect"));
+
+    // The domain glyphs: the ring, the ring with a bite out of it, the
+    // breakline with its vertices, and the crosshair that forces one.
+    ensureIcon(m_drawBoundaryAction, QStringLiteral("domain_boundary"));
+    ensureIcon(m_drawHoleAction, QStringLiteral("domain_hole"));
+    ensureIcon(m_drawBreaklineAction, QStringLiteral("domain_breakline"));
+    ensureIcon(m_drawPointAction, QStringLiteral("domain_point"));
 
     // The 3D glyph for the projection a 3D view is normally read in, and the
     // extent rectangle for the parallel one, which is what a plan view is.
@@ -1373,6 +1450,58 @@ namespace HydroCouple::Composer
     m_mapCanvas->setCrs(std::move(chosen));
 
     log(tr("Map coordinate system: %1").arg(described));
+  }
+
+  MeshDomainModel *ComposerMainWindow::meshDomain() const
+  {
+    return m_meshDomain;
+  }
+
+  void ComposerMainWindow::ensureDomainLayers()
+  {
+    if (m_domainLayersShown)
+    {
+      return;
+    }
+
+    m_domainLayersShown = true;
+
+    for (const DomainPart part :
+         {DomainPart::Boundary, DomainPart::Holes, DomainPart::Breaklines,
+          DomainPart::ForcedPoints})
+    {
+      m_layerStack->addLayer(DomainLayer::create(m_meshDomain, part).release());
+    }
+  }
+
+  void ComposerMainWindow::onDomainToolChosen()
+  {
+    // Picking up a drawing tool is the moment the user has said they want a
+    // domain, so the rows to toggle appear then rather than after the first
+    // shape lands.
+    ensureDomainLayers();
+
+    DomainPart part = DomainPart::Boundary;
+
+    if (m_drawHoleAction->isChecked())
+    {
+      part = DomainPart::Holes;
+    }
+    else if (m_drawBreaklineAction->isChecked())
+    {
+      part = DomainPart::Breaklines;
+    }
+    else if (m_drawPointAction->isChecked())
+    {
+      part = DomainPart::ForcedPoints;
+    }
+
+    m_mapCanvas->setTool(std::make_unique<DomainDrawTool>(
+      m_mapCanvas, m_meshDomain, part));
+
+    // Brought forward, because a gesture set is a property of a view nobody
+    // can use from another tab.
+    m_workspace->setCurrentWidget(m_mapCanvas);
   }
 
   void ComposerMainWindow::onMapToolChosen()
