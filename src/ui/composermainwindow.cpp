@@ -26,6 +26,7 @@
 #include "results/timecontroller.h"
 #include "ui/dialogs/crsselectiondialog.h"
 #include "ui/dialogs/layerpropertiesdialog.h"
+#include "layers/wfsfeaturelayer.h"
 #include "ui/dialogs/ogcservicedialog.h"
 #include "ui/panels/attributetablepanel.h"
 #include "ui/panels/layertreepanel.h"
@@ -1486,8 +1487,61 @@ namespace HydroCouple::Composer
   {
     OgcServiceDialog dialog(this);
 
+    // What the map is looking at, in longitude and latitude, so a feature
+    // service is asked about that ground rather than about the whole
+    // country it holds. Left null when the map is in a system that cannot
+    // be converted, in which case the collection is fetched whole up to
+    // its feature limit.
+    if (m_mapCanvas && m_mapCanvas->crs())
+    {
+      QString message;
+      const std::unique_ptr<SpatialReference> wgs84 =
+        SpatialReference::fromAuthority(QStringLiteral("EPSG"), 4326,
+                                        message);
+
+      if (wgs84)
+      {
+        const std::unique_ptr<CoordinateTransform> toGeographic =
+          CoordinateTransform::between(*m_mapCanvas->crs(), *wgs84, message);
+
+        if (toGeographic)
+        {
+          const QRectF visible = m_mapCanvas->transform().visibleExtent();
+          bool ok = true;
+
+          const QPointF lower =
+            toGeographic->transform(visible.topLeft(), &ok);
+          const QPointF upper =
+            toGeographic->transform(visible.bottomRight(), &ok);
+
+          if (ok)
+          {
+            dialog.setPreferredExtent(QRectF(lower, upper).normalized());
+          }
+        }
+      }
+    }
+
     if (dialog.exec() != QDialog::Accepted)
     {
+      return;
+    }
+
+    // A feature collection is data, not a backdrop: it joins the stack as
+    // a layer of its own, above whatever basemap is there, and can then be
+    // selected from and imported as a mesh domain.
+    if (std::unique_ptr<WfsFeatureLayer> features = dialog.takeFeatureLayer())
+    {
+      const QString name = features->name();
+      const int count = features->featureCount();
+
+      addMapLayer(features.release());
+
+      log(tr("%1: %2 features from %3")
+            .arg(name)
+            .arg(count)
+            .arg(dialog.serviceTitle()));
+
       return;
     }
 

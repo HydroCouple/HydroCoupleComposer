@@ -1,5 +1,7 @@
 #include "ui/dialogs/ogcservicedialog.h"
 
+#include <hydrocoupleogc/wfsrequest.h>
+
 #include <QDialogButtonBox>
 #include <QFormLayout>
 #include <QLabel>
@@ -61,8 +63,16 @@ namespace HydroCouple::Composer
 
     connect(m_connect, &QPushButton::clicked, this,
             &OgcServiceDialog::connectToService);
-    connect(m_buttons, &QDialogButtonBox::accepted, this,
-            &OgcServiceDialog::accept);
+    connect(m_buttons, &QDialogButtonBox::accepted, this, [this] {
+      if (m_kind == ServiceKind::Wfs)
+      {
+        fetchFeaturesThenAccept();
+
+        return;
+      }
+
+      accept();
+    });
     connect(m_buttons, &QDialogButtonBox::rejected, this,
             &OgcServiceDialog::reject);
 
@@ -98,6 +108,9 @@ namespace HydroCouple::Composer
     m_choices.clear();
     m_wms = {};
     m_wmts = {};
+    m_wfs = {};
+    m_kind = ServiceKind::Unknown;
+    m_featureLayer.reset();
     m_buttons->button(QDialogButtonBox::Ok)->setEnabled(false);
 
     // WMS first, because it is the older and far commoner of the two, and
@@ -147,12 +160,26 @@ namespace HydroCouple::Composer
       return;
     }
 
-    // Neither, so far. A server that only speaks the other one answers a
-    // WMS request with a refusal, which is not an answer about what it
-    // has — so it is asked again in the other dialect before giving up.
+    if (kind == ServiceKind::Wfs)
+    {
+      showWfs(body);
+
+      return;
+    }
+
+    // Not that one, so far. A server that speaks only another of them
+    // answers with a refusal, which is not an answer about what it has —
+    // so it is asked again in each remaining dialect before giving up.
     if (asked == ServiceKind::Wms)
     {
       ask(ServiceKind::Wmts);
+
+      return;
+    }
+
+    if (asked == ServiceKind::Wmts)
+    {
+      ask(ServiceKind::Wfs);
 
       return;
     }
@@ -174,6 +201,7 @@ namespace HydroCouple::Composer
   void OgcServiceDialog::showWms(const QByteArray &body)
   {
     m_wms = HydroCouple::Ogc::parseWmsCapabilities(body);
+    m_kind = m_wms.ok ? ServiceKind::Wms : ServiceKind::Unknown;
 
     if (!m_wms.ok)
     {
@@ -214,6 +242,7 @@ namespace HydroCouple::Composer
   void OgcServiceDialog::showWmts(const QByteArray &body)
   {
     m_wmts = HydroCouple::Ogc::parseWmtsCapabilities(body);
+    m_kind = m_wmts.ok ? ServiceKind::Wmts : ServiceKind::Unknown;
 
     if (!m_wmts.ok)
     {
@@ -254,6 +283,133 @@ namespace HydroCouple::Composer
     }
 
     fill();
+  }
+
+  void OgcServiceDialog::showWfs(const QByteArray &body)
+  {
+    m_wfs = HydroCouple::Ogc::parseWfsCapabilities(body);
+    m_kind = m_wfs.ok ? ServiceKind::Wfs : ServiceKind::Unknown;
+
+    if (!m_wfs.ok)
+    {
+      m_statusText = m_wfs.message;
+      m_status->setText(m_statusText);
+
+      return;
+    }
+
+    for (const HydroCouple::Ogc::WfsFeatureType &type : m_wfs.featureTypes)
+    {
+      Choice choice;
+      choice.kind = ServiceKind::Wfs;
+      choice.layerId = type.name;
+      choice.title = type.title.isEmpty() ? type.name : type.title;
+
+      if (HydroCouple::Ogc::preferredOutputFormat(type, m_wfs.outputFormats)
+            .isEmpty())
+      {
+        choice.unusableReason =
+          tr("\"%1\" is offered only in formats this program cannot read.")
+            .arg(choice.title);
+      }
+
+      m_choices.append(choice);
+    }
+
+    fill();
+  }
+
+  void OgcServiceDialog::fetchFeaturesThenAccept()
+  {
+    const int row = m_layers->currentRow();
+
+    if (row < 0 || row >= m_choices.size())
+    {
+      return;
+    }
+
+    const HydroCouple::Ogc::WfsFeatureType *type =
+      m_wfs.featureType(m_choices.at(row).layerId);
+
+    if (!type)
+    {
+      return;
+    }
+
+    HydroCouple::Ogc::WfsGetFeatureRequest request;
+    request.typeName = type->name;
+    request.outputFormat =
+      HydroCouple::Ogc::preferredOutputFormat(*type, m_wfs.outputFormats);
+
+    // Asked for in longitude and latitude when the collection publishes
+    // them, so the ground the map is looking at can be named in the same
+    // terms. A collection published in a national grid alone is fetched
+    // whole, up to the feature limit, because converting the box would
+    // need the projection this parser deliberately does not carry.
+    request.crs = type->spellingOf(QStringLiteral("EPSG:4326"));
+
+    if (!request.crs.isEmpty() && !m_preferredExtent.isNull())
+    {
+      request.extent = m_preferredExtent;
+    }
+
+    const QString url = HydroCouple::Ogc::buildGetFeatureUrl(m_wfs, request);
+
+    if (url.isEmpty())
+    {
+      m_statusText = tr("That collection cannot be asked for.");
+      m_status->setText(m_statusText);
+
+      return;
+    }
+
+    m_statusText = tr("Fetching %1…").arg(m_choices.at(row).title);
+    m_status->setText(m_statusText);
+    m_buttons->button(QDialogButtonBox::Ok)->setEnabled(false);
+
+    const QString name = m_choices.at(row).title;
+    const QString typeName = type->name;
+
+    m_client->get(QUrl(url), credentials(),
+                  [this, name, typeName](const HttpResponse &response) {
+                    QString message;
+
+                    m_featureLayer =
+                      WfsFeatureLayer::fromResponse(response.body, name,
+                                                    message);
+
+                    if (!m_featureLayer)
+                    {
+                      // Said here, where the user is looking, rather than
+                      // after the dialog has closed on an empty layer.
+                      m_statusText = response.ok || message.isEmpty()
+                                       ? message
+                                       : response.error;
+                      m_status->setText(m_statusText);
+                      m_buttons->button(QDialogButtonBox::Ok)
+                        ->setEnabled(true);
+
+                      return;
+                    }
+
+                    m_featureLayer->setTypeName(typeName);
+                    accept();
+                  });
+  }
+
+  ServiceKind OgcServiceDialog::serviceKind() const
+  {
+    return m_kind;
+  }
+
+  void OgcServiceDialog::setPreferredExtent(const QRectF &bounds)
+  {
+    m_preferredExtent = bounds;
+  }
+
+  std::unique_ptr<WfsFeatureLayer> OgcServiceDialog::takeFeatureLayer()
+  {
+    return std::move(m_featureLayer);
   }
 
   void OgcServiceDialog::fill()
@@ -311,6 +467,11 @@ namespace HydroCouple::Composer
       return m_wmts.title;
     }
 
+    if (m_wfs.ok && !m_wfs.title.isEmpty())
+    {
+      return m_wfs.title;
+    }
+
     return m_url->text();
   }
 
@@ -341,6 +502,14 @@ namespace HydroCouple::Composer
     }
 
     const Choice &choice = m_choices.at(row);
+
+    if (choice.kind == ServiceKind::Wfs)
+    {
+      // A feature collection is not a backdrop; it arrives through
+      // takeFeatureLayer().
+      return nullptr;
+    }
+
     std::unique_ptr<OgcTileSource> source;
 
     if (choice.kind == ServiceKind::Wms)

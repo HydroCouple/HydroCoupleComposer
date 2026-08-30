@@ -11,6 +11,7 @@
 
 #include "core/composerapplication.h"
 #include "layers/ogctilesource.h"
+#include "layers/wfsfeaturelayer.h"
 #include "map/tilegrid.h"
 #include "ui/dialogs/ogcservicedialog.h"
 
@@ -55,11 +56,17 @@ namespace
       ServiceServer() { listen(QHostAddress::LocalHost, 0); }
 
       //! Which services this server pretends to offer.
-      void offer(bool wms, bool wmts)
+      void offer(bool wms, bool wmts, bool wfs = false)
       {
         m_wms = wms;
         m_wmts = wmts;
+        m_wfs = wfs;
       }
+
+      //! The GetFeature answer, and what was asked to get it.
+      void answerFeaturesWith(const QByteArray &body) { m_features = body; }
+
+      [[nodiscard]] QString lastRequest() const { return m_lastRequest; }
 
       /*!
        * \brief Publishes everything in geographic coordinates only.
@@ -101,13 +108,35 @@ namespace
         const QByteArray head = m_buffers.take(socket);
         const QByteArray line = head.split('\n').value(0);
         const QString target = QString::fromUtf8(line.split(' ').value(1));
+        const QUrlQuery query(QUrl(target).query());
         const QString service =
-          QUrlQuery(QUrl(target).query()).queryItemValue(
-            QStringLiteral("SERVICE"));
+          query.queryItemValue(QStringLiteral("SERVICE"));
+        const QString request =
+          query.queryItemValue(QStringLiteral("REQUEST"));
 
-        m_asked.append(service);
+        m_lastRequest = target;
 
         QByteArray body;
+
+        if (request == QLatin1String("GetFeature"))
+        {
+          body = m_features;
+
+          QByteArray answer = "HTTP/1.1 200 OK\r\n";
+          answer += "Content-Type: application/json\r\n";
+          answer +=
+            "Content-Length: " + QByteArray::number(body.size()) + "\r\n";
+          answer += "Connection: close\r\n\r\n";
+          answer += body;
+
+          socket->write(answer);
+          socket->flush();
+          socket->disconnectFromHost();
+
+          return;
+        }
+
+        m_asked.append(service);
 
         if (service == QLatin1String("WMS") && m_wms)
         {
@@ -122,6 +151,18 @@ namespace
         else if (service == QLatin1String("WMTS") && m_wmts)
         {
           body = fixture(QStringLiteral("wmts-1.0.0-resourceurl.xml"));
+        }
+        else if (service == QLatin1String("WFS") && m_wfs)
+        {
+          body = fixture(QStringLiteral("wfs-2.0.0-pdok.xml"));
+
+          // The document says where GetFeature requests go, and a client
+          // that reads it sends them there rather than back to whatever
+          // address the capabilities came from. The saved one names the
+          // service it was captured from, so this stand-in has to claim
+          // the address it is actually listening on.
+          body.replace("https://service.pdok.nl/kadaster/bag/wfs/v2_0",
+                       endpoint().toUtf8());
         }
         else
         {
@@ -148,7 +189,10 @@ namespace
 
       bool m_wms = true;
       bool m_wmts = true;
+      bool m_wfs = false;
       bool m_stripWebMercator = false;
+      QByteArray m_features;
+      QString m_lastRequest;
       QStringList m_asked;
       QMap<QTcpSocket *, QByteArray> m_buffers;
   };
@@ -361,4 +405,113 @@ TEST_F(OgcServiceDialogTest, SomethingThatIsNotAnAddressIsNotFetched)
   // never made.
   EXPECT_TRUE(dialog.status().contains(QStringLiteral("not a web address")))
     << dialog.status().toStdString();
+}
+
+// ── a feature service ───────────────────────────────────────────────────────
+
+TEST_F(OgcServiceDialogTest, AFeatureServiceIsFoundAfterTheMapServicesAre)
+{
+  ServiceServer server;
+  server.offer(false, false, true);
+
+  OgcServiceDialog dialog;
+  connectTo(dialog, server.endpoint());
+
+  ASSERT_TRUE(waitFor([&] { return layerList(dialog)->count() > 0; }))
+    << dialog.status().toStdString();
+
+  // Three dialects, tried in turn, because a server that speaks only one of
+  // them refuses the others rather than describing itself.
+  EXPECT_EQ(server.asked(),
+            (QStringList{QStringLiteral("WMS"), QStringLiteral("WMTS"),
+                         QStringLiteral("WFS")}));
+
+  EXPECT_EQ(dialog.serviceKind(), HydroCouple::Ogc::ServiceKind::Wfs);
+  EXPECT_EQ(layerList(dialog)->count(), 5);
+
+  // A collection is not a backdrop, whatever is selected.
+  EXPECT_EQ(dialog.createSource(), nullptr);
+}
+
+TEST_F(OgcServiceDialogTest, ChoosingACollectionFetchesItOverTheGroundInView)
+{
+  ServiceServer server;
+  server.offer(false, false, true);
+  server.answerFeaturesWith(
+    R"({"type":"FeatureCollection",
+        "crs":{"type":"name","properties":{"name":"urn:ogc:def:crs:EPSG::4326"}},
+        "features":[
+          {"type":"Feature","properties":{"id":1},
+           "geometry":{"type":"Polygon",
+                       "coordinates":[[[4,51],[5,51],[5,52],[4,52],[4,51]]]}}]})");
+
+  OgcServiceDialog dialog;
+
+  // What the map is looking at: one catchment's worth, not a country's.
+  dialog.setPreferredExtent(QRectF(QPointF(4.0, 51.0), QPointF(6.0, 53.0)));
+  connectTo(dialog, server.endpoint());
+
+  ASSERT_TRUE(waitFor([&] { return layerList(dialog)->count() > 0; }));
+
+  layerList(dialog)->setCurrentRow(0);
+  dialog.findChild<QDialogButtonBox *>()
+    ->button(QDialogButtonBox::Ok)
+    ->click();
+
+  // Accepted only once the features are in hand, because a request that is
+  // well formed can still come back holding nothing.
+  ASSERT_TRUE(waitFor([&] { return dialog.result() == QDialog::Accepted; }))
+    << dialog.status().toStdString();
+
+  const QUrlQuery query(QUrl(server.lastRequest()).query());
+
+  EXPECT_EQ(query.queryItemValue(QStringLiteral("REQUEST")),
+            QStringLiteral("GetFeature"));
+  EXPECT_FALSE(query.queryItemValue(QStringLiteral("COUNT")).isEmpty())
+    << "a national register was asked for every feature it holds";
+  EXPECT_TRUE(query.queryItemValue(QStringLiteral("BBOX"))
+                .startsWith(QStringLiteral("51")))
+    << "the ground in view was not asked about, latitude first: "
+    << query.queryItemValue(QStringLiteral("BBOX")).toStdString();
+
+  // GeoJSON, because this collection offers it and it needs no schema.
+  EXPECT_TRUE(query.queryItemValue(QStringLiteral("OUTPUTFORMAT"))
+                .contains(QStringLiteral("json")));
+
+  const std::unique_ptr<WfsFeatureLayer> layer = dialog.takeFeatureLayer();
+
+  ASSERT_NE(layer, nullptr);
+  EXPECT_EQ(layer->featureCount(), 1);
+  EXPECT_EQ(layer->typeName(), QStringLiteral("bag:pand"));
+}
+
+TEST_F(OgcServiceDialogTest, ACollectionHoldingNothingThereSaysSoAndStaysOpen)
+{
+  ServiceServer server;
+  server.offer(false, false, true);
+  server.answerFeaturesWith(
+    R"({"type":"FeatureCollection","features":[]})");
+
+  OgcServiceDialog dialog;
+  connectTo(dialog, server.endpoint());
+
+  ASSERT_TRUE(waitFor([&] { return layerList(dialog)->count() > 0; }));
+
+  layerList(dialog)->setCurrentRow(0);
+  dialog.findChild<QDialogButtonBox *>()
+    ->button(QDialogButtonBox::Ok)
+    ->click();
+
+  ASSERT_TRUE(waitFor(
+    [&] { return dialog.status().contains(QStringLiteral("no features")); }))
+    << dialog.status().toStdString();
+
+  // Said where the user is looking, rather than after the dialog has
+  // closed on an empty layer — and they can pick another collection
+  // without starting again.
+  EXPECT_NE(dialog.result(), QDialog::Accepted);
+  EXPECT_EQ(dialog.takeFeatureLayer(), nullptr);
+  EXPECT_TRUE(dialog.findChild<QDialogButtonBox *>()
+                ->button(QDialogButtonBox::Ok)
+                ->isEnabled());
 }

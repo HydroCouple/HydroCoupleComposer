@@ -14,14 +14,17 @@
 #define HYDROCOUPLECOMPOSER_UI_DIALOGS_OGCSERVICEDIALOG_H
 
 #include "layers/ogctilesource.h"
+#include "layers/wfsfeaturelayer.h"
 
 #include <hydrocoupleogc/httpclient.h>
 #include <hydrocoupleogc/servicecredentials.h>
 #include <hydrocoupleogc/servicediscovery.h>
+#include <hydrocoupleogc/wfscapabilities.h>
 #include <hydrocoupleogc/wmscapabilities.h>
 #include <hydrocoupleogc/wmtscapabilities.h>
 
 #include <QDialog>
+#include <QRectF>
 #include <QString>
 
 #include <memory>
@@ -58,12 +61,43 @@ namespace HydroCouple::Composer
       void connectToService();
 
       /*!
-       * \brief A source for the layer now chosen.
+       * \brief Which kind of service was found at that address.
+       */
+      [[nodiscard]] HydroCouple::Ogc::ServiceKind serviceKind() const;
+
+      /*!
+       * \brief The ground a feature request should be limited to.
        *
-       * \returns The source, or nullptr when nothing usable is chosen. The
-       *          caller takes ownership.
+       * Longitude and latitude. A feature service holds a country and a
+       * model needs one catchment, so without this the request is limited
+       * only by a feature count and returns an arbitrary few thousand from
+       * wherever the service starts counting.
+       *
+       * \param bounds The map's current extent, or a null rectangle.
+       */
+      void setPreferredExtent(const QRectF &bounds);
+
+      /*!
+       * \brief A source for the map layer now chosen.
+       *
+       * \returns The source, or nullptr when nothing usable is chosen or
+       *          the choice is a feature collection. The caller takes
+       *          ownership.
        */
       [[nodiscard]] std::unique_ptr<OgcTileSource> createSource() const;
+
+      /*!
+       * \brief The features fetched for the chosen collection.
+       *
+       * Filled before the dialog accepts, because a feature request is
+       * the one thing here that can fail after the user has chosen: the
+       * collection exists and the request is well formed and the service
+       * may still answer that it holds nothing over that ground. Failing
+       * before the dialog closes lets it say so where the user is looking.
+       *
+       * \returns The layer, or nullptr. The caller takes ownership.
+       */
+      [[nodiscard]] std::unique_ptr<WfsFeatureLayer> takeFeatureLayer();
 
       //! What to call the layer this dialog would add.
       [[nodiscard]] QString layerName() const;
@@ -93,6 +127,11 @@ namespace HydroCouple::Composer
 
       void ask(HydroCouple::Ogc::ServiceKind kind);
 
+      //! Fetches the chosen collection, then accepts.
+      void fetchFeaturesThenAccept();
+
+      void showWfs(const QByteArray &body);
+
       void onCapabilities(HydroCouple::Ogc::ServiceKind asked,
                           const QByteArray &body, const QString &error);
 
@@ -115,6 +154,11 @@ namespace HydroCouple::Composer
       HydroCouple::Ogc::HttpClient *m_client = nullptr;
       HydroCouple::Ogc::WmsCapabilities m_wms;
       HydroCouple::Ogc::WmtsCapabilities m_wmts;
+      HydroCouple::Ogc::WfsCapabilities m_wfs;
+      HydroCouple::Ogc::ServiceKind m_kind =
+        HydroCouple::Ogc::ServiceKind::Unknown;
+      QRectF m_preferredExtent;
+      std::unique_ptr<WfsFeatureLayer> m_featureLayer;
       QList<Choice> m_choices;
       QString m_statusText;
   };
