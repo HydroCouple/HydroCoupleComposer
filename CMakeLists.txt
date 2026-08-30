@@ -68,11 +68,20 @@ set(_sdk_sibling_hints
     "${CMAKE_CURRENT_SOURCE_DIR}/../HydroCoupleSDK/install/${CMAKE_SYSTEM_NAME}"
     "${CMAKE_CURRENT_SOURCE_DIR}/../HydroCoupleSDK/install")
 
+set(_ogc_sibling_hints
+    "${CMAKE_CURRENT_SOURCE_DIR}/../HydroCoupleOgc/install/${CMAKE_SYSTEM_NAME}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../HydroCoupleOgc/install")
+
 find_package(HydroCouple CONFIG REQUIRED HINTS ${_hc_sibling_hints})
 find_package(HydroCoupleSDK CONFIG REQUIRED HINTS ${_sdk_sibling_hints})
 
+# The OGC web-service clients, shared with openswmm.gui. Qt-only, which is
+# why they cannot live in the SDK: the SDK is deliberately Qt-free.
+find_package(HydroCoupleOgc CONFIG REQUIRED HINTS ${_ogc_sibling_hints})
+
 message(STATUS "HydroCouple    : ${HydroCouple_DIR}")
 message(STATUS "HydroCoupleSDK : ${HydroCoupleSDK_DIR}")
+message(STATUS "HydroCoupleOgc : ${HydroCoupleOgc_DIR}")
 
 # ── GDAL (GIS/CRS — Phase C) ────────────────────────────────────────────────
 find_package(GDAL REQUIRED)
@@ -159,6 +168,8 @@ set(COMPOSER_SOURCES
     src/layers/tilelayer.cpp
     include/layers/networktilesource.h
     src/layers/networktilesource.cpp
+    include/layers/ogctilesource.h
+    src/layers/ogctilesource.cpp
     include/layers/featurelayer.h
     src/layers/featurelayer.cpp
     include/layers/ogrgeometryreader.h
@@ -352,6 +363,7 @@ target_link_libraries(composer_core
         # library; the domain header used only its input struct, so nothing
         # needed it linked until something called into it.
         HydroCoupleSDK::HydroCoupleTools
+        HydroCoupleOgc::HydroCoupleOgc
         GDAL::GDAL
         nanoflann::nanoflann
         nlohmann_json::nlohmann_json)
