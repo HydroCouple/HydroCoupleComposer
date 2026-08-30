@@ -56,6 +56,7 @@ composer_add_gui_test(test_tilelayer)
 composer_add_gui_test(test_ogctilesource)
 target_compile_definitions(test_ogctilesource PRIVATE
     COMPOSER_OGC_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/ogc")
+composer_add_gui_test(test_wfsfeaturelayer)
 composer_add_gui_test(test_ogcservicedialog)
 target_compile_definitions(test_ogcservicedialog PRIVATE
     COMPOSER_OGC_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/ogc")
