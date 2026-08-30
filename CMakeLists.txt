@@ -68,20 +68,43 @@ set(_sdk_sibling_hints
     "${CMAKE_CURRENT_SOURCE_DIR}/../HydroCoupleSDK/install/${CMAKE_SYSTEM_NAME}"
     "${CMAKE_CURRENT_SOURCE_DIR}/../HydroCoupleSDK/install")
 
-set(_ogc_sibling_hints
-    "${CMAKE_CURRENT_SOURCE_DIR}/../HydroCoupleOgc/install/${CMAKE_SYSTEM_NAME}"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../HydroCoupleOgc/install")
-
 find_package(HydroCouple CONFIG REQUIRED HINTS ${_hc_sibling_hints})
 find_package(HydroCoupleSDK CONFIG REQUIRED HINTS ${_sdk_sibling_hints})
 
-# The OGC web-service clients, shared with openswmm.gui. Qt-only, which is
-# why they cannot live in the SDK: the SDK is deliberately Qt-free.
-find_package(HydroCoupleOgc CONFIG REQUIRED HINTS ${_ogc_sibling_hints})
-
 message(STATUS "HydroCouple    : ${HydroCouple_DIR}")
 message(STATUS "HydroCoupleSDK : ${HydroCoupleSDK_DIR}")
-message(STATUS "HydroCoupleOgc : ${HydroCoupleOgc_DIR}")
+
+# ── HydroCoupleOgc (OGC web service clients — fetched, not prebuilt) ────────
+# Shared with openswmm.gui, and Qt-only, which is why it cannot live in the
+# SDK: the SDK is deliberately Qt-free.
+#
+# Fetched rather than expected in an install tree, so a fresh checkout builds
+# without first building a sibling by hand. A sibling checkout, when there is
+# one, is used in place of the download -- that is what keeps the two
+# editable together, and it is also why nothing here depends on the remote
+# existing yet. Point FETCHCONTENT_SOURCE_DIR_HYDROCOUPLEOGC elsewhere to
+# override.
+include(FetchContent)
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../HydroCoupleOgc/CMakeLists.txt"
+   AND NOT DEFINED FETCHCONTENT_SOURCE_DIR_HYDROCOUPLEOGC)
+    set(FETCHCONTENT_SOURCE_DIR_HYDROCOUPLEOGC
+        "${CMAKE_CURRENT_SOURCE_DIR}/../HydroCoupleOgc"
+        CACHE PATH "Sibling checkout of HydroCoupleOgc")
+endif()
+
+# Its own suites are its own repository's business; this build does not run
+# them, and asking for them here would require gtest of every consumer.
+set(HYDROCOUPLEOGC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(HydroCoupleOgc
+    GIT_REPOSITORY https://github.com/HydroCouple/HydroCoupleOgc.git
+    GIT_TAG main
+    GIT_SHALLOW TRUE)
+
+FetchContent_MakeAvailable(HydroCoupleOgc)
+
+message(STATUS "HydroCoupleOgc : ${hydrocoupleogc_SOURCE_DIR}")
 
 # ── GDAL (GIS/CRS — Phase C) ────────────────────────────────────────────────
 find_package(GDAL REQUIRED)
