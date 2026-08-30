@@ -180,6 +180,8 @@ set(COMPOSER_SOURCES
     src/mesh/domainedittool.cpp
     include/mesh/domainimport.h
     src/mesh/domainimport.cpp
+    include/mesh/meshgenerator.h
+    src/mesh/meshgenerator.cpp
     include/layers/differencelayer.h
     src/layers/differencelayer.cpp
     include/layers/gdalvectorlayer.h
@@ -346,6 +348,10 @@ target_link_libraries(composer_core
         Qt6::GuiPrivate
         HydroCouple::HydroCouple
         HydroCoupleSDK::HydroCoupleSDK
+        # The triangulator and the quad mesher live in the SDK's tools
+        # library; the domain header used only its input struct, so nothing
+        # needed it linked until something called into it.
+        HydroCoupleSDK::HydroCoupleTools
         GDAL::GDAL
         nanoflann::nanoflann
         nlohmann_json::nlohmann_json)

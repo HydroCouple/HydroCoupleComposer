@@ -84,6 +84,11 @@ composer_add_gui_test(test_domainedit)
 composer_add_gui_test(test_domainimport)
 target_compile_definitions(test_domainimport PRIVATE
     COMPOSER_MESH_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/mesh")
+
+# E2a — meshing the domain. Data in, data out: the gate is that what comes
+# back is the SDK's own mesh, so the suite calls the SDK directly to compare
+# against and needs no widgets.
+composer_add_gui_test(test_meshgenerate)
 target_compile_definitions(test_meshdomain PRIVATE
     COMPOSER_MESH_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/mesh")
 # D3d — a section line cut through a layered mesh. The slice arithmetic, the
