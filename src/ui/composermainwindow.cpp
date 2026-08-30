@@ -26,6 +26,7 @@
 #include "results/timecontroller.h"
 #include "ui/dialogs/crsselectiondialog.h"
 #include "ui/dialogs/layerpropertiesdialog.h"
+#include "ui/dialogs/ogcservicedialog.h"
 #include "ui/panels/attributetablepanel.h"
 #include "ui/panels/layertreepanel.h"
 #include "ui/panels/runbrowserpanel.h"
@@ -799,6 +800,13 @@ namespace HydroCouple::Composer
               [this, name = provider.name] { setBasemap(name); });
     }
 
+    basemapMenu->addSeparator();
+
+    QAction *addService = basemapMenu->addAction(tr("Add &Web Service…"));
+    addService->setObjectName(QStringLiteral("basemapAddServiceAction"));
+    connect(addService, &QAction::triggered, this,
+            &ComposerMainWindow::addServiceBasemap);
+
     viewMenu->addAction(m_selectToolAction);
     viewMenu->addAction(m_panToolAction);
     viewMenu->addAction(m_zoomInToolAction);
@@ -1430,7 +1438,7 @@ namespace HydroCouple::Composer
     log(tr("Added %1 layer(s) from components.").arg(added));
   }
 
-  void ComposerMainWindow::setBasemap(const QString &providerName)
+  void ComposerMainWindow::installBasemap(TileLayer *basemap)
   {
     // At most one basemap, always at the bottom of the stack: two backdrops
     // would fight for the same pixels and the upper one would simply win.
@@ -1443,8 +1451,18 @@ namespace HydroCouple::Composer
       }
     }
 
+    if (basemap)
+    {
+      // The bottom of the stack, so every data layer draws over it.
+      m_layerStack->insertLayer(m_layerStack->rowCount(), basemap);
+    }
+  }
+
+  void ComposerMainWindow::setBasemap(const QString &providerName)
+  {
     if (providerName.isEmpty())
     {
+      installBasemap(nullptr);
       log(tr("Basemap removed."));
       return;
     }
@@ -1457,12 +1475,47 @@ namespace HydroCouple::Composer
 
     auto *basemap = new TileLayer(provider.name, std::move(source));
 
-    // The bottom of the stack, so every data layer draws over it.
-    m_layerStack->insertLayer(m_layerStack->rowCount(), basemap);
+    installBasemap(basemap);
 
     raw->setTileReadyCallback([basemap] { basemap->onTileReady(); });
 
     log(tr("Basemap: %1 — %2").arg(provider.name, provider.attribution));
+  }
+
+  void ComposerMainWindow::addServiceBasemap()
+  {
+    OgcServiceDialog dialog(this);
+
+    if (dialog.exec() != QDialog::Accepted)
+    {
+      return;
+    }
+
+    std::unique_ptr<OgcTileSource> source = dialog.createSource();
+
+    if (!source)
+    {
+      log(tr("No layer was chosen from that service."));
+      return;
+    }
+
+    const QString name = dialog.layerName();
+    OgcTileSource *raw = source.get();
+
+    auto *basemap = new TileLayer(name, std::move(source));
+
+    installBasemap(basemap);
+
+    raw->setTileReadyCallback([basemap] { basemap->onTileReady(); });
+
+    // A service basemap is none of the built-in providers, so none of their
+    // menu entries should go on looking chosen.
+    if (QAction *checked = m_basemapGroup->checkedAction())
+    {
+      checked->setChecked(false);
+    }
+
+    log(tr("Basemap: %1 — %2").arg(name, dialog.serviceTitle()));
   }
 
   void ComposerMainWindow::onLayerProperties(MapLayer *layer)

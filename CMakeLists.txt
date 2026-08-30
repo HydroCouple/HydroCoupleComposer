@@ -233,6 +233,8 @@ set(COMPOSER_SOURCES
     src/ui/dialogs/crsselectiondialog.cpp
     include/ui/dialogs/layerpropertiesdialog.h
     src/ui/dialogs/layerpropertiesdialog.cpp
+    include/ui/dialogs/ogcservicedialog.h
+    src/ui/dialogs/ogcservicedialog.cpp
     include/ui/panels/layertreepanel.h
     src/ui/panels/layertreepanel.cpp
     include/ui/panels/runbrowserpanel.h

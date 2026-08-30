@@ -45,6 +45,7 @@ namespace HydroCouple::Composer
   class MapCanvas;
   class SceneView;
   class MapLayer;
+  class TileLayer;
   class RibbonBar;
   class ProfilePlotPanel;
   class TransectPanel;
@@ -266,6 +267,26 @@ namespace HydroCouple::Composer
        * \param providerName Provider name, or empty for none.
        */
       void setBasemap(const QString &providerName);
+
+      /*!
+       * \brief Asks for a web map service and makes a basemap of it.
+       *
+       * The dialog does the asking; this replaces whatever basemap is
+       * there with what came back, exactly as choosing a built-in one
+       * does.
+       */
+      void addServiceBasemap();
+
+      /*!
+       * \brief Puts \a basemap at the bottom of the stack, alone.
+       *
+       * At most one basemap: two backdrops would fight for the same pixels
+       * and the upper one would simply win.
+       *
+       * \param basemap The layer, or nullptr to leave none.
+       */
+      void installBasemap(TileLayer *basemap);
+
       void createStatusBar();
       void refreshTitle();
 
