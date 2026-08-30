@@ -37,7 +37,8 @@ namespace HydroCouple::Composer
   }
 
   MeshGenerationResult generateMesh(const MeshDomain &domain,
-                                    const MeshGenerationOptions &options)
+                                    const MeshGenerationOptions &options,
+                                    const Tools::MeshProgress &progress)
   {
     MeshGenerationResult result;
 
@@ -56,8 +57,20 @@ namespace HydroCouple::Composer
     std::string message;
 
     if (!Tools::Triangulator::triangulate(domain.toTriangulationInput(),
-                                          result.mesh, message))
+                                          result.mesh, message, progress))
     {
+      // A run the user abandoned is not a run that failed, and telling them
+      // the triangulation failed after they pressed Cancel would be a lie
+      // about their own model.
+      if (message == "cancelled")
+      {
+        result.cancelled = true;
+        result.message = QObject::tr("Meshing was cancelled.");
+        result.mesh = {};
+
+        return result;
+      }
+
       // The triangulator's own words: it is the one that knows what it could
       // not do with the ground it was given.
       result.message = QObject::tr("The triangulation failed: %1")
@@ -72,8 +85,17 @@ namespace HydroCouple::Composer
       IO::MeshDefinition merged;
 
       if (!Tools::QuadMesher::triToQuadDominant(
-            result.mesh, options.minQuadQuality, merged, message))
+            result.mesh, options.minQuadQuality, merged, message, progress))
       {
+        if (message == "cancelled")
+        {
+          result.cancelled = true;
+          result.message = QObject::tr("Meshing was cancelled.");
+          result.mesh = {};
+
+          return result;
+        }
+
         result.message = QObject::tr("The quad merge failed: %1")
                            .arg(QString::fromStdString(message));
         result.mesh = {};

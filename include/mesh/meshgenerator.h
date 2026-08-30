@@ -21,6 +21,7 @@
 #include "mesh/meshdomain.h"
 
 #include "hydrocouplesdk/io/meshdefinition.h"
+#include "hydrocouplesdk/tools/meshprogress.h"
 
 #include <QString>
 
@@ -64,6 +65,9 @@ namespace HydroCouple::Composer
       //! Counted from the faces, so the two always describe the same mesh.
       qint64 triangles = 0;
       qint64 quads = 0;
+
+      //! Whether the run was abandoned rather than refused.
+      bool cancelled = false;
   };
 
   /*!
@@ -72,10 +76,17 @@ namespace HydroCouple::Composer
    * \param domain The ground to mesh; refused before the SDK is troubled if
    *        it is not one a mesh can be built over.
    * \param options What to do after triangulating.
+   * \param progress Where to report to, and what may stop the run; empty
+   *        for an unwatched one. Returning false from it abandons the
+   *        generation, which then reports itself cancelled and carries no
+   *        mesh — see HydroCouple::SDK::Tools::MeshProgress for what can
+   *        and cannot be interrupted, since a dialog must not offer a
+   *        cancel that lands sooner than it does.
    * \returns The mesh, or the first refusal that stopped it.
    */
   [[nodiscard]] MeshGenerationResult generateMesh(
-    const MeshDomain &domain, const MeshGenerationOptions &options = {});
+    const MeshDomain &domain, const MeshGenerationOptions &options = {},
+    const HydroCouple::SDK::Tools::MeshProgress &progress = {});
 
 } // namespace HydroCouple::Composer
 

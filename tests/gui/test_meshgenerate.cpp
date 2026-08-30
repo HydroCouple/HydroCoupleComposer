@@ -25,6 +25,10 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
 using namespace HydroCouple::Composer;
 
 namespace IO = HydroCouple::SDK::IO;
@@ -255,6 +259,79 @@ TEST(MeshGenerateTest, AHoleOutsideTheBoundaryIsRefusedBeforeTheSdkIsTroubled)
   EXPECT_EQ(result.mesh.nodeCount(), 0);
   EXPECT_TRUE(result.message.contains(QStringLiteral("outside")))
     << result.message.toStdString();
+}
+
+// ── watching a run, and stopping one ────────────────────────────────────────
+
+TEST(MeshGenerateTest, WatchingARunReportsTheSdksOwnPhases)
+{
+  std::vector<std::string> stages;
+
+  const MeshGenerationResult result =
+    generateMesh(richDomain(), {},
+                 [&stages](double, const char *stage)
+                 {
+                   stages.emplace_back(stage);
+                   return true;
+                 });
+
+  ASSERT_TRUE(result.ok) << result.message.toStdString();
+  EXPECT_FALSE(result.cancelled);
+
+  // Passed through, not invented here: the stage names are the SDK's, and a
+  // dialog that showed its own would drift from what is actually running.
+  ASSERT_FALSE(stages.empty());
+  EXPECT_NE(std::find(stages.begin(), stages.end(), "inserting edges"),
+            stages.end());
+  EXPECT_EQ(stages.back(), "done");
+}
+
+TEST(MeshGenerateTest, WatchingARunDoesNotChangeTheMesh)
+{
+  const MeshGenerationResult unwatched = generateMesh(richDomain());
+  const MeshGenerationResult watched =
+    generateMesh(richDomain(), {}, [](double, const char *) { return true; });
+
+  ASSERT_TRUE(unwatched.ok) << unwatched.message.toStdString();
+  ASSERT_TRUE(watched.ok) << watched.message.toStdString();
+
+  expectSameMesh(watched.mesh, unwatched.mesh);
+}
+
+TEST(MeshGenerateTest, StoppingARunCarriesNoMeshAndDoesNotCallItAFailure)
+{
+  const MeshGenerationResult result =
+    generateMesh(richDomain(), {}, [](double, const char *) { return false; });
+
+  EXPECT_FALSE(result.ok);
+  EXPECT_EQ(result.mesh.nodeCount(), 0)
+    << "the mesh from a run the user abandoned was handed back anyway";
+
+  // A run the user stopped is not a run that failed. Telling them the
+  // triangulation failed after they pressed Cancel is a lie about their own
+  // model, and one they would reasonably go looking for the cause of.
+  EXPECT_TRUE(result.cancelled);
+  EXPECT_FALSE(result.message.contains(QStringLiteral("failed")))
+    << result.message.toStdString();
+}
+
+TEST(MeshGenerateTest, StoppingDuringTheQuadMergeIsAlsoACancellation)
+{
+  MeshGenerationOptions options;
+  options.quadDominant = true;
+  options.minQuadQuality = 0.4;
+
+  // Let the triangulation finish and refuse only once the merge starts, so
+  // the gate is on the second call and not on the first.
+  const MeshGenerationResult result =
+    generateMesh(richDomain(), options,
+                 [](double, const char *stage)
+                 { return std::string(stage) != "merging"; });
+
+  EXPECT_FALSE(result.ok);
+  EXPECT_TRUE(result.cancelled);
+  EXPECT_EQ(result.mesh.faceCount(), 0)
+    << "the triangulation was kept when the merge was abandoned";
 }
 
 /*
