@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wcs:Capabilities xmlns:wcs="http://www.opengis.net/wcs/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:ogc="http://www.opengis.net/ogc" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0" xmlns:swe="http://www.opengis.net/swe/2.0" xmlns:inspire_common="http://inspire.ec.europa.eu/schemas/common/1.0" xmlns:inspire_dls="http://inspire.ec.europa.eu/schemas/inspire_dls/1.0" xmlns:crs="http://www.opengis.net/wcs/crs/1.0" xmlns:int="http://www.opengis.net/wcs/interpolation/1.0" xsi:schemaLocation="http://www.opengis.net/wcs/2.0 http://schemas.opengis.net/wcs/2.0/wcsAll.xsd http://inspire.ec.europa.eu/schemas/inspire_dls/1.0 http://inspire.ec.europa.eu/schemas/inspire_dls/1.0/inspire_dls.xsd" version="2.0.1">
+  <ows:ServiceIdentification>
+    <ows:Title>Actueel Hoogtebestand Nederland (AHN) WCS</ows:Title>
+    <ows:Abstract>Web Coverage Service (WCS) van het Actueel Hoogtebestand Nederland (AHN). Het AHN is de digitale hoogtekaart voor heel Nederland. Het bevat gedetailleerde en precieze hoogtegegevens met minimaal 10 hoogtemetingen per vierkante meter. AHN is een samenwerking van de provincies, Rijksoverheid en de waterschappen. De hoogte wordt gemeten met laseraltimetrie: een techniek waarbij een vliegtuig met een laserstraal het aardoppervlak aftast. Het huidige AHN is versie 4. Deze versie is ingewonnen over de jaren 2020, 2021 en 2022. Voor meer informatie over het AHN zie https://ahn.nl. In deze WCS zijn de AHN rasterbestanden met een resolutie van 0,5 meter opgenomen. Hierin is een onderscheid tussen het DTM en het DSM gemaakt. Het DTM is bedoeld als maaiveldbestand, waarbij alle punten geclassificeerd als 'maaiveld' tot een raster zijn herbemonsterd op basis van een Squared IDW methode. Het DSM is bedoeld als ruw bestand, waarbij alle punten behalve die geclassificeerd als 'water' tot een raster zijn herbemonsterd op basis van een Squared IDW methode.</ows:Abstract>
+    <ows:Keywords>
+      <ows:Keyword>AHN</ows:Keyword>
+      <ows:Keyword>fysische geografie</ows:Keyword>
+      <ows:Keyword>hoogte</ows:Keyword>
+      <ows:Keyword>klimaat</ows:Keyword>
+      <ows:Keyword>ruimtelijke ordening</ows:Keyword>
+      <ows:Keyword>transport</ows:Keyword>
+      <ows:Keyword>water</ows:Keyword>
+      <ows:Keyword>elevation</ows:Keyword>
+      <ows:Keyword>infocoverageaccessservice</ows:Keyword>
+      <ows:Keyword>hoogte</ows:Keyword>
+      <ows:Keyword>HVD</ows:Keyword>
+      <ows:Keyword>Aardobservatie en milieu</ows:Keyword>
+    </ows:Keywords>
+    <ows:ServiceType codeSpace="OGC">OGC WCS</ows:ServiceType>
+    <ows:ServiceTypeVersion>2.0.1</ows:ServiceTypeVersion>
+    <ows:ServiceTypeVersion>1.1.1</ows:ServiceTypeVersion>
+    <ows:ServiceTypeVersion>1.0.0</ows:ServiceTypeVersion>
+    <ows:Profile>http://www.opengis.net/spec/WCS/2.0/conf/core</ows:Profile>
+    <ows:Profile>http://www.opengis.net/spec/WCS_protocol-binding_get-kvp/1.0/conf/get-kvp</ows:Profile>
+    <ows:Profile>http://www.opengis.net/spec/WCS_protocol-binding_post-xml/1.0/conf/post-xml</ows:Profile>
+    <ows:Profile>http://www.opengis.net/spec/GMLCOV/1.0/conf/gml-coverage</ows:Profile>
+    <ows:Profile>http://www.opengis.net/spec/GMLCOV/1.0/conf/multipart</ows:Profile>
+    <ows:Profile>http://www.opengis.net/spec/GMLCOV/1.0/conf/special-format</ows:Profile>
+    <ows:Profile>http://www.opengis.net/spec/GMLCOV_geotiff-coverages/1.0/conf/geotiff-coverage</ows:Profile>
+    <ows:Profile>http://www.opengis.net/spec/WCS_service-extension_crs/1.0/conf/crs</ows:Profile>
+    <ows:Profile>http://www.opengis.net/spec/WCS_service-extension_scaling/1.0/conf/scaling</ows:Profile>
+    <ows:Profile>http://www.opengis.net/spec/WCS_service-extension_range-subsetting/1.0/conf/record-subsetting</ows:Profile>
+    <ows:Profile>http://www.opengis.net/spec/WCS_service-extension_interpolation/1.0/conf/interpolation</ows:Profile>
+    <ows:Fees>NONE</ows:Fees>
+    <ows:AccessConstraints>otherRestrictions; Geen beperkingen; http://creativecommons.org/publicdomain/zero/1.0/deed.nl</ows:AccessConstraints>
+  </ows:ServiceIdentification>
+  <ows:ServiceProvider>
+    <ows:ProviderName>PDOK</ows:ProviderName>
+    <ows:ProviderSite xlink:type="simple" xlink:href="https://service.pdok.nl"/>
+    <ows:ServiceContact>
+      <ows:IndividualName>KlantContactCenter PDOK</ows:IndividualName>
+      <ows:PositionName>pointOfContact</ows:PositionName>
+      <ows:ContactInfo>
+        <ows:Phone>
+          <ows:Voice></ows:Voice>
+          <ows:Facsimile></ows:Facsimile>
+        </ows:Phone>
+        <ows:Address>
+          <ows:DeliveryPoint></ows:DeliveryPoint>
+          <ows:City>Apeldoorn</ows:City>
+          <ows:AdministrativeArea></ows:AdministrativeArea>
+          <ows:PostalCode></ows:PostalCode>
+          <ows:Country>Nederland</ows:Country>
+          <ows:ElectronicMailAddress>BeheerPDOK@kadaster.nl</ows:ElectronicMailAddress>
+        </ows:Address>
+        <ows:OnlineResource xlink:type="simple" xlink:href="https://service.pdok.nl"/>
+        <ows:HoursOfService></ows:HoursOfService>
+        <ows:ContactInstructions>https://www.pdok.nl/contact</ows:ContactInstructions>
+      </ows:ContactInfo>
+      <ows:Role></ows:Role>
+    </ows:ServiceContact>
+  </ows:ServiceProvider>
+  <ows:OperationsMetadata>
+    <ows:Operation name="GetCapabilities">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:type="simple" xlink:href="https://service.pdok.nl/rws/actueel-hoogtebestand-nederland/wcs/v1_0?"/>
+          <ows:Post xlink:type="simple" xlink:href="https://service.pdok.nl/rws/actueel-hoogtebestand-nederland/wcs/v1_0?">
+            <ows:Constraint name="PostEncoding">
+              <ows:AllowedValues>
+                <ows:Value>XML</ows:Value>
+              </ows:AllowedValues>
+            </ows:Constraint>
+          </ows:Post>
+        </ows:HTTP>
+      </ows:DCP>
+    </ows:Operation>
+    <ows:Operation name="DescribeCoverage">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:type="simple" xlink:href="https://service.pdok.nl/rws/actueel-hoogtebestand-nederland/wcs/v1_0?"/>
+          <ows:Post xlink:type="simple" xlink:href="https://service.pdok.nl/rws/actueel-hoogtebestand-nederland/wcs/v1_0?">
+            <ows:Constraint name="PostEncoding">
+              <ows:AllowedValues>
+                <ows:Value>XML</ows:Value>
+              </ows:AllowedValues>
+            </ows:Constraint>
+          </ows:Post>
+        </ows:HTTP>
+      </ows:DCP>
+    </ows:Operation>
+    <ows:Operation name="GetCoverage">
+      <ows:DCP>
+        <ows:HTTP>
+          <ows:Get xlink:type="simple" xlink:href="https://service.pdok.nl/rws/actueel-hoogtebestand-nederland/wcs/v1_0?"/>
+          <ows:Post xlink:type="simple" xlink:href="https://service.pdok.nl/rws/actueel-hoogtebestand-nederland/wcs/v1_0?">
+            <ows:Constraint name="PostEncoding">
+              <ows:AllowedValues>
+                <ows:Value>XML</ows:Value>
+              </ows:AllowedValues>
+            </ows:Constraint>
+          </ows:Post>
+        </ows:HTTP>
+      </ows:DCP>
+    </ows:Operation>
+    <ows:ExtendedCapabilities>
+      <inspire_dls:ExtendedCapabilities>
+        <inspire_common:MetadataUrl xsi:type="inspire_common:resourceLocatorType">
+          <inspire_common:URL>https://www.nationaalgeoregister.nl/geonetwork/srv/dut/csw-inspire?service=CSW&amp;request=GetRecordById&amp;version=2.0.2&amp;outputSchema=http://www.isotc211.org/2005/gmd&amp;elementSetName=full&amp;ID=bfcc588f-9393-4c70-b989-d9e92ac2f493</inspire_common:URL>
+          <inspire_common:MediaType>application/vnd.ogc.csw.GetRecordByIdResponse_xml</inspire_common:MediaType>
+        </inspire_common:MetadataUrl>
+        <inspire_common:SupportedLanguages>
+          <inspire_common:DefaultLanguage>
+            <inspire_common:Language>dut</inspire_common:Language>
+          </inspire_common:DefaultLanguage>
+        </inspire_common:SupportedLanguages>
+        <inspire_common:ResponseLanguage>
+          <inspire_common:Language>dut</inspire_common:Language>
+        </inspire_common:ResponseLanguage>
+        <inspire_dls:SpatialDataSetIdentifier>
+          <inspire_common:Code>267a4f5a-5955-4bc5-b17c-ae3bb9ad4801</inspire_common:Code>
+          <inspire_common:Namespace>http://rws.nl/</inspire_common:Namespace>
+        </inspire_dls:SpatialDataSetIdentifier>
+      </inspire_dls:ExtendedCapabilities>
+    </ows:ExtendedCapabilities>
+  </ows:OperationsMetadata>
+  <wcs:ServiceMetadata>
+    <wcs:formatSupported>image/tiff</wcs:formatSupported>
+    <wcs:formatSupported>image/png</wcs:formatSupported>
+    <wcs:formatSupported>image/jpeg</wcs:formatSupported>
+    <wcs:formatSupported>image/png; mode=8bit</wcs:formatSupported>
+    <wcs:formatSupported>image/vnd.jpeg-png</wcs:formatSupported>
+    <wcs:formatSupported>image/vnd.jpeg-png8</wcs:formatSupported>
+    <wcs:Extension>
+      <int:InterpolationMetadata>
+        <int:InterpolationSupported>NEAREST</int:InterpolationSupported>
+        <int:InterpolationSupported>AVERAGE</int:InterpolationSupported>
+        <int:InterpolationSupported>BILINEAR</int:InterpolationSupported>
+      </int:InterpolationMetadata>
+      <crs:CrsMetadata>
+        <crs:crsSupported>http://www.opengis.net/def/crs/EPSG/0/28992</crs:crsSupported>
+        <crs:crsSupported>http://www.opengis.net/def/crs/EPSG/0/25831</crs:crsSupported>
+        <crs:crsSupported>http://www.opengis.net/def/crs/EPSG/0/25832</crs:crsSupported>
+        <crs:crsSupported>http://www.opengis.net/def/crs/EPSG/0/3034</crs:crsSupported>
+        <crs:crsSupported>http://www.opengis.net/def/crs/EPSG/0/3035</crs:crsSupported>
+        <crs:crsSupported>http://www.opengis.net/def/crs/EPSG/0/3857</crs:crsSupported>
+        <crs:crsSupported>http://www.opengis.net/def/crs/EPSG/0/4258</crs:crsSupported>
+        <crs:crsSupported>http://www.opengis.net/def/crs/EPSG/0/4326</crs:crsSupported>
+      </crs:CrsMetadata>
+    </wcs:Extension>
+  </wcs:ServiceMetadata>
+  <wcs:Contents>
+    <wcs:CoverageSummary>
+      <wcs:CoverageId>dsm_05m</wcs:CoverageId>
+      <wcs:CoverageSubtype>RectifiedGridCoverage</wcs:CoverageSubtype>
+    </wcs:CoverageSummary>
+    <wcs:CoverageSummary>
+      <wcs:CoverageId>dtm_05m</wcs:CoverageId>
+      <wcs:CoverageSubtype>RectifiedGridCoverage</wcs:CoverageSubtype>
+    </wcs:CoverageSummary>
+  </wcs:Contents>
+</wcs:Capabilities>

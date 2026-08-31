@@ -1,5 +1,11 @@
 #include "ui/dialogs/ogcservicedialog.h"
 
+#include "gis/spatialreference.h"
+
+#include <hydrocoupleogc/crsurn.h>
+#include <hydrocoupleogc/servicediscovery.h>
+
+#include <hydrocoupleogc/wcsrequest.h>
 #include <hydrocoupleogc/wfsrequest.h>
 
 #include <QDialogButtonBox>
@@ -67,6 +73,13 @@ namespace HydroCouple::Composer
       if (m_kind == ServiceKind::Wfs)
       {
         fetchFeaturesThenAccept();
+
+        return;
+      }
+
+      if (m_kind == ServiceKind::Wcs)
+      {
+        describeThenFetchCoverage();
 
         return;
       }
@@ -167,6 +180,13 @@ namespace HydroCouple::Composer
       return;
     }
 
+    if (kind == ServiceKind::Wcs)
+    {
+      showWcs(body);
+
+      return;
+    }
+
     // Not that one, so far. A server that speaks only another of them
     // answers with a refusal, which is not an answer about what it has —
     // so it is asked again in each remaining dialect before giving up.
@@ -184,6 +204,13 @@ namespace HydroCouple::Composer
       return;
     }
 
+    if (asked == ServiceKind::Wfs)
+    {
+      ask(ServiceKind::Wcs);
+
+      return;
+    }
+
     // Whatever the second attempt said is the better message: it is the
     // one that failed last, and both attempts failed the same way.
     const HydroCouple::Ogc::WmsCapabilities refusal =
@@ -192,7 +219,7 @@ namespace HydroCouple::Composer
     m_statusText = !refusal.message.isEmpty()
                      ? refusal.message
                      : (error.isEmpty()
-                          ? tr("That address is not a WMS or a WMTS.")
+                          ? tr("That address is not a WMS, WMTS, WFS or WCS.")
                           : error);
 
     m_status->setText(m_statusText);
@@ -319,6 +346,228 @@ namespace HydroCouple::Composer
     fill();
   }
 
+  void OgcServiceDialog::showWcs(const QByteArray &body)
+  {
+    m_wcs = HydroCouple::Ogc::parseWcsCapabilities(body);
+    m_kind = m_wcs.ok ? ServiceKind::Wcs : ServiceKind::Unknown;
+
+    if (!m_wcs.ok)
+    {
+      m_statusText = m_wcs.message;
+      m_status->setText(m_statusText);
+
+      return;
+    }
+
+    for (const HydroCouple::Ogc::WcsCoverageSummary &summary : m_wcs.coverages)
+    {
+      Choice choice;
+      choice.kind = ServiceKind::Wcs;
+      choice.layerId = summary.identifier;
+      choice.title =
+        summary.title.isEmpty() ? summary.identifier : summary.title;
+
+      // No usability check here, unlike the other three. At 2.0 a summary
+      // may carry nothing but an identifier -- no extent, no system, no
+      // formats -- so there is nothing yet to judge it on. Whether a
+      // coverage can be asked for is answered by DescribeCoverage, and
+      // that is one request per coverage rather than one per service, so
+      // it is left until one is chosen.
+      m_choices.append(choice);
+    }
+
+    fill();
+  }
+
+  void OgcServiceDialog::describeThenFetchCoverage()
+  {
+    const int row = m_layers->currentRow();
+
+    if (row < 0 || row >= m_choices.size())
+    {
+      return;
+    }
+
+    const QString identifier = m_choices.at(row).layerId;
+
+    const QString url = HydroCouple::Ogc::buildDescribeCoverageUrl(
+      m_url->text(), m_wcs.version, identifier);
+
+    if (url.isEmpty())
+    {
+      m_statusText = tr("That coverage cannot be asked about.");
+      m_status->setText(m_statusText);
+
+      return;
+    }
+
+    m_statusText = tr("Asking about %1…").arg(m_choices.at(row).title);
+    m_status->setText(m_statusText);
+    m_buttons->button(QDialogButtonBox::Ok)->setEnabled(false);
+
+    m_client->get(QUrl(url), credentials(),
+                  [this](const HydroCouple::Ogc::HttpResponse &response) {
+                    const HydroCouple::Ogc::WcsCoverageDescription
+                      description = HydroCouple::Ogc::
+                        parseWcsCoverageDescription(response.body);
+
+                    if (!description.ok)
+                    {
+                      m_statusText = description.message.isEmpty()
+                                       ? response.error
+                                       : description.message;
+                      m_status->setText(m_statusText);
+                      m_buttons->button(QDialogButtonBox::Ok)
+                        ->setEnabled(true);
+
+                      return;
+                    }
+
+                    fetchCoverage(description);
+                  });
+  }
+
+  void OgcServiceDialog::fetchCoverage(
+    const HydroCouple::Ogc::WcsCoverageDescription &description)
+  {
+    const int row = m_layers->currentRow();
+
+    if (row < 0 || row >= m_choices.size())
+    {
+      return;
+    }
+
+    const QString title = m_choices.at(row).title;
+    const QString identifier = m_choices.at(row).layerId;
+
+    if (!description.isTwoDimensional())
+    {
+      // A coverage over time or depth needs those axes pinned too, and
+      // which slice is wanted is the user's question rather than one to
+      // guess at. Refused with the reason rather than fetched wrongly.
+      m_statusText =
+        tr("\"%1\" has axes this program cannot choose between: %2.")
+          .arg(title, description.axisLabels.join(QStringLiteral(", ")));
+      m_status->setText(m_statusText);
+      m_buttons->button(QDialogButtonBox::Ok)->setEnabled(true);
+
+      return;
+    }
+
+    QRectF wanted = description.boundsAsRect();
+
+    if (wanted.isEmpty())
+    {
+      m_statusText = tr("\"%1\" does not say where it is.").arg(title);
+      m_status->setText(m_statusText);
+      m_buttons->button(QDialogButtonBox::Ok)->setEnabled(true);
+
+      return;
+    }
+
+    // The map's view, when it can be expressed in the coverage's own
+    // system. Without this a national elevation model is fetched whole:
+    // correct, and a great many more cells than the ground anyone is
+    // looking at.
+    const HydroCouple::Ogc::CrsIdentifier crs =
+      HydroCouple::Ogc::parseCrsIdentifier(description.envelopeCrs);
+
+    if (crs.isValid() && !m_preferredExtent.isNull())
+    {
+      QString message;
+
+      const std::unique_ptr<SpatialReference> coverageCrs =
+        SpatialReference::fromAuthority(crs.authority, crs.code.toInt(),
+                                        message);
+      const std::unique_ptr<SpatialReference> geographic =
+        SpatialReference::fromAuthority(QStringLiteral("EPSG"), 4326, message);
+
+      if (coverageCrs && geographic)
+      {
+        const std::unique_ptr<CoordinateTransform> toCoverage =
+          CoordinateTransform::between(*geographic, *coverageCrs, message);
+
+        if (toCoverage)
+        {
+          bool ok = true;
+
+          const QPointF lower =
+            toCoverage->transform(m_preferredExtent.topLeft(), &ok);
+          const QPointF upper =
+            toCoverage->transform(m_preferredExtent.bottomRight(), &ok);
+
+          const QRectF view = QRectF(lower, upper).normalized();
+
+          // Only when it lands on the coverage. A view somewhere else
+          // entirely intersects nothing, and clipping to an empty
+          // rectangle would ask for a coverage of nowhere.
+          if (ok && !view.isEmpty() && wanted.intersects(view))
+          {
+            wanted = wanted.intersected(view);
+          }
+        }
+      }
+    }
+
+    HydroCouple::Ogc::WcsGetCoverageRequest request;
+    request.coverageId = identifier;
+    request.extent = wanted;
+
+    // Bounded, because a coverage is not a picture and its native
+    // resolution is whatever the survey was: half a metre over a country,
+    // for the model this was written against, which is millions of cells
+    // for a request nobody meant to make.
+    const double aspect = wanted.height() / wanted.width();
+    const int width = 1024;
+
+    request.size =
+      QSize(width, qBound(1, static_cast<int>(width * aspect), 4096));
+
+    const QString url = HydroCouple::Ogc::buildGetCoverageUrl(
+      m_url->text(), m_wcs.version, request, description);
+
+    if (url.isEmpty())
+    {
+      m_statusText = tr("\"%1\" cannot be asked for.").arg(title);
+      m_status->setText(m_statusText);
+      m_buttons->button(QDialogButtonBox::Ok)->setEnabled(true);
+
+      return;
+    }
+
+    m_statusText = tr("Fetching %1…").arg(title);
+    m_status->setText(m_statusText);
+
+    const QString service = m_url->text();
+
+    m_client->get(
+      QUrl(url), credentials(),
+      [this, title, identifier, service,
+       description](const HydroCouple::Ogc::HttpResponse &response) {
+        QString message;
+
+        std::unique_ptr<WcsCoverageLayer> layer =
+          WcsCoverageLayer::fromResponse(response.body, title, message);
+
+        if (!layer)
+        {
+          m_statusText = message.isEmpty() ? response.error : message;
+          m_status->setText(m_statusText);
+          m_buttons->button(QDialogButtonBox::Ok)->setEnabled(true);
+
+          return;
+        }
+
+        layer->setServiceUrl(service);
+        layer->setCoverageId(identifier);
+        layer->setDescription(description);
+
+        m_coverageLayer = std::move(layer);
+
+        accept();
+      });
+  }
+
   void OgcServiceDialog::fetchFeaturesThenAccept()
   {
     const int row = m_layers->currentRow();
@@ -410,6 +659,11 @@ namespace HydroCouple::Composer
   std::unique_ptr<WfsFeatureLayer> OgcServiceDialog::takeFeatureLayer()
   {
     return std::move(m_featureLayer);
+  }
+
+  std::unique_ptr<WcsCoverageLayer> OgcServiceDialog::takeCoverageLayer()
+  {
+    return std::move(m_coverageLayer);
   }
 
   void OgcServiceDialog::fill()

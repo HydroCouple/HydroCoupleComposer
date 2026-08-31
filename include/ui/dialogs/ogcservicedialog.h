@@ -14,11 +14,13 @@
 #define HYDROCOUPLECOMPOSER_UI_DIALOGS_OGCSERVICEDIALOG_H
 
 #include "layers/ogctilesource.h"
+#include "layers/wcscoveragelayer.h"
 #include "layers/wfsfeaturelayer.h"
 
 #include <hydrocoupleogc/httpclient.h>
 #include <hydrocoupleogc/servicecredentials.h>
 #include <hydrocoupleogc/servicediscovery.h>
+#include <hydrocoupleogc/wcscapabilities.h>
 #include <hydrocoupleogc/wfscapabilities.h>
 #include <hydrocoupleogc/wmscapabilities.h>
 #include <hydrocoupleogc/wmtscapabilities.h>
@@ -99,6 +101,17 @@ namespace HydroCouple::Composer
        */
       [[nodiscard]] std::unique_ptr<WfsFeatureLayer> takeFeatureLayer();
 
+      /*!
+       * \brief The coverage fetched for the chosen identifier.
+       *
+       * Filled before the dialog accepts, for the same reason the feature
+       * layer is: a coverage request is made once and can fail after the
+       * user has chosen.
+       *
+       * \returns The layer, or nullptr. The caller takes ownership.
+       */
+      [[nodiscard]] std::unique_ptr<WcsCoverageLayer> takeCoverageLayer();
+
       //! What to call the layer this dialog would add.
       [[nodiscard]] QString layerName() const;
 
@@ -130,6 +143,24 @@ namespace HydroCouple::Composer
       //! Fetches the chosen collection, then accepts.
       void fetchFeaturesThenAccept();
 
+      /*!
+       * \brief Describes the chosen coverage, then fetches it, then accepts.
+       *
+       * Two round trips where the other three services need one, and not an
+       * accident of this design. A WCS 2.0 CoverageSummary is permitted to
+       * carry nothing but an identifier, and real ones do -- so where the
+       * coverage is, what system it is in, and what its axes are called are
+       * all in DescribeCoverage. A GetCoverage written without them is a
+       * guess, and a subset naming an axis the coverage has not got is
+       * refused with a status a version ladder misreads.
+       */
+      void describeThenFetchCoverage();
+
+      //! Second half of the above: the description has arrived.
+      void fetchCoverage(const HydroCouple::Ogc::WcsCoverageDescription &description);
+
+      void showWcs(const QByteArray &body);
+
       void showWfs(const QByteArray &body);
 
       void onCapabilities(HydroCouple::Ogc::ServiceKind asked,
@@ -155,10 +186,12 @@ namespace HydroCouple::Composer
       HydroCouple::Ogc::WmsCapabilities m_wms;
       HydroCouple::Ogc::WmtsCapabilities m_wmts;
       HydroCouple::Ogc::WfsCapabilities m_wfs;
+      HydroCouple::Ogc::WcsCapabilities m_wcs;
       HydroCouple::Ogc::ServiceKind m_kind =
         HydroCouple::Ogc::ServiceKind::Unknown;
       QRectF m_preferredExtent;
       std::unique_ptr<WfsFeatureLayer> m_featureLayer;
+      std::unique_ptr<WcsCoverageLayer> m_coverageLayer;
       QList<Choice> m_choices;
       QString m_statusText;
   };

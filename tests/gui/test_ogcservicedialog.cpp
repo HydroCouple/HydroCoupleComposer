@@ -56,12 +56,19 @@ namespace
       ServiceServer() { listen(QHostAddress::LocalHost, 0); }
 
       //! Which services this server pretends to offer.
-      void offer(bool wms, bool wmts, bool wfs = false)
+      void offer(bool wms, bool wmts, bool wfs = false, bool wcs = false)
       {
         m_wms = wms;
         m_wmts = wmts;
         m_wfs = wfs;
+        m_wcs = wcs;
       }
+
+      //! The GetCoverage answer.
+      void answerCoverageWith(const QByteArray &body) { m_coverage = body; }
+
+      //! Describe coverages as having a time axis as well.
+      void coveragesCarryTime() { m_timeAxis = true; }
 
       //! The GetFeature answer, and what was asked to get it.
       void answerFeaturesWith(const QByteArray &body) { m_features = body; }
@@ -118,6 +125,46 @@ namespace
 
         QByteArray body;
 
+        if (request == QLatin1String("DescribeCoverage"))
+        {
+          body = fixture(m_timeAxis
+                           ? QStringLiteral(
+                               "wcs-2.0.1-rasdaman-timeseries-describe.xml")
+                           : QStringLiteral(
+                               "wcs-2.0.1-pdok-ahn-describe.xml"));
+
+          QByteArray answer = "HTTP/1.1 200 OK\r\n";
+          answer += "Content-Type: application/xml\r\n";
+          answer +=
+            "Content-Length: " + QByteArray::number(body.size()) + "\r\n";
+          answer += "Connection: close\r\n\r\n";
+          answer += body;
+
+          socket->write(answer);
+          socket->flush();
+          socket->disconnectFromHost();
+
+          return;
+        }
+
+        if (request == QLatin1String("GetCoverage"))
+        {
+          body = m_coverage;
+
+          QByteArray answer = "HTTP/1.1 200 OK\r\n";
+          answer += "Content-Type: image/tiff\r\n";
+          answer +=
+            "Content-Length: " + QByteArray::number(body.size()) + "\r\n";
+          answer += "Connection: close\r\n\r\n";
+          answer += body;
+
+          socket->write(answer);
+          socket->flush();
+          socket->disconnectFromHost();
+
+          return;
+        }
+
         if (request == QLatin1String("GetFeature"))
         {
           body = m_features;
@@ -164,6 +211,10 @@ namespace
           body.replace("https://service.pdok.nl/kadaster/bag/wfs/v2_0",
                        endpoint().toUtf8());
         }
+        else if (service == QLatin1String("WCS") && m_wcs)
+        {
+          body = fixture(QStringLiteral("wcs-2.0.1-pdok-ahn.xml"));
+        }
         else
         {
           // What a server that does not speak the dialect answers: an
@@ -190,8 +241,11 @@ namespace
       bool m_wms = true;
       bool m_wmts = true;
       bool m_wfs = false;
+      bool m_wcs = false;
+      bool m_timeAxis = false;
       bool m_stripWebMercator = false;
       QByteArray m_features;
+      QByteArray m_coverage;
       QString m_lastRequest;
       QStringList m_asked;
       QMap<QTcpSocket *, QByteArray> m_buffers;
@@ -514,4 +568,153 @@ TEST_F(OgcServiceDialogTest, ACollectionHoldingNothingThereSaysSoAndStaysOpen)
   EXPECT_TRUE(dialog.findChild<QDialogButtonBox *>()
                 ->button(QDialogButtonBox::Ok)
                 ->isEnabled());
+}
+
+// ---------------------------------------------------------------------------
+// The fourth dialect: a coverage service
+// ---------------------------------------------------------------------------
+
+TEST_F(OgcServiceDialogTest, ACoverageServiceIsFoundAfterTheOtherThreeAre)
+{
+  ServiceServer server;
+  server.offer(false, false, false, true);
+
+  OgcServiceDialog dialog;
+  connectTo(dialog, server.endpoint());
+
+  ASSERT_TRUE(waitFor([&] {
+    return dialog.serviceKind() == HydroCouple::Ogc::ServiceKind::Wcs;
+  })) << dialog.status().toStdString();
+
+  // Asked in every dialect before giving up, and in this order: a server
+  // that speaks only the last one still has to be found.
+  EXPECT_EQ(server.asked(), (QStringList{QStringLiteral("WMS"),
+                                         QStringLiteral("WMTS"),
+                                         QStringLiteral("WFS"),
+                                         QStringLiteral("WCS")}));
+
+  EXPECT_EQ(layerList(dialog)->count(), 2);
+}
+
+TEST_F(OgcServiceDialogTest, ACoverageIsDescribedBeforeItIsAskedFor)
+{
+  ServiceServer server;
+  server.offer(false, false, false, true);
+  server.answerCoverageWith(fixture(QStringLiteral("wcs-coverage-ahn-dtm.tif")));
+
+  OgcServiceDialog dialog;
+
+  // The map is looking at one Dutch field, in degrees.
+  dialog.setPreferredExtent(QRectF(QPointF(5.16, 52.37), QPointF(5.17, 52.38)));
+  connectTo(dialog, server.endpoint());
+
+  ASSERT_TRUE(waitFor([&] { return layerList(dialog)->count() > 0; }))
+    << dialog.status().toStdString();
+
+  layerList(dialog)->setCurrentRow(0);
+  dialog.findChild<QDialogButtonBox *>()
+    ->button(QDialogButtonBox::Ok)
+    ->click();
+
+  ASSERT_TRUE(waitFor([&] { return dialog.result() == QDialog::Accepted; }))
+    << dialog.status().toStdString();
+
+  const QUrlQuery query(QUrl(server.lastRequest()).query());
+
+  EXPECT_EQ(query.queryItemValue(QStringLiteral("REQUEST")),
+            QStringLiteral("GetCoverage"));
+
+  // The axis names are the coverage's own, read from DescribeCoverage --
+  // this one is a projected national grid, so "x" and "y". Guessing
+  // "Lon"/"Lat" is answered by a strict server with InvalidAxisLabel under
+  // a 404, which a version ladder then misreads as a protocol failure.
+  const QStringList subsets =
+    query.allQueryItemValues(QStringLiteral("SUBSET"));
+
+  ASSERT_EQ(subsets.size(), 2);
+  EXPECT_TRUE(subsets.at(0).startsWith(QStringLiteral("x(")))
+    << subsets.at(0).toStdString();
+  EXPECT_TRUE(subsets.at(1).startsWith(QStringLiteral("y(")))
+    << subsets.at(1).toStdString();
+
+  // Bounded, because a coverage's native resolution is whatever the survey
+  // was: half a metre over a country is millions of cells nobody asked for.
+  EXPECT_FALSE(query.queryItemValue(QStringLiteral("SCALESIZE")).isEmpty());
+
+  std::unique_ptr<WcsCoverageLayer> coverage = dialog.takeCoverageLayer();
+
+  ASSERT_NE(coverage, nullptr);
+  EXPECT_EQ(coverage->coverageId(), QStringLiteral("dsm_05m"));
+  EXPECT_EQ(coverage->rasterSize().width(), 64);
+}
+
+TEST_F(OgcServiceDialogTest, ACoverageIsAskedForOverTheGroundInView)
+{
+  ServiceServer server;
+  server.offer(false, false, false, true);
+  server.answerCoverageWith(fixture(QStringLiteral("wcs-coverage-ahn-dtm.tif")));
+
+  OgcServiceDialog dialog;
+  dialog.setPreferredExtent(QRectF(QPointF(5.16, 52.37), QPointF(5.17, 52.38)));
+  connectTo(dialog, server.endpoint());
+
+  ASSERT_TRUE(waitFor([&] { return layerList(dialog)->count() > 0; }));
+
+  layerList(dialog)->setCurrentRow(0);
+  dialog.findChild<QDialogButtonBox *>()
+    ->button(QDialogButtonBox::Ok)
+    ->click();
+
+  ASSERT_TRUE(waitFor([&] { return dialog.result() == QDialog::Accepted; }))
+    << dialog.status().toStdString();
+
+  const QUrlQuery query(QUrl(server.lastRequest()).query());
+  const QStringList subsets =
+    query.allQueryItemValues(QStringLiteral("SUBSET"));
+
+  ASSERT_EQ(subsets.size(), 2);
+
+  // The view is degrees and the coverage is metres in the Dutch national
+  // grid, so the box has to be converted before it means anything. The
+  // coverage spans x 10000..280000; a view of one field must ask for a
+  // small part of that, not the whole country.
+  const QString horizontal = subsets.at(0);
+  const double from =
+    horizontal.mid(2, horizontal.indexOf(',') - 2).toDouble();
+  const double to = horizontal.mid(horizontal.indexOf(',') + 1,
+                                   horizontal.size() - horizontal.indexOf(',')
+                                     - 2)
+                      .toDouble();
+
+  EXPECT_GT(from, 10000.0) << horizontal.toStdString();
+  EXPECT_LT(to, 280000.0) << horizontal.toStdString();
+  EXPECT_LT(to - from, 20000.0) << horizontal.toStdString();
+}
+
+TEST_F(OgcServiceDialogTest, ACoverageWithATimeAxisIsRefusedRatherThanGuessedAt)
+{
+  ServiceServer server;
+  server.offer(false, false, false, true);
+  server.coveragesCarryTime();
+  server.answerCoverageWith(fixture(QStringLiteral("wcs-coverage-ahn-dtm.tif")));
+
+  OgcServiceDialog dialog;
+  connectTo(dialog, server.endpoint());
+
+  ASSERT_TRUE(waitFor([&] { return layerList(dialog)->count() > 0; }));
+
+  layerList(dialog)->setCurrentRow(0);
+  dialog.findChild<QDialogButtonBox *>()
+    ->button(QDialogButtonBox::Ok)
+    ->click();
+
+  // Three axes -- ansi, Lat, Lon -- so which instant is wanted is a question
+  // for the user, not one to guess at. Fetched anyway, the request either
+  // fails or returns a cube shown as though it were a map.
+  ASSERT_TRUE(waitFor([&] {
+    return dialog.status().contains(QStringLiteral("cannot choose between"));
+  })) << dialog.status().toStdString();
+
+  EXPECT_NE(dialog.result(), QDialog::Accepted);
+  EXPECT_EQ(dialog.takeCoverageLayer(), nullptr);
 }

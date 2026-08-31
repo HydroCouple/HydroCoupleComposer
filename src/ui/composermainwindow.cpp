@@ -26,6 +26,7 @@
 #include "results/timecontroller.h"
 #include "ui/dialogs/crsselectiondialog.h"
 #include "ui/dialogs/layerpropertiesdialog.h"
+#include "layers/wcscoveragelayer.h"
 #include "layers/wfsfeaturelayer.h"
 #include "ui/dialogs/ogcservicedialog.h"
 #include "ui/panels/attributetablepanel.h"
@@ -1540,6 +1541,30 @@ namespace HydroCouple::Composer
       log(tr("%1: %2 features from %3")
             .arg(name)
             .arg(count)
+            .arg(dialog.serviceTitle()));
+
+      return;
+    }
+
+    // A coverage is data too, and the one kind of it a model can be built
+    // on: elevations rather than a picture of elevations.
+    if (std::unique_ptr<WcsCoverageLayer> coverage = dialog.takeCoverageLayer())
+    {
+      const QString name = coverage->name();
+      const QSize size = coverage->rasterSize();
+
+      double minimum = 0.0;
+      double maximum = 0.0;
+      coverage->valueRange(minimum, maximum);
+
+      addMapLayer(coverage.release());
+
+      log(tr("%1: %2 by %3 cells, %4 to %5, from %6")
+            .arg(name)
+            .arg(size.width())
+            .arg(size.height())
+            .arg(minimum, 0, 'f', 2)
+            .arg(maximum, 0, 'f', 2)
             .arg(dialog.serviceTitle()));
 
       return;
