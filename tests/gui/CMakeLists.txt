@@ -174,7 +174,8 @@ add_dependencies(test_compositioncanvas testcomponent)
 
 composer_add_gui_test(test_configurator)
 target_compile_definitions(test_configurator PRIVATE
-    COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>")
+    COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>"
+    COMPOSER_CONFIGURATOR_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/configurator")
 add_dependencies(test_configurator testcomponent)
 
 composer_add_gui_test(test_simulationmanager)

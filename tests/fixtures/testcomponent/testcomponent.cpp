@@ -86,6 +86,7 @@ namespace
       Argument1DString *label = nullptr;
       Argument1DString *regime = nullptr;
       Argument2DDouble *grid = nullptr;
+      Argument1DDouble *rating = nullptr;
       Input1DDouble *inflow = nullptr;
       Output1DDouble *values = nullptr;
 
@@ -123,6 +124,14 @@ namespace
         grid = new Argument2DDouble("grid", &m_rowDimension, &m_columnDimension,
                                     2, 3, m_gridQuantity.get(), this);
         addArgument(grid);
+
+        // An argument that reads a file. Advertising a file filter is the
+        // whole of how an argument asks for a chooser rather than a text box.
+        m_rating.reset(Quantity::unitLess("Rating"));
+        rating = new Argument1DDouble("rating", &m_dimension, kCellCount,
+                                      m_rating.get(), this);
+        rating->addFileFilter("Rating Tables (*.json)");
+        addArgument(rating);
       }
 
       bool initializeArguments(std::string &message) override
@@ -156,6 +165,7 @@ namespace
       std::unique_ptr<Quantity> m_count;
       std::unique_ptr<Quantity> m_text;
       std::unique_ptr<Quantity> m_gridQuantity;
+      std::unique_ptr<Quantity> m_rating;
       std::unique_ptr<Quality> m_regime;
       int m_step = 0;
   };

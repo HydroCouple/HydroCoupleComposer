@@ -22,7 +22,9 @@
 #include <QDir>
 #include <QDoubleSpinBox>
 #include <QLineEdit>
+#include <QPushButton>
 #include <QSpinBox>
+#include <QTest>
 #include <QTableWidget>
 #include <QUndoStack>
 
@@ -30,6 +32,12 @@ using namespace HydroCouple::Composer;
 
 namespace
 {
+  QString dataPath(const QString &name)
+  {
+    return QDir(QStringLiteral(COMPOSER_CONFIGURATOR_FIXTURE_DIR))
+      .absoluteFilePath(name);
+  }
+
   QString fixturePath(const QString &stem)
   {
     return QDir(QStringLiteral(COMPOSER_FIXTURE_DIR))
@@ -344,4 +352,128 @@ TEST_F(ConfiguratorTest, ReportsComponentsThatCannotBeLoaded)
 
   EXPECT_TRUE(configurator->descriptors().isEmpty());
   EXPECT_FALSE(configurator->hasComponentEditor());
+}
+
+// ── A file argument ───────────────────────────────────────────────────────
+//
+// An argument advertises what it can read through fileFilters(); until this
+// slice the Composer collected them and then built a bare QLineEdit, so the
+// one thing the argument said about itself was the one thing discarded.
+
+TEST_F(ConfiguratorTest, AFileArgumentIsOfferedAChooserAndAPlainTextOneIsNot)
+{
+  EXPECT_EQ(descriptorFor(QStringLiteral("rating")).kind,
+            ArgumentEditorKind::FilePath);
+
+  EXPECT_NE(configurator->findChild<QLineEdit *>(
+              QStringLiteral("argument_rating_path")),
+            nullptr);
+  EXPECT_NE(configurator->findChild<QPushButton *>(
+              QStringLiteral("argument_rating_browse")),
+            nullptr)
+    << "a file argument was given a text box, not a chooser";
+
+  // 'label' is free text and must not sprout a file dialog.
+  EXPECT_EQ(configurator->findChild<QPushButton *>(
+              QStringLiteral("argument_label_browse")),
+            nullptr);
+}
+
+TEST_F(ConfiguratorTest, TheChooserOffersTheArgumentsOwnFiltersThenAllFiles)
+{
+  EXPECT_EQ(descriptorFor(QStringLiteral("rating")).fileFilters,
+            QStringList({QStringLiteral("Rating Tables (*.json)")}));
+
+  EXPECT_EQ(fileDialogFilter({QStringLiteral("Rating Tables (*.json)")}),
+            QStringLiteral("Rating Tables (*.json);;All Files (*)"));
+
+  // An argument that names no filter still gets a usable dialog.
+  EXPECT_EQ(fileDialogFilter({}), QStringLiteral("All Files (*)"));
+}
+
+TEST_F(ConfiguratorTest, ChoosingAFileLoadsItsValuesThroughTheComponent)
+{
+  QString message;
+  ASSERT_TRUE(configurator->applyArgumentFile(QStringLiteral("rating"),
+                                              dataPath(QStringLiteral("rating.json")),
+                                              message))
+    << message.toStdString();
+
+  // The component is what read the file, so it is what must now hold it.
+  configurator->setComponent(QStringLiteral("unit"));
+  const nlohmann::json payload = descriptorFor(QStringLiteral("rating")).payload;
+
+  ASSERT_TRUE(payload.contains("values"));
+  EXPECT_EQ(payload["values"], nlohmann::json({2.5, 3.5, 4.5}));
+}
+
+// The document's only channel to an argument is initialize(..., JSON, ...),
+// so a path recorded there would be handed back as JSON and refused. What is
+// recorded is what the file turned into.
+TEST_F(ConfiguratorTest, TheDocumentRecordsTheValuesTheFileProducedNotThePath)
+{
+  const QString path = dataPath(QStringLiteral("rating.json"));
+
+  QString message;
+  ASSERT_TRUE(configurator->applyArgumentFile(QStringLiteral("rating"), path,
+                                              message))
+    << message.toStdString();
+
+  const std::optional<CompositionDocument::ComponentSpec> spec =
+    document.component(QStringLiteral("unit"));
+  ASSERT_TRUE(spec.has_value());
+
+  ASSERT_TRUE(spec->arguments.contains("rating"));
+  EXPECT_EQ(spec->arguments["rating"]["values"],
+            nlohmann::json({2.5, 3.5, 4.5}));
+
+  const QString recorded =
+    QString::fromStdString(spec->arguments.dump());
+  EXPECT_FALSE(recorded.contains(path))
+    << "the path was recorded as if it were a value";
+}
+
+TEST_F(ConfiguratorTest, AFileTheComponentCannotReadIsRefusedAndNothingRecorded)
+{
+  const QByteArray before = document.toJson();
+
+  QString message;
+  EXPECT_FALSE(configurator->applyArgumentFile(
+    QStringLiteral("rating"), dataPath(QStringLiteral("rating-not-json.txt")),
+    message));
+  EXPECT_FALSE(message.isEmpty());
+  EXPECT_EQ(document.toJson(), before);
+}
+
+TEST_F(ConfiguratorTest, APathThatIsNotThereIsRefusedWithTheComponentsReason)
+{
+  const QByteArray before = document.toJson();
+
+  QString message;
+  EXPECT_FALSE(configurator->applyArgumentFile(
+    QStringLiteral("rating"), dataPath(QStringLiteral("nosuchfile.json")),
+    message));
+  EXPECT_TRUE(message.contains(QStringLiteral("nosuchfile.json")))
+    << "the refusal did not say which file: " << message.toStdString();
+  EXPECT_EQ(document.toJson(), before);
+}
+
+// A path typed into the box is a path chosen; the dialog is a convenience,
+// not the only way in.
+TEST_F(ConfiguratorTest, TypingAPathAndPressingReturnLoadsTheFile)
+{
+  auto *line = configurator->findChild<QLineEdit *>(
+    QStringLiteral("argument_rating_path"));
+  ASSERT_NE(line, nullptr);
+
+  line->setText(dataPath(QStringLiteral("rating.json")));
+  QTest::keyClick(line, Qt::Key_Return);
+
+  const std::optional<CompositionDocument::ComponentSpec> spec =
+    document.component(QStringLiteral("unit"));
+  ASSERT_TRUE(spec.has_value());
+  ASSERT_TRUE(spec->arguments.contains("rating"))
+    << "the path box is decoration: typing into it loaded nothing";
+  EXPECT_EQ(spec->arguments["rating"]["values"],
+            nlohmann::json({2.5, 3.5, 4.5}));
 }

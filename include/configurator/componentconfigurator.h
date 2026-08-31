@@ -84,6 +84,21 @@ namespace HydroCouple::Composer
                          const nlohmann::json &payload, QString &message);
 
       /*!
+       * \brief Loads \a path into one argument, as the Browse button does.
+       *
+       * The file is read by the component first; the document then records
+       * the values that came out of it, because the path itself is not
+       * something the load path could act on.
+       *
+       * \param argumentId Argument to load.
+       * \param path The file to read.
+       * \param[out] message Diagnostic when the component cannot read it.
+       * \returns true when the file was read and the values recorded.
+       */
+      bool applyArgumentFile(const QString &argumentId, const QString &path,
+                             QString &message);
+
+      /*!
        * \brief The raw JSON pane's current text.
        */
       [[nodiscard]] QString rawText() const;

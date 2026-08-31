@@ -3,7 +3,9 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QFileDialog>
 #include <QFormLayout>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPlainTextEdit>
@@ -311,6 +313,61 @@ namespace HydroCouple::Composer
         }
 
         case ArgumentEditorKind::FilePath:
+        {
+          // A path box on its own would be a text box that happens to hold a
+          // path; the filters the argument advertises are only worth anything
+          // through a dialog that uses them.
+          auto *chooser = new QWidget(this);
+          auto *row = new QHBoxLayout(chooser);
+          row->setContentsMargins(0, 0, 0, 0);
+
+          auto *line = new QLineEdit(chooser);
+          line->setObjectName(QStringLiteral("argument_") + descriptor.id +
+                              QStringLiteral("_path"));
+          line->setPlaceholderText(tr("Choose a file…"));
+
+          auto *browse = new QPushButton(tr("Browse…"), chooser);
+          browse->setObjectName(QStringLiteral("argument_") + descriptor.id +
+                                QStringLiteral("_browse"));
+
+          row->addWidget(line, 1);
+          row->addWidget(browse);
+
+          connect(line, &QLineEdit::editingFinished, this,
+                  [this, line, id = descriptor.id]
+                  {
+                    if (line->text().isEmpty())
+                    {
+                      return;
+                    }
+
+                    QString message;
+                    applyArgumentFile(id, line->text(), message);
+                  });
+
+          connect(browse, &QPushButton::clicked, this,
+                  [this, line, id = descriptor.id,
+                   filters = descriptor.fileFilters]
+                  {
+                    const QString chosen = QFileDialog::getOpenFileName(
+                      this, tr("Choose a file for '%1'").arg(id), line->text(),
+                      fileDialogFilter(filters));
+
+                    if (chosen.isEmpty())
+                    {
+                      return;
+                    }
+
+                    line->setText(chosen);
+
+                    QString message;
+                    applyArgumentFile(id, chosen, message);
+                  });
+
+          editor = chooser;
+          break;
+        }
+
         case ArgumentEditorKind::Text:
         {
           auto *line = new QLineEdit(this);
@@ -458,6 +515,51 @@ namespace HydroCouple::Composer
     if (!writeArgumentPayload(target, payload, message))
     {
       m_status->setText(tr("'%1' rejected: %2").arg(argumentId, message));
+      return false;
+    }
+
+    if (!m_document->setArgument(m_componentId, argumentId, payload))
+    {
+      message = tr("could not record '%1'").arg(argumentId);
+      m_status->setText(message);
+      return false;
+    }
+
+    m_status->clear();
+    Q_EMIT argumentChanged(m_componentId, argumentId);
+
+    return true;
+  }
+
+  bool ComponentConfigurator::applyArgumentFile(const QString &argumentId,
+                                                const QString &path,
+                                                QString &message)
+  {
+    HydroCouple::IArgument *target = argument(argumentId);
+
+    if (!target)
+    {
+      message = tr("no argument '%1' on '%2'").arg(argumentId, m_componentId);
+      m_status->setText(message);
+      return false;
+    }
+
+    if (!writeArgumentFile(target, path, message))
+    {
+      m_status->setText(tr("'%1' rejected '%2': %3")
+                          .arg(argumentId, path, message));
+      return false;
+    }
+
+    // The file has already changed the component, so what is recorded has to
+    // be read back out of it rather than assumed -- the component decides
+    // what the file meant.
+    const nlohmann::json payload = readArgumentPayload(target, message);
+
+    if (payload.is_null())
+    {
+      m_status->setText(tr("'%1' read '%2' but cannot serialise it: %3")
+                          .arg(argumentId, path, message));
       return false;
     }
 

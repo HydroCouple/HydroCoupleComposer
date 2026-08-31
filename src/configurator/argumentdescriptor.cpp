@@ -91,6 +91,38 @@ namespace HydroCouple::Composer
     return true;
   }
 
+  bool writeArgumentFile(HydroCouple::IArgument *argument, const QString &path,
+                         QString &message)
+  {
+    if (!argument)
+    {
+      message = QStringLiteral("no argument");
+      return false;
+    }
+
+    std::string failure;
+
+    if (!argument->initialize(path.toStdString(),
+                              HydroCouple::IArgument::ArgumentInputType::File,
+                              failure))
+    {
+      message = failure.empty()
+                  ? QStringLiteral("the component could not read the file")
+                  : QString::fromStdString(failure);
+      return false;
+    }
+
+    return true;
+  }
+
+  QString fileDialogFilter(const QStringList &fileFilters)
+  {
+    QStringList entries = fileFilters;
+    entries.append(QStringLiteral("All Files (*)"));
+
+    return entries.join(QStringLiteral(";;"));
+  }
+
   ArgumentDescriptor describeArgument(HydroCouple::IArgument *argument)
   {
     ArgumentDescriptor descriptor;
