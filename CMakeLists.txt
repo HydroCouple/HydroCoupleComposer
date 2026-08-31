@@ -224,6 +224,8 @@ set(COMPOSER_SOURCES
     src/mesh/domainimport.cpp
     include/mesh/meshgenerator.h
     src/mesh/meshgenerator.cpp
+    include/mesh/terrainsampler.h
+    src/mesh/terrainsampler.cpp
     include/layers/differencelayer.h
     src/layers/differencelayer.cpp
     include/layers/gdalvectorlayer.h

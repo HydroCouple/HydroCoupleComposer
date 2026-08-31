@@ -23,6 +23,7 @@
 
 #include <QImage>
 #include <QString>
+#include <QVector>
 
 #include <memory>
 
@@ -95,6 +96,32 @@ namespace HydroCouple::Composer
       [[nodiscard]] const QImage &lastImage() const;
 
       // ── MapLayer ─────────────────────────────────────────────────────────
+
+      /*!
+       * \brief Reads the raster's values at \a points.
+       *
+       * Bilinearly interpolated, because these are measurements of a
+       * continuous surface rather than categories: an elevation model
+       * sampled nearest-neighbour gives a mesh visible half-cell steps.
+       *
+       * The window covering the points is read once rather than a request
+       * per point. A mesh has as many vertices as it has, and one RasterIO
+       * call each turns a second of work into minutes.
+       *
+       * \param points  Positions in this raster's OWN system. Reprojecting
+       *                is the caller's, because the caller knows what
+       *                system its points are in and this does not.
+       * \param values  Filled to match \a points. A point outside the
+       *                raster, or on a no-data cell, is quiet NaN --
+       *                distinguishable from a real reading, which zero is
+       *                not.
+       * \param message Set when nothing could be read at all.
+       * \returns Whether the read happened; individual misses are NaN
+       *          rather than failures.
+       */
+      [[nodiscard]] bool sample(const QVector<QPointF> &points,
+                                QVector<double> &values,
+                                QString &message) const;
 
       [[nodiscard]] QRectF extent() const override;
 

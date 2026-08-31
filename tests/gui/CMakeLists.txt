@@ -59,6 +59,9 @@ target_compile_definitions(test_ogctilesource PRIVATE
 composer_add_gui_test(test_wfsfeaturelayer)
 composer_add_gui_test(test_wcscoveragelayer)
 composer_add_gui_test(test_layerpersistence)
+composer_add_gui_test(test_terrainsampler)
+target_compile_definitions(test_terrainsampler PRIVATE
+    COMPOSER_OGC_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/ogc")
 target_compile_definitions(test_layerpersistence PRIVATE
     COMPOSER_OGC_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/ogc")
 target_compile_definitions(test_wcscoveragelayer PRIVATE

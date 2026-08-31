@@ -7,6 +7,7 @@
 #include <QJsonObject>
 #include <QPainter>
 
+#include <limits>
 #include <gdal_priv.h>
 #include <gdalwarper.h>
 
@@ -210,6 +211,149 @@ namespace HydroCouple::Composer
   const QImage &GdalRasterLayer::lastImage() const
   {
     return m_lastImage;
+  }
+
+  bool GdalRasterLayer::sample(const QVector<QPointF> &points,
+                               QVector<double> &values,
+                               QString &message) const
+  {
+    values.assign(points.size(), std::numeric_limits<double>::quiet_NaN());
+
+    if (points.isEmpty())
+    {
+      return true;
+    }
+
+    // The native dataset, not the warped one. The caller's points are in
+    // this raster's own system by contract, and the warp exists to put the
+    // picture on a map rather than to move the measurements.
+    if (!m_dataset)
+    {
+      message = tr("%1 has nothing to read.").arg(name());
+
+      return false;
+    }
+
+    double geotransform[6] = {0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+
+    if (m_dataset->GetGeoTransform(geotransform) != CE_None
+        || qFuzzyIsNull(geotransform[1]) || qFuzzyIsNull(geotransform[5]))
+    {
+      message = tr("%1 does not say where its cells are.").arg(name());
+
+      return false;
+    }
+
+    // Cell coordinates, where a whole number is a cell's edge and the
+    // half-offset below moves to its centre -- which is where its value
+    // actually is, and getting that wrong shifts a whole terrain by half a
+    // cell.
+    const auto columnOf = [&](const QPointF &point) {
+      return (point.x() - geotransform[0]) / geotransform[1] - 0.5;
+    };
+    const auto rowOf = [&](const QPointF &point) {
+      return (point.y() - geotransform[3]) / geotransform[5] - 0.5;
+    };
+
+    double minimumColumn = std::numeric_limits<double>::max();
+    double maximumColumn = std::numeric_limits<double>::lowest();
+    double minimumRow = std::numeric_limits<double>::max();
+    double maximumRow = std::numeric_limits<double>::lowest();
+
+    for (const QPointF &point : points)
+    {
+      minimumColumn = std::min(minimumColumn, columnOf(point));
+      maximumColumn = std::max(maximumColumn, columnOf(point));
+      minimumRow = std::min(minimumRow, rowOf(point));
+      maximumRow = std::max(maximumRow, rowOf(point));
+    }
+
+    // One cell of margin, because bilinear reads the neighbour.
+    int left = static_cast<int>(std::floor(minimumColumn)) - 1;
+    int top = static_cast<int>(std::floor(minimumRow)) - 1;
+    int right = static_cast<int>(std::ceil(maximumColumn)) + 1;
+    int bottom = static_cast<int>(std::ceil(maximumRow)) + 1;
+
+    left = std::max(left, 0);
+    top = std::max(top, 0);
+    right = std::min(right, m_size.width() - 1);
+    bottom = std::min(bottom, m_size.height() - 1);
+
+    if (left > right || top > bottom)
+    {
+      // Every point is off the raster. Not a failure: a mesh may simply
+      // extend past the ground that was fetched, and the caller is told by
+      // the NaNs.
+      return true;
+    }
+
+    const int width = right - left + 1;
+    const int height = bottom - top + 1;
+
+    std::vector<float> block(static_cast<size_t>(width)
+                             * static_cast<size_t>(height));
+
+    GDALRasterBand *band = m_dataset->GetRasterBand(1);
+
+    if (!band
+        || band->RasterIO(GF_Read, left, top, width, height, block.data(),
+                          width, height, GDT_Float32, 0, 0)
+             != CE_None)
+    {
+      message = tr("%1 could not be read.").arg(name());
+
+      return false;
+    }
+
+    int hasNoData = 0;
+    const double noData = band->GetNoDataValue(&hasNoData);
+
+    const auto at = [&](int column, int row) -> double {
+      if (column < left || column > right || row < top || row > bottom)
+      {
+        return std::numeric_limits<double>::quiet_NaN();
+      }
+
+      const double value =
+        block[static_cast<size_t>(row - top) * static_cast<size_t>(width)
+              + static_cast<size_t>(column - left)];
+
+      if (hasNoData && qFuzzyCompare(value, noData))
+      {
+        return std::numeric_limits<double>::quiet_NaN();
+      }
+
+      return value;
+    };
+
+    for (int i = 0; i < points.size(); ++i)
+    {
+      const double column = columnOf(points.at(i));
+      const double row = rowOf(points.at(i));
+
+      const int column0 = static_cast<int>(std::floor(column));
+      const int row0 = static_cast<int>(std::floor(row));
+
+      const double fx = column - column0;
+      const double fy = row - row0;
+
+      const double v00 = at(column0, row0);
+      const double v10 = at(column0 + 1, row0);
+      const double v01 = at(column0, row0 + 1);
+      const double v11 = at(column0 + 1, row0 + 1);
+
+      // A no-data neighbour carries through on its own: at() returns NaN
+      // for one, and NaN survives the arithmetic below whatever weight it
+      // is given, so a vertex that needs a cell the survey does not have
+      // gets nothing rather than a number. An explicit check here would
+      // read as though it were doing that work, and would not be.
+      const double top_ = v00 + (v10 - v00) * fx;
+      const double bottom_ = v01 + (v11 - v01) * fx;
+
+      values[i] = top_ + (bottom_ - top_) * fy;
+    }
+
+    return true;
   }
 
   QRectF GdalRasterLayer::extent() const
