@@ -825,6 +825,25 @@ namespace HydroCouple::Composer
     m_terrainIndex = std::move(index);
   }
 
+  bool MeshLayer::setNodeElevations(const std::vector<double> &elevations)
+  {
+    if (elevations.size() != m_mesh.nodeX.size())
+    {
+      return false;
+    }
+
+    m_mesh.nodeZ = elevations;
+
+    // The terrain index is deliberately NOT dropped. It holds face
+    // centroids, a mean edge length and an XY extent -- all of it geometry,
+    // none of it heights -- and elevationAt reads nodeZ afresh on every
+    // query. New elevations do not move a single face, so rebuilding the
+    // index would cost the walk and change nothing.
+    notifyAppearanceChanged();
+
+    return true;
+  }
+
   const ITerrainSource *MeshLayer::terrain() const
   {
     // Elevations are what makes a mesh a surface. Without them it is a sheet

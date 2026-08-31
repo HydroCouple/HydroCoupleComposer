@@ -239,6 +239,9 @@ namespace HydroCouple::Composer
       void onAddRasterLayer();
       void onAddComponentLayers();
       void onAddMeshLayer();
+
+      //! Reads a raster layer's values onto a mesh's vertices.
+      void onSampleTerrain();
       void onRun();
       void onPause();
       void onStop();
@@ -373,6 +376,7 @@ namespace HydroCouple::Composer
       QAction *m_addRasterAction = nullptr;
       QAction *m_addComponentLayersAction = nullptr;
       QAction *m_addMeshAction = nullptr;
+      QAction *m_sampleTerrainAction = nullptr;
       QActionGroup *m_basemapGroup = nullptr;
   };
 

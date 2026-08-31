@@ -13,6 +13,7 @@
  */
 
 #include "gis/spatialreference.h"
+#include "layers/meshlayer.h"
 #include "layers/wcscoveragelayer.h"
 #include "mesh/terrainsampler.h"
 
@@ -20,6 +21,7 @@
 
 #include <QByteArray>
 #include <QFile>
+#include <QSignalSpy>
 #include <QString>
 
 #include <cmath>
@@ -323,4 +325,121 @@ TEST(TerrainSampler, aVertexReadsTheCellsItActuallySitsBetween)
   EXPECT_TRUE(std::isnan(mesh.nodeZ.at(0))) << mesh.nodeZ.at(0);
   EXPECT_FALSE(std::isnan(mesh.nodeZ.at(1)));
   EXPECT_LT(std::abs(mesh.nodeZ.at(1)), 100.0) << mesh.nodeZ.at(1);
+}
+
+// ---------------------------------------------------------------------------
+// What sampling does to the mesh itself
+// ---------------------------------------------------------------------------
+
+TEST(TerrainSampler, aMeshWithoutElevationsIsNotASurfaceUntilItHasThem)
+{
+  MeshDefinition definition;
+
+  // Two triangles over ground the fixture has values for.
+  definition.nodeX = {120027.5, 120030.5, 120030.5, 120027.5};
+  definition.nodeY = {486016.0, 486016.0, 486022.0, 486022.0};
+  definition.faceNodeOffsets = {0, 3, 6};
+  definition.faceNodes = {0, 1, 2, 0, 2, 3};
+
+  QString message;
+
+  std::unique_ptr<MeshLayer> mesh = MeshLayer::create(
+    QStringLiteral("mesh"), definition, MeshEntity::Face, message);
+  ASSERT_NE(mesh, nullptr) << message.toStdString();
+
+  // A mesh without elevations declines to be a terrain rather than offering
+  // a sheet at zero, which is a ground indistinguishable from none.
+  EXPECT_EQ(mesh->terrain(), nullptr);
+
+  std::unique_ptr<WcsCoverageLayer> raster = terrain();
+  ASSERT_NE(raster, nullptr);
+
+  MeshDefinition sampled = mesh->mesh();
+  const TerrainSampleResult result =
+    sampleTerrain(*raster, mesh->crs(), sampled);
+
+  ASSERT_TRUE(result.ok) << result.message.toStdString();
+  ASSERT_TRUE(mesh->setNodeElevations(sampled.nodeZ));
+
+  // And is one afterwards, which is what lets anything drape onto it.
+  EXPECT_NE(mesh->terrain(), nullptr);
+}
+
+TEST(TerrainSampler, aMeshRefusesElevationsThatAreNotItsOwn)
+{
+  MeshDefinition definition;
+  definition.nodeX = {120027.5, 120030.5, 120030.5};
+  definition.nodeY = {486016.0, 486016.0, 486022.0};
+  definition.faceNodeOffsets = {0, 3};
+  definition.faceNodes = {0, 1, 2};
+
+  QString message;
+
+  std::unique_ptr<MeshLayer> mesh = MeshLayer::create(
+    QStringLiteral("mesh"), definition, MeshEntity::Face, message);
+  ASSERT_NE(mesh, nullptr) << message.toStdString();
+
+  // A mismatched array would pair each vertex with a stranger's height, and
+  // every one of them would look like a plausible elevation.
+  EXPECT_FALSE(mesh->setNodeElevations({1.0, 2.0}));
+  EXPECT_TRUE(mesh->mesh().nodeZ.empty());
+}
+
+TEST(TerrainSampler, newElevationsReplaceTheSurfaceTheMeshAlreadyAnswered)
+{
+  MeshDefinition definition;
+  definition.nodeX = {120027.5, 120030.5, 120030.5, 120027.5};
+  definition.nodeY = {486016.0, 486016.0, 486022.0, 486022.0};
+  definition.faceNodeOffsets = {0, 3, 6};
+  definition.faceNodes = {0, 1, 2, 0, 2, 3};
+
+  QString message;
+
+  std::unique_ptr<MeshLayer> mesh =
+    MeshLayer::create(QStringLiteral("mesh"), definition, MeshEntity::Face,
+                      message);
+  ASSERT_NE(mesh, nullptr) << message.toStdString();
+
+  ASSERT_TRUE(mesh->setNodeElevations({1.0, 1.0, 1.0, 1.0}));
+
+  const ITerrainSource *ground = mesh->terrain();
+  ASSERT_NE(ground, nullptr);
+
+  const QPointF inside(120029.5, 486018.0);
+  double elevation = 0.0;
+
+  // Asking once is what builds the index behind this — which is the whole
+  // point of the gate: re-sampling a mesh that has already been asked for
+  // its ground must not go on answering from the old surface.
+  ASSERT_TRUE(ground->elevationAt(inside, elevation));
+  EXPECT_NEAR(elevation, 1.0, 1e-6);
+
+  ASSERT_TRUE(mesh->setNodeElevations({5.0, 5.0, 5.0, 5.0}));
+
+  ASSERT_TRUE(mesh->terrain()->elevationAt(inside, elevation));
+  EXPECT_NEAR(elevation, 5.0, 1e-6);
+}
+
+TEST(TerrainSampler, aMeshThatGainedElevationsSaysSoSoTheMapRedraws)
+{
+  MeshDefinition definition;
+  definition.nodeX = {120027.5, 120030.5, 120030.5};
+  definition.nodeY = {486016.0, 486016.0, 486022.0};
+  definition.faceNodeOffsets = {0, 3};
+  definition.faceNodes = {0, 1, 2};
+
+  QString message;
+
+  std::unique_ptr<MeshLayer> mesh =
+    MeshLayer::create(QStringLiteral("mesh"), definition, MeshEntity::Face,
+                      message);
+  ASSERT_NE(mesh, nullptr) << message.toStdString();
+
+  QSignalSpy repainted(mesh.get(), &MapLayer::appearanceChanged);
+
+  ASSERT_TRUE(mesh->setNodeElevations({1.0, 2.0, 3.0}));
+
+  // Without this the elevations are there and nothing on screen shows it
+  // until some unrelated thing happens to force a repaint.
+  EXPECT_EQ(repainted.count(), 1);
 }

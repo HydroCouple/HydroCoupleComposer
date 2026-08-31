@@ -169,6 +169,24 @@ namespace HydroCouple::Composer
       [[nodiscard]] const HydroCouple::SDK::IO::MeshDefinition &mesh() const;
 
       /*!
+       * \brief Replaces the node elevations.
+       *
+       * What turns a loaded mesh into a surface. Until it has elevations a
+       * mesh is a sheet at zero, and terrain() declines rather than offering
+       * a ground that is indistinguishable from none -- so this is also what
+       * makes anything able to drape onto it.
+       *
+       * \param elevations One per node, in the mesh's own vertical datum.
+       *                   NaN where there is no reading, which is how a
+       *                   vertex the survey does not cover stays honest.
+       *                   Any other length is refused: a mismatched array
+       *                   would silently pair each vertex with a stranger's
+       *                   height.
+       * \returns Whether they were taken.
+       */
+      bool setNodeElevations(const std::vector<double> &elevations);
+
+      /*!
        * \brief Attaches one value per drawn entity.
        *
        * The count must match the entity count: a mesh coloured by values that

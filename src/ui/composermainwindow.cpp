@@ -26,6 +26,7 @@
 #include "results/timecontroller.h"
 #include "ui/dialogs/crsselectiondialog.h"
 #include "ui/dialogs/layerpropertiesdialog.h"
+#include "mesh/terrainsampler.h"
 #include "layers/layerrestorer.h"
 #include "layers/wcscoveragelayer.h"
 #include "layers/wfsfeaturelayer.h"
@@ -353,6 +354,12 @@ namespace HydroCouple::Composer
             &ComposerMainWindow::onAddRasterLayer);
 
     m_addMeshAction = new QAction(tr("Add &Mesh…"), this);
+
+    m_sampleTerrainAction = new QAction(tr("Sample &Elevations…"), this);
+    m_sampleTerrainAction->setToolTip(
+      tr("Read a raster layer's values onto a mesh's vertices"));
+    connect(m_sampleTerrainAction, &QAction::triggered, this,
+            &ComposerMainWindow::onSampleTerrain);
     m_addMeshAction->setObjectName(QStringLiteral("addMeshAction"));
 
     // Offered only when the SDK this build links can read UGRID files —
@@ -778,6 +785,7 @@ namespace HydroCouple::Composer
     viewMenu->addAction(m_addVectorAction);
     viewMenu->addAction(m_addRasterAction);
     viewMenu->addAction(m_addMeshAction);
+    viewMenu->addAction(m_sampleTerrainAction);
     viewMenu->addAction(m_addComponentLayersAction);
 
     QMenu *basemapMenu = viewMenu->addMenu(tr("&Basemap"));
@@ -981,6 +989,10 @@ namespace HydroCouple::Composer
     domain->addAction(m_drawBreaklineAction, tr("Break\nline"));
     domain->addAction(m_drawPointAction, tr("Point"));
     domain->addAction(m_editVerticesAction, tr("Edit"));
+
+    RibbonGroup *elevations =
+      m_ribbon->addGroup(QStringLiteral("mesh"), tr("Elevations"));
+    elevations->addAction(m_sampleTerrainAction, tr("Sample"));
 
     // A menu on the button rather than four more faces: the Mesh tab has
     // generation, vertical grids and boundary conditions still to come, and
@@ -1375,6 +1387,112 @@ namespace HydroCouple::Composer
     }
 
     return added;
+  }
+
+  void ComposerMainWindow::onSampleTerrain()
+  {
+    // Every mesh on the map, and every raster that could supply heights for
+    // one. Both are asked for by name rather than by selection, because the
+    // pair matters and choosing them one at a time in a layer tree makes the
+    // pairing invisible.
+    QList<MeshLayer *> meshes;
+    QList<GdalRasterLayer *> rasters;
+
+    for (int row = 0; row < m_layerStack->rowCount(QModelIndex()); ++row)
+    {
+      MapLayer *layer = m_layerStack->layerAt(row);
+
+      if (auto *mesh = dynamic_cast<MeshLayer *>(layer))
+      {
+        meshes.append(mesh);
+      }
+      else if (auto *raster = dynamic_cast<GdalRasterLayer *>(layer))
+      {
+        rasters.append(raster);
+      }
+    }
+
+    if (meshes.isEmpty() || rasters.isEmpty())
+    {
+      log(tr("Sampling elevations needs a mesh and a raster of heights on "
+             "the map. A coverage fetched from a WCS is one; so is a GeoTIFF "
+             "opened from disk."));
+
+      return;
+    }
+
+    QStringList meshNames;
+
+    for (const MeshLayer *mesh : meshes)
+    {
+      meshNames.append(mesh->name());
+    }
+
+    QStringList rasterNames;
+
+    for (const GdalRasterLayer *raster : rasters)
+    {
+      rasterNames.append(raster->name());
+    }
+
+    bool accepted = false;
+
+    const QString meshName = QInputDialog::getItem(
+      this, tr("Sample Elevations"), tr("Onto which mesh?"), meshNames, 0,
+      false, &accepted);
+
+    if (!accepted)
+    {
+      return;
+    }
+
+    const QString rasterName = QInputDialog::getItem(
+      this, tr("Sample Elevations"), tr("From which heights?"), rasterNames, 0,
+      false, &accepted);
+
+    if (!accepted)
+    {
+      return;
+    }
+
+    MeshLayer *mesh = meshes.at(meshNames.indexOf(meshName));
+    GdalRasterLayer *raster = rasters.at(rasterNames.indexOf(rasterName));
+
+    HydroCouple::SDK::IO::MeshDefinition sampled = mesh->mesh();
+
+    const TerrainSampleResult result =
+      sampleTerrain(*raster, mesh->crs(), sampled);
+
+    if (!result.ok)
+    {
+      log(result.message);
+
+      return;
+    }
+
+    if (!mesh->setNodeElevations(sampled.nodeZ))
+    {
+      log(tr("%1 changed while its elevations were being read.")
+            .arg(mesh->name()));
+
+      return;
+    }
+
+    // The count of misses is the part worth reading. A mesh usually reaches
+    // a little past the ground that was fetched, and a survey usually has
+    // holes in it, so "all of them" is the unusual answer rather than the
+    // expected one.
+    log(result.missed == 0
+          ? tr("%1: all %2 vertices took elevations from %3.")
+              .arg(mesh->name())
+              .arg(result.sampled)
+              .arg(raster->name())
+          : tr("%1: %2 vertices took elevations from %3, %4 found no "
+               "reading.")
+              .arg(mesh->name())
+              .arg(result.sampled)
+              .arg(raster->name())
+              .arg(result.missed));
   }
 
   void ComposerMainWindow::onAddMeshLayer()
