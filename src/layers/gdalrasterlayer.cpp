@@ -85,46 +85,62 @@ namespace HydroCouple::Composer
       return nullptr;
     }
 
-    if (dataset->GetRasterCount() < 1)
+    std::unique_ptr<GdalRasterLayer> layer(
+      new GdalRasterLayer(QFileInfo(filePath).completeBaseName(), filePath));
+
+    if (!layer->adoptDataset(dataset, message))
     {
-      message =
-        QObject::tr("%1 holds no raster bands.").arg(QFileInfo(filePath).fileName());
       GDALClose(dataset);
 
       return nullptr;
     }
 
-    std::unique_ptr<GdalRasterLayer> layer(
-      new GdalRasterLayer(QFileInfo(filePath).completeBaseName(), filePath));
+    return layer;
+  }
 
-    layer->m_dataset = dataset;
-    layer->m_bandCount = dataset->GetRasterCount();
-    layer->m_size = QSize(dataset->GetRasterXSize(), dataset->GetRasterYSize());
-    layer->m_extent = extentOf(dataset);
+  bool GdalRasterLayer::adoptDataset(GDALDataset *dataset, QString &message)
+  {
+    if (!dataset)
+    {
+      message = QObject::tr("There is no raster to read.");
+
+      return false;
+    }
+
+    if (dataset->GetRasterCount() < 1)
+    {
+      message = QObject::tr("%1 holds no raster bands.").arg(name());
+
+      return false;
+    }
+
+    m_dataset = dataset;
+    m_bandCount = dataset->GetRasterCount();
+    m_size = QSize(dataset->GetRasterXSize(), dataset->GetRasterYSize());
+    m_extent = extentOf(dataset);
 
     // Three bands or more of bytes is a picture; anything else is data, and
     // shading data with a ramp says far more than showing its first band as
     // grey would.
-    layer->m_colorImage =
-      layer->m_bandCount >= 3
-      && dataset->GetRasterBand(1)->GetRasterDataType() == GDT_Byte;
+    m_colorImage = m_bandCount >= 3
+                   && dataset->GetRasterBand(1)->GetRasterDataType() == GDT_Byte;
 
     if (const char *wkt = dataset->GetProjectionRef())
     {
       if (wkt[0] != '\0')
       {
         QString crsMessage;
-        layer->setCrs(SpatialReference::fromDefinition(QString::fromUtf8(wkt),
-                                                       crsMessage));
+        setCrs(SpatialReference::fromDefinition(QString::fromUtf8(wkt),
+                                                crsMessage));
       }
     }
 
-    if (!layer->m_colorImage)
+    if (!m_colorImage)
     {
-      layer->computeRange();
+      computeRange();
     }
 
-    return layer;
+    return true;
   }
 
   void GdalRasterLayer::computeRange()

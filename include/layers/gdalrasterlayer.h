@@ -136,8 +136,29 @@ namespace HydroCouple::Composer
     protected:
       void onProjectionChanged() override;
 
-    private:
       GdalRasterLayer(const QString &name, const QString &filePath);
+
+      /*!
+       * \brief Takes ownership of an already-open dataset and reads what the
+       *        layer needs from it.
+       *
+       * Everything open() does once GDAL has handed it a dataset: the band
+       * count, the size, the extent, whether it is a picture or data, the
+       * CRS it declares, and the value range a ramp is stretched over.
+       *
+       * Protected because a dataset need not come from a file. A coverage
+       * fetched from a WCS arrives as bytes and is opened through /vsimem,
+       * and everything after that point is identical.
+       *
+       * \param dataset An open dataset; taken over on success, untouched on
+       *                failure so the caller can close it and say why.
+       * \param message Set when the dataset cannot be used.
+       * \returns Whether the dataset was adopted.
+       */
+      bool adoptDataset(GDALDataset *dataset, QString &message);
+
+
+    private:
 
       //! The dataset to read from — warped into the map's CRS when needed.
       [[nodiscard]] GDALDataset *readable();
