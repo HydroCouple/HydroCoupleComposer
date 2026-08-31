@@ -199,6 +199,8 @@ set(COMPOSER_SOURCES
     src/layers/wfsfeaturelayer.cpp
     include/layers/wcscoveragelayer.h
     src/layers/wcscoveragelayer.cpp
+    include/layers/layerrestorer.h
+    src/layers/layerrestorer.cpp
     include/layers/ogrfeatureloader.h
     src/layers/ogrfeatureloader.cpp
     include/layers/ogrgeometryreader.h

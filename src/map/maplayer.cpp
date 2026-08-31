@@ -166,4 +166,14 @@ namespace HydroCouple::Composer
     Q_EMIT extentChanged();
   }
 
+  QJsonObject MapLayer::persistentState() const
+  {
+    return m_persistentState;
+  }
+
+  void MapLayer::setPersistentState(const QJsonObject &state)
+  {
+    m_persistentState = state;
+  }
+
 } // namespace HydroCouple::Composer

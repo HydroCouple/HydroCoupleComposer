@@ -26,6 +26,7 @@
 #include <hydrocoupleogc/wmtscapabilities.h>
 
 #include <QDialog>
+#include <QJsonObject>
 #include <QRectF>
 #include <QString>
 
@@ -112,6 +113,20 @@ namespace HydroCouple::Composer
        */
       [[nodiscard]] std::unique_ptr<WcsCoverageLayer> takeCoverageLayer();
 
+      /*!
+       * \brief How the chosen layer would be made again.
+       *
+       * The dialog is the only place that knows: a tile source is built from
+       * a capabilities document and cannot afterwards say which address it
+       * came from, and the layer that wraps it is made by the caller.
+       *
+       * Never credentials, even when they were needed to connect.
+       *
+       * \returns The recipe, or an empty object when nothing usable is
+       *          chosen.
+       */
+      [[nodiscard]] QJsonObject persistentStateForChoice() const;
+
       //! What to call the layer this dialog would add.
       [[nodiscard]] QString layerName() const;
 
@@ -190,6 +205,7 @@ namespace HydroCouple::Composer
       HydroCouple::Ogc::ServiceKind m_kind =
         HydroCouple::Ogc::ServiceKind::Unknown;
       QRectF m_preferredExtent;
+      QRectF m_coverageExtent;
       std::unique_ptr<WfsFeatureLayer> m_featureLayer;
       std::unique_ptr<WcsCoverageLayer> m_coverageLayer;
       QList<Choice> m_choices;

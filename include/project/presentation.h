@@ -29,6 +29,7 @@
 
 #include <QHash>
 #include <QPointF>
+#include <QJsonArray>
 #include <QString>
 
 namespace HydroCouple::Composer
@@ -91,6 +92,26 @@ namespace HydroCouple::Composer
        */
       void setMeshDomain(const MeshDomain &domain);
 
+      /*!
+       * \brief The map layers to rebuild when this composition is reopened.
+       *
+       * Kept as opaque JSON on purpose. What a layer needs in order to be
+       * made again is the layer's own business -- a file path for one, a
+       * service address and a coverage identifier for another -- and a
+       * sidecar that knew the difference would have to be edited every time
+       * a new kind of layer was added. It stores what it is given and hands
+       * it back.
+       *
+       * Credentials are not among it. A project file is checked in, mailed
+       * and copied between machines; a password in one is a password
+       * published. They stay in the connection registry, encrypted, and a
+       * reopened layer that needs one asks again.
+       */
+      [[nodiscard]] const QJsonArray &layers() const;
+
+      //! Replaces the layers; an empty array clears them.
+      void setLayers(const QJsonArray &layers);
+
       [[nodiscard]] bool isEmpty() const;
 
       void clear();
@@ -110,6 +131,7 @@ namespace HydroCouple::Composer
     private:
       QHash<QString, ComponentPresentation> m_components;
       MeshDomain m_meshDomain;
+      QJsonArray m_layers;
   };
 
 } // namespace HydroCouple::Composer

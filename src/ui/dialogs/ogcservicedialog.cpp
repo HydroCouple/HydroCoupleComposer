@@ -9,6 +9,7 @@
 #include <hydrocoupleogc/wfsrequest.h>
 
 #include <QDialogButtonBox>
+#include <QJsonArray>
 #include <QFormLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -513,6 +514,9 @@ namespace HydroCouple::Composer
     request.coverageId = identifier;
     request.extent = wanted;
 
+    // Kept so the same ground is asked for when the composition is reopened.
+    m_coverageExtent = wanted;
+
     // Bounded, because a coverage is not a picture and its native
     // resolution is whatever the survey was: half a metre over a country,
     // for the model this was written against, which is millions of cells
@@ -561,6 +565,7 @@ namespace HydroCouple::Composer
         layer->setServiceUrl(service);
         layer->setCoverageId(identifier);
         layer->setDescription(description);
+        layer->setPersistentState(persistentStateForChoice());
 
         m_coverageLayer = std::move(layer);
 
@@ -642,6 +647,8 @@ namespace HydroCouple::Composer
                     }
 
                     m_featureLayer->setTypeName(typeName);
+                    m_featureLayer->setPersistentState(
+                      persistentStateForChoice());
                     accept();
                   });
   }
@@ -732,6 +739,77 @@ namespace HydroCouple::Composer
   QString OgcServiceDialog::status() const
   {
     return m_statusText;
+  }
+
+  QJsonObject OgcServiceDialog::persistentStateForChoice() const
+  {
+    const int row = m_layers->currentRow();
+
+    if (row < 0 || row >= m_choices.size())
+    {
+      return {};
+    }
+
+    const Choice &choice = m_choices.at(row);
+
+    QJsonObject state;
+    state.insert(QStringLiteral("url"), m_url->text());
+    state.insert(QStringLiteral("name"), choice.title);
+
+    if (choice.kind == HydroCouple::Ogc::ServiceKind::Wms)
+    {
+      state.insert(QStringLiteral("type"), QStringLiteral("wms"));
+      state.insert(QStringLiteral("layers"),
+                   QJsonArray{choice.layerId});
+
+      return state;
+    }
+
+    if (choice.kind == HydroCouple::Ogc::ServiceKind::Wmts)
+    {
+      state.insert(QStringLiteral("type"), QStringLiteral("wmts"));
+      state.insert(QStringLiteral("layer"), choice.layerId);
+      state.insert(QStringLiteral("matrixSet"), choice.matrixSetId);
+
+      return state;
+    }
+
+    if (choice.kind == HydroCouple::Ogc::ServiceKind::Wfs)
+    {
+      state.insert(QStringLiteral("type"), QStringLiteral("wfs"));
+      state.insert(QStringLiteral("typeName"), choice.layerId);
+
+      // The ground it was asked for over. Without it a reopened
+      // composition gets a different arbitrary few thousand features.
+      if (!m_preferredExtent.isNull())
+      {
+        state.insert(QStringLiteral("extent"),
+                     QJsonArray{m_preferredExtent.left(),
+                                m_preferredExtent.top(),
+                                m_preferredExtent.right(),
+                                m_preferredExtent.bottom()});
+      }
+
+      return state;
+    }
+
+    if (choice.kind == HydroCouple::Ogc::ServiceKind::Wcs)
+    {
+      state.insert(QStringLiteral("type"), QStringLiteral("wcs"));
+      state.insert(QStringLiteral("coverageId"), choice.layerId);
+
+      if (m_coverageExtent.isValid())
+      {
+        state.insert(QStringLiteral("extent"),
+                     QJsonArray{m_coverageExtent.left(), m_coverageExtent.top(),
+                                m_coverageExtent.right(),
+                                m_coverageExtent.bottom()});
+      }
+
+      return state;
+    }
+
+    return {};
   }
 
   QString OgcServiceDialog::layerName() const

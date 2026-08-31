@@ -68,19 +68,34 @@ namespace HydroCouple::Composer
     return ids;
   }
 
+  const QJsonArray &Presentation::layers() const
+  {
+    return m_layers;
+  }
+
+  void Presentation::setLayers(const QJsonArray &layers)
+  {
+    m_layers = layers;
+  }
+
   bool Presentation::isEmpty() const
   {
     // The domain counts. Saving is gated on this, so a domain drawn over a
     // composition that has no components yet — which is the order anyone
     // building a model actually works in — would otherwise be written
     // nowhere and be gone at the next open.
-    return m_components.isEmpty() && m_meshDomain.isEmpty();
+    // Layers count for the same reason the domain does: a basemap added to
+    // a composition with nothing else in it yet is work, and saving gated
+    // on this would throw it away at the next open.
+    return m_components.isEmpty() && m_meshDomain.isEmpty()
+           && m_layers.isEmpty();
   }
 
   void Presentation::clear()
   {
     m_components.clear();
     m_meshDomain = MeshDomain{};
+    m_layers = QJsonArray{};
   }
 
   bool Presentation::hasMeshDomain() const
@@ -119,6 +134,13 @@ namespace HydroCouple::Composer
     root.insert(QStringLiteral("sidecar_version"), kSidecarVersion);
     root.insert(QStringLiteral("components"), components);
 
+    // Written only when there are some, so a composition that added no
+    // layers keeps a sidecar that says nothing about them.
+    if (!m_layers.isEmpty())
+    {
+      root.insert(QStringLiteral("layers"), m_layers);
+    }
+
     // Written only when there is one, so a composition that never drew a
     // domain keeps a sidecar that says nothing about meshes rather than one
     // carrying an empty section that reads as a domain someone cleared.
@@ -154,6 +176,13 @@ namespace HydroCouple::Composer
                                       entry.value(QStringLiteral("y")).toDouble());
 
       m_components.insert(it.key(), presentation);
+    }
+
+    const QJsonValue layers = document.object().value(QStringLiteral("layers"));
+
+    if (layers.isArray())
+    {
+      m_layers = layers.toArray();
     }
 
     const QJsonValue domain = document.object().value(

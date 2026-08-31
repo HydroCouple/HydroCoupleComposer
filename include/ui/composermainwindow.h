@@ -39,6 +39,7 @@ class QTabWidget;
 
 namespace HydroCouple::Composer
 {
+  class LayerRestorer;
   class LayerStackModel;
   class AttributeTablePanel;
   class LayerTreePanel;
@@ -256,6 +257,12 @@ namespace HydroCouple::Composer
        */
       void addMapLayer(MapLayer *layer);
 
+      //! Records every rebuildable layer into the sidecar, before saving.
+      void captureLayers();
+
+      //! Rebuilds what the sidecar recorded, after opening.
+      void restoreLayers();
+
       /*!
        * \brief Adds a layer for every spatial data item in the composition.
        * \returns How many layers were added.
@@ -305,6 +312,8 @@ namespace HydroCouple::Composer
       QPlainTextEdit *m_log = nullptr;
 
       LayerStackModel *m_layerStack = nullptr;
+
+      LayerRestorer *m_layerRestorer = nullptr;
       MapCanvas *m_mapCanvas = nullptr;
       SceneView *m_sceneView = nullptr;
       LayerTreePanel *m_layerTree = nullptr;

@@ -4,6 +4,7 @@
 #include "map/maptransform.h"
 
 #include <QFileInfo>
+#include <QJsonObject>
 #include <QPainter>
 
 #include <gdal_priv.h>
@@ -94,6 +95,12 @@ namespace HydroCouple::Composer
 
       return nullptr;
     }
+
+    QJsonObject state;
+    state.insert(QStringLiteral("type"), QStringLiteral("gdal-raster"));
+    state.insert(QStringLiteral("path"), filePath);
+    state.insert(QStringLiteral("name"), layer->name());
+    layer->setPersistentState(state);
 
     return layer;
   }

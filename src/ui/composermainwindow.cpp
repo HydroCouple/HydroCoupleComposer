@@ -26,6 +26,7 @@
 #include "results/timecontroller.h"
 #include "ui/dialogs/crsselectiondialog.h"
 #include "ui/dialogs/layerpropertiesdialog.h"
+#include "layers/layerrestorer.h"
 #include "layers/wcscoveragelayer.h"
 #include "layers/wfsfeaturelayer.h"
 #include "ui/dialogs/ogcservicedialog.h"
@@ -664,6 +665,8 @@ namespace HydroCouple::Composer
               }
 
               QString message;
+
+              captureLayers();
 
               if (m_document->save(path, message))
               {
@@ -1583,6 +1586,11 @@ namespace HydroCouple::Composer
 
     auto *basemap = new TileLayer(name, std::move(source));
 
+    // The dialog is the only place that knows the address this came from:
+    // a tile source is built from a capabilities document and cannot say
+    // afterwards where that document was fetched.
+    basemap->setPersistentState(dialog.persistentStateForChoice());
+
     installBasemap(basemap);
 
     raw->setTileReadyCallback([basemap] { basemap->onTileReady(); });
@@ -2130,7 +2138,67 @@ namespace HydroCouple::Composer
 
     log(tr("Opened %1").arg(filePath));
 
+    restoreLayers();
+
     return true;
+  }
+
+  void ComposerMainWindow::captureLayers()
+  {
+    QJsonArray layers;
+
+    for (int row = 0; row < m_layerStack->rowCount(QModelIndex()); ++row)
+    {
+      const MapLayer *layer = m_layerStack->layerAt(row);
+
+      if (!layer)
+      {
+        continue;
+      }
+
+      QJsonObject state = layer->persistentState();
+
+      // An empty recipe means the layer is not one a reopened composition
+      // rebuilds -- a mesh domain, a component's data item. Those have
+      // their own homes in the sidecar or come back with the components.
+      if (state.isEmpty())
+      {
+        continue;
+      }
+
+      // Recorded at save rather than at creation, because both can be
+      // changed after the layer is added.
+      state.insert(QStringLiteral("name"), layer->name());
+      state.insert(QStringLiteral("visible"), layer->isVisible());
+
+      layers.append(state);
+    }
+
+    m_document->presentation().setLayers(layers);
+  }
+
+  void ComposerMainWindow::restoreLayers()
+  {
+    const QJsonArray layers = m_document->presentation().layers();
+
+    if (layers.isEmpty())
+    {
+      return;
+    }
+
+    if (!m_layerRestorer)
+    {
+      m_layerRestorer = new LayerRestorer(this);
+    }
+
+    m_layerRestorer->restore(
+      layers, [this](MapLayer *layer) { m_layerStack->addLayer(layer); },
+      [this](const QString &message) {
+        // Reported rather than fatal. A composition whose basemap service is
+        // down is still the composition, and refusing to open it would cost
+        // far more than the basemap did.
+        log(message);
+      });
   }
 
   void ComposerMainWindow::log(const QString &text)

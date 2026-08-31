@@ -19,6 +19,7 @@
 #define HYDROCOUPLECOMPOSER_MAP_MAPLAYER_H
 
 #include <QObject>
+#include <QJsonObject>
 #include <QRectF>
 #include <QString>
 
@@ -201,6 +202,24 @@ namespace HydroCouple::Composer
        *
        * An empty rectangle means the layer has no geometry to zoom to.
        */
+      /*!
+       * \brief How this layer would be made again, or an empty object.
+       *
+       * Recorded by whoever created the layer, because that is the only
+       * place that knows: a tile source is built from a capabilities
+       * document rather than from the address it came from, and cannot say
+       * afterwards where that was. An empty object means the layer is not
+       * one a reopened composition should try to rebuild -- a mesh domain,
+       * a component's data item -- which is the default.
+       *
+       * Never credentials. A project file is checked in, mailed and copied
+       * between machines.
+       */
+      [[nodiscard]] QJsonObject persistentState() const;
+
+      //! Records how this layer would be made again.
+      void setPersistentState(const QJsonObject &state);
+
       [[nodiscard]] virtual QRectF extent() const = 0;
 
       /*!
@@ -273,6 +292,7 @@ namespace HydroCouple::Composer
     private:
       QString m_id;
       QString m_name;
+      QJsonObject m_persistentState;
       bool m_visible = true;
       double m_opacity = 1.0;
       std::shared_ptr<SpatialReference> m_crs;

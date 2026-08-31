@@ -4,6 +4,7 @@
 #include "layers/ogrfeatureloader.h"
 
 #include <QFileInfo>
+#include <QJsonObject>
 
 #include <gdal_priv.h>
 #include <ogrsf_frmts.h>
@@ -108,6 +109,20 @@ namespace HydroCouple::Composer
     GDALClose(dataset);
 
     layer->finishLoading();
+
+    QJsonObject state;
+    state.insert(QStringLiteral("type"), QStringLiteral("gdal-vector"));
+    state.insert(QStringLiteral("path"), filePath);
+    state.insert(QStringLiteral("name"), layer->name());
+
+    if (!layerName.isEmpty())
+    {
+      // A GeoPackage holds several, and reopening the first when the third
+      // was chosen is a layer that looks right and is not.
+      state.insert(QStringLiteral("layer"), layerName);
+    }
+
+    layer->setPersistentState(state);
 
     return layer;
   }
