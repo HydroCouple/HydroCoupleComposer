@@ -33,6 +33,7 @@
 #include <ogr_geometry.h>
 #include <ogr_spatialref.h>
 
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -761,6 +762,262 @@ namespace HydroCouple::Composer::Testing
       HydroCouple::SDK::Dimension m_yDimension;
       HydroCouple::SDK::Dimension m_edgeDimension;
       HydroCouple::SDK::Dimension m_vertexDimension;
+  };
+
+  // ── A raster data item ────────────────────────────────────────────────────
+  //
+  // Written against the published interface rather than any implementation.
+  // The SDK's own RasterComponentDataItem does not implement
+  // IRasterComponentDataItem -- it is a single band with shape {y, x} and a
+  // GDAL-backed Raster that is not an IRaster -- so nothing shipped can be
+  // drawn by RasterDataItemLayer yet. That is a gap in the SDK, not in the
+  // layer, and it is why this stub exists.
+
+  class StubRaster;
+
+  class StubRasterBand : public HydroCouple::SDK::Identity,
+                         public virtual Spatial::IRasterBand
+  {
+    public:
+      StubRasterBand(StubRaster *raster, int width, int height)
+        : HydroCouple::SDK::Identity("band", "Band"), m_raster(raster),
+          m_width(width), m_height(height)
+      {
+      }
+
+      [[nodiscard]] int xSize() const override { return m_width; }
+      [[nodiscard]] int ySize() const override { return m_height; }
+
+      [[nodiscard]] Spatial::IRaster *raster() const override;
+
+      [[nodiscard]] Spatial::IRaster::RasterDataType dataType() const override
+      {
+        return Spatial::IRaster::RasterDataType::Float64;
+      }
+
+      void read(int, int, int, int, void *) const override {}
+      void write(int, int, int, int, const void *) override {}
+
+      [[nodiscard]] double noData() const override
+      {
+        return std::numeric_limits<double>::quiet_NaN();
+      }
+
+    private:
+      StubRaster *m_raster = nullptr;
+      int m_width = 0;
+      int m_height = 0;
+  };
+
+  class StubRaster : public HydroCouple::SDK::Identity,
+                     public virtual Spatial::IRaster
+  {
+    public:
+      StubRaster(int width, int height, double originX, double originY,
+                 double cellSize, Spatial::ISpatialReferenceSystem *crs,
+                 int bands = 1)
+        : HydroCouple::SDK::Identity("raster", "Raster"), m_width(width),
+          m_height(height), m_crs(crs)
+      {
+        // North up: the origin is the upper-left corner and rows run down,
+        // which is what the negative fifth coefficient says.
+        m_transform = {originX, cellSize, 0.0, originY, 0.0, -cellSize};
+
+        for (int band = 0; band < bands; ++band)
+        {
+          m_bands.push_back(
+            std::make_unique<StubRasterBand>(this, width, height));
+        }
+      }
+
+      [[nodiscard]] int xSize() const override { return m_width; }
+      [[nodiscard]] int ySize() const override { return m_height; }
+
+      [[nodiscard]] int rasterBandCount() const override
+      {
+        return static_cast<int>(m_bands.size());
+      }
+
+      void addRasterBand(RasterDataType) override
+      {
+        m_bands.push_back(
+          std::make_unique<StubRasterBand>(this, m_width, m_height));
+      }
+
+      [[nodiscard]] Spatial::ISpatialReferenceSystem *spatialReferenceSystem()
+        const override
+      {
+        return m_crs;
+      }
+
+      void geoTransformation(double *transformationMatrix) override
+      {
+        std::copy(m_transform.begin(), m_transform.end(), transformationMatrix);
+      }
+
+      [[nodiscard]] Spatial::IRasterBand *getRasterBand(
+        int bandIndex) const override
+      {
+        return bandIndex >= 0 && bandIndex < static_cast<int>(m_bands.size())
+                 ? m_bands[static_cast<size_t>(bandIndex)].get()
+                 : nullptr;
+      }
+
+    private:
+      int m_width = 0;
+      int m_height = 0;
+      Spatial::ISpatialReferenceSystem *m_crs = nullptr;
+      std::array<double, 6> m_transform{};
+      std::vector<std::unique_ptr<StubRasterBand>> m_bands;
+  };
+
+  inline Spatial::IRaster *StubRasterBand::raster() const
+  {
+    return m_raster;
+  }
+
+  class StubRasterItem : public HydroCouple::SDK::AbstractComponentDataItem,
+                         public virtual Spatial::IRasterComponentDataItem
+  {
+    public:
+      StubRasterItem(std::string_view id, StubRaster *raster)
+        : AbstractComponentDataItem(id, {&m_bandDimension, &m_yDimension,
+                                         &m_xDimension},
+                                    nullptr, nullptr),
+          m_raster(raster), m_bandDimension("bands", "Bands"),
+          m_yDimension("y", "Rows"), m_xDimension("x", "Columns")
+      {
+        m_values.assign(static_cast<size_t>(raster->rasterBandCount())
+                          * raster->ySize() * raster->xSize(),
+                        0.0);
+      }
+
+      void setValue(int band, int row, int column, double value)
+      {
+        m_values[index(band, row, column)] = value;
+      }
+
+      /*!
+       * \brief Reports {y, x} rather than {band, y, x}.
+       *
+       * Which is what HydroCoupleSDK's own RasterComponentDataItem does: it
+       * is one band, and its shape has no band axis. An item shaped like
+       * that must be refused rather than read as though its rows were bands.
+       */
+      void reportShapeWithoutABandAxis() { m_twoDimensional = true; }
+
+      [[nodiscard]] std::vector<int64_t> shape() const override
+      {
+        if (m_twoDimensional)
+        {
+          return {m_raster->ySize(), m_raster->xSize()};
+        }
+
+        return {m_raster->rasterBandCount(), m_raster->ySize(),
+                m_raster->xSize()};
+      }
+
+      [[nodiscard]] HydroCouple::DataKind dataKind() const override
+      {
+        return HydroCouple::DataKind::Float64;
+      }
+
+      [[nodiscard]] bool getValuesInto(
+        const HydroCouple::BufferDescriptor &destination,
+        std::span<const int64_t> start, std::span<const int64_t> count,
+        std::string *message = nullptr) const override
+      {
+        if (start.size() != 3 || count.size() != 3)
+        {
+          if (message)
+          {
+            *message = "a raster is read band, row and column";
+          }
+
+          return false;
+        }
+
+        // Refused rather than wrapped into the next band's rows. Without
+        // this a reader that muddles the band and row axes reads plausible
+        // numbers off the end of one band and no test can see it.
+        const std::vector<int64_t> extents = shape();
+
+        for (size_t axis = 0; axis < 3; ++axis)
+        {
+          if (start[axis] < 0 || count[axis] < 0
+              || start[axis] + count[axis] > extents[axis])
+          {
+            if (message)
+            {
+              *message = "that block is not inside this raster";
+            }
+
+            return false;
+          }
+        }
+
+        auto *out = static_cast<double *>(destination.data);
+        int64_t written = 0;
+
+        for (int64_t band = start[0]; band < start[0] + count[0]; ++band)
+        {
+          for (int64_t row = start[1]; row < start[1] + count[1]; ++row)
+          {
+            for (int64_t column = start[2]; column < start[2] + count[2];
+                 ++column)
+            {
+              out[written++] = m_values[index(static_cast<int>(band),
+                                              static_cast<int>(row),
+                                              static_cast<int>(column))];
+            }
+          }
+        }
+
+        return true;
+      }
+
+      [[nodiscard]] bool setValuesFrom(const HydroCouple::BufferDescriptor &,
+                                       std::span<const int64_t>,
+                                       std::span<const int64_t>,
+                                       std::string * = nullptr) override
+      {
+        return false;
+      }
+
+      [[nodiscard]] Spatial::IRaster *raster() const override
+      {
+        return m_raster;
+      }
+
+      [[nodiscard]] HydroCouple::IDimension *xDimension() const override
+      {
+        return const_cast<HydroCouple::SDK::Dimension *>(&m_xDimension);
+      }
+
+      [[nodiscard]] HydroCouple::IDimension *yDimension() const override
+      {
+        return const_cast<HydroCouple::SDK::Dimension *>(&m_yDimension);
+      }
+
+      [[nodiscard]] HydroCouple::IDimension *bandDimension() const override
+      {
+        return const_cast<HydroCouple::SDK::Dimension *>(&m_bandDimension);
+      }
+
+    private:
+      [[nodiscard]] size_t index(int band, int row, int column) const
+      {
+        return (static_cast<size_t>(band) * m_raster->ySize() + row)
+                 * m_raster->xSize()
+               + column;
+      }
+
+      StubRaster *m_raster = nullptr;
+      bool m_twoDimensional = false;
+      HydroCouple::SDK::Dimension m_bandDimension;
+      HydroCouple::SDK::Dimension m_yDimension;
+      HydroCouple::SDK::Dimension m_xDimension;
+      std::vector<double> m_values;
   };
 
 } // namespace HydroCouple::Composer::Testing

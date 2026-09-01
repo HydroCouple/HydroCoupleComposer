@@ -2,6 +2,7 @@
 
 #include "core/composerapplication.h"
 #include "layers/dataitemlayer.h"
+#include "layers/rasterdataitemlayer.h"
 #include "layers/differencelayer.h"
 #include "layers/domainlayer.h"
 #include "layers/featurelayer.h"
@@ -1387,6 +1388,26 @@ namespace HydroCouple::Composer
 
       for (HydroCouple::IComponentDataItem *item : items)
       {
+        // A raster is neither features nor a mesh, so it has its own layer
+        // and its own question. Asked first because the two are exclusive.
+        if (RasterDataItemLayer::isRaster(item))
+        {
+          QString rasterMessage;
+          std::unique_ptr<RasterDataItemLayer> raster =
+            RasterDataItemLayer::create(item, rasterMessage);
+
+          if (raster)
+          {
+            m_layerStack->addLayer(raster.release());
+          }
+          else
+          {
+            log(rasterMessage);
+          }
+
+          continue;
+        }
+
         if (!DataItemLayer::isSpatial(item))
         {
           continue;
@@ -2026,6 +2047,33 @@ namespace HydroCouple::Composer
     if (!item)
     {
       return false;
+    }
+
+    if (RasterDataItemLayer::isRaster(item))
+    {
+      std::unique_ptr<RasterDataItemLayer> raster =
+        RasterDataItemLayer::create(item, message);
+
+      if (!raster)
+      {
+        return false;
+      }
+
+      raster->setName(tr("%1 — %2 — %3")
+                        .arg(session->title(), componentId, raster->name()));
+
+      RasterDataItemLayer *addedRaster = raster.release();
+      m_layerStack->addLayer(addedRaster);
+
+      log(tr("Added %1 (a raster of %2 by %3 cells).")
+            .arg(addedRaster->name())
+            .arg(addedRaster->extent().width())
+            .arg(addedRaster->extent().height()));
+
+      m_workspace->setCurrentWidget(m_mapCanvas);
+      m_mapCanvas->zoomToLayer(addedRaster);
+
+      return true;
     }
 
     if (!DataItemLayer::isSpatial(item))

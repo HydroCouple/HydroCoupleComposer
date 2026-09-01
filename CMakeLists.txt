@@ -237,6 +237,7 @@ set(COMPOSER_SOURCES
     src/layers/meshlayer.cpp
     include/layers/gdalrasterlayer.h
     src/layers/gdalrasterlayer.cpp
+    src/layers/rasterdataitemlayer.cpp
     include/map/maptool.h
     src/map/maptool.cpp
     include/map/maptransform.h
