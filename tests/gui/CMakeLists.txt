@@ -172,6 +172,10 @@ target_compile_definitions(test_compositioncanvas PRIVATE
     COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>")
 add_dependencies(test_compositioncanvas testcomponent)
 
+composer_add_gui_test(test_httpuriresolver)
+target_compile_definitions(test_httpuriresolver PRIVATE
+    COMPOSER_CONFIGURATOR_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/configurator")
+
 composer_add_gui_test(test_configurator)
 target_compile_definitions(test_configurator PRIVATE
     COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>"

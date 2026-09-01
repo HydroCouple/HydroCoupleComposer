@@ -1,6 +1,10 @@
 #include "core/composerapplication.h"
+
+#include "core/httpuriresolver.h"
 #include "core/version.h"
 #include "ui/theme/thememanager.h"
+
+#include "hydrocouplesdk/io/uriresolver.h"
 
 #include <QSettings>
 #include <QStyleHints>
@@ -15,6 +19,11 @@ namespace HydroCouple::Composer
     setOrganizationDomain(QStringLiteral("hydrocouple.org"));
     setApplicationName(QStringLiteral("HydroCoupleComposer"));
     setApplicationVersion(versionString());
+
+    // The SDK refuses an https argument unless a host can fetch one. This is
+    // that host: the fetch tier is already in the process for the basemaps.
+    m_uriResolver = std::make_unique<HttpUriResolver>();
+    HydroCouple::SDK::IO::setUriResolver(m_uriResolver.get());
 
     // Fusion plus the shared token palette, so Composer and openswmm.gui read
     // as one suite. Applied here rather than in main() so every entry point —
@@ -38,7 +47,16 @@ namespace HydroCouple::Composer
             });
   }
 
-  ComposerApplication::~ComposerApplication() = default;
+  ComposerApplication::~ComposerApplication()
+  {
+    // The SDK holds a bare pointer, so it must stop holding this one first.
+    HydroCouple::SDK::IO::setUriResolver(nullptr);
+  }
+
+  HttpUriResolver *ComposerApplication::uriResolver() const
+  {
+    return m_uriResolver.get();
+  }
 
   QString ComposerApplication::versionString()
   {

@@ -127,6 +127,7 @@ configure_file(
 set(COMPOSER_SOURCES
     include/core/composerapplication.h
     src/core/composerapplication.cpp
+    src/core/httpuriresolver.cpp
     include/plugins/componentabi.h
     include/plugins/componentlibrary.h
     src/plugins/componentlibrary.cpp
