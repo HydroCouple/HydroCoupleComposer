@@ -5,6 +5,7 @@
 #include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QInputDialog>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -330,8 +331,18 @@ namespace HydroCouple::Composer
           browse->setObjectName(QStringLiteral("argument_") + descriptor.id +
                                 QStringLiteral("_browse"));
 
+          auto *fromLayer = new QPushButton(tr("Layer…"), chooser);
+          fromLayer->setObjectName(QStringLiteral("argument_") + descriptor.id +
+                                   QStringLiteral("_layer"));
+          fromLayer->setToolTip(
+            tr("Read this argument from a layer already on the map."));
+
           row->addWidget(line, 1);
           row->addWidget(browse);
+          row->addWidget(fromLayer);
+
+          connect(fromLayer, &QPushButton::clicked, this,
+                  [this, line, id = descriptor.id] { chooseLayerFor(id, line); });
 
           connect(line, &QLineEdit::editingFinished, this,
                   [this, line, id = descriptor.id]
@@ -342,7 +353,7 @@ namespace HydroCouple::Composer
                     }
 
                     QString message;
-                    applyArgumentFile(id, line->text(), message);
+                    applyArgumentReference(id, line->text(), message);
                   });
 
           connect(browse, &QPushButton::clicked, this,
@@ -361,7 +372,7 @@ namespace HydroCouple::Composer
                     line->setText(chosen);
 
                     QString message;
-                    applyArgumentFile(id, chosen, message);
+                    applyArgumentReference(id, chosen, message);
                   });
 
           editor = chooser;
@@ -531,9 +542,15 @@ namespace HydroCouple::Composer
     return true;
   }
 
-  bool ComponentConfigurator::applyArgumentFile(const QString &argumentId,
-                                                const QString &path,
-                                                QString &message)
+  void ComponentConfigurator::setLayerSources(
+    std::function<QVector<LayerSource>()> provider)
+  {
+    m_layerSources = std::move(provider);
+  }
+
+  bool ComponentConfigurator::applyArgumentReference(const QString &argumentId,
+                                                     const QString &reference,
+                                                     QString &message)
   {
     HydroCouple::IArgument *target = argument(argumentId);
 
@@ -544,22 +561,22 @@ namespace HydroCouple::Composer
       return false;
     }
 
-    if (!writeArgumentFile(target, path, message))
+    if (!writeArgumentReference(target, reference, message))
     {
       m_status->setText(tr("'%1' rejected '%2': %3")
-                          .arg(argumentId, path, message));
+                          .arg(argumentId, reference, message));
       return false;
     }
 
-    // The file has already changed the component, so what is recorded has to
+    // The read has already changed the component, so what is recorded has to
     // be read back out of it rather than assumed -- the component decides
-    // what the file meant.
+    // what it meant, and whether to record the URI beside the values.
     const nlohmann::json payload = readArgumentPayload(target, message);
 
     if (payload.is_null())
     {
       m_status->setText(tr("'%1' read '%2' but cannot serialise it: %3")
-                          .arg(argumentId, path, message));
+                          .arg(argumentId, reference, message));
       return false;
     }
 
@@ -574,6 +591,58 @@ namespace HydroCouple::Composer
     Q_EMIT argumentChanged(m_componentId, argumentId);
 
     return true;
+  }
+
+  void ComponentConfigurator::chooseLayerFor(const QString &argumentId,
+                                            QLineEdit *line)
+  {
+    const QVector<LayerSource> sources =
+      m_layerSources ? m_layerSources() : QVector<LayerSource>();
+
+    if (sources.isEmpty())
+    {
+      // Said rather than shown as an empty list, because the reason is not
+      // "no layers" -- a basemap is a pyramid of tiles and a mesh is built
+      // in memory, and neither is a document an argument could read.
+      m_status->setText(
+        tr("No layer on the map names a source this argument could read."));
+      return;
+    }
+
+    QStringList names;
+    names.reserve(sources.size());
+
+    for (const LayerSource &source : sources)
+    {
+      names.append(source.name);
+    }
+
+    bool chosen = false;
+    const QString picked =
+      QInputDialog::getItem(this, tr("Read '%1' from a layer").arg(argumentId),
+                            tr("Layer:"), names, 0, false, &chosen);
+
+    if (!chosen || picked.isEmpty())
+    {
+      return;
+    }
+
+    const int index = names.indexOf(picked);
+
+    if (index < 0)
+    {
+      return;
+    }
+
+    const QString reference = sources.at(index).uri.toString();
+
+    if (line)
+    {
+      line->setText(reference);
+    }
+
+    QString message;
+    applyArgumentReference(argumentId, reference, message);
   }
 
   QString ComponentConfigurator::rawText() const

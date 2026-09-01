@@ -25,6 +25,7 @@
 #include <QPushButton>
 #include <QSpinBox>
 #include <QTest>
+#include <QUrl>
 #include <QTableWidget>
 #include <QUndoStack>
 
@@ -394,7 +395,7 @@ TEST_F(ConfiguratorTest, TheChooserOffersTheArgumentsOwnFiltersThenAllFiles)
 TEST_F(ConfiguratorTest, ChoosingAFileLoadsItsValuesThroughTheComponent)
 {
   QString message;
-  ASSERT_TRUE(configurator->applyArgumentFile(QStringLiteral("rating"),
+  ASSERT_TRUE(configurator->applyArgumentReference(QStringLiteral("rating"),
                                               dataPath(QStringLiteral("rating.json")),
                                               message))
     << message.toStdString();
@@ -415,7 +416,7 @@ TEST_F(ConfiguratorTest, TheDocumentRecordsTheValuesTheFileProducedNotThePath)
   const QString path = dataPath(QStringLiteral("rating.json"));
 
   QString message;
-  ASSERT_TRUE(configurator->applyArgumentFile(QStringLiteral("rating"), path,
+  ASSERT_TRUE(configurator->applyArgumentReference(QStringLiteral("rating"), path,
                                               message))
     << message.toStdString();
 
@@ -438,7 +439,7 @@ TEST_F(ConfiguratorTest, AFileTheComponentCannotReadIsRefusedAndNothingRecorded)
   const QByteArray before = document.toJson();
 
   QString message;
-  EXPECT_FALSE(configurator->applyArgumentFile(
+  EXPECT_FALSE(configurator->applyArgumentReference(
     QStringLiteral("rating"), dataPath(QStringLiteral("rating-not-json.txt")),
     message));
   EXPECT_FALSE(message.isEmpty());
@@ -450,7 +451,7 @@ TEST_F(ConfiguratorTest, APathThatIsNotThereIsRefusedWithTheComponentsReason)
   const QByteArray before = document.toJson();
 
   QString message;
-  EXPECT_FALSE(configurator->applyArgumentFile(
+  EXPECT_FALSE(configurator->applyArgumentReference(
     QStringLiteral("rating"), dataPath(QStringLiteral("nosuchfile.json")),
     message));
   EXPECT_TRUE(message.contains(QStringLiteral("nosuchfile.json")))
@@ -476,4 +477,108 @@ TEST_F(ConfiguratorTest, TypingAPathAndPressingReturnLoadsTheFile)
     << "the path box is decoration: typing into it loaded nothing";
   EXPECT_EQ(spec->arguments["rating"]["values"],
             nlohmann::json({2.5, 3.5, 4.5}));
+}
+
+// ── Reading an argument from a layer ──────────────────────────────────────
+//
+// The point of the whole OGC program: a coverage fetched from a service is
+// on the map, and one click hands it to a model.
+
+TEST_F(ConfiguratorTest, AFileArgumentIsAlsoOfferedTheLayersOnTheMap)
+{
+  EXPECT_NE(configurator->findChild<QPushButton *>(
+              QStringLiteral("argument_rating_layer")),
+            nullptr);
+
+  // Free text is not read from a layer.
+  EXPECT_EQ(configurator->findChild<QPushButton *>(
+              QStringLiteral("argument_label_layer")),
+            nullptr);
+}
+
+TEST_F(ConfiguratorTest, ALayersAddressIsReadThroughTheComponent)
+{
+  const QUrl local =
+    QUrl::fromLocalFile(dataPath(QStringLiteral("rating.json")));
+
+  configurator->setLayerSources(
+    [local]
+    {
+      return QVector<ComponentConfigurator::LayerSource>{
+        {QStringLiteral("Rating coverage"), local}};
+    });
+
+  QString message;
+  ASSERT_TRUE(configurator->applyArgumentReference(
+    QStringLiteral("rating"), local.toString(), message))
+    << message.toStdString();
+
+  const std::optional<CompositionDocument::ComponentSpec> spec =
+    document.component(QStringLiteral("unit"));
+  ASSERT_TRUE(spec.has_value());
+  EXPECT_EQ(spec->arguments["rating"]["values"],
+            nlohmann::json({2.5, 3.5, 4.5}));
+}
+
+// An address with a scheme goes to the resolver, not to open(2). The scheme
+// is deliberately one nothing handles, so this stays a local test: an http
+// address here would really be fetched, because ComposerApplication installs
+// a live resolver.
+TEST_F(ConfiguratorTest, AnAddressWithASchemeIsResolvedRatherThanOpened)
+{
+  QString message;
+  EXPECT_FALSE(configurator->applyArgumentReference(
+    QStringLiteral("rating"), QStringLiteral("sensor://example.org/rating.json"),
+    message));
+  EXPECT_TRUE(message.contains(QStringLiteral("resolver")))
+    << "it was opened as a file path: " << message.toStdString();
+}
+
+// A Windows path is a path. The SDK's rule decides, so there is only one.
+TEST_F(ConfiguratorTest, ADriveLetterIsAPathAndNotAService)
+{
+  QString message;
+  EXPECT_FALSE(configurator->applyArgumentReference(
+    QStringLiteral("rating"), QStringLiteral("C:\\data\\rating.json"),
+    message));
+  EXPECT_EQ(message.indexOf(QStringLiteral("resolver")), -1)
+    << "a drive letter was taken for a URI scheme: " << message.toStdString();
+}
+
+// How an argument was read is part of what it records about itself, and the
+// only thing that tells a path from an address after the fact. A file: URI
+// is the pair's honest test: it has a scheme, so it goes in as a URL, and it
+// is read off local disk all the same.
+TEST_F(ConfiguratorTest, HowAReferenceWasReadIsRecordedOnTheArgument)
+{
+  HydroCouple::IModelComponent *component =
+    instances->instance(QStringLiteral("unit"));
+  ASSERT_NE(component, nullptr);
+
+  HydroCouple::IArgument *rating = nullptr;
+
+  for (HydroCouple::IArgument *candidate : component->arguments())
+  {
+    if (candidate && candidate->id() == "rating")
+    {
+      rating = candidate;
+    }
+  }
+
+  ASSERT_NE(rating, nullptr);
+
+  const QString path = dataPath(QStringLiteral("rating.json"));
+
+  QString message;
+  ASSERT_TRUE(writeArgumentReference(rating, path, message))
+    << message.toStdString();
+  EXPECT_EQ(rating->currentArgumentInputType(),
+            HydroCouple::IArgument::ArgumentInputType::File);
+
+  ASSERT_TRUE(writeArgumentReference(
+    rating, QStringLiteral("file://") + path, message))
+    << message.toStdString();
+  EXPECT_EQ(rating->currentArgumentInputType(),
+            HydroCouple::IArgument::ArgumentInputType::URL)
+    << "an address was recorded as though it had been a path";
 }

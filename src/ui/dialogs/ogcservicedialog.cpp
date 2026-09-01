@@ -546,7 +546,7 @@ namespace HydroCouple::Composer
 
     m_client->get(
       QUrl(url), credentials(),
-      [this, title, identifier, service,
+      [this, title, identifier, service, url,
        description](const HydroCouple::Ogc::HttpResponse &response) {
         QString message;
 
@@ -566,6 +566,11 @@ namespace HydroCouple::Composer
         layer->setCoverageId(identifier);
         layer->setDescription(description);
         layer->setPersistentState(persistentStateForChoice());
+
+        // The request that produced this coverage, so a model argument can
+        // read the same bytes without repeating the conversation that chose
+        // it -- capabilities, then DescribeCoverage, then this.
+        layer->setSourceUri(QUrl(url));
 
         m_coverageLayer = std::move(layer);
 
@@ -625,7 +630,7 @@ namespace HydroCouple::Composer
     const QString typeName = type->name;
 
     m_client->get(QUrl(url), credentials(),
-                  [this, name, typeName](const HttpResponse &response) {
+                  [this, name, typeName, url](const HttpResponse &response) {
                     QString message;
 
                     m_featureLayer =
@@ -649,6 +654,7 @@ namespace HydroCouple::Composer
                     m_featureLayer->setTypeName(typeName);
                     m_featureLayer->setPersistentState(
                       persistentStateForChoice());
+                    m_featureLayer->setSourceUri(QUrl(url));
                     accept();
                   });
   }

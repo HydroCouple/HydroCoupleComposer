@@ -288,3 +288,23 @@ TEST(LayerPersistence, aServiceLayerIsWaitedForRatherThanBuiltAtOnce)
   // restorer does not leave the count stuck.
   waitFor([&] { return restorer.pendingCount() == 0; });
 }
+
+// ── What a model argument may be read from ────────────────────────────────
+
+// sourceUri() is the fetchable half of provenance: a path or a request, as
+// opposed to sourceDescription(), which is prose for a properties dialog.
+TEST(LayerPersistence, aFileLayerNamesTheFileAModelCouldRead)
+{
+  const QString path =
+    QStringLiteral(COMPOSER_OGC_FIXTURE_DIR "/wcs-coverage-ahn-dtm.tif");
+
+  QString message;
+  std::unique_ptr<GdalRasterLayer> raster =
+    GdalRasterLayer::open(path, message);
+
+  ASSERT_NE(raster, nullptr) << message.toStdString();
+  ASSERT_FALSE(raster->sourceUri().isEmpty())
+    << "a raster on disk cannot say where a model could read it from";
+  EXPECT_TRUE(raster->sourceUri().isLocalFile());
+  EXPECT_EQ(raster->sourceUri().toLocalFile(), path);
+}

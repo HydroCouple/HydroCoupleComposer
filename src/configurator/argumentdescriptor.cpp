@@ -1,5 +1,7 @@
 #include "configurator/argumentdescriptor.h"
 
+#include "hydrocouplesdk/io/uriresolver.h"
+
 namespace HydroCouple::Composer
 {
 
@@ -91,8 +93,8 @@ namespace HydroCouple::Composer
     return true;
   }
 
-  bool writeArgumentFile(HydroCouple::IArgument *argument, const QString &path,
-                         QString &message)
+  bool writeArgumentReference(HydroCouple::IArgument *argument,
+                              const QString &reference, QString &message)
   {
     if (!argument)
     {
@@ -100,14 +102,23 @@ namespace HydroCouple::Composer
       return false;
     }
 
+    const std::string target = reference.toStdString();
+
+    // The SDK's rule, not a second one: a scheme is two characters or more,
+    // so a Windows drive letter is a path and not a URI.
+    const bool remote =
+      !HydroCouple::SDK::IO::uriScheme(target).empty();
+
     std::string failure;
 
-    if (!argument->initialize(path.toStdString(),
-                              HydroCouple::IArgument::ArgumentInputType::File,
-                              failure))
+    if (!argument->initialize(
+          target,
+          remote ? HydroCouple::IArgument::ArgumentInputType::URL
+                 : HydroCouple::IArgument::ArgumentInputType::File,
+          failure))
     {
       message = failure.empty()
-                  ? QStringLiteral("the component could not read the file")
+                  ? QStringLiteral("the component could not read it")
                   : QString::fromStdString(failure);
       return false;
     }

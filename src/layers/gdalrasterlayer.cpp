@@ -6,6 +6,7 @@
 #include <QFileInfo>
 #include <QJsonObject>
 #include <QPainter>
+#include <QUrl>
 
 #include <limits>
 #include <gdal_priv.h>
@@ -102,6 +103,7 @@ namespace HydroCouple::Composer
     state.insert(QStringLiteral("path"), filePath);
     state.insert(QStringLiteral("name"), layer->name());
     layer->setPersistentState(state);
+    layer->setSourceUri(QUrl::fromLocalFile(filePath));
 
     return layer;
   }

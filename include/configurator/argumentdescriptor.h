@@ -117,21 +117,28 @@ namespace HydroCouple::Composer
     HydroCouple::IArgument *argument, QString &message);
 
   /*!
-   * \brief Points an argument at a file and lets it read itself.
+   * \brief Points an argument at a file or a URI and lets it read itself.
    *
    * A path is not a payload: the composition document's only channel to an
    * argument is `initialize(..., JSON, ...)`, so a path recorded there would
    * be handed back to the component as JSON and rejected. A chooser therefore
-   * loads the file through the component now, and what gets recorded is the
-   * values the component read out of it.
+   * loads the reference through the component now, and what gets recorded is
+   * what the component read.
+   *
+   * The two input types are told apart by whether the reference has a URI
+   * scheme, using the SDK's own rule so that `C:\data\x.json` stays a path.
+   * The distinction is recorded on the argument rather than acted on: a
+   * remote reference is what the argument remembers as its source, and a
+   * local one is inlined.
    *
    * \param argument The argument to load; must not be null.
-   * \param path The file to read.
+   * \param reference The file or URI to read.
    * \param[out] message Diagnostic when the component cannot read it.
-   * \returns true when the component read the file.
+   * \returns true when the component read it.
    */
-  [[nodiscard]] bool writeArgumentFile(HydroCouple::IArgument *argument,
-                                       const QString &path, QString &message);
+  [[nodiscard]] bool writeArgumentReference(HydroCouple::IArgument *argument,
+                                            const QString &reference,
+                                            QString &message);
 
   /*!
    * \brief Builds a QFileDialog filter string from an argument's filters.

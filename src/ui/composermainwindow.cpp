@@ -1157,6 +1157,29 @@ namespace HydroCouple::Composer
                                                configuratorDock);
     configuratorDock->setWidget(m_configurator);
 
+    // Which layers a model argument may be read from. Asked for each time the
+    // button is pressed rather than snapshotted, because the layer stack
+    // changes while the panel is open.
+    m_configurator->setLayerSources(
+      [this]
+      {
+        QVector<ComponentConfigurator::LayerSource> sources;
+
+        for (int row = 0; row < m_layerStack->rowCount(QModelIndex()); ++row)
+        {
+          MapLayer *layer = m_layerStack->layerAt(row);
+
+          if (!layer || layer->sourceUri().isEmpty())
+          {
+            continue;
+          }
+
+          sources.append({layer->name(), layer->sourceUri()});
+        }
+
+        return sources;
+      });
+
     addDockWidget(Qt::RightDockWidgetArea, configuratorDock);
 
     // ── Attributes ───────────────────────────────────────────────────────

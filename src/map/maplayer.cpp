@@ -176,4 +176,14 @@ namespace HydroCouple::Composer
     m_persistentState = state;
   }
 
+  QUrl MapLayer::sourceUri() const
+  {
+    return m_sourceUri;
+  }
+
+  void MapLayer::setSourceUri(const QUrl &uri)
+  {
+    m_sourceUri = uri;
+  }
+
 } // namespace HydroCouple::Composer

@@ -20,6 +20,7 @@
 
 #include <QObject>
 #include <QJsonObject>
+#include <QUrl>
 #include <QRectF>
 #include <QString>
 
@@ -220,6 +221,24 @@ namespace HydroCouple::Composer
       //! Records how this layer would be made again.
       void setPersistentState(const QJsonObject &state);
 
+      /*!
+       * \brief The address a model argument could read this layer's data
+       *        from, or empty when there is not one.
+       *
+       * Distinct from sourceDescription(), which is prose for a properties
+       * dialog: this is fetchable. A file layer's is its path as a file:
+       * URI; a fetched layer's is the request that produced it, recorded at
+       * the time, because rebuilding it afterwards would mean repeating the
+       * capabilities conversation that chose it.
+       *
+       * Empty for a tile layer, which is a pyramid of images and not a
+       * document an argument could read, and for anything built in memory.
+       */
+      [[nodiscard]] QUrl sourceUri() const;
+
+      //! Records the address this layer's data can be read from.
+      void setSourceUri(const QUrl &uri);
+
       [[nodiscard]] virtual QRectF extent() const = 0;
 
       /*!
@@ -293,6 +312,7 @@ namespace HydroCouple::Composer
       QString m_id;
       QString m_name;
       QJsonObject m_persistentState;
+      QUrl m_sourceUri;
       bool m_visible = true;
       double m_opacity = 1.0;
       std::shared_ptr<SpatialReference> m_crs;

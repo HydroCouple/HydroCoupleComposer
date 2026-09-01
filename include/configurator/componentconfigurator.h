@@ -22,9 +22,13 @@
 #include "project/compositiondocument.h"
 
 #include <QHash>
+#include <QUrl>
 #include <QWidget>
 
+#include <functional>
+
 class QFormLayout;
+class QLineEdit;
 class QPlainTextEdit;
 class QLabel;
 class QPushButton;
@@ -84,19 +88,41 @@ namespace HydroCouple::Composer
                          const nlohmann::json &payload, QString &message);
 
       /*!
-       * \brief Loads \a path into one argument, as the Browse button does.
+       * \brief Loads a file or URI into one argument, as the buttons do.
        *
-       * The file is read by the component first; the document then records
-       * the values that came out of it, because the path itself is not
-       * something the load path could act on.
+       * The reference is read by the component first; the document then
+       * records what the component holds afterwards. For a file that is the
+       * values, because a path is not something the load path could act on;
+       * for a URI the component records the URI beside them, so a reopened
+       * composition goes back to the service rather than running on a copy.
        *
        * \param argumentId Argument to load.
-       * \param path The file to read.
+       * \param reference The file or URI to read.
        * \param[out] message Diagnostic when the component cannot read it.
-       * \returns true when the file was read and the values recorded.
+       * \returns true when it was read and recorded.
        */
-      bool applyArgumentFile(const QString &argumentId, const QString &path,
-                             QString &message);
+      bool applyArgumentReference(const QString &argumentId,
+                                  const QString &reference, QString &message);
+
+      /*!
+       * \brief A loaded map layer offered as a source for an argument.
+       */
+      struct LayerSource
+      {
+          QString name;
+          QUrl uri;
+      };
+
+      /*!
+       * \brief Tells the configurator which map layers can be read from.
+       *
+       * A callback rather than a list, because the layer stack changes while
+       * the panel is open and a snapshot taken when a component was selected
+       * would offer layers that have since been closed.
+       *
+       * \param provider Returns the layers that can name a source.
+       */
+      void setLayerSources(std::function<QVector<LayerSource>()> provider);
 
       /*!
        * \brief The raw JSON pane's current text.
@@ -138,6 +164,7 @@ namespace HydroCouple::Composer
     private:
       void rebuild();
       void refreshRawPane();
+      void chooseLayerFor(const QString &argumentId, QLineEdit *line);
       [[nodiscard]] HydroCouple::IArgument *argument(
         const QString &argumentId) const;
 
@@ -151,6 +178,8 @@ namespace HydroCouple::Composer
       QPlainTextEdit *m_rawPane = nullptr;
       QLabel *m_status = nullptr;
       QPushButton *m_componentEditorButton = nullptr;
+
+      std::function<QVector<LayerSource>()> m_layerSources;
   };
 
 } // namespace HydroCouple::Composer

@@ -646,6 +646,19 @@ TEST_F(OgcServiceDialogTest, ACoverageIsDescribedBeforeItIsAskedFor)
   ASSERT_NE(coverage, nullptr);
   EXPECT_EQ(coverage->coverageId(), QStringLiteral("dsm_05m"));
   EXPECT_EQ(coverage->rasterSize().width(), 64);
+
+  // The exact request, kept, so a model argument can read the same bytes
+  // without repeating the capabilities-then-DescribeCoverage conversation
+  // that chose them. sourceDescription() is prose and cannot be fetched.
+  EXPECT_FALSE(coverage->sourceUri().isEmpty())
+    << "the coverage cannot say where a model could read it from";
+  EXPECT_EQ(QUrlQuery(coverage->sourceUri().query())
+              .queryItemValue(QStringLiteral("REQUEST")),
+            QStringLiteral("GetCoverage"));
+  EXPECT_TRUE(server.lastRequest().endsWith(
+    coverage->sourceUri().toString(QUrl::RemoveScheme | QUrl::RemoveAuthority)))
+    << "the coverage names a request the server was never asked: "
+    << coverage->sourceUri().toString().toStdString();
 }
 
 TEST_F(OgcServiceDialogTest, ACoverageIsAskedForOverTheGroundInView)

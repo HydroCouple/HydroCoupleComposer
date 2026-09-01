@@ -5,6 +5,7 @@
 
 #include <QFileInfo>
 #include <QJsonObject>
+#include <QUrl>
 
 #include <gdal_priv.h>
 #include <ogrsf_frmts.h>
@@ -123,6 +124,7 @@ namespace HydroCouple::Composer
     }
 
     layer->setPersistentState(state);
+    layer->setSourceUri(QUrl::fromLocalFile(filePath));
 
     return layer;
   }
