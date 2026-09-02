@@ -741,3 +741,84 @@ TEST_F(ViewHandoffTest, TheSceneToolButtonsReachTheView)
   EXPECT_TRUE(orbit->isChecked());
   EXPECT_FALSE(select->isChecked());
 }
+
+// ── The zoom shortcuts (V1) ───────────────────────────────────────────────
+//
+// Ctrl+= and Ctrl+- used to target the map unconditionally, so pressing them
+// on the 3D tab zoomed a hidden canvas: the screen did not move, and the map
+// silently lost the framing it had. The shortcut acts on the view in front,
+// the way Zoom to Full Extent always has.
+
+TEST_F(ViewHandoffTest, ZoomInOnTheSceneTabMovesTheCameraNotTheMap)
+{
+  addTerrain();
+
+  showTab(m_window->sceneView());
+
+  const QRectF mapBefore = m_window->mapCanvas()->transform().visibleExtent();
+  const double distanceBefore = m_window->sceneView()->camera().distance();
+
+  auto *zoomIn =
+    m_window->findChild<QAction *>(QStringLiteral("zoomInAction"));
+  ASSERT_NE(zoomIn, nullptr);
+  zoomIn->trigger();
+
+  EXPECT_LT(m_window->sceneView()->camera().distance(), distanceBefore)
+    << "the shortcut did not reach the scene camera";
+  EXPECT_EQ(m_window->mapCanvas()->transform().visibleExtent(), mapBefore)
+    << "the hidden map was zoomed";
+}
+
+TEST_F(ViewHandoffTest, ZoomOutOnTheSceneTabBacksTheCameraAway)
+{
+  addTerrain();
+
+  showTab(m_window->sceneView());
+
+  const double distanceBefore = m_window->sceneView()->camera().distance();
+
+  auto *zoomOut =
+    m_window->findChild<QAction *>(QStringLiteral("zoomOutAction"));
+  ASSERT_NE(zoomOut, nullptr);
+  zoomOut->trigger();
+
+  EXPECT_GT(m_window->sceneView()->camera().distance(), distanceBefore);
+}
+
+TEST_F(ViewHandoffTest, ZoomShortcutsStillDriveTheMapWhenItIsInFront)
+{
+  addTerrain();
+
+  showTab(m_window->mapCanvas());
+
+  const QRectF before = m_window->mapCanvas()->transform().visibleExtent();
+  const double distanceBefore = m_window->sceneView()->camera().distance();
+
+  auto *zoomIn =
+    m_window->findChild<QAction *>(QStringLiteral("zoomInAction"));
+  ASSERT_NE(zoomIn, nullptr);
+  zoomIn->trigger();
+
+  EXPECT_LT(m_window->mapCanvas()->transform().visibleExtent().width(),
+            before.width());
+  EXPECT_EQ(m_window->sceneView()->camera().distance(), distanceBefore)
+    << "the hidden scene camera moved";
+}
+
+// A zoom that lost the target would be a pan wearing a zoom's name.
+TEST_F(ViewHandoffTest, SceneZoomHoldsWhatIsBeingLookedAt)
+{
+  addTerrain();
+
+  showTab(m_window->sceneView());
+
+  const QVector3D targetBefore = m_window->sceneView()->camera().target();
+
+  auto *zoomIn =
+    m_window->findChild<QAction *>(QStringLiteral("zoomInAction"));
+  ASSERT_NE(zoomIn, nullptr);
+  zoomIn->trigger();
+  zoomIn->trigger();
+
+  EXPECT_EQ(m_window->sceneView()->camera().target(), targetBefore);
+}

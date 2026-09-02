@@ -101,6 +101,24 @@ namespace HydroCouple::Composer
     Q_EMIT cameraChanged();
   }
 
+  void SceneView::zoomIn()
+  {
+    // The same step a wheel notch takes, so the shortcut and the wheel move
+    // by amounts a user can predict from one another.
+    m_camera.dolly(1.0 / kZoomPerNotch);
+
+    update();
+    Q_EMIT cameraChanged();
+  }
+
+  void SceneView::zoomOut()
+  {
+    m_camera.dolly(kZoomPerNotch);
+
+    update();
+    Q_EMIT cameraChanged();
+  }
+
   void SceneView::zoomToFullExtent()
   {
     const Bounds3D bounds = m_renderer.sceneBounds();

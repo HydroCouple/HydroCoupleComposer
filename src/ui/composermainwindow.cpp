@@ -342,7 +342,20 @@ namespace HydroCouple::Composer
     m_zoomInAction->setObjectName(QStringLiteral("zoomInAction"));
     m_zoomInAction->setShortcut(QKeySequence::ZoomIn);
     connect(m_zoomInAction, &QAction::triggered, this,
-            [this] { m_mapCanvas->zoomBy(1.25); });
+            [this]
+            {
+              // Like Full Extent above: the shortcut acts on the view in
+              // front. Targeting the map unconditionally meant Ctrl+= on the
+              // 3D tab zoomed a hidden canvas and moved nothing on screen.
+              if (m_workspace->currentWidget() == m_sceneView)
+              {
+                m_sceneView->zoomIn();
+              }
+              else
+              {
+                m_mapCanvas->zoomBy(1.25);
+              }
+            });
 
     m_addVectorAction = new QAction(tr("Add &Vector Data…"), this);
     m_addVectorAction->setObjectName(QStringLiteral("addVectorAction"));
@@ -592,7 +605,17 @@ namespace HydroCouple::Composer
     m_zoomOutAction->setObjectName(QStringLiteral("zoomOutAction"));
     m_zoomOutAction->setShortcut(QKeySequence::ZoomOut);
     connect(m_zoomOutAction, &QAction::triggered, this,
-            [this] { m_mapCanvas->zoomBy(1.0 / 1.25); });
+            [this]
+            {
+              if (m_workspace->currentWidget() == m_sceneView)
+              {
+                m_sceneView->zoomOut();
+              }
+              else
+              {
+                m_mapCanvas->zoomBy(1.0 / 1.25);
+              }
+            });
 
     m_runAction = new QAction(tr("&Run"), this);
     m_runAction->setObjectName(QStringLiteral("runAction"));

@@ -106,6 +106,19 @@ namespace HydroCouple::Composer
       void zoomToFullExtent();
 
       /*!
+       * \brief Moves the camera one step closer, as one wheel notch does.
+       *
+       * The step zoom the shortcut actions need: the target is held, so
+       * zooming never loses what is being looked at.
+       */
+      void zoomIn();
+
+      /*!
+       * \brief Moves the camera one step further out.
+       */
+      void zoomOut();
+
+      /*!
        * \brief The ground the view is looking at.
        *
        * The scene's half of the hand-off with the map. A tilted camera sees a
