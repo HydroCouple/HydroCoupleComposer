@@ -370,6 +370,44 @@ namespace HydroCouple::Composer
         return false;
       }
 
+      /*!
+       * \brief The mesh's fields, with Elevation offered beside them.
+       *
+       * A face mesh with node heights always has one attribute worth
+       * theming, whether or not a component ever pushed values in: the
+       * ground itself. Synthetic -- derived from nodeZ on demand, never
+       * stored per feature -- so the ramp machinery and the field combos
+       * work on it unmodified.
+       */
+      [[nodiscard]] QVector<AttributeField> attributeFields() const override;
+
+      /*!
+       * \brief Themes a fresh mesh with relief by its own elevation.
+       *
+       * Called by create(); public so the elevations-arrived path can apply
+       * the same default after Sample Elevations gives a flat mesh its
+       * heights.
+       */
+      void applyDefaultElevationStyle();
+
+      /*!
+       * \brief Whether faces are shaded flat instead of smoothly.
+       *
+       * Smooth is the default: corners carry per-node normals averaged over
+       * the faces that meet there, so a hillside reads as a hillside rather
+       * than as facets. Positions stay duplicated per face either way --
+       * colour is baked per vertex and a shared corner between two classes
+       * would have to pick one -- only the normals change.
+       */
+      [[nodiscard]] bool flatShading() const { return m_flatShading; }
+
+      //! Switches between smooth and faceted shading, and announces it.
+      void setFlatShading(bool flat);
+
+      [[nodiscard]] QVariant attributeValue(int feature,
+                                            const QString &field)
+        const override;
+
       //! Announces the change, so everything re-drapes on the new ground.
       void setTerrainEnabled(bool enabled) override
       {
@@ -482,6 +520,7 @@ namespace HydroCouple::Composer
       //! so the two sequences diverge on exactly the meshes where guessing
       //! would attach the wrong elevations.
       QVector<qint64> m_entityIndex;
+      bool m_flatShading = false;
   };
 
 } // namespace HydroCouple::Composer

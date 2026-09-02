@@ -1034,3 +1034,150 @@ TEST_F(Scene3DTest, SceneBoundsCountLayersThatCannotBeDrawn)
   EXPECT_GT(renderer.sceneBounds().maximum().x(), 800.0f)
     << "a layer with no 3D form was left out of the framing";
 }
+
+// ── Terrain styling (coherence plan T3) ───────────────────────────────────
+
+namespace
+{
+  //! Two quads meeting at a ridge along x = 5, ten units high.
+  MeshDefinition tent()
+  {
+    MeshDefinition mesh;
+    mesh.meshName = "tent";
+    mesh.nodeX = {0.0, 5.0, 10.0, 0.0, 5.0, 10.0};
+    mesh.nodeY = {0.0, 0.0, 0.0, 10.0, 10.0, 10.0};
+    mesh.nodeZ = {0.0, 10.0, 0.0, 0.0, 10.0, 0.0};
+    mesh.faceNodeOffsets = {0, 4, 8};
+    mesh.faceNodes = {0, 1, 4, 3, 1, 2, 5, 4};
+
+    return mesh;
+  }
+
+  //! Every vertex the surface batch places on the ridge.
+  QVector<SceneVertex> ridgeVertices(const MeshLayer &layer)
+  {
+    QVector<SceneVertex> ridge;
+
+    const QVector<SceneGeometry> batches =
+      layer.sceneSource()->sceneGeometry({});
+
+    for (const SceneGeometry &batch : batches)
+    {
+      for (const SceneVertex &vertex : batch.vertices)
+      {
+        if (qFuzzyCompare(double(vertex.x), 5.0))
+        {
+          ridge.append(vertex);
+        }
+      }
+    }
+
+    return ridge;
+  }
+}
+
+TEST_F(Scene3DTest, ARidgesCornersShareOneAveragedNormalByDefault)
+{
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("tent"), tent(), MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  const QVector<SceneVertex> ridge = ridgeVertices(*layer);
+  ASSERT_EQ(ridge.size(), 4) << "two faces, two ridge corners each";
+
+  for (const SceneVertex &vertex : ridge)
+  {
+    // The west slope leans one way and the east the other; their average at
+    // the ridge stands straight up. A per-face normal here would lean.
+    EXPECT_NEAR(double(vertex.nx), 0.0, 1e-5)
+      << "a ridge corner still carries its face's leaning normal";
+    EXPECT_GT(double(vertex.nz), 0.9);
+  }
+}
+
+TEST_F(Scene3DTest, FlatShadingOptOutRestoresTheFacets)
+{
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("tent"), tent(), MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  layer->setFlatShading(true);
+
+  const QVector<SceneVertex> ridge = ridgeVertices(*layer);
+  ASSERT_EQ(ridge.size(), 4);
+
+  for (const SceneVertex &vertex : ridge)
+  {
+    EXPECT_GT(std::abs(double(vertex.nx)), 0.3)
+      << "flat shading was asked for and the corner is still averaged";
+  }
+}
+
+// A terrain's faces wind however the file wound them; two neighbours wound
+// opposite ways must not cancel to a null normal.
+TEST_F(Scene3DTest, OppositeWindingsDoNotCancelTheAverage)
+{
+  MeshDefinition mesh = tent();
+
+  // Reverse the second face's ring.
+  mesh.faceNodes = {0, 1, 4, 3, 4, 5, 2, 1};
+
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("tent"), mesh, MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  const QVector<SceneVertex> ridge = ridgeVertices(*layer);
+  ASSERT_EQ(ridge.size(), 4);
+
+  for (const SceneVertex &vertex : ridge)
+  {
+    const double length = std::sqrt(double(vertex.nx) * vertex.nx +
+                                    double(vertex.ny) * vertex.ny +
+                                    double(vertex.nz) * vertex.nz);
+    EXPECT_GT(length, 0.5) << "opposite windings cancelled the average";
+    EXPECT_GT(double(vertex.nz), 0.9);
+  }
+}
+
+// ── The default theme (T3) ────────────────────────────────────────────────
+
+TEST_F(Scene3DTest, AMeshWithReliefOffersAndWearsItsElevation)
+{
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("tent"), tent(), MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  // The field is offered to the ramp machinery...
+  bool offered = false;
+
+  for (const AttributeField &field : layer->attributeFields())
+  {
+    offered = offered || field.name == QStringLiteral("elevation");
+  }
+
+  EXPECT_TRUE(offered);
+  EXPECT_NEAR(
+    layer->attributeValue(0, QStringLiteral("elevation")).toDouble(), 5.0,
+    1e-9)
+    << "the west quad's mean node height is (0+10+10+0)/4";
+
+  // ...and a fresh mesh with relief wears it, instead of one flat default
+  // blue -- "terrain not rendered nicely" in its purest form.
+  EXPECT_EQ(layer->style()->mode(), StyleMode::Graduated);
+  EXPECT_EQ(layer->style()->attribute(), QStringLiteral("elevation"));
+}
+
+TEST_F(Scene3DTest, ASheetAtOneHeightIsNotGraduatedOverNothing)
+{
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("flat"), quadAt(7.0), MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  EXPECT_EQ(layer->style()->mode(), StyleMode::Single)
+    << "a zero-span ramp is one class pretending to be seven";
+}

@@ -302,8 +302,49 @@ namespace HydroCouple::Composer
     }
 
     layer->finishLoading();
+    layer->applyDefaultElevationStyle();
 
     return layer;
+  }
+
+  void MeshLayer::applyDefaultElevationStyle()
+  {
+    if (m_entity != MeshEntity::Face || m_mesh.nodeZ.empty())
+    {
+      return;
+    }
+
+    // Only ground with relief: a sheet at one height graduated over a zero
+    // span is one class pretending to be seven.
+    const auto [low, high] =
+      std::minmax_element(m_mesh.nodeZ.begin(), m_mesh.nodeZ.end());
+
+    if (!(*high > *low))
+    {
+      return;
+    }
+
+    // Only a style nobody has touched: the same call runs when Sample
+    // Elevations gives a flat mesh its heights, and stamping the default
+    // over a classification someone built would be vandalism.
+    if (style()->mode() != StyleMode::Single
+        || !style()->attribute().isEmpty())
+    {
+      return;
+    }
+
+    // A DEM used to arrive in StyleMode::Single and render one flat default
+    // blue -- "terrain not rendered nicely" in its purest form. Its ground
+    // is the one attribute it always carries, so that is the default theme;
+    // anyone who wants a plain colour picks Single in the dialog, which is
+    // one click, where finding out why a terrain is blue was not.
+    LayerStyle *layerStyle = style();
+    layerStyle->setMode(StyleMode::Graduated);
+    layerStyle->setAttribute(QStringLiteral("elevation"));
+    layerStyle->classification().setMethod(
+      ClassificationMethod::EqualInterval);
+    layerStyle->classification().setClassCount(7);
+    restyle();
   }
 
   bool MeshLayer::ugridSupported()
@@ -457,6 +498,61 @@ namespace HydroCouple::Composer
     return layer;
   }
 
+  namespace
+  {
+    //! The synthetic field's canonical key, as the style would store it.
+    const QString kElevationField = QStringLiteral("elevation");
+  }
+
+  QVector<AttributeField> MeshLayer::attributeFields() const
+  {
+    QVector<AttributeField> fields = FeatureLayer::attributeFields();
+
+    if (m_entity == MeshEntity::Face && !m_mesh.nodeZ.empty())
+    {
+      AttributeField elevation;
+      elevation.name = kElevationField;
+      elevation.displayName = QObject::tr("Elevation");
+      fields.append(elevation);
+    }
+
+    return fields;
+  }
+
+  QVariant MeshLayer::attributeValue(int feature, const QString &field) const
+  {
+    if (field != kElevationField)
+    {
+      return FeatureLayer::attributeValue(feature, field);
+    }
+
+    if (m_entity != MeshEntity::Face || m_mesh.nodeZ.empty() || feature < 0
+        || feature >= m_entityIndex.size())
+    {
+      return {};
+    }
+
+    // The face's mean node height: one number per feature, which is what a
+    // graduated ramp classifies.
+    const int64_t face = m_entityIndex.at(feature);
+    const int64_t from = m_mesh.faceNodeOffsets[static_cast<size_t>(face)];
+    const int64_t to = m_mesh.faceNodeOffsets[static_cast<size_t>(face) + 1];
+
+    if (to <= from)
+    {
+      return {};
+    }
+
+    double sum = 0.0;
+
+    for (int64_t slot = from; slot < to; ++slot)
+    {
+      sum += nodeElevation(m_mesh.faceNodes[static_cast<size_t>(slot)]);
+    }
+
+    return sum / double(to - from);
+  }
+
   bool MeshLayer::setValues(const QString &name, const QVector<double> &values)
   {
     if (values.size() != featureCount())
@@ -565,6 +661,17 @@ namespace HydroCouple::Composer
     return bounds;
   }
 
+  void MeshLayer::setFlatShading(bool flat)
+  {
+    if (flat == m_flatShading)
+    {
+      return;
+    }
+
+    m_flatShading = flat;
+    notifyAppearanceChanged();
+  }
+
   QVector<SceneGeometry> MeshLayer::surfaceGeometry() const
   {
     QVector<SceneGeometry> batches;
@@ -581,6 +688,110 @@ namespace HydroCouple::Composer
     geometry.primitive = m_entity == MeshEntity::Face
                            ? ScenePrimitive::Triangles
                            : ScenePrimitive::Lines;
+
+    // Newell's method, because a quad whose four nodes carry four different
+    // elevations is not planar and a normal taken from any three of its
+    // corners would depend on which three.
+    const auto newellNormal = [](const QVector<QVector3D> &ring)
+    {
+      QVector3D normal;
+
+      for (int corner = 0; corner < ring.size(); ++corner)
+      {
+        const QVector3D &current = ring[corner];
+        const QVector3D &next = ring[(corner + 1) % ring.size()];
+
+        normal += QVector3D(
+          (current.y() - next.y()) * (current.z() + next.z()),
+          (current.z() - next.z()) * (current.x() + next.x()),
+          (current.x() - next.x()) * (current.y() + next.y()));
+      }
+
+      if (!normal.isNull())
+      {
+        normal.normalize();
+      }
+      else
+      {
+        normal = QVector3D(0.0f, 0.0f, 1.0f);
+      }
+
+      return normal;
+    };
+
+    const auto ringOf = [&](int feature, int64_t from, int corners)
+    {
+      const QPolygonF &part = projected[feature].first();
+
+      QVector<QVector3D> ring;
+      ring.reserve(corners);
+
+      for (int corner = 0; corner < corners; ++corner)
+      {
+        ring.append(QVector3D(
+          float(part[corner].x()), float(part[corner].y()),
+          float(nodeElevation(
+            m_mesh.faceNodes[static_cast<size_t>(from + corner)]))));
+      }
+
+      return ring;
+    };
+
+    // Smooth shading's prepass: each node accumulates the normals of every
+    // face that meets it, each oriented up before it joins the average --
+    // a terrain's faces wind however the file wound them, and two
+    // neighbours wound opposite ways would otherwise cancel to nothing.
+    // Every face contributes, legend-hidden ones included: the ground
+    // exists whether or not a class is drawn, and a hillside must not
+    // change shape because half of it was switched off.
+    QVector<QVector3D> nodeNormals;
+
+    if (m_entity == MeshEntity::Face && !m_flatShading)
+    {
+      nodeNormals.resize(int(m_mesh.nodeCount()));
+
+      for (int feature = 0; feature < projected.size(); ++feature)
+      {
+        if (projected[feature].isEmpty() || feature >= m_entityIndex.size())
+        {
+          continue;
+        }
+
+        const qint64 entity = m_entityIndex[feature];
+        const int64_t from =
+          m_mesh.faceNodeOffsets[static_cast<size_t>(entity)];
+        const int64_t to =
+          m_mesh.faceNodeOffsets[static_cast<size_t>(entity) + 1];
+        const int corners = int(to - from);
+
+        if (corners < 3 || projected[feature].first().size() < corners)
+        {
+          continue;
+        }
+
+        QVector3D normal = newellNormal(ringOf(feature, from, corners));
+
+        if (normal.z() < 0.0f)
+        {
+          normal = -normal;
+        }
+
+        for (int corner = 0; corner < corners; ++corner)
+        {
+          const int64_t node =
+            m_mesh.faceNodes[static_cast<size_t>(from + corner)];
+          nodeNormals[int(node)] += normal;
+        }
+      }
+
+      for (QVector3D &normal : nodeNormals)
+      {
+        if (!normal.isNull())
+        {
+          normal.normalize();
+        }
+      }
+    }
 
     for (int feature = 0; feature < projected.size(); ++feature)
     {
@@ -643,52 +854,34 @@ namespace HydroCouple::Composer
         continue;
       }
 
-      QVector<QVector3D> ring;
-      ring.reserve(corners);
+      const QVector<QVector3D> ring = ringOf(feature, from, corners);
 
-      for (int corner = 0; corner < corners; ++corner)
-      {
-        ring.append(QVector3D(
-          float(part[corner].x()), float(part[corner].y()),
-          float(nodeElevation(
-            m_mesh.faceNodes[static_cast<size_t>(from + corner)]))));
-      }
-
-      // Newell's method, because a quad whose four nodes carry four different
-      // elevations is not planar and a normal taken from any three of its
-      // corners would depend on which three.
-      //
-      // Its direction follows the ring's winding, and is left that way: the
-      // material lights both sides, which it has to anyway for a camera
-      // orbited beneath a surface. Normalising the winding here as well would
-      // leave two mechanisms for one property and neither clearly in charge.
-      QVector3D normal;
-
-      for (int corner = 0; corner < corners; ++corner)
-      {
-        const QVector3D &current = ring[corner];
-        const QVector3D &next = ring[(corner + 1) % corners];
-
-        normal += QVector3D(
-          (current.y() - next.y()) * (current.z() + next.z()),
-          (current.z() - next.z()) * (current.x() + next.x()),
-          (current.x() - next.x()) * (current.y() + next.y()));
-      }
-
-      if (!normal.isNull())
-      {
-        normal.normalize();
-      }
-      else
-      {
-        normal = QVector3D(0.0f, 0.0f, 1.0f);
-      }
+      // The face's own normal: for flat shading it is every corner's, and
+      // for smooth it is the fallback for a corner whose node accumulated
+      // nothing. Its direction follows the ring's winding, and is left that
+      // way: the material lights both sides, which it has to anyway for a
+      // camera orbited beneath a surface.
+      const QVector3D faceNormal = newellNormal(ring);
 
       const quint32 base = quint32(geometry.vertices.size());
 
-      for (const QVector3D &vertex : ring)
+      for (int corner = 0; corner < corners; ++corner)
       {
-        geometry.addVertex(vertex, normal, color);
+        QVector3D normal = faceNormal;
+
+        if (!nodeNormals.isEmpty())
+        {
+          const int64_t node =
+            m_mesh.faceNodes[static_cast<size_t>(from + corner)];
+          const QVector3D &averaged = nodeNormals[int(node)];
+
+          if (!averaged.isNull())
+          {
+            normal = averaged;
+          }
+        }
+
+        geometry.addVertex(ring[corner], normal, color);
       }
 
       for (int corner = 1; corner + 1 < corners; ++corner)

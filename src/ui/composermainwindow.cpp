@@ -1634,6 +1634,11 @@ namespace HydroCouple::Composer
       return;
     }
 
+    // A mesh that just became a surface wears its own ground, unless its
+    // style has been touched -- the same default a fresh DEM mesh gets, and
+    // the guard against overwriting someone's classification lives inside.
+    mesh->applyDefaultElevationStyle();
+
     // The count of misses is the part worth reading. A mesh usually reaches
     // a little past the ground that was fetched, and a survey usually has
     // holes in it, so "all of them" is the unusual answer rather than the

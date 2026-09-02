@@ -578,3 +578,32 @@ TEST_F(LayerPropertiesTest, TheTerrainCheckboxAppearsWhereHeightsCouldComeFrom)
   EXPECT_FALSE(layer->terrainEnabled())
     << "the dialog's consent checkbox did not reach the layer";
 }
+
+// Flat shading is the mesh's opt-out (coherence plan T3).
+TEST_F(LayerPropertiesTest, TheFlatShadingCheckboxReachesTheMesh)
+{
+  MeshDefinition mesh;
+  mesh.meshName = "surface";
+  mesh.nodeX = {0.0, 10.0, 10.0, 0.0};
+  mesh.nodeY = {0.0, 0.0, 10.0, 10.0};
+  mesh.nodeZ = {0.0, 0.0, 5.0, 5.0};
+  mesh.faceNodeOffsets = {0, 3, 6};
+  mesh.faceNodes = {0, 1, 2, 0, 2, 3};
+
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("surface"), mesh, MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  LayerPropertiesDialog dialog(layer.get());
+
+  auto *flat = dialog.findChild<QCheckBox *>(
+    QStringLiteral("sceneFlatShadingCheck"));
+  ASSERT_NE(flat, nullptr);
+  EXPECT_FALSE(flat->isChecked()) << "smooth is the default";
+
+  flat->setChecked(true);
+  ASSERT_TRUE(dialog.apply());
+
+  EXPECT_TRUE(layer->flatShading());
+}

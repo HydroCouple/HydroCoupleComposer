@@ -14,6 +14,7 @@
 
 #include "gis/spatialreference.h"
 #include "layers/meshlayer.h"
+#include "render/layerstyle.h"
 #include "layers/wcscoveragelayer.h"
 #include "mesh/terrainsampler.h"
 
@@ -442,4 +443,55 @@ TEST(TerrainSampler, aMeshThatGainedElevationsSaysSoSoTheMapRedraws)
   // Without this the elevations are there and nothing on screen shows it
   // until some unrelated thing happens to force a repaint.
   EXPECT_EQ(repainted.count(), 1);
+}
+
+// A mesh that just became a surface wears its own ground (T3): the sampling
+// action applies the same elevation theme a fresh DEM mesh gets -- unless
+// someone already built a style, which must not be stamped over.
+TEST(TerrainSampler, aMeshThatGainedElevationsWearsItsGround)
+{
+  MeshDefinition definition;
+  definition.nodeX = {0.0, 10.0, 10.0, 0.0};
+  definition.nodeY = {0.0, 0.0, 10.0, 10.0};
+  definition.faceNodeOffsets = {0, 3, 6};
+  definition.faceNodes = {0, 1, 2, 0, 2, 3};
+
+  QString message;
+  std::unique_ptr<MeshLayer> mesh = MeshLayer::create(
+    QStringLiteral("mesh"), definition, MeshEntity::Face, message);
+  ASSERT_NE(mesh, nullptr) << message.toStdString();
+
+  ASSERT_EQ(mesh->style()->mode(), StyleMode::Single)
+    << "the fixture stopped being flat-and-unthemed";
+
+  ASSERT_TRUE(mesh->setNodeElevations({0.0, 1.0, 2.0, 3.0}));
+  mesh->applyDefaultElevationStyle();
+
+  EXPECT_EQ(mesh->style()->mode(), StyleMode::Graduated);
+  EXPECT_EQ(mesh->style()->attribute(), QStringLiteral("elevation"));
+}
+
+TEST(TerrainSampler, theDefaultThemeNeverStampsOverAChosenStyle)
+{
+  MeshDefinition definition;
+  definition.nodeX = {0.0, 10.0, 10.0, 0.0};
+  definition.nodeY = {0.0, 0.0, 10.0, 10.0};
+  definition.faceNodeOffsets = {0, 3, 6};
+  definition.faceNodes = {0, 1, 2, 0, 2, 3};
+
+  QString message;
+  std::unique_ptr<MeshLayer> mesh = MeshLayer::create(
+    QStringLiteral("mesh"), definition, MeshEntity::Face, message);
+  ASSERT_NE(mesh, nullptr) << message.toStdString();
+
+  // Someone classified the mesh by their own field first.
+  mesh->style()->setMode(StyleMode::Categorized);
+  mesh->style()->setAttribute(QStringLiteral("landuse"));
+
+  ASSERT_TRUE(mesh->setNodeElevations({0.0, 1.0, 2.0, 3.0}));
+  mesh->applyDefaultElevationStyle();
+
+  EXPECT_EQ(mesh->style()->mode(), StyleMode::Categorized)
+    << "the default stamped over a classification someone built";
+  EXPECT_EQ(mesh->style()->attribute(), QStringLiteral("landuse"));
 }

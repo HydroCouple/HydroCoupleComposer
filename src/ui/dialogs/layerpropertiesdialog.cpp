@@ -1,6 +1,7 @@
 #include "ui/dialogs/layerpropertiesdialog.h"
 
 #include "gis/spatialreference.h"
+#include "layers/meshlayer.h"
 #include "map/maplayer.h"
 #include "ui/dialogs/crsselectiondialog.h"
 #include "render/attributeprovider.h"
@@ -532,6 +533,19 @@ namespace HydroCouple::Composer
     m_shownIn3dCheck->setObjectName(QStringLiteral("sceneShownIn3dCheck"));
     form->addRow(m_shownIn3dCheck);
 
+    // Only a mesh shades its faces; everything else drapes a texture.
+    if (auto *mesh = dynamic_cast<MeshLayer *>(m_layer))
+    {
+      Q_UNUSED(mesh);
+      m_flatShadingCheck = new QCheckBox(tr("Flat shading"), page);
+      m_flatShadingCheck->setObjectName(
+        QStringLiteral("sceneFlatShadingCheck"));
+      m_flatShadingCheck->setToolTip(
+        tr("Shades each face on its own instead of smoothing across "
+           "corners, which makes the mesh's facets legible."));
+      form->addRow(m_flatShadingCheck);
+    }
+
     // Only where heights could come from: consent to the terrain election
     // is meaningless for a source that cannot serve any.
     if (scene->terrain())
@@ -633,6 +647,12 @@ namespace HydroCouple::Composer
         scene && m_terrainEnabledCheck)
     {
       m_terrainEnabledCheck->setChecked(scene->terrainEnabled());
+    }
+
+    if (const auto *mesh = dynamic_cast<const MeshLayer *>(m_layer);
+        mesh && m_flatShadingCheck)
+    {
+      m_flatShadingCheck->setChecked(mesh->flatShading());
     }
 
     if (const ISceneSource *scene = sceneSource(); scene && m_drapeCombo)
@@ -765,6 +785,12 @@ namespace HydroCouple::Composer
     if (ISceneSource *scene = sceneSource(); scene && m_terrainEnabledCheck)
     {
       scene->setTerrainEnabled(m_terrainEnabledCheck->isChecked());
+    }
+
+    if (auto *mesh = dynamic_cast<MeshLayer *>(m_layer);
+        mesh && m_flatShadingCheck)
+    {
+      mesh->setFlatShading(m_flatShadingCheck->isChecked());
     }
 
     if (ISceneSource *scene = sceneSource(); scene && m_drapeCombo)
