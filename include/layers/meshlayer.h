@@ -357,6 +357,19 @@ namespace HydroCouple::Composer
        */
       [[nodiscard]] const ITerrainSource *terrain() const override;
 
+      /*!
+       * \brief A mesh does not extrude.
+       *
+       * FeatureLayer answers true for its networks, and this class inherited
+       * that answer while its geometry ignored the setting entirely -- so
+       * the properties dialog offered "Extruded above the terrain" and an
+       * extrusion height that did nothing. A surface is already a surface.
+       */
+      [[nodiscard]] bool supportsExtrusion() const override
+      {
+        return false;
+      }
+
       // ── ITerrainSource ───────────────────────────────────────────────────
 
       /*!

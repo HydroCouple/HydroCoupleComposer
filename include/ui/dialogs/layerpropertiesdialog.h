@@ -89,6 +89,15 @@ namespace HydroCouple::Composer
       //! \returns The Rendering page — visibility and opacity.
       QWidget *buildRenderingTab();
 
+      /*!
+       * \brief The tab holding everything that only the scene reads.
+       *
+       * Never null: a layer with no 3D form gets the explanation instead of
+       * silently missing controls -- the user checked "Draw this layer",
+       * saw nothing in 3D, and deserved to be told why.
+       */
+      QWidget *buildSceneTab();
+
       //! \returns The Metadata page, or nullptr when there is nothing to show.
       QWidget *buildMetadataTab();
 
@@ -134,6 +143,7 @@ namespace HydroCouple::Composer
       QCheckBox *m_visibleCheck = nullptr;
       QSpinBox *m_opacitySpin = nullptr;
       QComboBox *m_drapeCombo = nullptr;
+      QCheckBox *m_shownIn3dCheck = nullptr;
       QDoubleSpinBox *m_extrusionSpin = nullptr;
 
       QComboBox *m_modeCombo = nullptr;

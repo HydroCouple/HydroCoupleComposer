@@ -170,8 +170,12 @@ namespace HydroCouple::Composer
       {buildInformationTab(), tr("Information")},
       {buildSourceTab(), tr("Source")},
       {buildSymbologyTab(), tr("Symbology")},
-      {buildLabelsTab(), tr("Labels")},
+
+      // "(2D)" in the title, because labels are drawn only on the map and
+      // nothing else in this dialog says which view a tab speaks for.
+      {buildLabelsTab(), tr("Labels (2D)")},
       {buildRenderingTab(), tr("Rendering")},
+      {buildSceneTab(), tr("3D")},
       {buildMetadataTab(), tr("Metadata")},
     };
 
@@ -440,7 +444,9 @@ namespace HydroCouple::Composer
     m_sizeSpin->setObjectName(QStringLiteral("styleSizeSpin"));
     m_sizeSpin->setRange(0.5, 64.0);
     m_sizeSpin->setSuffix(tr(" px"));
-    form->addRow(tr("Symbol size"), m_sizeSpin);
+    // "(2D)": the scene has no point or line width, so this is the one
+    // symbology setting that stops at the map.
+    form->addRow(tr("Symbol size (2D)"), m_sizeSpin);
 
     connect(m_modeCombo, &QComboBox::currentIndexChanged, this,
             [this](int) { updateEnabledState(); });
@@ -493,15 +499,38 @@ namespace HydroCouple::Composer
     m_opacitySpin->setSuffix(tr(" %"));
     form->addRow(tr("Opacity"), m_opacitySpin);
 
+    return page;
+  }
+
+  QWidget *LayerPropertiesDialog::buildSceneTab()
+  {
+    auto *page = new QWidget(this);
+    page->setObjectName(QStringLiteral("sceneTab"));
+
+    auto *form = new QFormLayout(page);
+
     ISceneSource *scene = sceneSource();
 
-    // Only for a layer that is actually in the 3D scene: a point layer and a
-    // layer with no geometry have nothing to place against a terrain, and a
-    // drape control on them would be a setting with no effect.
+    // The tab exists either way. A point layer's user checked "Draw this
+    // layer", saw nothing in 3D, and was told nothing; an absent tab is the
+    // same silence with better manners. The explanation is the control.
     if (!scene)
     {
+      auto *why = new QLabel(
+        tr("This layer has no 3D form. The map draws it, but there is "
+           "nothing the scene could place against the terrain — point "
+           "layers, for instance, are not drawn in 3D yet."),
+        page);
+      why->setObjectName(QStringLiteral("sceneAbsenceLabel"));
+      why->setWordWrap(true);
+      form->addRow(why);
+
       return page;
     }
+
+    m_shownIn3dCheck = new QCheckBox(tr("Show this layer in 3D"), page);
+    m_shownIn3dCheck->setObjectName(QStringLiteral("sceneShownIn3dCheck"));
+    form->addRow(m_shownIn3dCheck);
 
     m_drapeCombo = new QComboBox(page);
     m_drapeCombo->setObjectName(QStringLiteral("renderingDrapeCombo"));
@@ -580,6 +609,11 @@ namespace HydroCouple::Composer
     m_nameEdit->setText(m_layer->name());
     m_visibleCheck->setChecked(m_layer->isVisible());
     m_opacitySpin->setValue(qRound(m_layer->opacity() * 100.0));
+
+    if (m_shownIn3dCheck)
+    {
+      m_shownIn3dCheck->setChecked(m_layer->isShownIn3D());
+    }
 
     if (const ISceneSource *scene = sceneSource(); scene && m_drapeCombo)
     {
@@ -702,6 +736,11 @@ namespace HydroCouple::Composer
     m_layer->setName(m_nameEdit->text());
     m_layer->setVisible(m_visibleCheck->isChecked());
     m_layer->setOpacity(m_opacitySpin->value() / 100.0);
+
+    if (m_shownIn3dCheck)
+    {
+      m_layer->setShownIn3D(m_shownIn3dCheck->isChecked());
+    }
 
     if (ISceneSource *scene = sceneSource(); scene && m_drapeCombo)
     {

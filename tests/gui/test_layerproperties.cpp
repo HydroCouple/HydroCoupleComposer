@@ -17,11 +17,13 @@
 #include "probelayer.h"
 #include "render/layerstyle.h"
 #include "ui/dialogs/layerpropertiesdialog.h"
+#include "layers/meshlayer.h"
 
 #include <gtest/gtest.h>
 
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QLabel>
 #include <QLineEdit>
 #include <QSignalSpy>
@@ -29,6 +31,7 @@
 #include <QTabWidget>
 
 using namespace HydroCouple::Composer;
+using HydroCouple::SDK::IO::MeshDefinition;
 namespace Testing = HydroCouple::Composer::Testing;
 
 namespace
@@ -149,8 +152,17 @@ TEST_F(LayerPropertiesTest, OpensForEveryLayerAndOmitsTheTabsItCannotFill)
   auto *tabs =
     plainDialog.findChild<QTabWidget *>(QStringLiteral("layerPropertiesTabs"));
   ASSERT_NE(tabs, nullptr);
-  EXPECT_EQ(tabs->count(), 3)
+
+  // Four now, not three: the 3D tab is deliberately present for every layer
+  // -- for one with no 3D form it holds the explanation, because an absent
+  // tab is the old silence with better manners (V9).
+  EXPECT_EQ(tabs->count(), 4)
     << "a tab was added for a page the layer cannot fill";
+  EXPECT_NE(plainDialog.findChild<QWidget *>(QStringLiteral("sceneTab")),
+            nullptr);
+  EXPECT_NE(plainDialog.findChild<QLabel *>(
+              QStringLiteral("sceneAbsenceLabel")),
+            nullptr);
 }
 
 TEST_F(LayerPropertiesTest, ListsTheLayersOwnAttributesWithUnits)
@@ -431,4 +443,107 @@ TEST_F(LayerPropertiesTest, MetadataAppearsOnlyForALayerThatCreditsSomeone)
   EXPECT_EQ(plainDialog.findChild<QWidget *>(QStringLiteral("metadataTab")),
             nullptr)
     << "an empty Metadata tab on a layer that credits nobody";
+}
+
+// ── The 3D tab (coherence plan V9) ────────────────────────────────────────
+
+// A point layer's user checked "Draw this layer", saw nothing in 3D, and
+// was told nothing. The tab now exists for every layer, and for one with no
+// 3D form the explanation IS the control.
+TEST_F(LayerPropertiesTest, APointLayers3dTabExplainsTheAbsence)
+{
+  const std::unique_ptr<Testing::ProbeFeatureLayer> layer = makeLayer();
+  ASSERT_EQ(layer->sceneSource(), nullptr)
+    << "the fixture stopped being the case under test";
+
+  LayerPropertiesDialog dialog(layer.get());
+
+  auto *why =
+    dialog.findChild<QLabel *>(QStringLiteral("sceneAbsenceLabel"));
+  ASSERT_NE(why, nullptr);
+  EXPECT_TRUE(why->text().contains(QStringLiteral("point layers")))
+    << why->text().toStdString();
+
+  // And no dead controls beside the explanation.
+  EXPECT_EQ(dialog.findChild<QComboBox *>(
+              QStringLiteral("renderingDrapeCombo")),
+            nullptr);
+}
+
+TEST_F(LayerPropertiesTest, SceneControlsLiveOnTheDedicated3dTabAndApply)
+{
+  MeshDefinition mesh;
+  mesh.meshName = "surface";
+  mesh.nodeX = {0.0, 10.0, 10.0, 0.0};
+  mesh.nodeY = {0.0, 0.0, 10.0, 10.0};
+  mesh.nodeZ = {0.0, 0.0, 5.0, 5.0};
+  mesh.faceNodeOffsets = {0, 3, 6};
+  mesh.faceNodes = {0, 1, 2, 0, 2, 3};
+
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("surface"), mesh, MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  LayerPropertiesDialog dialog(layer.get());
+
+  // The controls live on the 3D tab, and the Rendering tab keeps only what
+  // both views read.
+  auto *sceneTab = dialog.findChild<QWidget *>(QStringLiteral("sceneTab"));
+  ASSERT_NE(sceneTab, nullptr);
+
+  auto *drape =
+    dialog.findChild<QComboBox *>(QStringLiteral("renderingDrapeCombo"));
+  ASSERT_NE(drape, nullptr);
+  EXPECT_TRUE(sceneTab->isAncestorOf(drape))
+    << "the drape control is still on the Rendering tab";
+
+  auto *shown =
+    dialog.findChild<QCheckBox *>(QStringLiteral("sceneShownIn3dCheck"));
+  ASSERT_NE(shown, nullptr);
+  ASSERT_TRUE(shown->isChecked());
+
+  shown->setChecked(false);
+  ASSERT_TRUE(dialog.apply());
+
+  EXPECT_FALSE(layer->isShownIn3D())
+    << "the dialog's 3D toggle did not reach the layer";
+  EXPECT_TRUE(layer->isVisible());
+}
+
+// The mesh inherited supportsExtrusion() = true from FeatureLayer and
+// ignored the setting entirely, so the dialog offered "Extruded above the
+// terrain" and a height spin that did nothing.
+TEST_F(LayerPropertiesTest, AMeshIsNotOfferedTheExtrusionItWouldIgnore)
+{
+  MeshDefinition mesh;
+  mesh.meshName = "surface";
+  mesh.nodeX = {0.0, 10.0, 10.0, 0.0};
+  mesh.nodeY = {0.0, 0.0, 10.0, 10.0};
+  mesh.nodeZ = {0.0, 0.0, 5.0, 5.0};
+  mesh.faceNodeOffsets = {0, 3, 6};
+  mesh.faceNodes = {0, 1, 2, 0, 2, 3};
+
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("surface"), mesh, MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  EXPECT_FALSE(layer->supportsExtrusion());
+
+  LayerPropertiesDialog dialog(layer.get());
+
+  auto *drape =
+    dialog.findChild<QComboBox *>(QStringLiteral("renderingDrapeCombo"));
+  ASSERT_NE(drape, nullptr);
+
+  for (int i = 0; i < drape->count(); ++i)
+  {
+    EXPECT_FALSE(drape->itemText(i).contains(QStringLiteral("Extruded")))
+      << "the combo offers a placement the mesh ignores";
+  }
+
+  EXPECT_EQ(dialog.findChild<QDoubleSpinBox *>(
+              QStringLiteral("renderingExtrusionSpin")),
+            nullptr);
 }
