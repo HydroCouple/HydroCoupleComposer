@@ -116,19 +116,100 @@ namespace HydroCouple::Composer
 
     if (terrain)
     {
+      std::vector<char> answered(heights.size(), 0);
+
       for (int row = 0; row < up; ++row)
       {
         for (int column = 0; column < across; ++column)
         {
-          const QPointF sample(box.left() + spacingX * double(column),
-                               box.top() + spacingY * double(row));
+          const size_t at = size_t(row) * size_t(across) + size_t(column);
+          answered[at] = terrain->elevationAt(
+            QPointF(box.left() + spacingX * double(column),
+                    box.top() + spacingY * double(row)),
+            heights[at]);
+        }
+      }
 
-          // A point the terrain does not answer for stays at zero rather than
-          // borrowing a neighbour's height: a basemap runs well past every
-          // terrain it is shown with, and dragging its far corners up to the
-          // elevation of the last cell would tilt the whole world.
-          (void)terrain->elevationAt(
-            sample, heights[size_t(row) * size_t(across) + size_t(column)]);
+      // A point the terrain declines takes the nearest answered height in
+      // its row -- the same hold-last-good the draped vector path applies,
+      // and the two have to agree: a conduit held level at the survey's
+      // edge was running above a basemap diving to zero beneath it. This
+      // used to leave declined points AT zero, which for terrain standing
+      // at any real elevation turned a basemap's margins into a funnel.
+      std::vector<char> rowAnswered(size_t(up), 0);
+
+      for (int row = 0; row < up; ++row)
+      {
+        const size_t start = size_t(row) * size_t(across);
+
+        bool holding = false;
+        double held = 0.0;
+
+        for (int column = 0; column < across; ++column)
+        {
+          if (answered[start + size_t(column)])
+          {
+            held = heights[start + size_t(column)];
+            holding = true;
+            rowAnswered[size_t(row)] = 1;
+          }
+          else if (holding)
+          {
+            heights[start + size_t(column)] = held;
+          }
+        }
+
+        // The leading run takes the first height the row does answer.
+        holding = false;
+
+        for (int column = across - 1; column >= 0; --column)
+        {
+          if (answered[start + size_t(column)])
+          {
+            held = heights[start + size_t(column)];
+            holding = true;
+          }
+          else if (holding)
+          {
+            heights[start + size_t(column)] = held;
+          }
+        }
+      }
+
+      // A row the terrain never answered copies its nearest answered row,
+      // so the plane's corners beyond the survey stay level with its edge
+      // rather than dropping to zero. Nothing answered at all leaves the
+      // plane flat at zero, which is the no-terrain plane it always was.
+      int nearest = -1;
+
+      for (int row = 0; row < up; ++row)
+      {
+        if (rowAnswered[size_t(row)])
+        {
+          nearest = row;
+          continue;
+        }
+
+        int below = -1;
+
+        for (int candidate = row + 1; candidate < up; ++candidate)
+        {
+          if (rowAnswered[size_t(candidate)])
+          {
+            below = candidate;
+            break;
+          }
+        }
+
+        const int source =
+          below < 0 ? nearest
+          : nearest < 0 ? below
+          : (row - nearest <= below - row ? nearest : below);
+
+        if (source >= 0)
+        {
+          std::copy_n(heights.begin() + long(source) * across, across,
+                      heights.begin() + long(row) * across);
         }
       }
     }

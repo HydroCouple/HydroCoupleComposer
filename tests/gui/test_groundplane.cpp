@@ -1037,3 +1037,94 @@ TEST_F(GroundPlaneTest, AColourImageIsAPictureOfTheGroundNotTheGround)
   EXPECT_EQ(photo->terrain(), nullptr)
     << "three bands of reflectance were offered as heights";
 }
+
+// ── Beyond the survey's edge (coherence plan T4) ──────────────────────────
+//
+// A basemap runs well past every terrain it is shown with, and points the
+// terrain declined used to stay at zero -- for ground standing at any real
+// elevation that turned the margins into a funnel diving to sea level,
+// while the draped vector path beside it held a conduit level off the same
+// edge. The two now agree: declined samples take the nearest answered
+// height.
+
+TEST_F(GroundPlaneTest, BeyondTheTerrainThePlaneHoldsTheEdgeHeight)
+{
+  // A flat patch at 30 in the plane's north-centre, so the margins need all
+  // three fills: columns west of it (the leading run), columns east of it
+  // (the trailing run), and whole southern rows the survey never answers.
+  MeshDefinition patch;
+  patch.meshName = "patch";
+  patch.nodeX = {-2.0, 2.0, 2.0, -2.0};
+  patch.nodeY = {0.5, 0.5, 4.0, 4.0};
+  patch.nodeZ = {30.0, 30.0, 30.0, 30.0};
+  patch.faceNodeOffsets = {0, 3, 6};
+  patch.faceNodes = {0, 1, 2, 0, 2, 3};
+
+  const std::unique_ptr<MeshLayer> terrain = terrainLayer(patch);
+  ASSERT_TRUE(terrain);
+  ASSERT_NE(terrain->terrain(), nullptr);
+
+  GroundImage ground;
+  ground.image = QImage(4, 4, QImage::Format_ARGB32);
+  ground.image.fill(Qt::white);
+  ground.extent = rasterExtent();
+
+  const SceneGeometry geometry =
+    buildGroundPlane(ground, terrain->terrain());
+
+  ASSERT_FALSE(geometry.vertices.isEmpty());
+
+  int west = 0;
+  int east = 0;
+  int south = 0;
+
+  for (const SceneVertex &vertex : geometry.vertices)
+  {
+    // Every vertex holds the survey's one height: level with its edge in
+    // every direction, never diving to zero.
+    EXPECT_NEAR(double(vertex.z), 30.0, 1.0e-3)
+      << "at (" << vertex.x << ", " << vertex.y << ")";
+
+    west += vertex.x < -4.0f ? 1 : 0;
+    east += vertex.x > 4.0f ? 1 : 0;
+    south += vertex.y < -2.0f ? 1 : 0;
+  }
+
+  EXPECT_GT(west, 0) << "no leading run to fill";
+  EXPECT_GT(east, 0) << "no trailing run to fill";
+  EXPECT_GT(south, 0) << "no unanswered rows to fill";
+}
+
+TEST_F(GroundPlaneTest, AWorldWithNoAnswersAtAllStaysTheFlatZeroPlane)
+{
+  // A terrain source that declines everything: the plane must stay what it
+  // was without terrain -- flat at zero -- not chase heights that do not
+  // exist.
+  class Mute : public ITerrainSource
+  {
+    public:
+      bool elevationAt(const QPointF &, double &) const override
+      {
+        return false;
+      }
+
+      QRectF terrainExtent() const override
+      {
+        return QRectF(-8.0, -4.0, 16.0, 8.0);
+      }
+
+      double terrainResolution() const override { return 1.0; }
+  } mute;
+
+  GroundImage ground;
+  ground.image = QImage(4, 4, QImage::Format_ARGB32);
+  ground.image.fill(Qt::white);
+  ground.extent = rasterExtent();
+
+  const SceneGeometry geometry = buildGroundPlane(ground, &mute);
+
+  for (const SceneVertex &vertex : geometry.vertices)
+  {
+    EXPECT_FLOAT_EQ(vertex.z, 0.0f);
+  }
+}
