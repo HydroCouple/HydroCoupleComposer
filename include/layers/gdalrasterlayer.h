@@ -83,6 +83,29 @@ namespace HydroCouple::Composer
       void setRamp(const ColorRamp &ramp);
 
       /*!
+       * \brief The builtin preset the ramp came from, e.g. "Viridis".
+       *
+       * Kept beside the ramp because a ColorRamp cannot name itself, and
+       * both the dialog's combo and a saved composition need the name, not
+       * the stops.
+       */
+      [[nodiscard]] QString rampName() const;
+
+      //! Adopts a builtin preset by name; unknown names give Viridis.
+      void setRampName(const QString &name);
+
+      /*!
+       * \brief Sets the value range the ramp is stretched over.
+       *
+       * The computed band range is only a default: a depth raster whose
+       * outliers flatten everything else is re-stretched here.
+       *
+       * \param minimum Low end of the stretch.
+       * \param maximum High end; ignored unless above the minimum.
+       */
+      void setValueRange(double minimum, double maximum);
+
+      /*!
        * \brief The value range a single-band raster is shaded across.
        * \param[out] minimum Lowest value.
        * \param[out] maximum Highest value.
@@ -262,6 +285,7 @@ namespace HydroCouple::Composer
       double m_maximum = 1.0;
 
       ColorRamp m_ramp;
+      QString m_rampName = QStringLiteral("Viridis");
       QImage m_lastImage;
 
       //! The scene's texture. Mutable because it is a cache: a const caller

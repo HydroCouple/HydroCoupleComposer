@@ -223,6 +223,32 @@ namespace HydroCouple::Composer
     notifyAppearanceChanged();
   }
 
+  QString GdalRasterLayer::rampName() const
+  {
+    return m_rampName;
+  }
+
+  void GdalRasterLayer::setRampName(const QString &name)
+  {
+    m_rampName = name;
+    setRamp(ColorRamp::builtin(name));
+  }
+
+  void GdalRasterLayer::setValueRange(double minimum, double maximum)
+  {
+    if (!(maximum > minimum)
+        || (qFuzzyCompare(minimum, m_minimum)
+            && qFuzzyCompare(maximum, m_maximum)))
+    {
+      return;
+    }
+
+    m_minimum = minimum;
+    m_maximum = maximum;
+    m_groundValid = false;
+    notifyAppearanceChanged();
+  }
+
   void GdalRasterLayer::valueRange(double &minimum, double &maximum) const
   {
     minimum = m_minimum;

@@ -1,6 +1,7 @@
 #include "ui/dialogs/layerpropertiesdialog.h"
 
 #include "gis/spatialreference.h"
+#include "layers/gdalrasterlayer.h"
 #include "layers/meshlayer.h"
 #include "map/maplayer.h"
 #include "ui/dialogs/crsselectiondialog.h"
@@ -367,6 +368,45 @@ namespace HydroCouple::Composer
 
   QWidget *LayerPropertiesDialog::buildSymbologyTab()
   {
+    // A shaded raster has symbology too -- a ramp and the range it is
+    // stretched over -- it just is not a LayerStyle. setRamp() sat on the
+    // layer with no UI caller at all, which is why every raster wore
+    // Viridis for life.
+    if (auto *raster = dynamic_cast<GdalRasterLayer *>(m_layer);
+        raster && !raster->isColorImage())
+    {
+      auto *page = new QWidget(this);
+      page->setObjectName(QStringLiteral("symbologyTab"));
+
+      auto *form = new QFormLayout(page);
+
+      m_rasterRampCombo = new QComboBox(page);
+      m_rasterRampCombo->setObjectName(QStringLiteral("rasterRampCombo"));
+
+      for (const QString &name : ColorRamp::builtinNames())
+      {
+        m_rasterRampCombo->addItem(name);
+      }
+
+      form->addRow(tr("Color ramp"), m_rasterRampCombo);
+
+      m_rasterMinimumSpin = new QDoubleSpinBox(page);
+      m_rasterMinimumSpin->setObjectName(
+        QStringLiteral("rasterMinimumSpin"));
+      m_rasterMinimumSpin->setRange(-1.0e9, 1.0e9);
+      m_rasterMinimumSpin->setDecimals(3);
+      form->addRow(tr("Stretch from"), m_rasterMinimumSpin);
+
+      m_rasterMaximumSpin = new QDoubleSpinBox(page);
+      m_rasterMaximumSpin->setObjectName(
+        QStringLiteral("rasterMaximumSpin"));
+      m_rasterMaximumSpin->setRange(-1.0e9, 1.0e9);
+      m_rasterMaximumSpin->setDecimals(3);
+      form->addRow(tr("Stretch to"), m_rasterMaximumSpin);
+
+      return page;
+    }
+
     if (!hasStyle())
     {
       return nullptr;
@@ -655,6 +695,18 @@ namespace HydroCouple::Composer
       m_flatShadingCheck->setChecked(mesh->flatShading());
     }
 
+    if (const auto *raster = dynamic_cast<const GdalRasterLayer *>(m_layer);
+        raster && m_rasterRampCombo)
+    {
+      m_rasterRampCombo->setCurrentText(raster->rampName());
+
+      double minimum = 0.0;
+      double maximum = 1.0;
+      raster->valueRange(minimum, maximum);
+      m_rasterMinimumSpin->setValue(minimum);
+      m_rasterMaximumSpin->setValue(maximum);
+    }
+
     if (const ISceneSource *scene = sceneSource(); scene && m_drapeCombo)
     {
       const int index =
@@ -791,6 +843,14 @@ namespace HydroCouple::Composer
         mesh && m_flatShadingCheck)
     {
       mesh->setFlatShading(m_flatShadingCheck->isChecked());
+    }
+
+    if (auto *raster = dynamic_cast<GdalRasterLayer *>(m_layer);
+        raster && m_rasterRampCombo)
+    {
+      raster->setRampName(m_rasterRampCombo->currentText());
+      raster->setValueRange(m_rasterMinimumSpin->value(),
+                            m_rasterMaximumSpin->value());
     }
 
     if (ISceneSource *scene = sceneSource(); scene && m_drapeCombo)

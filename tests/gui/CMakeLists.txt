@@ -46,6 +46,8 @@ target_compile_definitions(test_runbrowser PRIVATE
     COMPOSER_SDK_REOPEN_MANIFEST="${COMPOSER_SDK_REOPEN_MANIFEST}")
 composer_add_gui_test(test_mapstatusbar)
 composer_add_gui_test(test_layerproperties)
+target_compile_definitions(test_layerproperties PRIVATE
+    COMPOSER_GIS_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/gis")
 
 # C1d — basemaps and GDAL import. The tile-grid suite is arithmetic; the
 # layer suites read real datasets. The raster fixture is generated at test

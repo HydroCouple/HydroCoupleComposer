@@ -18,11 +18,14 @@
 #include "render/layerstyle.h"
 #include "ui/dialogs/layerpropertiesdialog.h"
 #include "layers/meshlayer.h"
+#include "layers/gdalrasterlayer.h"
 
 #include <gtest/gtest.h>
+#include <gdal_priv.h>
 
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDir>
 #include <QDoubleSpinBox>
 #include <QLabel>
 #include <QLineEdit>
@@ -606,4 +609,180 @@ TEST_F(LayerPropertiesTest, TheFlatShadingCheckboxReachesTheMesh)
   ASSERT_TRUE(dialog.apply());
 
   EXPECT_TRUE(layer->flatShading());
+}
+
+// ── Raster symbology (coherence plan T5) ──────────────────────────────────
+//
+// setRamp() sat on the layer with no UI caller at all, which is why every
+// raster wore Viridis for life.
+
+namespace
+{
+  QString writeSingleBandRaster(const QString &name)
+  {
+    const QString path =
+      QDir(QStringLiteral(COMPOSER_GIS_FIXTURE_DIR)).filePath(name);
+
+    GDALAllRegister();
+    GDALDriver *driver = GetGDALDriverManager()->GetDriverByName("GTiff");
+
+    if (!driver)
+    {
+      return QString();
+    }
+
+    GDALDataset *dataset = driver->Create(path.toUtf8().constData(), 8, 8, 1,
+                                          GDT_Float32, nullptr);
+
+    if (!dataset)
+    {
+      return QString();
+    }
+
+    double geotransform[6] = {0.0, 1.0, 0.0, 8.0, 0.0, -1.0};
+    dataset->SetGeoTransform(geotransform);
+
+    std::vector<float> values(64);
+
+    for (int i = 0; i < 64; ++i)
+    {
+      values[size_t(i)] = float(i);
+    }
+
+    dataset->GetRasterBand(1)->RasterIO(GF_Write, 0, 0, 8, 8, values.data(),
+                                        8, 8, GDT_Float32, 0, 0);
+    GDALClose(dataset);
+
+    return path;
+  }
+}
+
+TEST_F(LayerPropertiesTest, ARasterGetsARampAndAStretchNotSilence)
+{
+  const QString path =
+    writeSingleBandRaster(QStringLiteral("generated-props-band.tif"));
+  ASSERT_FALSE(path.isEmpty());
+
+  QString message;
+  std::unique_ptr<GdalRasterLayer> raster =
+    GdalRasterLayer::open(path, message);
+  ASSERT_TRUE(raster) << message.toStdString();
+
+  LayerPropertiesDialog dialog(raster.get());
+
+  auto *ramp =
+    dialog.findChild<QComboBox *>(QStringLiteral("rasterRampCombo"));
+  auto *minimum =
+    dialog.findChild<QDoubleSpinBox *>(QStringLiteral("rasterMinimumSpin"));
+  auto *maximum =
+    dialog.findChild<QDoubleSpinBox *>(QStringLiteral("rasterMaximumSpin"));
+
+  ASSERT_NE(ramp, nullptr) << "a raster still has no symbology at all";
+  ASSERT_NE(minimum, nullptr);
+  ASSERT_NE(maximum, nullptr);
+
+  // Loaded from the layer, not defaults.
+  EXPECT_EQ(ramp->currentText(), raster->rampName());
+  EXPECT_NEAR(minimum->value(), 0.0, 1e-6);
+  EXPECT_NEAR(maximum->value(), 63.0, 1e-6);
+}
+
+TEST_F(LayerPropertiesTest, ApplyingRampAndStretchReachesTheRaster)
+{
+  const QString path =
+    writeSingleBandRaster(QStringLiteral("generated-props-band2.tif"));
+  ASSERT_FALSE(path.isEmpty());
+
+  QString message;
+  std::unique_ptr<GdalRasterLayer> raster =
+    GdalRasterLayer::open(path, message);
+  ASSERT_TRUE(raster) << message.toStdString();
+
+  QSignalSpy repainted(raster.get(), &MapLayer::appearanceChanged);
+
+  LayerPropertiesDialog dialog(raster.get());
+
+  auto *ramp =
+    dialog.findChild<QComboBox *>(QStringLiteral("rasterRampCombo"));
+  auto *minimum =
+    dialog.findChild<QDoubleSpinBox *>(QStringLiteral("rasterMinimumSpin"));
+  auto *maximum =
+    dialog.findChild<QDoubleSpinBox *>(QStringLiteral("rasterMaximumSpin"));
+  ASSERT_NE(ramp, nullptr);
+
+  const QString before = raster->rampName();
+
+  for (int i = 0; i < ramp->count(); ++i)
+  {
+    if (ramp->itemText(i) != before)
+    {
+      ramp->setCurrentIndex(i);
+      break;
+    }
+  }
+
+  minimum->setValue(10.0);
+  maximum->setValue(50.0);
+
+  ASSERT_TRUE(dialog.apply());
+
+  EXPECT_NE(raster->rampName(), before);
+
+  double low = 0.0;
+  double high = 0.0;
+  raster->valueRange(low, high);
+  EXPECT_NEAR(low, 10.0, 1e-9);
+  EXPECT_NEAR(high, 50.0, 1e-9);
+  EXPECT_GT(repainted.count(), 0) << "restyling never asked for a repaint";
+}
+
+// The stretch announces itself on its own: the previous gate let a ramp
+// change's repaint hide a silent stretch.
+TEST_F(LayerPropertiesTest, AStretchChangeAloneAsksForARepaint)
+{
+  const QString path =
+    writeSingleBandRaster(QStringLiteral("generated-props-band3.tif"));
+  ASSERT_FALSE(path.isEmpty());
+
+  QString message;
+  std::unique_ptr<GdalRasterLayer> raster =
+    GdalRasterLayer::open(path, message);
+  ASSERT_TRUE(raster) << message.toStdString();
+
+  QSignalSpy repainted(raster.get(), &MapLayer::appearanceChanged);
+
+  raster->setValueRange(5.0, 40.0);
+  EXPECT_EQ(repainted.count(), 1)
+    << "the picture is stretched differently and nothing repaints";
+
+  // And what it already has is not an announcement.
+  raster->setValueRange(5.0, 40.0);
+  EXPECT_EQ(repainted.count(), 1);
+}
+
+// "Ignored unless above the minimum", as the setter documents: an
+// upside-down stretch would divide the shading by a non-positive span.
+TEST_F(LayerPropertiesTest, AnUpsideDownStretchIsRefused)
+{
+  const QString path =
+    writeSingleBandRaster(QStringLiteral("generated-props-band4.tif"));
+  ASSERT_FALSE(path.isEmpty());
+
+  QString message;
+  std::unique_ptr<GdalRasterLayer> raster =
+    GdalRasterLayer::open(path, message);
+  ASSERT_TRUE(raster) << message.toStdString();
+
+  double low = 0.0;
+  double high = 0.0;
+  raster->valueRange(low, high);
+
+  raster->setValueRange(50.0, 10.0);
+
+  double lowAfter = 0.0;
+  double highAfter = 0.0;
+  raster->valueRange(lowAfter, highAfter);
+
+  EXPECT_EQ(lowAfter, low);
+  EXPECT_EQ(highAfter, high);
 }
