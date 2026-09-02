@@ -274,7 +274,26 @@ namespace HydroCouple::Composer
       m_groundValid = true;
     }
 
-    SceneGeometry ground = buildGroundPlane(m_ground, drapeTarget(context));
+    SceneGeometry ground = buildGroundPlane(m_ground, terrainFor(context));
+
+    const double lift = zPolicy().mode == ZMode::Constant
+                          ? zPolicy().constant
+                          : zPolicy().offset;
+
+    if (!qFuzzyIsNull(lift))
+    {
+      for (SceneVertex &vertex : ground.vertices)
+      {
+        vertex.z += float(lift);
+      }
+
+      ground.bounds = {};
+
+      for (const SceneVertex &vertex : ground.vertices)
+      {
+        ground.bounds.expandTo(QVector3D(vertex.x, vertex.y, vertex.z));
+      }
+    }
 
     if (!ground.isEmpty())
     {

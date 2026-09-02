@@ -41,11 +41,32 @@ namespace HydroCouple::Composer::Testing
         setFields({ field });
       }
 
+      /*!
+       * \brief Adds a numeric "invert" field beside the name.
+       *
+       * Opt-in, because every other suite's fixtures assume the probe has
+       * exactly one column -- widening it by default failed the attribute
+       * table's own gates. The drape suite calls this before reading
+       * heights from the field.
+       */
+      void declareInvert()
+      {
+        AttributeField field;
+        field.name = QStringLiteral("name");
+        field.type = QMetaType::QString;
+
+        AttributeField invert;
+        invert.name = QStringLiteral("invert");
+
+        setFields({ field, invert });
+        m_hasInvert = true;
+      }
+
       //! Adds one line through \a points, named \a name.
       void addLine(const QVector<QPointF> &points,
-                   const QString &name = QString())
+                   const QString &name = QString(), double invert = 0.0)
       {
-        add(GeometryKind::Line, points, name);
+        add(GeometryKind::Line, points, name, invert);
       }
 
       //! Adds one ring through \a points.
@@ -63,7 +84,7 @@ namespace HydroCouple::Composer::Testing
 
     private:
       void add(GeometryKind kind, const QVector<QPointF> &points,
-               const QString &name)
+               const QString &name, double invert = 0.0)
       {
         VectorFeature feature;
         feature.kind = kind;
@@ -71,9 +92,16 @@ namespace HydroCouple::Composer::Testing
         feature.attributes.append(
           name.isEmpty() ? QStringLiteral("F%1").arg(featureCount()) : name);
 
+        if (m_hasInvert)
+        {
+          feature.attributes.append(invert);
+        }
+
         addFeature(std::move(feature));
         finishLoading();
       }
+
+      bool m_hasInvert = false;
   };
 
 } // namespace HydroCouple::Composer::Testing

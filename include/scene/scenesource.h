@@ -112,25 +112,60 @@ namespace HydroCouple::Composer
    * FeatureLayer until C5d, which is why a draped basemap could not be turned
    * off — the two surface layers had no say in it at all.
    */
-  enum class SceneDrape
+  /*!
+   * \brief How a source that has no third coordinate of its own gets one.
+   *
+   * Placement, and only placement: extrusion is a separate, orthogonal
+   * setting. The old SceneDrape conflated the two -- "Extruded" was a
+   * placement that smuggled a height in -- so a layer could not be lifted
+   * a metre above the terrain, or laid flat at a datum other than zero,
+   * without the two meanings fighting.
+   */
+  enum class ZMode
   {
-    //! At z = 0. What a layer over a stack with no terrain in it gets.
-    Flat,
-
-    //! Laid on the terrain, densified finely enough to follow it.
-    Terrain,
+    //! Everything at one elevation. Constant 0 is the old "Flat".
+    Constant,
 
     /*!
-     * \brief A vertical curtain from the terrain up to a set height.
+     * \brief Each feature at the elevation its own attribute names.
      *
-     * How a buried or a low-relief network stays legible: a line lying on a
-     * hillside is hidden by the first fold of ground in front of it, and a
-     * pipe network that disappears behind terrain is not a view of a network.
-     *
-     * Meaningless for something that is already a surface — see
-     * supportsExtrusion() — where it reads as Terrain.
+     * The feature stays planar at that height -- an invert level, a gauge
+     * datum -- plus the offset. Only meaningful for sources that carry
+     * attributes; see ISceneSource::supportsAttributeZ().
      */
-    Extruded
+    FromAttribute,
+
+    //! Laid on the elected terrain, densified finely enough to follow it.
+    OnTerrain
+  };
+
+  /*!
+   * \brief Where a source's base z comes from.
+   */
+  struct ZPolicy
+  {
+      ZMode mode = ZMode::OnTerrain;
+
+      //! The elevation, when mode is Constant. Ignored otherwise.
+      double constant = 0.0;
+
+      //! The attribute read per feature, when mode is FromAttribute.
+      QString field;
+
+      //! Added to the base for FromAttribute and OnTerrain.
+      double offset = 0.0;
+
+      //! Setting a policy a source already has must not announce a change.
+      friend bool operator==(const ZPolicy &a, const ZPolicy &b)
+      {
+        return a.mode == b.mode && a.constant == b.constant &&
+               a.field == b.field && a.offset == b.offset;
+      }
+
+      friend bool operator!=(const ZPolicy &a, const ZPolicy &b)
+      {
+        return !(a == b);
+      }
   };
 
   /*!
@@ -167,20 +202,28 @@ namespace HydroCouple::Composer
       }
 
       /*!
-       * \brief Where this source sits relative to the terrain.
+       * \brief Where this source's base z comes from.
        */
-      [[nodiscard]] SceneDrape drape() const { return m_drape; }
+      [[nodiscard]] const ZPolicy &zPolicy() const { return m_zPolicy; }
 
       /*!
-       * \brief Sets where this source sits relative to the terrain.
+       * \brief Sets where this source's base z comes from.
        *
        * Virtual because storing the choice is only half of it: a layer that
        * caches built geometry has to throw that cache away and ask to be
        * redrawn, and only the layer knows what it cached.
        *
-       * \param drape The placement wanted.
+       * \param policy The placement wanted.
        */
-      virtual void setDrape(SceneDrape drape) { m_drape = drape; }
+      virtual void setZPolicy(const ZPolicy &policy) { m_zPolicy = policy; }
+
+      /*!
+       * \brief Whether FromAttribute means anything for this source.
+       *
+       * True only where features carry attributes a height could be read
+       * from; a raster or a basemap has no per-feature anything.
+       */
+      [[nodiscard]] virtual bool supportsAttributeZ() const { return false; }
 
       /*!
        * \brief How far an extruded source stands up, in map units.
@@ -251,13 +294,13 @@ namespace HydroCouple::Composer
        * \returns The context's terrain, or nullptr when this source is to
        *          stay flat.
        */
-      [[nodiscard]] const ITerrainSource *drapeTarget(
+      [[nodiscard]] const ITerrainSource *terrainFor(
         const SceneContext &context) const
       {
-        return m_drape == SceneDrape::Flat ? nullptr : context.terrain;
+        return m_zPolicy.mode == ZMode::OnTerrain ? context.terrain : nullptr;
       }
 
-      SceneDrape m_drape = SceneDrape::Terrain;
+      ZPolicy m_zPolicy;
       bool m_terrainEnabled = true;
       double m_extrusionHeight = 0.0;
   };

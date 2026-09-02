@@ -141,20 +141,13 @@ namespace HydroCouple::Composer
        * kept because they read better at a feature layer's call sites and
        * because renaming them would churn every one of them.
        */
-      [[nodiscard]] SceneDrape sceneDrape() const;
-
-      /*!
-       * \brief Sets how the layer places itself in the 3D scene.
-       *
-       * Terrain is the default, and degrades to Flat by itself when the
-       * stack holds no terrain — so a network opened beside a mesh drapes
-       * without being told to, and one opened alone still appears.
-       *
-       * \param drape The placement to use.
+/*!
+       * \brief Announces the placement change so both views repaint.
        */
-      void setSceneDrape(SceneDrape drape);
+      void setZPolicy(const ZPolicy &policy) override;
 
-      void setDrape(SceneDrape drape) override;
+      //! Features carry attributes, so a height can be read from one.
+      [[nodiscard]] bool supportsAttributeZ() const override;
 
       void setExtrusionHeight(double height) override;
 

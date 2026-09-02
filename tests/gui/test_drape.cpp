@@ -27,6 +27,8 @@
 
 #include <gtest/gtest.h>
 
+#include <QSignalSpy>
+
 #include <QApplication>
 #include <QDir>
 #include <QImage>
@@ -568,7 +570,7 @@ namespace
       terrainLayer(QStringLiteral("terrain"), grid(8, plane));
 
     Network network(QStringLiteral("conduits"));
-    network.setSceneDrape(SceneDrape::Flat);
+    network.setZPolicy({ZMode::Constant, 0.0, {}, 0.0});
     network.addLine({ { 10.0, 10.0 }, { 90.0, 90.0 } });
 
     const QVector<SceneVertex> vertices =
@@ -632,8 +634,7 @@ namespace
       terrainLayer(QStringLiteral("terrain"), grid(8, plane));
 
     Network network(QStringLiteral("conduits"));
-    network.setSceneDrape(SceneDrape::Extruded);
-    network.setExtrusionHeight(25.0);
+        network.setExtrusionHeight(25.0);
     network.addLine({ { 10.0, 10.0 }, { 90.0, 90.0 } });
 
     const QVector<SceneGeometry> geometry =
@@ -664,8 +665,7 @@ namespace
   TEST_F(DrapeTest, ACurtainFacesAcrossItsOwnLine)
   {
     Network network(QStringLiteral("conduits"));
-    network.setSceneDrape(SceneDrape::Extruded);
-    network.setExtrusionHeight(10.0);
+        network.setExtrusionHeight(10.0);
 
     // Oblique and long, so that neither swapping the two axes nor forgetting
     // to divide by the length leaves the normal correct by accident.
@@ -690,8 +690,7 @@ namespace
   TEST_F(DrapeTest, ACurtainOfNoHeightIsJustTheLine)
   {
     Network network(QStringLiteral("conduits"));
-    network.setSceneDrape(SceneDrape::Extruded);
-    network.addLine({ { 10.0, 10.0 }, { 90.0, 90.0 } });
+        network.addLine({ { 10.0, 10.0 }, { 90.0, 90.0 } });
 
     const QVector<SceneGeometry> geometry = network.sceneGeometry({});
 
@@ -708,8 +707,7 @@ namespace
 
     EXPECT_FLOAT_EQ(network.sceneBounds().maximum().z(), 0.0f);
 
-    network.setSceneDrape(SceneDrape::Extruded);
-    network.setExtrusionHeight(25.0);
+        network.setExtrusionHeight(25.0);
 
     EXPECT_FLOAT_EQ(network.sceneBounds().maximum().z(), 25.0f);
 
@@ -935,3 +933,153 @@ namespace
   }
 
 }
+
+  // ── placement (coherence plan Z) ────────────────────────────────────────
+  //
+  // SceneDrape conflated placement with extrusion -- "Extruded" was a
+  // placement that smuggled a height in -- so a network could not be lifted
+  // a metre above the terrain, or laid at a datum other than zero. ZPolicy
+  // splits them: Constant / FromAttribute / OnTerrain place the base, and
+  // extrusion raises a curtain from wherever that put it.
+
+  TEST_F(DrapeTest, AConstantPlacesEveryVertexAtThatElevationTerrainOrNot)
+  {
+    const std::unique_ptr<MeshLayer> terrain =
+      terrainLayer(QStringLiteral("terrain"), grid(8, plane));
+
+    Network network(QStringLiteral("conduits"));
+    network.setZPolicy({ZMode::Constant, 42.0, {}, 0.0});
+    network.addLine({ { 10.0, 10.0 }, { 90.0, 90.0 } });
+
+    const QVector<SceneVertex> vertices =
+      allVertices(network.sceneGeometry(contextFor(terrain.get())));
+
+    ASSERT_FALSE(vertices.isEmpty());
+
+    for (const SceneVertex &vertex : vertices)
+    {
+      EXPECT_NEAR(double(vertex.z), 42.0, 1.0e-6)
+        << "a constant datum was bent by the terrain beneath it";
+    }
+  }
+
+  TEST_F(DrapeTest, AnAttributePlacesEachFeatureAtItsOwnValue)
+  {
+    Network network(QStringLiteral("conduits"));
+    network.declareInvert();
+    network.addLine({ { 10.0, 10.0 }, { 40.0, 40.0 } },
+                    QStringLiteral("shallow"), 10.0);
+    network.addLine({ { 60.0, 60.0 }, { 90.0, 90.0 } },
+                    QStringLiteral("deep"), 20.0);
+    network.setZPolicy(
+      {ZMode::FromAttribute, 0.0, QStringLiteral("invert"), 0.0});
+
+    const QVector<SceneVertex> vertices =
+      allVertices(network.sceneGeometry({}));
+
+    ASSERT_FALSE(vertices.isEmpty());
+
+    int atTen = 0;
+    int atTwenty = 0;
+
+    for (const SceneVertex &vertex : vertices)
+    {
+      atTen += std::abs(double(vertex.z) - 10.0) < 1.0e-6 ? 1 : 0;
+      atTwenty += std::abs(double(vertex.z) - 20.0) < 1.0e-6 ? 1 : 0;
+    }
+
+    EXPECT_GT(atTen, 0);
+    EXPECT_GT(atTwenty, 0);
+    EXPECT_EQ(atTen + atTwenty, vertices.size())
+      << "a feature sits somewhere neither of the two inverts names";
+  }
+
+  TEST_F(DrapeTest, TheOffsetLiftsADrapeUniformly)
+  {
+    const std::unique_ptr<MeshLayer> terrain =
+      terrainLayer(QStringLiteral("terrain"), grid(8, plane));
+
+    Network network(QStringLiteral("conduits"));
+    network.setZPolicy({ZMode::OnTerrain, 0.0, {}, 5.0});
+    network.addLine({ { 5.0, 5.0 }, { 95.0, 40.0 }, { 60.0, 95.0 } });
+
+    const QVector<SceneVertex> vertices =
+      allVertices(network.sceneGeometry(contextFor(terrain.get())));
+
+    ASSERT_FALSE(vertices.isEmpty());
+
+    for (const SceneVertex &vertex : vertices)
+    {
+      EXPECT_NEAR(double(vertex.z), plane(vertex.x, vertex.y) + 5.0, 1.0e-3)
+        << "at (" << vertex.x << ", " << vertex.y << ")";
+    }
+  }
+
+  TEST_F(DrapeTest, AMissingFieldSitsAtTheOffsetAloneNotNowhere)
+  {
+    Network network(QStringLiteral("conduits"));
+    network.addLine({ { 10.0, 10.0 }, { 90.0, 90.0 } });
+    network.setZPolicy(
+      {ZMode::FromAttribute, 0.0, QStringLiteral("nosuch"), 7.0});
+
+    const QVector<SceneVertex> vertices =
+      allVertices(network.sceneGeometry({}));
+
+    ASSERT_FALSE(vertices.isEmpty())
+      << "data with a broken row vanished instead of degrading";
+
+    for (const SceneVertex &vertex : vertices)
+    {
+      EXPECT_NEAR(double(vertex.z), 7.0, 1.0e-6);
+    }
+  }
+
+  // The one thing the old model could not say at all: a curtain rising from
+  // a constant datum, no terrain involved.
+  TEST_F(DrapeTest, ExtrusionRisesFromWhereverThePlacementPutTheBase)
+  {
+    Network network(QStringLiteral("conduits"));
+    network.setZPolicy({ZMode::Constant, 10.0, {}, 0.0});
+    network.setExtrusionHeight(25.0);
+    network.addLine({ { 10.0, 10.0 }, { 90.0, 90.0 } });
+
+    const QVector<SceneGeometry> geometry = network.sceneGeometry({});
+
+    // A curtain batch exists...
+    ASSERT_EQ(geometry.size(), 2)
+      << "no curtain: extrusion still requires a terrain placement";
+
+    float lowest = 1.0e9f;
+    float highest = -1.0e9f;
+
+    for (const SceneVertex &vertex : allVertices(geometry))
+    {
+      lowest = std::min(lowest, vertex.z);
+      highest = std::max(highest, vertex.z);
+    }
+
+    // ...from the datum to the datum plus the height.
+    EXPECT_NEAR(double(lowest), 10.0, 1.0e-6);
+    EXPECT_NEAR(double(highest), 35.0, 1.0e-6);
+  }
+
+  // Setting the policy a layer already has must not announce a change, or
+  // opening and closing the properties dialog repaints the world.
+  TEST_F(DrapeTest, SettingTheSamePolicyAnnouncesNothing)
+  {
+    Network network(QStringLiteral("conduits"));
+    network.addLine({ { 10.0, 10.0 }, { 90.0, 90.0 } });
+
+    const ZPolicy policy{ZMode::Constant, 12.0, {}, 0.0};
+    network.setZPolicy(policy);
+
+    QSignalSpy announced(&network, &MapLayer::appearanceChanged);
+
+    network.setZPolicy(policy);
+    EXPECT_EQ(announced.count(), 0);
+
+    ZPolicy moved = policy;
+    moved.constant = 15.0;
+    network.setZPolicy(moved);
+    EXPECT_EQ(announced.count(), 1);
+  }

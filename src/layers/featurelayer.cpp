@@ -743,24 +743,14 @@ namespace HydroCouple::Composer
     setSelection({});
   }
 
-  SceneDrape FeatureLayer::sceneDrape() const
+  void FeatureLayer::setZPolicy(const ZPolicy &policy)
   {
-    return drape();
-  }
-
-  void FeatureLayer::setSceneDrape(SceneDrape drape)
-  {
-    setDrape(drape);
-  }
-
-  void FeatureLayer::setDrape(SceneDrape drape)
-  {
-    if (m_drape == drape)
+    if (policy == zPolicy())
     {
       return;
     }
 
-    m_drape = drape;
+    ISceneSource::setZPolicy(policy);
 
     notifyAppearanceChanged();
   }
@@ -782,6 +772,11 @@ namespace HydroCouple::Composer
     return m_kind == GeometryKind::Point ? nullptr : this;
   }
 
+  bool FeatureLayer::supportsAttributeZ() const
+  {
+    return true;
+  }
+
   Bounds3D FeatureLayer::sceneBounds() const
   {
     Bounds3D bounds;
@@ -791,10 +786,47 @@ namespace HydroCouple::Composer
     // made "Zoom to Full Extent" frame a different world in each view, and
     // left the basemap's ground plane stopping short of the gauges standing
     // on it.
-    const double rise =
-      m_drape == SceneDrape::Extruded ? m_extrusionHeight : 0.0;
-    const double low = std::min(0.0, rise);
-    const double high = std::max(0.0, rise);
+    // Where the base sits depends on the policy; OnTerrain keeps the zero
+    // baseline these bounds have always assumed, since sampling a terrain
+    // just to frame the view is the one cost bounds exist to avoid.
+    const ZPolicy &policy = zPolicy();
+
+    double base = policy.mode == ZMode::Constant ? policy.constant
+                                                 : policy.offset;
+    double baseHigh = base;
+
+    if (policy.mode == ZMode::FromAttribute && featureCount() > 0)
+    {
+      // The field's span. A per-revision cache is the follow-up if this
+      // scan ever shows up in a profile; bounds run twice per rebuild.
+      double lowest = std::numeric_limits<double>::max();
+      double highest = std::numeric_limits<double>::lowest();
+
+      for (int feature = 0; feature < featureCount(); ++feature)
+      {
+        bool numeric = false;
+        const double value =
+          attributeValue(feature, policy.field).toDouble(&numeric);
+
+        if (!numeric)
+        {
+          continue;
+        }
+
+        lowest = std::min(lowest, value);
+        highest = std::max(highest, value);
+      }
+
+      if (lowest <= highest)
+      {
+        base = lowest + policy.offset;
+        baseHigh = highest + policy.offset;
+      }
+    }
+
+    const double rise = m_extrusionHeight;
+    const double low = std::min({0.0, base, base + rise});
+    const double high = std::max({0.0, baseHigh, baseHigh + rise});
 
     for (const QVector<QPolygonF> &parts : projectedFeatures())
     {
@@ -841,12 +873,15 @@ namespace HydroCouple::Composer
     // rather than to nothing: the layer is still data, and a network that
     // vanishes because the mesh beside it was closed is a worse answer than
     // one lying at zero.
-    const ITerrainSource *terrain =
-      m_drape == SceneDrape::Flat ? nullptr : context.terrain;
+    const ZPolicy &policy = zPolicy();
+    const ITerrainSource *terrain = terrainFor(context);
     const double step = terrain ? terrain->terrainResolution() : 0.0;
 
-    const bool extruding = m_drape == SceneDrape::Extruded &&
-                           !qFuzzyIsNull(m_extrusionHeight);
+    // Extrusion is its own setting now, whatever the placement: a curtain
+    // can rise from a constant datum or from a per-feature invert as well
+    // as from the terrain.
+    const bool extruding =
+      supportsExtrusion() && !qFuzzyIsNull(m_extrusionHeight);
 
     const QVector<QVector<QPolygonF>> &projected = projectedFeatures();
     const LayerStyle *layerStyle = style();
@@ -873,6 +908,23 @@ namespace HydroCouple::Composer
         continue;
       }
 
+      // The feature's own base, resolved once beside its colour: constant
+      // for Constant, its attribute plus the offset for FromAttribute, and
+      // the per-vertex terrain plus the offset when draped.
+      double flatBase = policy.constant;
+
+      if (policy.mode == ZMode::FromAttribute)
+      {
+        bool numeric = false;
+        const double value =
+          attributeValue(feature, policy.field).toDouble(&numeric);
+
+        // A feature whose field is missing or not a number sits at the
+        // offset alone rather than vanishing: data with a broken row is
+        // still data.
+        flatBase = (numeric ? value : 0.0) + policy.offset;
+      }
+
       for (const QPolygonF &part : projected.at(feature))
       {
         const QVector<QPointF> path = densify(part, step);
@@ -882,7 +934,22 @@ namespace HydroCouple::Composer
           continue;
         }
 
-        const QVector<double> ground = sampleGround(terrain, path);
+        QVector<double> ground = sampleGround(terrain, path);
+
+        if (policy.mode == ZMode::OnTerrain)
+        {
+          if (!qFuzzyIsNull(policy.offset))
+          {
+            for (double &z : ground)
+            {
+              z += policy.offset;
+            }
+          }
+        }
+        else
+        {
+          ground.fill(flatBase);
+        }
 
         quint32 previous = crest.addVertex(
           QVector3D(float(path.at(0).x()), float(path.at(0).y()),

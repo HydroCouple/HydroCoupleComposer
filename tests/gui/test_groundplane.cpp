@@ -703,7 +703,7 @@ namespace
     // Now asked to stay flat. Before C5d the surface layers passed the
     // context's terrain through unconditionally, so this was impossible to
     // express and a basemap draped whether or not anyone wanted it to.
-    layer->setDrape(SceneDrape::Flat);
+    layer->setZPolicy({ZMode::Constant, 0.0, {}, 0.0});
 
     const QVector<SceneGeometry> flat = layer->sceneGeometry(context);
     ASSERT_EQ(flat.size(), 1);
@@ -744,7 +744,7 @@ namespace
 
     EXPECT_TRUE(anyOffZero) << "the basemap did not drape by default";
 
-    tiles->setDrape(SceneDrape::Flat);
+    tiles->setZPolicy({ZMode::Constant, 0.0, {}, 0.0});
 
     const QVector<SceneGeometry> flat = tiles->sceneGeometry(context);
     ASSERT_EQ(flat.size(), 1);
@@ -765,12 +765,12 @@ namespace
 
     QSignalSpy rasterSpy(raster, &MapLayer::appearanceChanged);
 
-    raster->setDrape(SceneDrape::Flat);
+    raster->setZPolicy({ZMode::Constant, 0.0, {}, 0.0});
     EXPECT_EQ(rasterSpy.count(), 1);
 
     // Setting what is already set is not a change, and a redraw for it would
     // be a redraw of the whole scene for nothing.
-    raster->setDrape(SceneDrape::Flat);
+    raster->setZPolicy({ZMode::Constant, 0.0, {}, 0.0});
     EXPECT_EQ(rasterSpy.count(), 1);
 
     TileLayer tiles(QStringLiteral("basemap"),
@@ -778,7 +778,7 @@ namespace
 
     QSignalSpy tileSpy(&tiles, &MapLayer::appearanceChanged);
 
-    tiles.setDrape(SceneDrape::Flat);
+    tiles.setZPolicy({ZMode::Constant, 0.0, {}, 0.0});
     EXPECT_EQ(tileSpy.count(), 1);
 
     delete raster;
@@ -1128,3 +1128,58 @@ TEST_F(GroundPlaneTest, AWorldWithNoAnswersAtAllStaysTheFlatZeroPlane)
     EXPECT_FLOAT_EQ(vertex.z, 0.0f);
   }
 }
+
+  // ── placement for surfaces (coherence plan Z) ───────────────────────────
+
+  TEST_F(GroundPlaneTest, ARasterAtAConstantLiesAtThatDatum)
+  {
+    LayerStackModel stack;
+
+    MeshLayer *terrain = terrainLayer(tilted(8, 20.0)).release();
+    ASSERT_TRUE(terrain);
+    ASSERT_GE(stack.addLayer(terrain), 0);
+
+    GdalRasterLayer *layer = openGroundRaster().release();
+    ASSERT_TRUE(layer);
+    layer->setZPolicy({ZMode::Constant, 30.0, {}, 0.0});
+    ASSERT_GE(stack.addLayer(layer), 0);
+
+    const QVector<SceneGeometry> batches =
+      layer->sceneGeometry({terrain->terrain(), rasterExtent()});
+    ASSERT_FALSE(batches.isEmpty());
+    ASSERT_FALSE(batches.first().vertices.isEmpty())
+      << "nothing to check is a pass for any mutation at all";
+
+    for (const SceneVertex &vertex : batches.first().vertices)
+    {
+      EXPECT_NEAR(double(vertex.z), 30.0, 1.0e-6)
+        << "a constant datum was bent by the terrain";
+    }
+  }
+
+  TEST_F(GroundPlaneTest, ADrapedSurfacesOffsetLiftsItOffTheGround)
+  {
+    const std::unique_ptr<MeshLayer> terrain = terrainLayer(tilted(8, 20.0));
+    ASSERT_TRUE(terrain);
+
+    GdalRasterLayer *layer = openGroundRaster().release();
+    ASSERT_TRUE(layer);
+    layer->setZPolicy({ZMode::OnTerrain, 0.0, {}, 2.5});
+
+    const SceneGeometry geometry =
+      layer->sceneGeometry({terrain->terrain(), rasterExtent()}).first();
+
+    ASSERT_FALSE(geometry.vertices.isEmpty());
+
+    for (const SceneVertex &vertex : geometry.vertices)
+    {
+      double surface = 0.0;
+
+      ASSERT_TRUE(
+        terrain->elevationAt(QPointF(vertex.x, vertex.y), surface));
+      EXPECT_NEAR(double(vertex.z), surface + 2.5, 1.0e-3)
+        << "at (" << vertex.x << ", " << vertex.y << ")";
+    }
+
+    delete layer;
+  }

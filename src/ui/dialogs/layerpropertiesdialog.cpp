@@ -600,38 +600,77 @@ namespace HydroCouple::Composer
       form->addRow(m_terrainEnabledCheck);
     }
 
+    // Placement, then extrusion, as two settings: the old combo's
+    // "Extruded" was a placement that smuggled a height in, so a network
+    // could not be lifted a metre above the terrain or laid at a datum
+    // other than zero.
     m_drapeCombo = new QComboBox(page);
     m_drapeCombo->setObjectName(QStringLiteral("renderingDrapeCombo"));
     m_drapeCombo->addItem(
-      tr("Flat — at zero elevation"),
-      QVariant::fromValue(static_cast<int>(SceneDrape::Flat)));
-    m_drapeCombo->addItem(
-      tr("Draped over the terrain"),
-      QVariant::fromValue(static_cast<int>(SceneDrape::Terrain)));
+      tr("At a constant elevation"),
+      QVariant::fromValue(static_cast<int>(ZMode::Constant)));
 
-    // Offered only where it does something. A surface is already a surface,
-    // so extruding it would silently behave as draping and read as a control
-    // that does not work.
-    if (scene->supportsExtrusion())
+    // Only where a height could be read from anywhere.
+    if (scene->supportsAttributeZ())
     {
       m_drapeCombo->addItem(
-        tr("Extruded above the terrain"),
-        QVariant::fromValue(static_cast<int>(SceneDrape::Extruded)));
+        tr("From an attribute field"),
+        QVariant::fromValue(static_cast<int>(ZMode::FromAttribute)));
     }
 
+    m_drapeCombo->addItem(
+      tr("Draped on the terrain"),
+      QVariant::fromValue(static_cast<int>(ZMode::OnTerrain)));
+
     form->addRow(tr("3D placement"), m_drapeCombo);
+
+    m_zConstantSpin = new QDoubleSpinBox(page);
+    m_zConstantSpin->setObjectName(QStringLiteral("sceneZConstantSpin"));
+
+    // Wide, and in map units: the unit is whatever the map's CRS measures
+    // in, so the same number is metres in one system and degrees in
+    // another and no range narrower than this fits both.
+    m_zConstantSpin->setRange(-100000.0, 100000.0);
+    m_zConstantSpin->setDecimals(3);
+    form->addRow(tr("Elevation"), m_zConstantSpin);
+
+    if (scene->supportsAttributeZ())
+    {
+      m_zFieldCombo = new QComboBox(page);
+      m_zFieldCombo->setObjectName(QStringLiteral("sceneZFieldCombo"));
+
+      if (const IAttributeProvider *provider = providerFor(m_layer))
+      {
+        for (const AttributeField &field : provider->attributeFields())
+        {
+          m_zFieldCombo->addItem(field.displayName.isEmpty()
+                                   ? field.name
+                                   : field.displayName,
+                                 field.name);
+        }
+      }
+
+      form->addRow(tr("Elevation field"), m_zFieldCombo);
+    }
+
+    m_zOffsetSpin = new QDoubleSpinBox(page);
+    m_zOffsetSpin->setObjectName(QStringLiteral("sceneZOffsetSpin"));
+    m_zOffsetSpin->setRange(-100000.0, 100000.0);
+    m_zOffsetSpin->setDecimals(3);
+    m_zOffsetSpin->setToolTip(
+      tr("Added on top of the terrain or the field's value."));
+    form->addRow(tr("Offset"), m_zOffsetSpin);
 
     if (scene->supportsExtrusion())
     {
       m_extrusionSpin = new QDoubleSpinBox(page);
       m_extrusionSpin->setObjectName(
         QStringLiteral("renderingExtrusionSpin"));
-
-      // Wide, and in map units: the unit is whatever the map's CRS measures
-      // in, so the same number is metres in one system and degrees in
-      // another and no range narrower than this fits both.
       m_extrusionSpin->setRange(-100000.0, 100000.0);
       m_extrusionSpin->setDecimals(3);
+      m_extrusionSpin->setToolTip(
+        tr("Raises a curtain from wherever the placement put the base; "
+           "zero extrudes nothing."));
       form->addRow(tr("Extrusion height"), m_extrusionSpin);
     }
 
@@ -709,13 +748,23 @@ namespace HydroCouple::Composer
 
     if (const ISceneSource *scene = sceneSource(); scene && m_drapeCombo)
     {
+      const ZPolicy &policy = scene->zPolicy();
       const int index =
-        m_drapeCombo->findData(static_cast<int>(scene->drape()));
+        m_drapeCombo->findData(static_cast<int>(policy.mode));
 
-      // A layer left on Extruded whose combo no longer offers it cannot be
-      // shown truthfully, so it falls back rather than showing the first row
-      // as though that were the setting.
       m_drapeCombo->setCurrentIndex(index >= 0 ? index : 0);
+      m_zConstantSpin->setValue(policy.constant);
+      m_zOffsetSpin->setValue(policy.offset);
+
+      if (m_zFieldCombo && !policy.field.isEmpty())
+      {
+        const int field = m_zFieldCombo->findData(policy.field);
+
+        if (field >= 0)
+        {
+          m_zFieldCombo->setCurrentIndex(field);
+        }
+      }
 
       if (m_extrusionSpin)
       {
@@ -781,13 +830,22 @@ namespace HydroCouple::Composer
 
   void LayerPropertiesDialog::updateEnabledState()
   {
-    if (m_extrusionSpin && m_drapeCombo)
+    if (m_drapeCombo)
     {
-      // A height only means something to a curtain; on a flat or draped
-      // layer it is a number that changes nothing.
-      m_extrusionSpin->setEnabled(
-        static_cast<SceneDrape>(m_drapeCombo->currentData().toInt())
-        == SceneDrape::Extruded);
+      // Only the rows the chosen mode reads: a constant means nothing to a
+      // drape, a field means nothing to a constant, and showing them all
+      // live is how the old combo taught people that settings do nothing.
+      const auto mode =
+        static_cast<ZMode>(m_drapeCombo->currentData().toInt());
+
+      m_zConstantSpin->setEnabled(mode == ZMode::Constant);
+
+      if (m_zFieldCombo)
+      {
+        m_zFieldCombo->setEnabled(mode == ZMode::FromAttribute);
+      }
+
+      m_zOffsetSpin->setEnabled(mode != ZMode::Constant);
     }
 
     if (!hasStyle())
@@ -855,8 +913,17 @@ namespace HydroCouple::Composer
 
     if (ISceneSource *scene = sceneSource(); scene && m_drapeCombo)
     {
-      scene->setDrape(
-        static_cast<SceneDrape>(m_drapeCombo->currentData().toInt()));
+      ZPolicy policy;
+      policy.mode = static_cast<ZMode>(m_drapeCombo->currentData().toInt());
+      policy.constant = m_zConstantSpin->value();
+      policy.offset = m_zOffsetSpin->value();
+
+      if (m_zFieldCombo)
+      {
+        policy.field = m_zFieldCombo->currentData().toString();
+      }
+
+      scene->setZPolicy(policy);
 
       if (m_extrusionSpin)
       {

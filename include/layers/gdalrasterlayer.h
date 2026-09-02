@@ -166,7 +166,7 @@ namespace HydroCouple::Composer
        *
        * \param drape The placement wanted.
        */
-      void setDrape(SceneDrape drape) override;
+      void setZPolicy(const ZPolicy &policy) override;
 
       /*!
        * \brief The ground itself, wearing this raster.
