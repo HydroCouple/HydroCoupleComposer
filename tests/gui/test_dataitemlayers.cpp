@@ -7,6 +7,8 @@
 #include "gis/spatialreference.h"
 #include "layers/dataitemlayer.h"
 #include "layers/rasterdataitemlayer.h"
+#include "scene/scenegeometry.h"
+#include "scene/scenesource.h"
 #include "layers/meshlayer.h"
 #include "map/layerstackmodel.h"
 #include "map/mapcanvas.h"
@@ -900,4 +902,74 @@ TEST_F(DataItemLayerTest, ARasterThatIsAllHolesIsEmptyRatherThanWild)
 
   EXPECT_EQ(layer->lastImage().pixelColor(0, 0).alpha(), 0);
   EXPECT_EQ(layer->lastImage().pixelColor(1, 0).alpha(), 0);
+}
+
+// ── The raster item joins the 3D scene (coherence plan V8) ────────────────
+//
+// Run results were the one whole class of layer silently absent from 3D:
+// RasterDataItemLayer derived from MapLayer alone, so a simulated depth
+// field could be browsed on the map and never draped over the terrain it
+// was computed on.
+
+TEST_F(DataItemLayerTest, ARasterItemHasA3dFormAndItIsItsShadedBand)
+{
+  Testing::StubCrs crs(4326);
+  Testing::StubRaster raster(2, 2, 0.0, 20.0, 10.0, &crs);
+  Testing::StubRasterItem item("depths", &raster);
+
+  item.setValue(0, 0, 0, 1.0);
+  item.setValue(0, 0, 1, 2.0);
+  item.setValue(0, 1, 0, 3.0);
+  item.setValue(0, 1, 1, 4.0);
+
+  QString message;
+  const std::unique_ptr<RasterDataItemLayer> layer =
+    RasterDataItemLayer::create(&item, message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  ASSERT_NE(layer->sceneSource(), nullptr)
+    << "raster results are still absent from the scene";
+
+  // Flat, no terrain: one textured quad over the raster's footprint.
+  const QVector<SceneGeometry> batches =
+    layer->sceneSource()->sceneGeometry({});
+  ASSERT_EQ(batches.size(), 1);
+  EXPECT_FALSE(batches.first().texture.isNull());
+  EXPECT_EQ(batches.first().textureExtent.normalized(),
+            QRectF(0.0, 0.0, 20.0, 20.0).normalized());
+
+  const Bounds3D bounds = layer->sceneSource()->sceneBounds();
+  ASSERT_TRUE(bounds.isValid());
+  EXPECT_NEAR(bounds.maximum().x(), 20.0, 1e-6);
+}
+
+TEST_F(DataItemLayerTest, ANewBandInvalidatesTheDrapedTexture)
+{
+  Testing::StubCrs crs(4326);
+  Testing::StubRaster raster(2, 1, 0.0, 10.0, 10.0, &crs, 2);
+  Testing::StubRasterItem item("depths", &raster);
+
+  // The second band runs the other way, because each band is shaded over
+  // its own range: two ascending bands would normalise to the same picture
+  // and the gate would compare a texture with itself.
+  item.setValue(0, 0, 0, 1.0);
+  item.setValue(0, 0, 1, 2.0);
+  item.setValue(1, 0, 0, 40.0);
+  item.setValue(1, 0, 1, 30.0);
+
+  QString message;
+  const std::unique_ptr<RasterDataItemLayer> layer =
+    RasterDataItemLayer::create(&item, message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  const QImage first =
+    layer->sceneSource()->sceneGeometry({}).first().texture;
+
+  layer->setBand(1);
+
+  const QImage second =
+    layer->sceneSource()->sceneGeometry({}).first().texture;
+
+  EXPECT_NE(first, second)
+    << "the scene kept draping the old band's picture";
 }

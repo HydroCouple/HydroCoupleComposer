@@ -207,6 +207,7 @@ namespace HydroCouple::Composer
 
     if (readBand(message))
     {
+      m_groundValid = false;
       notifyAppearanceChanged();
     }
   }
@@ -219,12 +220,68 @@ namespace HydroCouple::Composer
   void RasterDataItemLayer::setRamp(const ColorRamp &ramp)
   {
     m_ramp = ramp;
+    m_groundValid = false;
     notifyAppearanceChanged();
   }
 
   QPair<double, double> RasterDataItemLayer::valueRange() const
   {
     return {m_minimum, m_maximum};
+  }
+
+  const ISceneSource *RasterDataItemLayer::sceneSource() const
+  {
+    return this;
+  }
+
+  Bounds3D RasterDataItemLayer::sceneBounds() const
+  {
+    Bounds3D bounds;
+
+    const QRectF box = extent().normalized();
+
+    if (box.isEmpty())
+    {
+      return bounds;
+    }
+
+    // At ground level and flat, like a GeoTIFF's: the terrain carries the
+    // relief, and framing must stay answerable without a drape.
+    bounds.expandTo(QVector3D(float(box.left()), float(box.top()), 0.0f));
+    bounds.expandTo(QVector3D(float(box.right()), float(box.bottom()), 0.0f));
+
+    return bounds;
+  }
+
+  QVector<SceneGeometry> RasterDataItemLayer::sceneGeometry(
+    const SceneContext &context) const
+  {
+    QVector<SceneGeometry> batches;
+
+    if (m_values.empty())
+    {
+      return batches;
+    }
+
+    if (!m_groundValid)
+    {
+      // The layer drawing itself into its own cache, exactly as the GeoTIFF
+      // layer does: a const caller asking for geometry is paying for work
+      // not yet done, not changing the layer.
+      m_ground =
+        renderLayerToImage(const_cast<RasterDataItemLayer &>(*this), extent(),
+                           kGroundTexturePixels);
+      m_groundValid = true;
+    }
+
+    SceneGeometry ground = buildGroundPlane(m_ground, drapeTarget(context));
+
+    if (!ground.isEmpty())
+    {
+      batches.append(std::move(ground));
+    }
+
+    return batches;
   }
 
   QRectF RasterDataItemLayer::extent() const

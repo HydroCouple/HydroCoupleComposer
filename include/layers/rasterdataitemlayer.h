@@ -18,6 +18,8 @@
 
 #include "map/maplayer.h"
 #include "render/colorramp.h"
+#include "scene/groundplane.h"
+#include "scene/scenesource.h"
 
 #include <QImage>
 
@@ -39,7 +41,7 @@ namespace HydroCouple::Composer
   /*!
    * \brief A component's raster data item drawn on the map.
    */
-  class RasterDataItemLayer : public MapLayer
+  class RasterDataItemLayer : public MapLayer, public ISceneSource
   {
     public:
       /*!
@@ -95,6 +97,22 @@ namespace HydroCouple::Composer
 
       void render(QPainter &painter, const MapTransform &transform) override;
 
+      /*!
+       * \brief The layer's 3D form: its shaded band, draped as a texture.
+       *
+       * The same recipe a GeoTIFF uses -- rendered to an image by its own 2D
+       * path, laid over whatever terrain the scene elected -- which is what
+       * lets a simulation's raster results appear in 3D at all. Until this
+       * override, run results were the one whole class of layer silently
+       * absent from the scene.
+       */
+      [[nodiscard]] const ISceneSource *sceneSource() const override;
+
+      [[nodiscard]] QVector<SceneGeometry> sceneGeometry(
+        const SceneContext &context) const override;
+
+      [[nodiscard]] Bounds3D sceneBounds() const override;
+
       //! The last image drawn, for tests and for the 3D ground texture.
       [[nodiscard]] const QImage &lastImage() const;
 
@@ -125,6 +143,10 @@ namespace HydroCouple::Composer
 
       ColorRamp m_ramp;
       QImage m_lastImage;
+
+      //! The draped texture, rebuilt when the band, ramp or values change.
+      mutable GroundImage m_ground;
+      mutable bool m_groundValid = false;
   };
 
 } // namespace HydroCouple::Composer
