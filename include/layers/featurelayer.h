@@ -234,6 +234,18 @@ namespace HydroCouple::Composer
         const;
 
     protected:
+      /*!
+       * \brief The colour a feature takes in the scene.
+       *
+       * The style's answer with the selection laid over it, in that order:
+       * an invalid colour means the class was switched off in the legend,
+       * and selection does not resurrect it -- the 2D paint path skips the
+       * whole feature in that case, halo included, and the two views must
+       * tell one story about what a legend checkbox means.
+       */
+      [[nodiscard]] QColor sceneColorFor(const LayerStyle *style,
+                                         int feature) const;
+
       void onProjectionChanged() override;
 
       /*!

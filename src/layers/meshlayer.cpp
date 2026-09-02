@@ -589,11 +589,10 @@ namespace HydroCouple::Composer
         continue;
       }
 
-      // The map's own colour for this feature: an invalid one means the
-      // class was switched off in the legend, and a scene that drew it
-      // anyway would contradict the legend beside it.
-      const QColor color =
-        layerStyle ? layerStyle->colorFor(*this, feature) : QColor(Qt::gray);
+      // The map's own colour for this feature, selection laid over it: an
+      // invalid one means the class was switched off in the legend, and a
+      // scene that drew it anyway would contradict the legend beside it.
+      const QColor color = sceneColorFor(layerStyle, feature);
 
       if (!color.isValid())
       {

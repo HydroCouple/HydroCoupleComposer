@@ -890,3 +890,115 @@ TEST_F(Scene3DTest, ATerrainKeptOutOf3dStopsBeingTheTerrain)
   EXPECT_EQ(renderer.terrain(), nullptr)
     << "everything still drapes on a surface that is not in the scene";
 }
+
+// ── Selection is visible in the scene (coherence plan V5) ─────────────────
+//
+// The 3D view could always SET the selection -- band select, click identify
+// -- and never displayed it: the highlight colour was consulted only in the
+// 2D paint path, so selecting in 3D changed the attribute table and left the
+// scene looking exactly as before.
+
+TEST_F(Scene3DTest, ASelectedFeatureWearsTheSelectionColourInTheScene)
+{
+  LayerStackModel stack;
+  SceneRenderer renderer;
+  renderer.setModel(&stack);
+
+  MeshLayer *layer = addOpaque(stack, QStringLiteral("quad"), quadAt(0.0),
+                               QColor(220, 40, 40));
+  ASSERT_NE(layer, nullptr);
+
+  const QImage before =
+    renderScene(renderer, topDown(), QStringLiteral("unselected"));
+  ASSERT_FALSE(before.isNull());
+
+  // Cyan, the one colour the layer is not: nothing in the unselected render
+  // may already look selected, or the gate proves nothing.
+  const auto selectionish = [](QRgb pixel)
+  {
+    return qBlue(pixel) > 180 && qGreen(pixel) > 120 && qRed(pixel) < 100;
+  };
+
+  int cyanBefore = 0;
+
+  for (int y = 0; y < before.height(); ++y)
+  {
+    for (int x = 0; x < before.width(); ++x)
+    {
+      cyanBefore += selectionish(before.pixel(x, y)) ? 1 : 0;
+    }
+  }
+
+  ASSERT_EQ(cyanBefore, 0);
+
+  layer->setSelection({0, 1});
+
+  const QImage after =
+    renderScene(renderer, topDown(), QStringLiteral("selected"));
+  ASSERT_FALSE(after.isNull());
+
+  int cyanAfter = 0;
+
+  for (int y = 0; y < after.height(); ++y)
+  {
+    for (int x = 0; x < after.width(); ++x)
+    {
+      cyanAfter += selectionish(after.pixel(x, y)) ? 1 : 0;
+    }
+  }
+
+  EXPECT_GT(cyanAfter, 0)
+    << "a selection made in 3D is invisible in 3D";
+}
+
+// The 2D paint path skips a legend-hidden feature entirely, halo included.
+// The scene tells the same story: selection does not resurrect a class the
+// legend switched off.
+TEST_F(Scene3DTest, SelectionDoesNotResurrectALegendHiddenClass)
+{
+  // The same classified two-cell setup the legend gate uses: two faces in
+  // two classes, one class switched off.
+  MeshDefinition twoCells = ridge(0.0);
+
+  QString message;
+  std::unique_ptr<MeshLayer> owned = MeshLayer::create(
+    QStringLiteral("classified"), twoCells, MeshEntity::Face, message);
+  ASSERT_NE(owned, nullptr) << message.toStdString();
+  ASSERT_TRUE(
+    owned->setValues(QStringLiteral("depth"), QVector<double>{ 1.0, 9.0 }));
+
+  LayerStyle *style = owned->style();
+  style->setMode(StyleMode::Graduated);
+  style->setAttribute(QStringLiteral("depth"));
+  style->classification().setMethod(ClassificationMethod::EqualInterval);
+  style->classification().setClassCount(2);
+  ASSERT_TRUE(style->rebuild(*owned));
+
+  LayerStackModel stack;
+  SceneRenderer renderer;
+  renderer.setModel(&stack);
+
+  MeshLayer *layer = owned.release();
+  ASSERT_GE(stack.addLayer(layer), 0);
+
+  style->classification().setClassVisible(0, false);
+  layer->setSelection({0, 1});
+  layer->notifyAppearanceChanged();
+
+  const int drawn = countDrawn(
+    renderScene(renderer, topDown(), QStringLiteral("hiddenclass")),
+    kBackground);
+
+  const int both = [&]
+  {
+    style->classification().setClassVisible(0, true);
+    layer->notifyAppearanceChanged();
+    return countDrawn(renderScene(renderer, topDown(),
+                                  QStringLiteral("bothclasses")),
+                      kBackground);
+  }();
+
+  ASSERT_GT(both, 0);
+  EXPECT_LT(drawn, both)
+    << "selection resurrected a class the legend switched off";
+}

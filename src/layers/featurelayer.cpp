@@ -813,6 +813,20 @@ namespace HydroCouple::Composer
     return bounds;
   }
 
+  QColor FeatureLayer::sceneColorFor(const LayerStyle *style,
+                                     int feature) const
+  {
+    const QColor color =
+      style ? style->colorFor(*this, feature) : QColor(Qt::gray);
+
+    if (!color.isValid())
+    {
+      return color;
+    }
+
+    return m_selection.contains(feature) ? kSelectionColor : color;
+  }
+
   QVector<SceneGeometry> FeatureLayer::sceneGeometry(
     const SceneContext &context) const
   {
@@ -849,11 +863,10 @@ namespace HydroCouple::Composer
 
     for (int feature = 0; feature < projected.size(); ++feature)
     {
-      // The map's own colour for this feature: an invalid one means the class
-      // was switched off in the legend, and a scene that drew it anyway would
-      // contradict the legend beside it.
-      const QColor color =
-        layerStyle ? layerStyle->colorFor(*this, feature) : QColor(Qt::gray);
+      // The map's own colour for this feature, selection laid over it: an
+      // invalid one means the class was switched off in the legend, and a
+      // scene that drew it anyway would contradict the legend beside it.
+      const QColor color = sceneColorFor(layerStyle, feature);
 
       if (!color.isValid())
       {
