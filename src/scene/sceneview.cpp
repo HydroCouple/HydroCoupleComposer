@@ -121,8 +121,15 @@ namespace HydroCouple::Composer
 
   void SceneView::zoomToFullExtent()
   {
-    const Bounds3D bounds = m_renderer.sceneBounds();
+    frameBounds(m_renderer.sceneBounds());
+  }
 
+  void SceneView::frameBounds(const Bounds3D &bounds)
+  {
+    // Not for fitTo's sake -- the camera refuses invalid bounds itself --
+    // but for m_framed's: marking an empty framing as deliberate would stop
+    // the first-geometry auto-frame, and a model loaded afterwards would
+    // never be framed at all.
     if (!bounds.isValid())
     {
       return;

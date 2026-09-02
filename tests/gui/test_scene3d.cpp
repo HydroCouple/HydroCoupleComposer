@@ -23,6 +23,8 @@
 #include "scene/sceneimage.h"
 #include "scene/scenerenderer.h"
 
+#include "vectorprobe.h"
+
 #include <gtest/gtest.h>
 
 #include <QApplication>
@@ -1001,4 +1003,34 @@ TEST_F(Scene3DTest, SelectionDoesNotResurrectALegendHiddenClass)
   ASSERT_GT(both, 0);
   EXPECT_LT(drawn, both)
     << "selection resurrected a class the legend switched off";
+}
+
+// ── Full extent means the same data in both views (V6) ────────────────────
+//
+// MapCanvas::fullExtent includes point layers; sceneBounds skipped every
+// layer that opted out of drawing, so "Zoom to Full Extent" framed a
+// different world in each view from a single button. Framing and drawing
+// are different questions: a point layer has no 3D form yet, but its
+// footprint still belongs in the framing.
+
+TEST_F(Scene3DTest, SceneBoundsCountLayersThatCannotBeDrawn)
+{
+  LayerStackModel stack;
+  SceneRenderer renderer;
+  renderer.setModel(&stack);
+
+  ASSERT_NE(addOpaque(stack, QStringLiteral("quad"), quadAt(0.0),
+                      QColor(220, 40, 40)),
+            nullptr);
+
+  // A point layer opts out of drawing -- its sceneSource() is null -- but
+  // it sits far east of the quad and the framing must know.
+  auto *gauges = new Testing::VectorProbe(QStringLiteral("gauges"));
+  gauges->addPoint({950.0, 50.0});
+  ASSERT_EQ(gauges->sceneSource(), nullptr)
+    << "the fixture stopped being the case under test";
+  ASSERT_GE(stack.addLayer(gauges), 0);
+
+  EXPECT_GT(renderer.sceneBounds().maximum().x(), 800.0f)
+    << "a layer with no 3D form was left out of the framing";
 }

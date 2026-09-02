@@ -19,6 +19,7 @@
 #include "map/layerstackmodel.h"
 #include "map/mapcanvas.h"
 #include "scene/camera.h"
+#include "scene/scenesource.h"
 #include "scene/sceneview.h"
 #include "map/maplayer.h"
 #include "project/hcpimporter.h"
@@ -1230,9 +1231,33 @@ namespace HydroCouple::Composer
     connect(m_layerTree, &LayerTreePanel::zoomToLayerRequested, this,
             [this](MapLayer *layer)
             {
-              // Framing a layer is only meaningful on the map, so asking for
-              // it brings the map forward rather than acting invisibly behind
-              // whichever tab happens to be showing.
+              if (!layer)
+              {
+                return;
+              }
+
+              // Framed in the view that is in front, like the zoom
+              // shortcuts. Only when the 3D view cannot say where the layer
+              // is -- a layer that is not a scene source at all -- does the
+              // request fall back to the map, brought forward so it does not
+              // act invisibly.
+              if (m_workspace->currentWidget() == m_sceneView)
+              {
+                const auto *source = layer->sceneSource();
+
+                if (!source)
+                {
+                  source = dynamic_cast<const ISceneSource *>(layer);
+                }
+
+                if (source && source->sceneBounds().isValid())
+                {
+                  m_sceneView->frameBounds(source->sceneBounds());
+
+                  return;
+                }
+              }
+
               m_workspace->setCurrentWidget(m_mapCanvas);
               m_mapCanvas->zoomToLayer(layer);
             });

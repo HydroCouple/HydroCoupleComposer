@@ -786,11 +786,11 @@ namespace HydroCouple::Composer
   {
     Bounds3D bounds;
 
-    if (m_kind == GeometryKind::Point)
-    {
-      return bounds;
-    }
-
+    // Point layers answer too, though sceneGeometry() declines them: bounds
+    // are about where the data IS, not what can be drawn. Leaving points out
+    // made "Zoom to Full Extent" frame a different world in each view, and
+    // left the basemap's ground plane stopping short of the gauges standing
+    // on it.
     const double rise =
       m_drape == SceneDrape::Extruded ? m_extrusionHeight : 0.0;
     const double low = std::min(0.0, rise);

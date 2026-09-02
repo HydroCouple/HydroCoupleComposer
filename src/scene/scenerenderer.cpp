@@ -146,7 +146,20 @@ namespace HydroCouple::Composer
         continue;
       }
 
-      if (const ISceneSource *source = layer->sceneSource())
+      // sceneSource() is the layer's opt-in to being DRAWN; bounds answer
+      // the different question of where the data IS. A point layer opts out
+      // of drawing -- it has no 3D form yet -- but its footprint still
+      // belongs in the framing, or "Zoom to Full Extent" frames a different
+      // world in each view. Backdrops stay excluded in both, by their own
+      // answer: a basemap's sceneBounds() is empty on purpose.
+      const auto *source = layer->sceneSource();
+
+      if (!source)
+      {
+        source = dynamic_cast<const ISceneSource *>(layer);
+      }
+
+      if (source)
       {
         bounds.expandTo(source->sceneBounds());
       }

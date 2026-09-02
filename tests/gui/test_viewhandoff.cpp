@@ -21,6 +21,7 @@
 #include "scene/camera.h"
 #include "scene/sceneview.h"
 #include "ui/composermainwindow.h"
+#include "ui/panels/layertreepanel.h"
 #include "ui/toolbars/ribbonbar.h"
 
 #include "vectorprobe.h"
@@ -1010,4 +1011,104 @@ TEST_F(ViewHandoffTest, ExaggerationChangePreservesTheFraming)
   // And the framing it preserves is the one the map handed over.
   EXPECT_TRUE(containsWithinRounding(m_window->sceneView()->groundExtent(),
                                      framed));
+}
+
+// ── Zoom to layer works in both views (V6) ────────────────────────────────
+//
+// The layer tree's zoom button always forced the Map tab, so there was no
+// way to frame a layer in 3D at all.
+
+TEST_F(ViewHandoffTest, ZoomToLayerOnTheSceneTabFramesTheLayerThere)
+{
+  addTerrain();
+
+  // A second layer far away, so framing the terrain is distinguishable from
+  // framing everything.
+  {
+    MeshDefinition far = terrain();
+    for (double &x : far.nodeX)
+    {
+      x += 8000.0;
+    }
+
+    QString message;
+    std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+      QStringLiteral("faraway"), far, MeshEntity::Face, message);
+    ASSERT_TRUE(layer) << message.toStdString();
+    ASSERT_GE(m_window->layerStack()->addLayer(layer.release()), 0);
+    QApplication::processEvents();
+  }
+
+  showTab(m_window->sceneView());
+
+  // Somewhere else first, so the framing is observable.
+  Camera camera = m_window->sceneView()->camera();
+  camera.setTarget(QVector3D(5000.0f, 5000.0f, 0.0f));
+  m_window->sceneView()->setCamera(camera);
+
+  MapLayer *layer = nullptr;
+
+  for (int row = 0; row < m_window->layerStack()->rowCount(); ++row)
+  {
+    MapLayer *candidate = m_window->layerStack()->layerAt(row);
+
+    if (candidate && candidate->name() == QStringLiteral("terrain"))
+    {
+      layer = candidate;
+    }
+  }
+
+  ASSERT_NE(layer, nullptr);
+
+  Q_EMIT m_window->layerTree()->zoomToLayerRequested(layer);
+  QApplication::processEvents();
+
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->sceneView())
+    << "framing a layer in 3D yanked the user back to the map";
+
+  const QRectF ground = m_window->sceneView()->groundExtent();
+  ASSERT_FALSE(ground.isEmpty());
+  EXPECT_TRUE(containsWithinRounding(ground, QRectF(0, 0, 400, 300)))
+    << "the scene is not looking at the layer";
+
+  // The layer asked for, not everything: a framing that swallowed the far
+  // layer too is Zoom to Full Extent wearing another button's name.
+  EXPECT_LT(ground.right(), 8000.0)
+    << "zoom-to-layer framed the whole scene";
+}
+
+// Framing nothing must not count as having framed something: the empty
+// framing is refused, so the first geometry to arrive still auto-frames.
+TEST_F(ViewHandoffTest, FramingAnEmptySceneDoesNotSpendTheFirstAutoFrame)
+{
+  showTab(m_window->sceneView());
+
+  // Nothing loaded; this must be a no-op rather than a deliberate framing.
+  m_window->sceneView()->zoomToFullExtent();
+
+  addTerrain();
+
+  const QRectF ground = m_window->sceneView()->groundExtent();
+  ASSERT_FALSE(ground.isEmpty());
+  EXPECT_TRUE(containsWithinRounding(ground, QRectF(0, 0, 400, 300)))
+    << "the auto-frame was spent on an empty scene and the terrain arrived "
+       "to a camera pointing at nothing";
+}
+
+TEST_F(ViewHandoffTest, ZoomToLayerOnTheMapTabStillFramesTheMap)
+{
+  addTerrain();
+
+  showTab(m_window->mapCanvas());
+
+  MapLayer *layer = m_window->layerStack()->layerAt(0);
+  ASSERT_NE(layer, nullptr);
+
+  Q_EMIT m_window->layerTree()->zoomToLayerRequested(layer);
+  QApplication::processEvents();
+
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->mapCanvas());
+
+  const QRectF shown = m_window->mapCanvas()->transform().visibleExtent();
+  EXPECT_TRUE(containsWithinRounding(shown, QRectF(0, 0, 400, 300)));
 }

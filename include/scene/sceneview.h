@@ -20,6 +20,7 @@
 
 #include "map/maplayer.h"
 #include "scene/camera.h"
+#include "scene/scenegeometry.h"
 #include "scene/scenerenderer.h"
 
 #include <QColor>
@@ -104,6 +105,14 @@ namespace HydroCouple::Composer
        * \brief Frames every layer that has 3D geometry.
        */
       void zoomToFullExtent();
+
+      /*!
+       * \brief Looks at \a bounds, keeping the camera's orientation.
+       *
+       * The framing zoomToFullExtent() applies to everything, offered for
+       * one thing -- a layer, a selection. Invalid bounds frame nothing.
+       */
+      void frameBounds(const Bounds3D &bounds);
 
       /*!
        * \brief Moves the camera one step closer, as one wheel notch does.
