@@ -18,6 +18,20 @@
 
 namespace HydroCouple::Composer
 {
+
+  namespace
+  {
+    /*!
+     * \brief The terrain cache's longest side.
+     *
+     * Terrain fidelity is capped here so a national DEM does not become a
+     * gigabyte of floats just to drape a basemap; the 2D picture keeps the
+     * full resolution. 2048 cells across a scene is finer than the ground
+     * plane can tessellate anyway.
+     */
+    constexpr int kMaxTerrainCacheSide = 2048;
+  }
+
   namespace
   {
     void ensureDriversRegistered()
@@ -56,6 +70,11 @@ namespace HydroCouple::Composer
     : MapLayer(name), m_filePath(filePath),
       m_ramp(ColorRamp::builtin(QStringLiteral("Viridis")))
   {
+    // Terrain-capable, not terrain-offered: whether this band is heights is
+    // unknowable from here, and a rainfall grid stealing the election from a
+    // surveyed mesh would be worse than one extra click on a real DEM.
+    setTerrainEnabled(false);
+
     setSourceDescription(filePath);
   }
 
@@ -385,6 +404,10 @@ namespace HydroCouple::Composer
 
     m_groundValid = false;
 
+    // The terrain cache was read from the old warp, so its heights sit in
+    // the old CRS.
+    m_terrain.valid = false;
+
     notifyAppearanceChanged();
   }
 
@@ -557,6 +580,208 @@ namespace HydroCouple::Composer
 
     m_lastImage = image;
     painter.drawImage(target, image);
+  }
+
+  void GdalRasterLayer::setTerrainEnabled(bool enabled)
+  {
+    if (enabled == terrainEnabled())
+    {
+      return;
+    }
+
+    ISceneSource::setTerrainEnabled(enabled);
+    notifyAppearanceChanged();
+  }
+
+  const ITerrainSource *GdalRasterLayer::terrain() const
+  {
+    // A colour image is a picture of the ground, not the ground.
+    return m_colorImage ? nullptr : this;
+  }
+
+  bool GdalRasterLayer::ensureTerrainCache() const
+  {
+    if (m_terrain.valid)
+    {
+      return true;
+    }
+
+    // The layer reading itself into its own cache; the same reasoning as
+    // the scene texture above.
+    GDALDataset *dataset = const_cast<GdalRasterLayer *>(this)->readable();
+
+    if (!dataset)
+    {
+      return false;
+    }
+
+    double geotransform[6] = {0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+
+    if (dataset->GetGeoTransform(geotransform) != CE_None
+        || qFuzzyIsNull(geotransform[1]) || qFuzzyIsNull(geotransform[5]))
+    {
+      return false;
+    }
+
+    const int fullWidth = dataset->GetRasterXSize();
+    const int fullHeight = dataset->GetRasterYSize();
+
+    if (fullWidth <= 0 || fullHeight <= 0)
+    {
+      return false;
+    }
+
+    const int longest = std::max(fullWidth, fullHeight);
+    const double scale =
+      longest > kMaxTerrainCacheSide
+        ? double(kMaxTerrainCacheSide) / double(longest)
+        : 1.0;
+
+    const int width =
+      std::max(1, int(std::lround(fullWidth * scale)));
+    const int height =
+      std::max(1, int(std::lround(fullHeight * scale)));
+
+    GDALRasterBand *band = dataset->GetRasterBand(1);
+
+    if (!band)
+    {
+      return false;
+    }
+
+    std::vector<float> heights(static_cast<size_t>(width)
+                               * static_cast<size_t>(height));
+
+    // One decimated read of the whole band -- never per-point RasterIO,
+    // which the sampling header already warns turns a second of work into
+    // minutes.
+    if (band->RasterIO(GF_Read, 0, 0, fullWidth, fullHeight, heights.data(),
+                       width, height, GDT_Float32, 0, 0)
+        != CE_None)
+    {
+      return false;
+    }
+
+    int hasNoData = 0;
+    const double noData = band->GetNoDataValue(&hasNoData);
+
+    if (hasNoData)
+    {
+      for (float &value : heights)
+      {
+        if (qFuzzyCompare(double(value), noData))
+        {
+          value = std::numeric_limits<float>::quiet_NaN();
+        }
+      }
+    }
+
+    // Corners from the dataset that answered -- the warped one when the
+    // map's CRS differs -- so everything below is in the map's CRS, which
+    // is what ITerrainSource promises.
+    const double left = geotransform[0];
+    const double top = geotransform[3];
+    const double right = left + geotransform[1] * fullWidth;
+    const double bottom = top + geotransform[5] * fullHeight;
+
+    m_terrain.heights = std::move(heights);
+    m_terrain.width = width;
+    m_terrain.height = height;
+    m_terrain.originX = left;
+    m_terrain.originY = top;
+    m_terrain.stepX = (right - left) / width;
+    m_terrain.stepY = (bottom - top) / height;
+    m_terrain.extent =
+      QRectF(QPointF(left, top), QPointF(right, bottom)).normalized();
+    m_terrain.valid = true;
+
+    return true;
+  }
+
+  QRectF GdalRasterLayer::terrainExtent() const
+  {
+    return ensureTerrainCache() ? m_terrain.extent : QRectF();
+  }
+
+  double GdalRasterLayer::terrainResolution() const
+  {
+    return ensureTerrainCache() ? std::abs(m_terrain.stepX) : 1.0;
+  }
+
+  bool GdalRasterLayer::elevationAt(const QPointF &point,
+                                    double &elevation) const
+  {
+    if (!ensureTerrainCache() || !m_terrain.extent.contains(point))
+    {
+      return false;
+    }
+
+    // Cell-centre coordinates, the same half-cell convention as sample():
+    // getting it wrong shifts a whole terrain by half a cell.
+    const double column =
+      (point.x() - m_terrain.originX) / m_terrain.stepX - 0.5;
+    const double row =
+      (point.y() - m_terrain.originY) / m_terrain.stepY - 0.5;
+
+    int column0 = int(std::floor(column));
+    double fractionX = column - column0;
+
+    if (column0 < 0)
+    {
+      column0 = 0;
+      fractionX = 0.0;
+    }
+
+    int column1 = column0 + 1;
+
+    if (column1 >= m_terrain.width)
+    {
+      column1 = m_terrain.width - 1;
+      fractionX = 0.0;
+    }
+
+    int row0 = int(std::floor(row));
+    double fractionY = row - row0;
+
+    if (row0 < 0)
+    {
+      row0 = 0;
+      fractionY = 0.0;
+    }
+
+    int row1 = row0 + 1;
+
+    if (row1 >= m_terrain.height)
+    {
+      row1 = m_terrain.height - 1;
+      fractionY = 0.0;
+    }
+
+    const auto sampleAt = [this](int r, int c)
+    {
+      return double(
+        m_terrain.heights[static_cast<size_t>(r) * m_terrain.width + c]);
+    };
+
+    const double v00 = sampleAt(row0, column0);
+    const double v10 = sampleAt(row0, column1);
+    const double v01 = sampleAt(row1, column0);
+    const double v11 = sampleAt(row1, column1);
+
+    // A hole in the survey declines rather than blending into its
+    // neighbours: half a hole is not a height.
+    if (std::isnan(v00) || std::isnan(v10) || std::isnan(v01)
+        || std::isnan(v11))
+    {
+      return false;
+    }
+
+    const double top_ = v00 + (v10 - v00) * fractionX;
+    const double bottom_ = v01 + (v11 - v01) * fractionX;
+
+    elevation = top_ + (bottom_ - top_) * fractionY;
+
+    return true;
   }
 
   const ISceneSource *GdalRasterLayer::sceneSource() const

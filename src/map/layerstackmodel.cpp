@@ -262,10 +262,15 @@ namespace HydroCouple::Composer
         // The 3D state is said here in words as well as shown as a badge,
         // because the badge's third state -- no badge at all -- is exactly
         // the one a tooltip has to explain.
-        const QString sceneLine =
+        QString sceneLine =
           layer->sceneSource() == nullptr
             ? tr("No 3D form")
             : layer->isShownIn3D() ? tr("Shown in 3D") : tr("Kept out of 3D");
+
+        if (layer == electedTerrainLayer())
+        {
+          sceneLine += tr(" — the scene's terrain");
+        }
 
         const SpatialReference *crs = layer->crs();
         return crs ? QStringLiteral("%1\n%2\n%3")
@@ -293,6 +298,15 @@ namespace HydroCouple::Composer
 
       case ShownIn3DRole:
         return layer->isShownIn3D();
+
+      case IsElectedTerrainRole:
+        return layer == electedTerrainLayer();
+
+      case TerrainEnabledRole:
+      {
+        const ISceneSource *source = layer->sceneSource();
+        return source != nullptr && source->terrainEnabled();
+      }
 
       default:
         return {};
@@ -348,6 +362,19 @@ namespace HydroCouple::Composer
         layer->setShownIn3D(value.toBool());
         Q_EMIT dataChanged(index, index);
         return true;
+
+      case TerrainEnabledRole:
+        if (ISceneSource *source = layer->sceneSource())
+        {
+          source->setTerrainEnabled(value.toBool());
+
+          // The election may have moved to another row entirely, so the
+          // whole column is announced rather than this one cell.
+          Q_EMIT dataChanged(this->index(0, 0),
+                             this->index(rowCount() - 1, 0));
+          return true;
+        }
+        return false;
 
       case Qt::EditRole:
       {
@@ -526,6 +553,31 @@ namespace HydroCouple::Composer
   bool LayerStackModel::removeLayer(int row)
   {
     return removeRows(row, 1);
+  }
+
+  MapLayer *LayerStackModel::electedTerrainLayer() const
+  {
+    MapLayer *elected = nullptr;
+
+    // renderOrder() is bottom-up -- a draw order -- so the last candidate it
+    // yields is the top one. The same rule the renderer has always applied,
+    // now asked here so every view reads one answer.
+    for (MapLayer *layer : renderOrder())
+    {
+      if (!layer->isVisible() || !layer->isShownIn3D())
+      {
+        continue;
+      }
+
+      const ISceneSource *source = layer->sceneSource();
+
+      if (source && source->terrain() && source->terrainEnabled())
+      {
+        elected = layer;
+      }
+    }
+
+    return elected;
   }
 
   MapLayer *LayerStackModel::layerAt(int row) const

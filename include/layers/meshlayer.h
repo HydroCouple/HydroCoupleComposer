@@ -370,6 +370,18 @@ namespace HydroCouple::Composer
         return false;
       }
 
+      //! Announces the change, so everything re-drapes on the new ground.
+      void setTerrainEnabled(bool enabled) override
+      {
+        if (enabled == terrainEnabled())
+        {
+          return;
+        }
+
+        ISceneSource::setTerrainEnabled(enabled);
+        notifyAppearanceChanged();
+      }
+
       // ── ITerrainSource ───────────────────────────────────────────────────
 
       /*!

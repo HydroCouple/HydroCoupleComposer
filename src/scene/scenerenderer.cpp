@@ -175,28 +175,18 @@ namespace HydroCouple::Composer
       return nullptr;
     }
 
-    // The uppermost terrain in the tree wins. renderOrder() is bottom-up —
-    // it is a draw order — so the last one it yields is the top one, and
-    // reversing that would silently drape on whatever happened to be lowest.
-    const ITerrainSource *terrain = nullptr;
+    // The model holds the election, so the tree's badge, the dialog's
+    // checkbox and this renderer cannot disagree about who won.
+    const MapLayer *elected = m_model->electedTerrainLayer();
 
-    for (const MapLayer *layer : m_model->renderOrder())
+    if (!elected)
     {
-      if (!layer->isVisible() || !layer->isShownIn3D())
-      {
-        continue;
-      }
-
-      if (const ISceneSource *source = layer->sceneSource())
-      {
-        if (const ITerrainSource *candidate = source->terrain())
-        {
-          terrain = candidate;
-        }
-      }
+      return nullptr;
     }
 
-    return terrain;
+    const ISceneSource *source = elected->sceneSource();
+
+    return source ? source->terrain() : nullptr;
   }
 
   bool SceneRenderer::initialize(QRhi *rhi, QRhiRenderPassDescriptor *descriptor,

@@ -547,3 +547,34 @@ TEST_F(LayerPropertiesTest, AMeshIsNotOfferedTheExtrusionItWouldIgnore)
               QStringLiteral("renderingExtrusionSpin")),
             nullptr);
 }
+
+// The terrain consent checkbox lives where heights could come from and
+// nowhere else (coherence plan T2).
+TEST_F(LayerPropertiesTest, TheTerrainCheckboxAppearsWhereHeightsCouldComeFrom)
+{
+  MeshDefinition mesh;
+  mesh.meshName = "surface";
+  mesh.nodeX = {0.0, 10.0, 10.0, 0.0};
+  mesh.nodeY = {0.0, 0.0, 10.0, 10.0};
+  mesh.nodeZ = {0.0, 0.0, 5.0, 5.0};
+  mesh.faceNodeOffsets = {0, 3, 6};
+  mesh.faceNodes = {0, 1, 2, 0, 2, 3};
+
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("surface"), mesh, MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  LayerPropertiesDialog dialog(layer.get());
+
+  auto *consent = dialog.findChild<QCheckBox *>(
+    QStringLiteral("sceneTerrainEnabledCheck"));
+  ASSERT_NE(consent, nullptr);
+  EXPECT_TRUE(consent->isChecked()) << "a surveyed mesh consents by default";
+
+  consent->setChecked(false);
+  ASSERT_TRUE(dialog.apply());
+
+  EXPECT_FALSE(layer->terrainEnabled())
+    << "the dialog's consent checkbox did not reach the layer";
+}

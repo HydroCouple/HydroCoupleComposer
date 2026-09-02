@@ -532,6 +532,20 @@ namespace HydroCouple::Composer
     m_shownIn3dCheck->setObjectName(QStringLiteral("sceneShownIn3dCheck"));
     form->addRow(m_shownIn3dCheck);
 
+    // Only where heights could come from: consent to the terrain election
+    // is meaningless for a source that cannot serve any.
+    if (scene->terrain())
+    {
+      m_terrainEnabledCheck =
+        new QCheckBox(tr("Use as the scene's terrain"), page);
+      m_terrainEnabledCheck->setObjectName(
+        QStringLiteral("sceneTerrainEnabledCheck"));
+      m_terrainEnabledCheck->setToolTip(
+        tr("Offers this layer's heights for everything else to drape on. "
+           "When several layers offer, the uppermost wins."));
+      form->addRow(m_terrainEnabledCheck);
+    }
+
     m_drapeCombo = new QComboBox(page);
     m_drapeCombo->setObjectName(QStringLiteral("renderingDrapeCombo"));
     m_drapeCombo->addItem(
@@ -613,6 +627,12 @@ namespace HydroCouple::Composer
     if (m_shownIn3dCheck)
     {
       m_shownIn3dCheck->setChecked(m_layer->isShownIn3D());
+    }
+
+    if (const ISceneSource *scene = sceneSource();
+        scene && m_terrainEnabledCheck)
+    {
+      m_terrainEnabledCheck->setChecked(scene->terrainEnabled());
     }
 
     if (const ISceneSource *scene = sceneSource(); scene && m_drapeCombo)
@@ -740,6 +760,11 @@ namespace HydroCouple::Composer
     if (m_shownIn3dCheck)
     {
       m_layer->setShownIn3D(m_shownIn3dCheck->isChecked());
+    }
+
+    if (ISceneSource *scene = sceneSource(); scene && m_terrainEnabledCheck)
+    {
+      scene->setTerrainEnabled(m_terrainEnabledCheck->isChecked());
     }
 
     if (ISceneSource *scene = sceneSource(); scene && m_drapeCombo)

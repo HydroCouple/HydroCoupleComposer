@@ -35,7 +35,9 @@ namespace HydroCouple::Composer
   /*!
    * \brief A raster dataset drawn on the map.
    */
-  class GdalRasterLayer : public MapLayer, public ISceneSource
+  class GdalRasterLayer : public MapLayer,
+                          public ISceneSource,
+                          public ITerrainSource
   {
     public:
       /*!
@@ -160,6 +162,40 @@ namespace HydroCouple::Composer
        */
       [[nodiscard]] Bounds3D sceneBounds() const override;
 
+      /*!
+       * \brief A single-band raster offers itself as the scene's terrain.
+       *
+       * A colour image is a picture of the ground, not the ground: three
+       * bands of reflectance are not heights, and electing one would drape
+       * everything onto its pixel values.
+       */
+      [[nodiscard]] const ITerrainSource *terrain() const override;
+
+      //! Announces the change, so the scene re-drapes on the new ground.
+      void setTerrainEnabled(bool enabled) override;
+
+      /*!
+       * \brief The ground the terrain cache covers, in the map's CRS.
+       */
+      [[nodiscard]] QRectF terrainExtent() const override;
+
+      /*!
+       * \brief The terrain cache's cell size, in map units.
+       */
+      [[nodiscard]] double terrainResolution() const override;
+
+      /*!
+       * \brief The ground height under \a point, in the map's CRS.
+       *
+       * Served from a downsampled in-memory copy of the first band -- never
+       * per-point RasterIO, which turns a second of work into minutes -- so
+       * terrain fidelity is capped at the cache's resolution while the 2D
+       * picture keeps the full one. No-data declines rather than answering
+       * zero: a hole in the survey is not sea level.
+       */
+      [[nodiscard]] bool elevationAt(const QPointF &point,
+                                     double &elevation) const override;
+
     protected:
       void onProjectionChanged() override;
 
@@ -184,7 +220,6 @@ namespace HydroCouple::Composer
        */
       bool adoptDataset(GDALDataset *dataset, QString &message);
 
-
     private:
 
       //! The dataset to read from — warped into the map's CRS when needed.
@@ -196,6 +231,27 @@ namespace HydroCouple::Composer
 
       GDALDataset *m_dataset = nullptr;
       GDALDataset *m_warped = nullptr;
+
+      //! The downsampled first band the terrain answers from.
+      struct TerrainCache
+      {
+          std::vector<float> heights;
+          int width = 0;
+          int height = 0;
+
+          //! Upper-left corner and signed cell steps, in the map's CRS.
+          double originX = 0.0;
+          double originY = 0.0;
+          double stepX = 1.0;
+          double stepY = -1.0;
+
+          QRectF extent;
+          bool valid = false;
+      };
+
+      bool ensureTerrainCache() const;
+
+      mutable TerrainCache m_terrain;
 
       QRectF m_extent;
       QSize m_size;

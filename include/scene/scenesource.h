@@ -142,6 +142,31 @@ namespace HydroCouple::Composer
       virtual ~ISceneSource() = default;
 
       /*!
+       * \brief Whether this source may be elected as the scene's terrain.
+       *
+       * Capability and consent are different questions: terrain() says a
+       * source COULD serve heights, this says it is offered. A mesh with
+       * elevations consents by default -- it always has been the terrain.
+       * A raster does not: a single band is not necessarily heights (a
+       * rainfall grid is one band too), and a data raster added above a
+       * mesh must not silently steal the ground out from under the scene.
+       */
+      [[nodiscard]] bool terrainEnabled() const { return m_terrainEnabled; }
+
+      /*!
+       * \brief Offers or withdraws this source as terrain.
+       *
+       * Virtual for the same reason setDrape() is: only the layer knows
+       * what to invalidate and how to ask to be redrawn.
+       *
+       * \param enabled True to let the election consider this source.
+       */
+      virtual void setTerrainEnabled(bool enabled)
+      {
+        m_terrainEnabled = enabled;
+      }
+
+      /*!
        * \brief Where this source sits relative to the terrain.
        */
       [[nodiscard]] SceneDrape drape() const { return m_drape; }
@@ -233,6 +258,7 @@ namespace HydroCouple::Composer
       }
 
       SceneDrape m_drape = SceneDrape::Terrain;
+      bool m_terrainEnabled = true;
       double m_extrusionHeight = 0.0;
   };
 

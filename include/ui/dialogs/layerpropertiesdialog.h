@@ -144,6 +144,7 @@ namespace HydroCouple::Composer
       QSpinBox *m_opacitySpin = nullptr;
       QComboBox *m_drapeCombo = nullptr;
       QCheckBox *m_shownIn3dCheck = nullptr;
+      QCheckBox *m_terrainEnabledCheck = nullptr;
       QDoubleSpinBox *m_extrusionSpin = nullptr;
 
       QComboBox *m_modeCombo = nullptr;

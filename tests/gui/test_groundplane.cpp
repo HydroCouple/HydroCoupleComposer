@@ -855,3 +855,185 @@ namespace
   }
 
 }
+
+// ── A DEM raster can BE the terrain (coherence plan T1+T2) ────────────────
+//
+// Only a face-mesh with elevations could serve heights before; a DEM
+// GeoTIFF in the stack showed as a flat coloured sheet at z = 0 unless a
+// mesh was generated and sampled first. And capability is not consent: a
+// single band is not necessarily heights -- a rainfall grid is one band too
+// -- so a raster must be OFFERED as terrain before the election considers
+// it, where a surveyed mesh consents by default as it always has.
+
+namespace
+{
+  //! A 16x16 ramp whose value at cell (r, c) is exactly 2c + 3r.
+  QString writeRampDem()
+  {
+    const QString path = fixture(QStringLiteral("generated-ramp-dem.tif"));
+
+    GDALDriver *driver = GetGDALDriverManager()->GetDriverByName("GTiff");
+
+    if (!driver)
+    {
+      return QString();
+    }
+
+    GDALDataset *dataset =
+      driver->Create(path.toUtf8().constData(), 16, 16, 1, GDT_Float32,
+                     nullptr);
+
+    if (!dataset)
+    {
+      return QString();
+    }
+
+    // Origin (100, 200), 2-unit cells, north-up.
+    double geotransform[6] = {100.0, 2.0, 0.0, 200.0, 0.0, -2.0};
+    dataset->SetGeoTransform(geotransform);
+
+    OGRSpatialReference wgs84;
+    wgs84.importFromEPSG(4326);
+    wgs84.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
+
+    char *wkt = nullptr;
+    wgs84.exportToWkt(&wkt);
+    dataset->SetProjection(wkt);
+    CPLFree(wkt);
+
+    std::vector<float> values(16 * 16);
+
+    for (int row = 0; row < 16; ++row)
+    {
+      for (int column = 0; column < 16; ++column)
+      {
+        values[size_t(row) * 16 + column] = float(2 * column + 3 * row);
+      }
+    }
+
+    // One hole, so declining is testable.
+    values[size_t(5) * 16 + 5] = float(kNoData);
+
+    GDALRasterBand *band = dataset->GetRasterBand(1);
+    band->SetNoDataValue(kNoData);
+    band->RasterIO(GF_Write, 0, 0, 16, 16, values.data(), 16, 16,
+                   GDT_Float32, 0, 0);
+
+    GDALClose(dataset);
+
+    return path;
+  }
+}
+
+TEST_F(GroundPlaneTest, ADemRasterServesElevationsInTheMapsCrs)
+{
+  const QString path = writeRampDem();
+  ASSERT_FALSE(path.isEmpty());
+
+  QString message;
+  const std::unique_ptr<GdalRasterLayer> dem =
+    GdalRasterLayer::open(path, message);
+  ASSERT_TRUE(dem) << message.toStdString();
+
+  ASSERT_NE(dem->terrain(), nullptr)
+    << "a single-band raster cannot serve heights at all";
+
+  EXPECT_NEAR(dem->terrainResolution(), 2.0, 1e-9);
+  EXPECT_EQ(dem->terrainExtent(),
+            QRectF(QPointF(100.0, 168.0), QPointF(132.0, 200.0)));
+
+  // Cell centres, where the value actually is: cell (r, c)'s centre lies at
+  // (100 + 2c + 1, 200 - 2r - 1) and its height is exactly 2c + 3r.
+  double elevation = 0.0;
+
+  ASSERT_TRUE(dem->elevationAt(QPointF(101.0, 199.0), elevation));
+  EXPECT_NEAR(elevation, 0.0, 1e-4);
+
+  ASSERT_TRUE(dem->elevationAt(QPointF(107.0, 199.0), elevation));
+  EXPECT_NEAR(elevation, 6.0, 1e-4) << "columns are worth 2";
+
+  ASSERT_TRUE(dem->elevationAt(QPointF(101.0, 193.0), elevation));
+  EXPECT_NEAR(elevation, 9.0, 1e-4) << "rows are worth 3";
+
+  // Between two centres the ramp interpolates, not steps.
+  ASSERT_TRUE(dem->elevationAt(QPointF(102.0, 199.0), elevation));
+  EXPECT_NEAR(elevation, 1.0, 1e-4) << "nearest-neighbour, not bilinear";
+}
+
+TEST_F(GroundPlaneTest, AHoleInTheDemDeclinesInsteadOfAnsweringSeaLevel)
+{
+  const QString path = writeRampDem();
+  ASSERT_FALSE(path.isEmpty());
+
+  QString message;
+  const std::unique_ptr<GdalRasterLayer> dem =
+    GdalRasterLayer::open(path, message);
+  ASSERT_TRUE(dem) << message.toStdString();
+
+  // Cell (5, 5) is no-data; its centre is (111, 189).
+  double elevation = 123.0;
+  EXPECT_FALSE(dem->elevationAt(QPointF(111.0, 189.0), elevation));
+
+  // And outside the raster entirely.
+  EXPECT_FALSE(dem->elevationAt(QPointF(500.0, 500.0), elevation));
+}
+
+TEST_F(GroundPlaneTest, ARasterMustConsentBeforeTheElectionConsidersIt)
+{
+  LayerStackModel stack;
+
+  MeshLayer *mesh = terrainLayer(tilted(8, 20.0)).release();
+  ASSERT_TRUE(mesh);
+  ASSERT_GE(stack.addLayer(mesh), 0);
+
+  const QString path = writeRampDem();
+  ASSERT_FALSE(path.isEmpty());
+
+  QString message;
+  GdalRasterLayer *dem = GdalRasterLayer::open(path, message).release();
+  ASSERT_TRUE(dem) << message.toStdString();
+  ASSERT_GE(stack.addLayer(dem), 0);
+
+  // Above the mesh, capable -- and not elected, because it has not been
+  // offered. A rainfall grid must not steal the ground.
+  EXPECT_EQ(stack.electedTerrainLayer(), mesh);
+
+  dem->setTerrainEnabled(true);
+  EXPECT_EQ(stack.electedTerrainLayer(), dem)
+    << "an offered DEM above the mesh should win the election";
+
+  // The renderer reads the same election.
+  SceneRenderer renderer;
+  renderer.setModel(&stack);
+  EXPECT_EQ(renderer.terrain(), dem->terrain());
+
+  // Withdrawing it promotes the next candidate rather than leaving the
+  // scene groundless.
+  dem->setTerrainEnabled(false);
+  EXPECT_EQ(stack.electedTerrainLayer(), mesh);
+  EXPECT_EQ(renderer.terrain(), mesh->terrain());
+}
+
+TEST_F(GroundPlaneTest, AColourImageIsAPictureOfTheGroundNotTheGround)
+{
+  const QString path = fixture(QStringLiteral("generated-colour.tif"));
+
+  GDALDriver *driver = GetGDALDriverManager()->GetDriverByName("GTiff");
+  ASSERT_NE(driver, nullptr);
+
+  GDALDataset *dataset = driver->Create(path.toUtf8().constData(), 8, 8, 3,
+                                        GDT_Byte, nullptr);
+  ASSERT_NE(dataset, nullptr);
+
+  double geotransform[6] = {0.0, 1.0, 0.0, 8.0, 0.0, -1.0};
+  dataset->SetGeoTransform(geotransform);
+  GDALClose(dataset);
+
+  QString message;
+  const std::unique_ptr<GdalRasterLayer> photo =
+    GdalRasterLayer::open(path, message);
+  ASSERT_TRUE(photo) << message.toStdString();
+
+  EXPECT_EQ(photo->terrain(), nullptr)
+    << "three bands of reflectance were offered as heights";
+}

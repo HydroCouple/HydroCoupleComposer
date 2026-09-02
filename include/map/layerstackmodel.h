@@ -59,8 +59,23 @@ namespace HydroCouple::Composer
         HasSceneFormRole,
 
         //! Whether the layer joins the scene when it can. Writable.
-        ShownIn3DRole
+        ShownIn3DRole,
+
+        //! Whether this layer is the scene's elected terrain.
+        IsElectedTerrainRole,
+
+        //! Whether the layer offers itself for that election. Writable.
+        TerrainEnabledRole
       };
+
+      /*!
+       * \brief The layer whose surface everything drapes on, or nullptr.
+       *
+       * The uppermost visible layer that can serve heights and consents to.
+       * On the model rather than the renderer so the tree's badge, the
+       * dialog's checkbox and the scene cannot disagree about who won.
+       */
+      [[nodiscard]] MapLayer *electedTerrainLayer() const;
 
       /*!
        * \brief Constructs an empty stack.

@@ -2,7 +2,7 @@
 
 #include "map/layerstackmodel.h"
 #include "map/maplayer.h"
-#include "map/maplayer.h"
+#include "scene/scenesource.h"
 #include "ui/theme/iconfactory.h"
 
 #include <QHBoxLayout>
@@ -75,6 +75,17 @@ namespace HydroCouple::Composer
             index.data(LayerStackModel::ShownIn3DRole).toBool() ? 0.9 : 0.3);
           IconFactory::icon(QStringLiteral("scene_3d"))
             .paint(painter, badge);
+
+          // The elected terrain wears a second badge: which surface the
+          // scene drapes on is otherwise decided invisibly.
+          if (index.data(LayerStackModel::IsElectedTerrainRole).toBool())
+          {
+            const QRect ground(badge.left() - side - 3, badge.top(), side,
+                               side);
+            painter->setOpacity(0.9);
+            IconFactory::icon(QStringLiteral("extent")).paint(painter, ground);
+          }
+
           painter->restore();
         }
     };
@@ -156,6 +167,28 @@ namespace HydroCouple::Composer
                       {
                         m_model->setData(index, checked,
                                          LayerStackModel::ShownIn3DRole);
+                      });
+
+              // Offered only where heights could come from; checked when the
+              // layer consents. The badge in the tree shows who actually won
+              // the election, which "checked" alone cannot say -- consent is
+              // not victory when a higher layer also consents.
+              QAction *terrain = menu.addAction(tr("Use as Terrain"));
+              terrain->setObjectName(
+                QStringLiteral("layerUseAsTerrainAction"));
+              terrain->setCheckable(true);
+
+              const ISceneSource *source = layer->sceneSource();
+              terrain->setEnabled(source && source->terrain());
+              terrain->setChecked(source && source->terrain() &&
+                                  source->terrainEnabled());
+
+              connect(terrain, &QAction::toggled, this,
+                      [this, index](bool checked)
+                      {
+                        m_model->setData(
+                          index, checked,
+                          LayerStackModel::TerrainEnabledRole);
                       });
 
               menu.addSeparator();
