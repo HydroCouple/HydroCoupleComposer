@@ -48,7 +48,18 @@ namespace HydroCouple::Composer
         OpacityRole,                     //!< Draw opacity, as a double.
         CrsDescriptionRole,              //!< CRS name, or an empty string.
         IsLegendRole,                    //!< True for a legend row.
-        LegendIndexRole                  //!< Class index, or -1.
+        LegendIndexRole,                 //!< Class index, or -1.
+
+        /*!
+         * Whether the layer has any 3D form at all. Distinct from the
+         * toggle: a point layer answers false here and no checkbox can
+         * change that, which the tree must show as "impossible" rather
+         * than "switched off".
+         */
+        HasSceneFormRole,
+
+        //! Whether the layer joins the scene when it can. Writable.
+        ShownIn3DRole
       };
 
       /*!

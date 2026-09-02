@@ -11,6 +11,7 @@
 
 #include "core/composerapplication.h"
 #include "map/layerstackmodel.h"
+#include "layers/meshlayer.h"
 #include "map/maplayer.h"
 #include "probelayer.h"
 #include "render/layerstyle.h"
@@ -504,4 +505,100 @@ TEST_F(LayerStackTest, TreePanelActsOnLayersNotOnLegendRows)
     QStringLiteral("layerRemoveButton"));
   ASSERT_NE(removeButton, nullptr);
   EXPECT_FALSE(removeButton->isEnabled());
+}
+
+// ── What the tree can say about 3D (coherence plan V4) ────────────────────
+
+namespace
+{
+  //! A square split into two triangles, with elevations.
+  HydroCouple::SDK::IO::MeshDefinition twoTriangleSquare()
+  {
+    HydroCouple::SDK::IO::MeshDefinition mesh;
+    mesh.meshName = "square";
+    mesh.nodeX = {0.0, 10.0, 10.0, 0.0};
+    mesh.nodeY = {0.0, 0.0, 10.0, 10.0};
+    mesh.nodeZ = {0.0, 0.0, 5.0, 5.0};
+    mesh.faceNodeOffsets = {0, 3, 6};
+    mesh.faceNodes = {0, 1, 2, 0, 2, 3};
+
+    return mesh;
+  }
+}
+
+TEST(LayerStackModel3d, TheModelTellsApartNoFormFromKeptOut)
+{
+  LayerStackModel model;
+
+  QString message;
+  std::unique_ptr<MeshLayer> mesh = MeshLayer::create(
+    QStringLiteral("surface"), twoTriangleSquare(), MeshEntity::Face,
+    message);
+  ASSERT_TRUE(mesh) << message.toStdString();
+
+  MeshLayer *layer = mesh.get();
+  ASSERT_GE(model.addLayer(mesh.release()), 0);
+
+  const QModelIndex index = model.index(0, 0);
+
+  // A mesh has a 3D form and joins the scene by default.
+  EXPECT_TRUE(model.data(index, LayerStackModel::HasSceneFormRole).toBool());
+  EXPECT_TRUE(model.data(index, LayerStackModel::ShownIn3DRole).toBool());
+  EXPECT_TRUE(model.data(index, Qt::ToolTipRole).toString().contains(
+    QStringLiteral("Shown in 3D")));
+
+  // Kept out: still has the form, no longer joins.
+  ASSERT_TRUE(model.setData(index, false, LayerStackModel::ShownIn3DRole));
+  EXPECT_FALSE(layer->isShownIn3D());
+  EXPECT_TRUE(model.data(index, LayerStackModel::HasSceneFormRole).toBool());
+  EXPECT_TRUE(model.data(index, Qt::ToolTipRole).toString().contains(
+    QStringLiteral("Kept out of 3D")));
+}
+
+TEST(LayerStackModel3d, ALayerWithNoSceneFormSaysSoAndCannotBeToggledIntoOne)
+{
+  LayerStackModel model;
+
+  auto *probe = new Testing::ProbeLayer(QStringLiteral("plain"),
+                                        QRectF(0, 0, 10, 10));
+  ASSERT_GE(model.addLayer(probe), 0);
+
+  const QModelIndex index = model.index(0, 0);
+
+  EXPECT_FALSE(model.data(index, LayerStackModel::HasSceneFormRole).toBool());
+  EXPECT_TRUE(model.data(index, Qt::ToolTipRole).toString().contains(
+    QStringLiteral("No 3D form")))
+    << model.data(index, Qt::ToolTipRole).toString().toStdString();
+
+  // The toggle is accepted and inert -- and the form answer does not move,
+  // because whether a 3D form exists is a fact about the layer, not a
+  // setting.
+  ASSERT_TRUE(model.setData(index, true, LayerStackModel::ShownIn3DRole));
+  EXPECT_FALSE(model.data(index, LayerStackModel::HasSceneFormRole).toBool());
+}
+
+// The offscreen render harness rebuilds per frame, so a scene test cannot
+// see a missing change signal -- but the live renderer caches batches and
+// rebuilds on this signal, so without it the scene draws the old stack until
+// something else repaints. The signal itself is the contract.
+TEST(LayerStackModel3d, TogglingShownIn3dAnnouncesItselfExactlyOnce)
+{
+  QString message;
+  std::unique_ptr<MeshLayer> mesh = MeshLayer::create(
+    QStringLiteral("surface"), twoTriangleSquare(), MeshEntity::Face,
+    message);
+  ASSERT_TRUE(mesh) << message.toStdString();
+
+  QSignalSpy announced(mesh.get(), &MapLayer::appearanceChanged);
+
+  mesh->setShownIn3D(false);
+  EXPECT_EQ(announced.count(), 1)
+    << "the scene draws the old stack until something else repaints";
+
+  // Setting the value it already has says nothing, like setVisible.
+  mesh->setShownIn3D(false);
+  EXPECT_EQ(announced.count(), 1);
+
+  mesh->setShownIn3D(true);
+  EXPECT_EQ(announced.count(), 2);
 }

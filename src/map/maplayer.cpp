@@ -111,6 +111,22 @@ namespace HydroCouple::Composer
     Q_EMIT appearanceChanged();
   }
 
+  bool MapLayer::isShownIn3D() const
+  {
+    return m_shownIn3D;
+  }
+
+  void MapLayer::setShownIn3D(bool shown)
+  {
+    if (m_shownIn3D == shown)
+    {
+      return;
+    }
+
+    m_shownIn3D = shown;
+    Q_EMIT appearanceChanged();
+  }
+
   double MapLayer::opacity() const
   {
     return m_opacity;

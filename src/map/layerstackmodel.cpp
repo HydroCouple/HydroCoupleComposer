@@ -259,10 +259,18 @@ namespace HydroCouple::Composer
 
       case Qt::ToolTipRole:
       {
+        // The 3D state is said here in words as well as shown as a badge,
+        // because the badge's third state -- no badge at all -- is exactly
+        // the one a tooltip has to explain.
+        const QString sceneLine =
+          layer->sceneSource() == nullptr
+            ? tr("No 3D form")
+            : layer->isShownIn3D() ? tr("Shown in 3D") : tr("Kept out of 3D");
+
         const SpatialReference *crs = layer->crs();
-        return crs ? QStringLiteral("%1\n%2")
-                       .arg(layer->name(), crs->description())
-                   : layer->name();
+        return crs ? QStringLiteral("%1\n%2\n%3")
+                       .arg(layer->name(), crs->description(), sceneLine)
+                   : QStringLiteral("%1\n%2").arg(layer->name(), sceneLine);
       }
 
       case LayerIdRole:
@@ -279,6 +287,12 @@ namespace HydroCouple::Composer
 
       case LegendIndexRole:
         return -1;
+
+      case HasSceneFormRole:
+        return layer->sceneSource() != nullptr;
+
+      case ShownIn3DRole:
+        return layer->isShownIn3D();
 
       default:
         return {};
@@ -326,6 +340,13 @@ namespace HydroCouple::Composer
     {
       case Qt::CheckStateRole:
         layer->setVisible(value.toInt() == Qt::Checked);
+        return true;
+
+      case ShownIn3DRole:
+        // Meaningful only for layers with a 3D form; setting it on one
+        // without is accepted and inert, the same as hiding a hidden layer.
+        layer->setShownIn3D(value.toBool());
+        Q_EMIT dataChanged(index, index);
         return true;
 
       case Qt::EditRole:

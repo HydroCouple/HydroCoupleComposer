@@ -818,3 +818,75 @@ TEST_F(Scene3DTest, StatisticsCountWhatWasDrawn)
   EXPECT_EQ(statistics.vertices, 8);
   EXPECT_EQ(statistics.primitives, 4);
 }
+
+// ── Per-view visibility (coherence plan V4) ───────────────────────────────
+//
+// One checkbox used to govern both views, so there was no way to keep a
+// layer on the map and out of the scene. isShownIn3D() narrows visibility
+// for the scene only; the map never reads it.
+
+TEST_F(Scene3DTest, ALayerKeptOutOf3dLeavesTheSceneButNotTheMap)
+{
+  LayerStackModel stack;
+  SceneRenderer renderer;
+  renderer.setModel(&stack);
+
+  MeshLayer *layer = addOpaque(stack, QStringLiteral("quad"), quadAt(0.0),
+                               QColor(220, 40, 40));
+  ASSERT_NE(layer, nullptr);
+
+  ASSERT_GT(countDrawn(renderScene(renderer, topDown(),
+                                   QStringLiteral("in3d")),
+                       kBackground),
+            0);
+
+  layer->setShownIn3D(false);
+
+  const QImage kept =
+    renderScene(renderer, topDown(), QStringLiteral("keptout"));
+  ASSERT_FALSE(kept.isNull());
+
+  EXPECT_EQ(countDrawn(kept, kBackground), 0)
+    << "the scene kept drawing a layer that was kept out of 3D";
+
+  // The 2D half of visibility is untouched: the map still draws it.
+  EXPECT_TRUE(layer->isVisible());
+}
+
+TEST_F(Scene3DTest, KeepingALayerOutOf3dRemovesItFromTheSceneBounds)
+{
+  LayerStackModel stack;
+  SceneRenderer renderer;
+  renderer.setModel(&stack);
+
+  MeshLayer *tall = addOpaque(stack, QStringLiteral("tall"), quadAt(80.0),
+                              QColor(60, 60, 220));
+  ASSERT_NE(addOpaque(stack, QStringLiteral("flat"), quadAt(0.0),
+                      QColor(220, 40, 40)),
+            nullptr);
+  ASSERT_NE(tall, nullptr);
+
+  ASSERT_GT(renderer.sceneBounds().maximum().z(), 40.0f);
+
+  tall->setShownIn3D(false);
+
+  EXPECT_LT(renderer.sceneBounds().maximum().z(), 40.0f)
+    << "a layer kept out of 3D still frames the camera";
+}
+
+TEST_F(Scene3DTest, ATerrainKeptOutOf3dStopsBeingTheTerrain)
+{
+  LayerStackModel stack;
+  SceneRenderer renderer;
+  renderer.setModel(&stack);
+
+  MeshLayer *layer = addOpaque(stack, QStringLiteral("ridge"), ridge(40.0),
+                               QColor(120, 120, 120));
+  ASSERT_NE(layer, nullptr);
+  ASSERT_NE(renderer.terrain(), nullptr);
+
+  layer->setShownIn3D(false);
+
+  EXPECT_EQ(renderer.terrain(), nullptr)
+    << "everything still drapes on a surface that is not in the scene";
+}

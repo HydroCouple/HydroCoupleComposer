@@ -141,7 +141,7 @@ namespace HydroCouple::Composer
 
     for (const MapLayer *layer : m_model->renderOrder())
     {
-      if (!layer->isVisible())
+      if (!layer->isVisible() || !layer->isShownIn3D())
       {
         continue;
       }
@@ -169,7 +169,7 @@ namespace HydroCouple::Composer
 
     for (const MapLayer *layer : m_model->renderOrder())
     {
-      if (!layer->isVisible())
+      if (!layer->isVisible() || !layer->isShownIn3D())
       {
         continue;
       }
@@ -392,7 +392,7 @@ namespace HydroCouple::Composer
 
     for (const MapLayer *layer : m_model->renderOrder())
     {
-      if (!layer->isVisible())
+      if (!layer->isVisible() || !layer->isShownIn3D())
       {
         continue;
       }

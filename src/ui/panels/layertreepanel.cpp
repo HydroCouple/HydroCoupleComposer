@@ -7,7 +7,10 @@
 
 #include <QHBoxLayout>
 #include <QItemSelectionModel>
+#include <QMenu>
+#include <QPainter>
 #include <QStyle>
+#include <QStyledItemDelegate>
 #include <QToolButton>
 #include <QTreeView>
 #include <QVBoxLayout>
@@ -28,6 +31,53 @@ namespace HydroCouple::Composer
 
       return button;
     }
+
+    /*!
+     * \brief Paints the 3D badge at the right edge of a layer row.
+     *
+     * Three states, because two would lie: a solid cube for a layer in the
+     * scene, a faded one for a layer kept out of it, and none at all for a
+     * layer with no 3D form -- which is a fact about the layer, not a
+     * setting, and must not be drawn as a checkbox somebody forgot to tick.
+     */
+    class SceneBadgeDelegate : public QStyledItemDelegate
+    {
+      public:
+        using QStyledItemDelegate::QStyledItemDelegate;
+
+        void paint(QPainter *painter, const QStyleOptionViewItem &option,
+                   const QModelIndex &index) const override
+        {
+          QStyledItemDelegate::paint(painter, option, index);
+
+          if (LayerStackModel::isLegendIndex(index))
+          {
+            return;
+          }
+
+          if (!index.data(LayerStackModel::HasSceneFormRole).toBool())
+          {
+            return;
+          }
+
+          const int side = option.rect.height() - 6;
+
+          if (side <= 0)
+          {
+            return;
+          }
+
+          const QRect badge(option.rect.right() - side - 4,
+                            option.rect.top() + 3, side, side);
+
+          painter->save();
+          painter->setOpacity(
+            index.data(LayerStackModel::ShownIn3DRole).toBool() ? 0.9 : 0.3);
+          IconFactory::icon(QStringLiteral("scene_3d"))
+            .paint(painter, badge);
+          painter->restore();
+        }
+    };
   }
 
   LayerTreePanel::LayerTreePanel(QWidget *parent)
@@ -56,6 +106,77 @@ namespace HydroCouple::Composer
     m_view->setDragEnabled(true);
     m_view->setAcceptDrops(true);
     m_view->setDropIndicatorShown(true);
+    m_view->setItemDelegate(new SceneBadgeDelegate(m_view));
+
+    // The panel's verbs, on the rows themselves. The toolbar buttons stay --
+    // they are discoverable -- but a context menu is where per-layer state
+    // that is not worth a button lives, starting with the 3D toggle.
+    m_view->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_view, &QTreeView::customContextMenuRequested, this,
+            [this](const QPoint &position)
+            {
+              const QModelIndex index = m_view->indexAt(position);
+
+              if (!index.isValid() || LayerStackModel::isLegendIndex(index))
+              {
+                return;
+              }
+
+              m_view->setCurrentIndex(index);
+
+              MapLayer *layer = currentLayer();
+
+              if (!layer)
+              {
+                return;
+              }
+
+              QMenu menu(this);
+
+              QAction *shownIn3d =
+                menu.addAction(tr("Show in 3D"));
+              shownIn3d->setObjectName(QStringLiteral("layerShownIn3dAction"));
+              shownIn3d->setCheckable(true);
+
+              const bool hasSceneForm =
+                index.data(LayerStackModel::HasSceneFormRole).toBool();
+              shownIn3d->setEnabled(hasSceneForm);
+              shownIn3d->setChecked(
+                hasSceneForm &&
+                index.data(LayerStackModel::ShownIn3DRole).toBool());
+
+              if (!hasSceneForm)
+              {
+                shownIn3d->setToolTip(
+                  tr("This layer has no 3D form."));
+              }
+
+              connect(shownIn3d, &QAction::toggled, this,
+                      [this, index](bool checked)
+                      {
+                        m_model->setData(index, checked,
+                                         LayerStackModel::ShownIn3DRole);
+                      });
+
+              menu.addSeparator();
+
+              QAction *zoom = menu.addAction(tr("Zoom to Layer"));
+              connect(zoom, &QAction::triggered, this,
+                      [this, layer] { Q_EMIT zoomToLayerRequested(layer); });
+
+              QAction *properties = menu.addAction(tr("Properties…"));
+              connect(properties, &QAction::triggered, this,
+                      [this, layer]
+                      { Q_EMIT layerPropertiesRequested(layer); });
+
+              menu.addSeparator();
+
+              QAction *remove = menu.addAction(tr("Remove Layer"));
+              connect(remove, &QAction::triggered, this,
+                      &LayerTreePanel::removeCurrent);
+
+              menu.exec(m_view->viewport()->mapToGlobal(position));
+            });
 
     m_upButton = makeButton(this, QStringLiteral("layerUpButton"),
                             QStringLiteral("move_up"), tr("Move layer up"));
@@ -267,10 +388,11 @@ namespace HydroCouple::Composer
     m_zoomButton->setEnabled(hasLayer);
     m_removeButton->setEnabled(hasLayer);
 
-    // Styling is offered only where there is a style to edit: a basemap has
-    // none, and an empty editor is worse than no menu entry.
-    m_propertiesButton->setEnabled(hasLayer
-                              && currentLayer()->style() != nullptr);
+    // Any layer: the ribbon's properties action has always answered for
+    // basemaps too (the dialog itself omits the tabs that do not apply), and
+    // the same layer being editable from one button and not the other was
+    // one of the incoherences this program exists to remove.
+    m_propertiesButton->setEnabled(hasLayer);
   }
 
 } // namespace HydroCouple::Composer

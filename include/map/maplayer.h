@@ -82,6 +82,24 @@ namespace HydroCouple::Composer
       void setVisible(bool visible);
 
       /*!
+       * \brief Whether the layer joins the 3D scene, when it can.
+       *
+       * The 3D half of visibility. isVisible() stays the master switch --
+       * hiding a layer hides it everywhere, which is what every GIS user
+       * expects a tree checkbox to mean -- and this narrows it: a layer can
+       * be on the map and kept out of the scene. It cannot widen it, and it
+       * says nothing about layers with no 3D form at all; whether one exists
+       * is sceneSource()'s answer, not this flag's.
+       */
+      [[nodiscard]] bool isShownIn3D() const;
+
+      /*!
+       * \brief Keeps the layer out of the 3D scene, or lets it back in.
+       * \param shown True to let the layer join the scene.
+       */
+      void setShownIn3D(bool shown);
+
+      /*!
        * \brief Draw opacity, from 0 (invisible) to 1 (opaque).
        */
       [[nodiscard]] double opacity() const;
@@ -314,6 +332,7 @@ namespace HydroCouple::Composer
       QJsonObject m_persistentState;
       QUrl m_sourceUri;
       bool m_visible = true;
+      bool m_shownIn3D = true;
       double m_opacity = 1.0;
       std::shared_ptr<SpatialReference> m_crs;
       std::shared_ptr<SpatialReference> m_mapCrs;
