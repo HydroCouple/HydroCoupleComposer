@@ -21,6 +21,7 @@
 #include "scene/camera.h"
 #include "scene/sceneview.h"
 #include "ui/composermainwindow.h"
+#include "ui/toolbars/ribbonbar.h"
 
 #include "vectorprobe.h"
 
@@ -821,4 +822,101 @@ TEST_F(ViewHandoffTest, SceneZoomHoldsWhatIsBeingLookedAt)
   zoomIn->trigger();
 
   EXPECT_EQ(m_window->sceneView()->camera().target(), targetBefore);
+}
+
+// ── Ribbon and workspace stay truthful to each other (V2) ─────────────────
+//
+// Two tab strips describe one application. The view-owned ribbon tabs (map,
+// 3D) must never name a view that is not in front; the command palettes
+// (home, mesh, view) are never stolen, because the mesh tools force the Map
+// workspace tab and losing the palette at that moment would take the rest of
+// the tools away from the person using them.
+
+TEST_F(ViewHandoffTest, AViewOwnedRibbonTabFollowsTheWorkspace)
+{
+  auto *ribbon =
+    m_window->findChild<RibbonBar *>(QStringLiteral("ribbonBar"));
+  ASSERT_NE(ribbon, nullptr);
+
+  ribbon->setCurrentTab(QStringLiteral("map"));
+  QApplication::processEvents();
+
+  showTab(m_window->sceneView());
+  EXPECT_EQ(ribbon->currentTab(), QStringLiteral("scene"))
+    << "the ribbon said Map while the 3D view filled the screen";
+
+  showTab(m_window->mapCanvas());
+  EXPECT_EQ(ribbon->currentTab(), QStringLiteral("map"));
+}
+
+TEST_F(ViewHandoffTest, LeavingTheViewsForCompositionParksTheRibbonAtHome)
+{
+  auto *ribbon =
+    m_window->findChild<RibbonBar *>(QStringLiteral("ribbonBar"));
+  ASSERT_NE(ribbon, nullptr);
+
+  showTab(m_window->mapCanvas());
+  ribbon->setCurrentTab(QStringLiteral("map"));
+  QApplication::processEvents();
+
+  showTab(m_window->canvas());
+  EXPECT_EQ(ribbon->currentTab(), QStringLiteral("home"))
+    << "a view-owned ribbon tab kept naming a view that is not in front";
+}
+
+TEST_F(ViewHandoffTest, ActivatingTheSceneRibbonTabRaisesTheSceneView)
+{
+  auto *ribbon =
+    m_window->findChild<RibbonBar *>(QStringLiteral("ribbonBar"));
+  ASSERT_NE(ribbon, nullptr);
+
+  showTab(m_window->mapCanvas());
+
+  int changes = 0;
+  QObject::connect(m_tabs, &QTabWidget::currentChanged, m_tabs,
+                   [&changes](int) { ++changes; });
+
+  ribbon->setCurrentTab(QStringLiteral("scene"));
+  QApplication::processEvents();
+
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->sceneView());
+  EXPECT_EQ(changes, 1) << "the two tab strips chased each other";
+
+  ribbon->setCurrentTab(QStringLiteral("map"));
+  QApplication::processEvents();
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->mapCanvas());
+}
+
+TEST_F(ViewHandoffTest, ACommandPaletteRibbonTabIsNeverStolen)
+{
+  auto *ribbon =
+    m_window->findChild<RibbonBar *>(QStringLiteral("ribbonBar"));
+  ASSERT_NE(ribbon, nullptr);
+
+  ribbon->setCurrentTab(QStringLiteral("mesh"));
+  QApplication::processEvents();
+
+  // The mesh workflow: picking a domain tool forces the Map workspace tab.
+  // The palette holding the rest of the tools must survive that.
+  showTab(m_window->mapCanvas());
+  EXPECT_EQ(ribbon->currentTab(), QStringLiteral("mesh"))
+    << "the palette was stolen out from under the mesh workflow";
+
+  showTab(m_window->sceneView());
+  EXPECT_EQ(ribbon->currentTab(), QStringLiteral("mesh"));
+}
+
+TEST_F(ViewHandoffTest, BrowsingAPaletteRibbonTabLeavesTheWorkspaceAlone)
+{
+  auto *ribbon =
+    m_window->findChild<RibbonBar *>(QStringLiteral("ribbonBar"));
+  ASSERT_NE(ribbon, nullptr);
+
+  showTab(m_window->sceneView());
+
+  ribbon->setCurrentTab(QStringLiteral("view"));
+  QApplication::processEvents();
+
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->sceneView())
+    << "opening a command palette yanked the view away";
 }

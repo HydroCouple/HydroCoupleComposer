@@ -1121,6 +1121,61 @@ namespace HydroCouple::Composer
     ensureIcon(m_addMeshAction, QStringLiteral("add_mesh"));
 
     m_ribbon->setCurrentTab(QStringLiteral("home"));
+
+    // The ribbon and the workspace are two tab strips describing one
+    // application, and until they were tied together they could disagree
+    // indefinitely -- the ribbon on "Map" while the 3D view filled the
+    // screen. Two kinds of ribbon tab, two rules. The view-owned tabs (map,
+    // 3D) describe a view, so one that is showing must never name a view
+    // that is not in front. The rest (home, mesh, view) are command
+    // palettes: the mesh tools force the Map workspace tab when a tool is
+    // picked, and stealing the palette at that moment would take the
+    // remaining tools away from the person using them -- so a palette is
+    // left alone.
+    // No re-entrancy guard, deliberately: both setters are no-ops when the
+    // value is already current, and the two mappings agree with each other,
+    // so every exchange converges in one hop. A guard here survived its own
+    // falsification, which in this program has meant the same thing every
+    // time -- it was defending against nothing.
+    connect(m_workspace, &QTabWidget::currentChanged, this,
+            [this](int index)
+            {
+              const QString current = m_ribbon->currentTab();
+
+              if (current != QLatin1String("map") &&
+                  current != QLatin1String("scene"))
+              {
+                return;
+              }
+
+              QWidget *arriving = m_workspace->widget(index);
+
+              if (arriving == m_mapCanvas)
+              {
+                m_ribbon->setCurrentTab(QStringLiteral("map"));
+              }
+              else if (arriving == m_sceneView)
+              {
+                m_ribbon->setCurrentTab(QStringLiteral("scene"));
+              }
+              else if (arriving == m_canvas)
+              {
+                m_ribbon->setCurrentTab(QStringLiteral("home"));
+              }
+            });
+
+    connect(m_ribbon, &RibbonBar::currentTabChanged, this,
+            [this](const QString &id)
+            {
+              if (id == QLatin1String("map"))
+              {
+                m_workspace->setCurrentWidget(m_mapCanvas);
+              }
+              else if (id == QLatin1String("scene"))
+              {
+                m_workspace->setCurrentWidget(m_sceneView);
+              }
+            });
   }
 
   void ComposerMainWindow::createDocks()
