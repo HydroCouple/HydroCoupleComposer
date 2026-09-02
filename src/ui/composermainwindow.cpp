@@ -566,13 +566,17 @@ namespace HydroCouple::Composer
     m_sceneZoomOutToolAction->setToolTip(
       tr("Drag a box to fit the view into it; click to move away."));
 
-    auto *sceneToolGroup = new QActionGroup(this);
-    sceneToolGroup->setExclusive(true);
-
+    // The scene tools join the map's group rather than getting one of their
+    // own. Two exclusive groups meant two checked tools at once -- a lit
+    // Select on the Map ribbon tab and a lit Select on the 3D one, told
+    // apart only by which strip they sat in. One group means the checked
+    // action is the application's active gesture set, full stop; activating
+    // any tool already brings its view forward, so the lit button always
+    // describes the view that just arrived with it.
     for (QAction *tool : {m_orbitToolAction, m_sceneSelectToolAction,
                           m_sceneZoomInToolAction, m_sceneZoomOutToolAction})
     {
-      sceneToolGroup->addAction(tool);
+      toolGroup->addAction(tool);
 
       connect(tool, &QAction::triggered, this,
               &ComposerMainWindow::onSceneToolChosen);
@@ -1058,6 +1062,11 @@ namespace HydroCouple::Composer
             [this](double factor)
             {
               m_sceneView->setVerticalExaggeration(factor);
+
+              // Brought forward like every tool on this strip: stretching
+              // relief nobody can see is the spin equivalent of zooming a
+              // hidden canvas.
+              m_workspace->setCurrentWidget(m_sceneView);
             });
 
     relief->addWidget(m_exaggerationSpin);

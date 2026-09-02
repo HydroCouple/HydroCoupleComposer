@@ -184,9 +184,14 @@ namespace HydroCouple::Composer
 
     m_camera.setVerticalExaggeration(factor);
 
-    // Reframed, because exaggerating relief by an order of magnitude puts
-    // most of the scene outside a view that was framed without it.
-    zoomToFullExtent();
+    // The framing is kept. This used to reframe on every change, which
+    // sounded protective and threw away whatever framing the map had just
+    // handed over -- and the clip planes are derived from the camera's
+    // distance every frame, so nothing here can clip wrong. Relief stretched
+    // beyond the top of the view is what the spin was asked to do, and the
+    // wheel is right there.
+    update();
+    Q_EMIT cameraChanged();
   }
 
   double SceneView::verticalExaggeration() const

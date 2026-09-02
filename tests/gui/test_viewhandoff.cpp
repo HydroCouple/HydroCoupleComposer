@@ -920,3 +920,94 @@ TEST_F(ViewHandoffTest, BrowsingAPaletteRibbonTabLeavesTheWorkspaceAlone)
   EXPECT_EQ(m_tabs->currentWidget(), m_window->sceneView())
     << "opening a command palette yanked the view away";
 }
+
+// ── One tool at a time, application-wide (V3) ─────────────────────────────
+
+// Two exclusive groups meant a lit Select on the Map tab and a lit Select on
+// the 3D tab at once, told apart only by which strip they sat in.
+TEST_F(ViewHandoffTest, CheckingASceneToolUnchecksTheMapTool)
+{
+  auto *pan = m_window->findChild<QAction *>(QStringLiteral("panToolAction"));
+  auto *sceneSelect = m_window->findChild<QAction *>(
+    QStringLiteral("sceneSelectToolAction"));
+  ASSERT_NE(pan, nullptr);
+  ASSERT_NE(sceneSelect, nullptr);
+
+  pan->trigger();
+  ASSERT_TRUE(pan->isChecked());
+
+  sceneSelect->trigger();
+
+  EXPECT_TRUE(sceneSelect->isChecked());
+  EXPECT_FALSE(pan->isChecked())
+    << "two tools lit at once, one per ribbon tab";
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->sceneView())
+    << "a scene tool was activated without its view coming forward";
+}
+
+TEST_F(ViewHandoffTest, CheckingAMapToolUnchecksTheSceneTool)
+{
+  auto *select =
+    m_window->findChild<QAction *>(QStringLiteral("selectToolAction"));
+  auto *orbit =
+    m_window->findChild<QAction *>(QStringLiteral("orbitToolAction"));
+  ASSERT_NE(select, nullptr);
+  ASSERT_NE(orbit, nullptr);
+
+  orbit->trigger();
+  ASSERT_TRUE(orbit->isChecked());
+
+  select->trigger();
+
+  EXPECT_TRUE(select->isChecked());
+  EXPECT_FALSE(orbit->isChecked());
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->mapCanvas());
+}
+
+// ── Exaggeration behaves like a 3D control (V3) ───────────────────────────
+
+TEST_F(ViewHandoffTest, ExaggerationSpinBringsTheSceneForward)
+{
+  addTerrain();
+
+  showTab(m_window->mapCanvas());
+
+  auto *spin = m_window->findChild<QDoubleSpinBox *>(
+    QStringLiteral("exaggerationSpin"));
+  ASSERT_NE(spin, nullptr);
+
+  spin->setValue(spin->value() + 2.0);
+  QApplication::processEvents();
+
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->sceneView())
+    << "relief was stretched on a view nobody could see";
+}
+
+// Stretching relief must not throw away where the camera is looking -- the
+// old behaviour reframed to full extent on every change, discarding a
+// framing the map had just handed over.
+TEST_F(ViewHandoffTest, ExaggerationChangePreservesTheFraming)
+{
+  addTerrain();
+
+  showTab(m_window->mapCanvas());
+  m_window->mapCanvas()->zoomToFullExtent();
+  m_window->mapCanvas()->zoomBy(4.0);
+  const QRectF framed = m_window->mapCanvas()->transform().visibleExtent();
+
+  showTab(m_window->sceneView());
+
+  const QVector3D target = m_window->sceneView()->camera().target();
+  const double distance = m_window->sceneView()->camera().distance();
+
+  m_window->sceneView()->setVerticalExaggeration(
+    m_window->sceneView()->verticalExaggeration() + 5.0);
+
+  EXPECT_EQ(m_window->sceneView()->camera().target(), target)
+    << "changing exaggeration moved what is being looked at";
+  EXPECT_EQ(m_window->sceneView()->camera().distance(), distance);
+
+  // And the framing it preserves is the one the map handed over.
+  EXPECT_TRUE(containsWithinRounding(m_window->sceneView()->groundExtent(),
+                                     framed));
+}
