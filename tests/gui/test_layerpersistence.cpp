@@ -13,6 +13,7 @@
  */
 
 #include "layers/gdalrasterlayer.h"
+#include "scene/scenesource.h"
 #include "layers/layerrestorer.h"
 #include "project/presentation.h"
 
@@ -307,4 +308,104 @@ TEST(LayerPersistence, aFileLayerNamesTheFileAModelCouldRead)
     << "a raster on disk cannot say where a model could read it from";
   EXPECT_TRUE(raster->sourceUri().isLocalFile());
   EXPECT_EQ(raster->sourceUri().toLocalFile(), path);
+}
+
+// ── The scene settings survive a save and an open (coherence plan Z4) ─────
+//
+// Drape, placement, extrusion, the 3D toggle, opacity, the terrain consent
+// and the raster's shading were all lost on save: a composition arranged
+// in 3D reopened flat, in Viridis, at full opacity.
+
+TEST(LayerPersistence, theSceneSettingsComeBackFromTheEntry)
+{
+  const QString path =
+    QStringLiteral(COMPOSER_OGC_FIXTURE_DIR "/wcs-coverage-ahn-dtm.tif");
+
+  QJsonObject scene;
+  scene.insert(QStringLiteral("shownIn3D"), false);
+  scene.insert(QStringLiteral("terrainEnabled"), true);
+  scene.insert(QStringLiteral("zMode"),
+               static_cast<int>(ZMode::Constant));
+  scene.insert(QStringLiteral("constant"), 12.5);
+  scene.insert(QStringLiteral("offset"), 3.0);
+  scene.insert(QStringLiteral("extrusion"), 7.0);
+
+  QJsonObject shading;
+  shading.insert(QStringLiteral("ramp"), QStringLiteral("Plasma"));
+  shading.insert(QStringLiteral("stretchFrom"), 2.0);
+  shading.insert(QStringLiteral("stretchTo"), 9.0);
+
+  QJsonObject entry;
+  entry.insert(QStringLiteral("type"), QStringLiteral("gdal-raster"));
+  entry.insert(QStringLiteral("path"), path);
+  entry.insert(QStringLiteral("name"), QStringLiteral("dem"));
+  entry.insert(QStringLiteral("visible"), true);
+  entry.insert(QStringLiteral("opacity"), 0.4);
+  entry.insert(QStringLiteral("scene"), scene);
+  entry.insert(QStringLiteral("shading"), shading);
+
+  LayerRestorer restorer;
+  MapLayer *restored = nullptr;
+  QString failure;
+
+  restorer.restore(
+    QJsonArray{entry}, [&](MapLayer *layer) { restored = layer; },
+    [&](const QString &message) { failure = message; });
+
+  ASSERT_NE(restored, nullptr) << failure.toStdString();
+
+  EXPECT_NEAR(restored->opacity(), 0.4, 1e-9);
+  EXPECT_FALSE(restored->isShownIn3D());
+
+  ISceneSource *sceneSource = restored->sceneSource();
+  ASSERT_NE(sceneSource, nullptr);
+  EXPECT_TRUE(sceneSource->terrainEnabled())
+    << "the DEM was elected terrain when it was saved, and reopened unoffered";
+  EXPECT_EQ(sceneSource->zPolicy().mode, ZMode::Constant);
+  EXPECT_NEAR(sceneSource->zPolicy().constant, 12.5, 1e-9);
+  EXPECT_NEAR(sceneSource->zPolicy().offset, 3.0, 1e-9);
+  EXPECT_NEAR(sceneSource->extrusionHeight(), 7.0, 1e-9);
+
+  auto *raster = dynamic_cast<GdalRasterLayer *>(restored);
+  ASSERT_NE(raster, nullptr);
+  EXPECT_EQ(raster->rampName(), QStringLiteral("Plasma"));
+
+  double low = 0.0;
+  double high = 0.0;
+  raster->valueRange(low, high);
+  EXPECT_NEAR(low, 2.0, 1e-9);
+  EXPECT_NEAR(high, 9.0, 1e-9);
+
+  delete restored;
+}
+
+TEST(LayerPersistence, anOldEntryWithoutSceneSettingsKeepsTheDefaults)
+{
+  const QString path =
+    QStringLiteral(COMPOSER_OGC_FIXTURE_DIR "/wcs-coverage-ahn-dtm.tif");
+
+  QJsonObject entry;
+  entry.insert(QStringLiteral("type"), QStringLiteral("gdal-raster"));
+  entry.insert(QStringLiteral("path"), path);
+  entry.insert(QStringLiteral("name"), QStringLiteral("dem"));
+
+  LayerRestorer restorer;
+  MapLayer *restored = nullptr;
+  QString failure;
+
+  restorer.restore(
+    QJsonArray{entry}, [&](MapLayer *layer) { restored = layer; },
+    [&](const QString &message) { failure = message; });
+
+  ASSERT_NE(restored, nullptr) << failure.toStdString();
+
+  // A composition saved before these settings existed reopens exactly as it
+  // always did.
+  EXPECT_NEAR(restored->opacity(), 1.0, 1e-9);
+  EXPECT_TRUE(restored->isShownIn3D());
+  EXPECT_EQ(restored->sceneSource()->zPolicy().mode, ZMode::OnTerrain);
+  EXPECT_FALSE(restored->sceneSource()->terrainEnabled())
+    << "a raster must stay unoffered as terrain unless someone offered it";
+
+  delete restored;
 }

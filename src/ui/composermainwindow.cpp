@@ -2509,6 +2509,49 @@ namespace HydroCouple::Composer
       // changed after the layer is added.
       state.insert(QStringLiteral("name"), layer->name());
       state.insert(QStringLiteral("visible"), layer->isVisible());
+      state.insert(QStringLiteral("opacity"), layer->opacity());
+
+      // The scene's settings, under one key. Before this, drape, placement,
+      // extrusion and the 3D toggle were all lost on save: a composition
+      // arranged in 3D reopened flat.
+      if (const ISceneSource *scene = layer->sceneSource())
+      {
+        QJsonObject sceneState;
+        sceneState.insert(QStringLiteral("shownIn3D"), layer->isShownIn3D());
+        sceneState.insert(QStringLiteral("terrainEnabled"),
+                          scene->terrainEnabled());
+
+        const ZPolicy &policy = scene->zPolicy();
+        sceneState.insert(QStringLiteral("zMode"),
+                          static_cast<int>(policy.mode));
+        sceneState.insert(QStringLiteral("constant"), policy.constant);
+        sceneState.insert(QStringLiteral("field"), policy.field);
+        sceneState.insert(QStringLiteral("offset"), policy.offset);
+        sceneState.insert(QStringLiteral("extrusion"),
+                          scene->extrusionHeight());
+
+        if (const auto *mesh = dynamic_cast<const MeshLayer *>(layer))
+        {
+          sceneState.insert(QStringLiteral("flatShading"),
+                            mesh->flatShading());
+        }
+
+        state.insert(QStringLiteral("scene"), sceneState);
+      }
+
+      if (const auto *raster = dynamic_cast<const GdalRasterLayer *>(layer))
+      {
+        QJsonObject shading;
+        shading.insert(QStringLiteral("ramp"), raster->rampName());
+
+        double minimum = 0.0;
+        double maximum = 1.0;
+        raster->valueRange(minimum, maximum);
+        shading.insert(QStringLiteral("stretchFrom"), minimum);
+        shading.insert(QStringLiteral("stretchTo"), maximum);
+
+        state.insert(QStringLiteral("shading"), shading);
+      }
 
       layers.append(state);
     }

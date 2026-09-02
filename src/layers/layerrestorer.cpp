@@ -6,6 +6,7 @@
 #include "layers/layerrestorer.h"
 
 #include "layers/gdalrasterlayer.h"
+#include "layers/meshlayer.h"
 #include "layers/gdalvectorlayer.h"
 #include "layers/ogctilesource.h"
 #include "layers/tilelayer.h"
@@ -87,6 +88,68 @@ namespace HydroCouple::Composer
       if (entry.contains(QStringLiteral("visible")))
       {
         layer->setVisible(entry.value(QStringLiteral("visible")).toBool(true));
+      }
+
+      if (entry.contains(QStringLiteral("opacity")))
+      {
+        layer->setOpacity(
+          entry.value(QStringLiteral("opacity")).toDouble(1.0));
+      }
+
+      // Every fallback is the value the factory just gave the layer, so a
+      // missing key -- an old composition, a hand-edited file -- keeps what
+      // it has rather than being written back to a hard-coded default that
+      // could drift from the real one. It also means no emptiness guard: an
+      // absent block is just a block whose every key is missing.
+      const QJsonObject sceneState =
+        entry.value(QStringLiteral("scene")).toObject();
+
+      layer->setShownIn3D(sceneState.value(QStringLiteral("shownIn3D"))
+                            .toBool(layer->isShownIn3D()));
+
+      if (ISceneSource *scene = layer->sceneSource())
+      {
+        scene->setTerrainEnabled(
+          sceneState.value(QStringLiteral("terrainEnabled"))
+            .toBool(scene->terrainEnabled()));
+
+        ZPolicy policy = scene->zPolicy();
+        policy.mode = static_cast<ZMode>(
+          sceneState.value(QStringLiteral("zMode"))
+            .toInt(static_cast<int>(policy.mode)));
+        policy.constant = sceneState.value(QStringLiteral("constant"))
+                            .toDouble(policy.constant);
+        policy.field =
+          sceneState.value(QStringLiteral("field")).toString(policy.field);
+        policy.offset = sceneState.value(QStringLiteral("offset"))
+                          .toDouble(policy.offset);
+
+        scene->setZPolicy(policy);
+        scene->setExtrusionHeight(
+          sceneState.value(QStringLiteral("extrusion"))
+            .toDouble(scene->extrusionHeight()));
+      }
+
+      if (auto *mesh = dynamic_cast<MeshLayer *>(layer))
+      {
+        mesh->setFlatShading(sceneState.value(QStringLiteral("flatShading"))
+                               .toBool(mesh->flatShading()));
+      }
+
+      const QJsonObject shading =
+        entry.value(QStringLiteral("shading")).toObject();
+
+      if (auto *raster = dynamic_cast<GdalRasterLayer *>(layer))
+      {
+        raster->setRampName(shading.value(QStringLiteral("ramp"))
+                              .toString(raster->rampName()));
+
+        double low = 0.0;
+        double high = 1.0;
+        raster->valueRange(low, high);
+        raster->setValueRange(
+          shading.value(QStringLiteral("stretchFrom")).toDouble(low),
+          shading.value(QStringLiteral("stretchTo")).toDouble(high));
       }
 
       // The recipe travels with the layer, so a composition saved, reopened
