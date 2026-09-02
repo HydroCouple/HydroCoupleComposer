@@ -206,11 +206,27 @@ namespace HydroCouple::Composer
 
   void MapStatusBar::setLive(bool live)
   {
-    // The coordinate readout keeps its last value rather than blanking: it
-    // is the last thing the map was asked about, and clearing it on a tab
-    // change loses a reading someone may have been reading.
     m_scaleCombo->setEnabled(live && m_canvas);
     m_crsButton->setEnabled(live && m_canvas);
+
+    // The coordinate readout used to keep its last 2D value on the 3D tab,
+    // greyed-out-looking but never labelled stale -- a number that quietly
+    // meant nothing about what was on screen. Off the map it is cleared,
+    // and the camera readout takes the slot the moment the scene reports.
+    if (!live)
+    {
+      m_coordinateLabel->setText(tr("3D view"));
+    }
+  }
+
+  void MapStatusBar::showCameraReading(double azimuth, double elevation,
+                                       double distance)
+  {
+    m_coordinateLabel->setText(
+      tr("heading %1° · pitch %2° · %3 away")
+        .arg(azimuth, 0, 'f', 0)
+        .arg(elevation, 0, 'f', 0)
+        .arg(distance, 0, 'f', 0));
   }
 
   QString MapStatusBar::scaleText() const

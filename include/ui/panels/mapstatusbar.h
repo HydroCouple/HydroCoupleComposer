@@ -74,6 +74,20 @@ namespace HydroCouple::Composer
       //! \returns The text of the scale field, e.g. "1:2,500".
       [[nodiscard]] QString scaleText() const;
 
+      /*!
+       * \brief Shows where the 3D camera stands, in the coordinate slot.
+       *
+       * The 3D tab's replacement for the cursor coordinate: heading,
+       * pitch and distance are what a perspective view has instead of a
+       * point under the pointer.
+       *
+       * \param azimuth Heading in degrees.
+       * \param elevation Pitch in degrees.
+       * \param distance Eye-to-target distance, in map units.
+       */
+      void showCameraReading(double azimuth, double elevation,
+                             double distance);
+
     Q_SIGNALS:
       /*!
        * \brief Emitted when the CRS button is pressed.

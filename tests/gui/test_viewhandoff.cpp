@@ -32,6 +32,7 @@
 #include <QMouseEvent>
 #include <QRubberBand>
 #include <QDoubleSpinBox>
+#include <QLabel>
 
 #include <QApplication>
 #include <QRectF>
@@ -1111,4 +1112,49 @@ TEST_F(ViewHandoffTest, ZoomToLayerOnTheMapTabStillFramesTheMap)
 
   const QRectF shown = m_window->mapCanvas()->transform().visibleExtent();
   EXPECT_TRUE(containsWithinRounding(shown, QRectF(0, 0, 400, 300)));
+}
+
+// ── The dead signals have consumers (V7) ──────────────────────────────────
+
+// cameraChanged was emitted from six places and connected to nothing; its
+// own doc comment promised the map would be kept in step. The status bar is
+// its first consumer: moving the camera updates the readout.
+TEST_F(ViewHandoffTest, MovingTheCameraUpdatesTheStatusReadout)
+{
+  addTerrain();
+
+  showTab(m_window->sceneView());
+
+  auto *coordinate =
+    m_window->findChild<QLabel *>(QStringLiteral("coordinateLabel"));
+  ASSERT_NE(coordinate, nullptr);
+
+  m_window->sceneView()->zoomIn();
+  QApplication::processEvents();
+
+  EXPECT_TRUE(coordinate->text().contains(QStringLiteral("heading")))
+    << "the camera moved and the status bar said nothing: "
+    << coordinate->text().toStdString();
+}
+
+// On the map tab the camera must NOT write over the live 2D coordinate.
+TEST_F(ViewHandoffTest, TheCameraDoesNotWriteOverTheMapsCoordinate)
+{
+  addTerrain();
+
+  showTab(m_window->mapCanvas());
+
+  auto *coordinate =
+    m_window->findChild<QLabel *>(QStringLiteral("coordinateLabel"));
+  ASSERT_NE(coordinate, nullptr);
+
+  const QString before = coordinate->text();
+
+  // The hidden camera moves -- a handoff, a programmatic frame -- and the
+  // map's slot keeps its own reading.
+  m_window->sceneView()->zoomIn();
+  QApplication::processEvents();
+
+  EXPECT_EQ(coordinate->text(), before)
+    << "a hidden camera wrote its reading over the map's coordinate";
 }

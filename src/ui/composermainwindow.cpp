@@ -2403,6 +2403,39 @@ namespace HydroCouple::Composer
             [followTab](int) { followTab(); });
 
     followTab();
+
+    // The camera readout takes the coordinate slot on the 3D tab. Connected
+    // here because this is where the bar learns which tab is front -- and
+    // it makes cameraChanged's own doc comment true at last: the signal was
+    // emitted from six places and listened to by nobody.
+    connect(m_sceneView, &SceneView::cameraChanged, this,
+            [this]
+            {
+              if (m_workspace->currentWidget() != m_sceneView)
+              {
+                return;
+              }
+
+              const Camera &camera = m_sceneView->camera();
+              m_mapStatus->showCameraReading(camera.azimuth(),
+                                             camera.elevation(),
+                                             camera.distance());
+            });
+
+    // What a click identified, named where the eye already is. Both views'
+    // pick signals were emitted into the void; one handler serves both,
+    // because the message should not depend on which view was clicked.
+    const auto announcePick = [this](MapLayer *layer, int feature)
+    {
+      if (layer)
+      {
+        statusBar()->showMessage(
+          tr("%1 — feature %2").arg(layer->name()).arg(feature), 5000);
+      }
+    };
+
+    connect(m_mapCanvas, &MapCanvas::featurePicked, this, announcePick);
+    connect(m_sceneView, &SceneView::featurePicked, this, announcePick);
   }
 
   void ComposerMainWindow::refreshTitle()
