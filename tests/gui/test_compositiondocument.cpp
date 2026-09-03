@@ -411,3 +411,60 @@ TEST(CompositionDocumentBindings, RemovingAProviderTakesItsBindingsAlongUndoably
     EXPECT_TRUE(solver->arguments["mesh"].contains("@from"));
   }
 }
+
+// ── Workflow + execution blocks (the write side S4.3's panel drives) ──────
+
+TEST(CompositionDocumentExecution, TheWorkflowBlockIsEditableAndUndoable)
+{
+  using HydroCouple::Composer::CompositionDocument;
+  namespace IO = HydroCouple::SDK::IO;
+
+  CompositionDocument document;
+  QString message;
+  ASSERT_TRUE(document.loadFromJson(
+    R"({"components": [{"id": "a"}]})", message))
+    << message.toStdString();
+
+  IO::WorkflowSpec workflow;
+  workflow.strategy = IO::WorkflowStrategy::TimeStepped;
+  workflow.iterationsPerGroup = 3;
+  workflow.maxSteps = 50;
+  ASSERT_TRUE(document.setWorkflow(workflow));
+
+  EXPECT_EQ(document.spec().workflow.strategy,
+            IO::WorkflowStrategy::TimeStepped);
+  EXPECT_EQ(document.spec().workflow.iterationsPerGroup, 3);
+
+  document.undoStack()->undo();
+  EXPECT_EQ(document.spec().workflow.strategy, IO::WorkflowStrategy::None);
+}
+
+TEST(CompositionDocumentExecution, OpenModeNeedsAManifestAndRunClearsIt)
+{
+  using HydroCouple::Composer::CompositionDocument;
+  namespace IO = HydroCouple::SDK::IO;
+
+  CompositionDocument document;
+  QString message;
+  ASSERT_TRUE(document.loadFromJson(
+    R"({"components": [{"id": "a"}]})", message))
+    << message.toStdString();
+
+  // Open with nothing to open would save an unloadable document.
+  EXPECT_FALSE(document.setComponentExecution(
+    QStringLiteral("a"), IO::ExecutionMode::Open, QString()));
+
+  ASSERT_TRUE(document.setComponentExecution(
+    QStringLiteral("a"), IO::ExecutionMode::Open,
+    QStringLiteral("prior/run.json")));
+  EXPECT_EQ(document.component(QStringLiteral("a"))->mode,
+            IO::ExecutionMode::Open);
+  EXPECT_EQ(document.component(QStringLiteral("a"))->resultsManifest,
+            "prior/run.json");
+
+  // Back to run: the stale manifest goes with the mode.
+  ASSERT_TRUE(document.setComponentExecution(
+    QStringLiteral("a"), IO::ExecutionMode::Run, QString()));
+  EXPECT_TRUE(document.component(QStringLiteral("a"))
+                ->resultsManifest.empty());
+}

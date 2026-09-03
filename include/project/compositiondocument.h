@@ -105,6 +105,26 @@ namespace HydroCouple::Composer
 
       [[nodiscard]] QStringList componentIds() const;
 
+      /*!
+       * \brief Replaces the orchestration block, undoably.
+       * \param workflow The workflow configuration to record.
+       */
+      bool setWorkflow(const HydroCouple::SDK::IO::WorkflowSpec &workflow);
+
+      /*!
+       * \brief Sets one component's execution mode, undoably.
+       *
+       * Mode "open" requires \a resultsManifest — the spec refuses an open
+       * block with nothing to open.
+       *
+       * \param componentId Component whose execution changes.
+       * \param mode run, open, or resume.
+       * \param resultsManifest Run manifest path for mode "open".
+       */
+      bool setComponentExecution(
+        const QString &componentId, HydroCouple::SDK::IO::ExecutionMode mode,
+        const QString &resultsManifest);
+
       [[nodiscard]] std::optional<ComponentSpec> component(
         const QString &componentId) const;
 

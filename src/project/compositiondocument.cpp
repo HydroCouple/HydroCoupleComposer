@@ -383,6 +383,57 @@ namespace HydroCouple::Composer
     return true;
   }
 
+  bool CompositionDocument::setWorkflow(
+    const HydroCouple::SDK::IO::WorkflowSpec &workflow)
+  {
+    CompositionSpec after = m_spec;
+    after.workflow = workflow;
+
+    m_undoStack->push(new SpecChangeCommand(this, m_spec, std::move(after),
+                                            tr("Change the workflow")));
+    return true;
+  }
+
+  bool CompositionDocument::setComponentExecution(
+    const QString &componentId, HydroCouple::SDK::IO::ExecutionMode mode,
+    const QString &resultsManifest)
+  {
+    const std::string id = componentId.toStdString();
+
+    if (!m_spec.component(id))
+    {
+      return false;
+    }
+
+    if (mode == HydroCouple::SDK::IO::ExecutionMode::Open &&
+        resultsManifest.isEmpty())
+    {
+      // The spec refuses an open block with nothing to open; refusing here
+      // keeps the document loadable rather than failing at save time.
+      return false;
+    }
+
+    CompositionSpec after = m_spec;
+
+    for (ComponentSpec &component : after.components)
+    {
+      if (component.id == id)
+      {
+        component.mode = mode;
+        component.resultsManifest =
+          mode == HydroCouple::SDK::IO::ExecutionMode::Run
+            ? std::string()
+            : resultsManifest.toStdString();
+        break;
+      }
+    }
+
+    m_undoStack->push(new SpecChangeCommand(
+      this, m_spec, std::move(after),
+      tr("Set how '%1' executes").arg(componentId)));
+    return true;
+  }
+
   bool CompositionDocument::setArgument(const QString &componentId,
                                         const QString &argumentId,
                                         const nlohmann::json &payload)
