@@ -310,3 +310,56 @@ TEST_F(CanvasTest, PaletteListsRegistryComponentsAndCarriesTheDropPayload)
   EXPECT_EQ(QString::fromUtf8(mime->data(QLatin1String(kComponentMimeType))),
             QStringLiteral("composer.test.component"));
 }
+
+// ── @from binding edges ───────────────────────────────────────────────────
+
+namespace
+{
+  //! A provider + consumer whose "rating" argument is bound to the
+  //! provider's "values" output.
+  void loadBoundPair(CompositionDocument &document)
+  {
+    QString message;
+    const QByteArray text = R"({
+      "schema_version": "1.1",
+      "components": [
+        { "id": "prov",
+          "info": { "component_info_id": "composer.test.component" } },
+        { "id": "consumer",
+          "info": { "component_info_id": "composer.test.component" },
+          "arguments": { "rating": { "@from": {
+              "component": "prov", "output": "values" } } } }
+      ]
+    })";
+    ASSERT_TRUE(document.loadFromJson(text, message))
+      << message.toStdString();
+  }
+}
+
+TEST_F(CanvasTest, ABindingIsDrawnAsItsOwnKindOfEdge)
+{
+  loadBoundPair(document);
+
+  // One binding edge, and no exchange edge pretending to be one.
+  ASSERT_EQ(scene->bindingEdges().size(), 1);
+  EXPECT_EQ(scene->edges().size(), 0);
+
+  const BindingEdgeItem *edge = scene->bindingEdges().first();
+  EXPECT_EQ(edge->binding().provider, "prov");
+  EXPECT_EQ(edge->binding().component, "consumer");
+  EXPECT_EQ(edge->binding().argument, "rating");
+  EXPECT_NE(BindingEdgeItem::Type, ConnectionEdgeItem::Type);
+}
+
+TEST_F(CanvasTest, ABindingEdgeFollowsItsNodes)
+{
+  loadBoundPair(document);
+  ASSERT_EQ(scene->bindingEdges().size(), 1);
+  BindingEdgeItem *edge = scene->bindingEdges().first();
+
+  const QRectF before = edge->boundingRect();
+  document.moveComponent(QStringLiteral("prov"), QPointF(400.0, 250.0));
+  const QRectF after = edge->boundingRect();
+
+  EXPECT_NE(before, after) << "the edge did not follow the moved provider";
+}

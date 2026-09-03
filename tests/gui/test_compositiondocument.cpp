@@ -366,3 +366,48 @@ TEST_F(DocumentTest, SidecarPathSitsBesideTheDocument)
   EXPECT_TRUE(Presentation::sidecarPathFor(QStringLiteral("/tmp/flow.yaml"))
                 .endsWith(QStringLiteral("/flow.composer.json")));
 }
+
+// ── @from bindings and component removal ──────────────────────────────────
+
+TEST(CompositionDocumentBindings, RemovingAProviderTakesItsBindingsAlongUndoably)
+{
+  using HydroCouple::Composer::CompositionDocument;
+
+  CompositionDocument document;
+  QString message;
+  ASSERT_TRUE(document.loadFromJson(R"({
+    "schema_version": "1.1",
+    "components": [
+      { "id": "meshgen" },
+      { "id": "gage" },
+      { "id": "solver",
+        "arguments": {
+          "mesh": { "@from": { "component": "meshgen", "output": "mesh" } },
+          "met": { "@from": { "component": "gage", "output": "flow" } },
+          "dt": { "values": [60.0] } } }
+    ]
+  })", message))
+    << message.toStdString();
+
+  ASSERT_TRUE(document.removeComponent(QStringLiteral("meshgen")));
+
+  // The binding went with its provider — a dangling @from would make the
+  // saved document unparseable — while the unrelated argument stayed.
+  {
+    const auto solver = document.component(QStringLiteral("solver"));
+    ASSERT_TRUE(solver.has_value());
+    EXPECT_FALSE(solver->arguments.contains("mesh"));
+    EXPECT_TRUE(solver->arguments.contains("dt"));
+    // Only the REMOVED provider's bindings go; the gage's stays.
+    EXPECT_TRUE(solver->arguments.contains("met"));
+  }
+
+  // And it comes back together on undo.
+  document.undoStack()->undo();
+  {
+    const auto solver = document.component(QStringLiteral("solver"));
+    ASSERT_TRUE(solver.has_value());
+    ASSERT_TRUE(solver->arguments.contains("mesh"));
+    EXPECT_TRUE(solver->arguments["mesh"].contains("@from"));
+  }
+}

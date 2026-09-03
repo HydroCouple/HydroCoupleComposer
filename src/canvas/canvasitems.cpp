@@ -358,4 +358,87 @@ namespace HydroCouple::Composer
     return m_connection;
   }
 
+
+  // ── BindingEdgeItem ───────────────────────────────────────────────────────
+
+  BindingEdgeItem::BindingEdgeItem(
+    HydroCouple::SDK::IO::ArgumentBindingSpec binding,
+    ComponentNodeItem *provider, ComponentNodeItem *consumer)
+    : m_binding(std::move(binding)),
+      m_provider(provider),
+      m_consumer(consumer)
+  {
+    setZValue(-2.0); // Behind the exchange edges: initialization underlies.
+    setToolTip(QStringLiteral("%1.%2 \u27f5 %3.%4 \u2014 resolves when the "
+                              "composition runs")
+                 .arg(QString::fromStdString(m_binding.component),
+                      QString::fromStdString(m_binding.argument),
+                      QString::fromStdString(m_binding.provider),
+                      QString::fromStdString(m_binding.output)));
+    refresh();
+  }
+
+  int BindingEdgeItem::type() const
+  {
+    return Type;
+  }
+
+  const HydroCouple::SDK::IO::ArgumentBindingSpec &
+  BindingEdgeItem::binding() const
+  {
+    return m_binding;
+  }
+
+  QPainterPath BindingEdgeItem::buildPath() const
+  {
+    QPainterPath path;
+
+    if (!m_provider || !m_consumer)
+    {
+      return path;
+    }
+
+    const QRectF from = m_provider->sceneBoundingRect();
+    const QRectF to = m_consumer->sceneBoundingRect();
+    const QPointF start(from.right(), from.center().y());
+    const QPointF end(to.left(), to.center().y());
+    const qreal reach = std::max(40.0, std::abs(end.x() - start.x()) * 0.5);
+
+    path.moveTo(start);
+    path.cubicTo(start + QPointF(reach, 0.0), end - QPointF(reach, 0.0), end);
+
+    return path;
+  }
+
+  void BindingEdgeItem::refresh()
+  {
+    prepareGeometryChange();
+    m_path = buildPath();
+    update();
+  }
+
+  QRectF BindingEdgeItem::boundingRect() const
+  {
+    return m_path.boundingRect().adjusted(-6.0, -6.0, 6.0, 6.0);
+  }
+
+  QPainterPath BindingEdgeItem::shape() const
+  {
+    QPainterPathStroker stroker;
+    stroker.setWidth(8.0);
+    return stroker.createStroke(m_path);
+  }
+
+  void BindingEdgeItem::paint(QPainter *painter,
+                              const QStyleOptionGraphicsItem *, QWidget *)
+  {
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setBrush(Qt::NoBrush);
+
+    QPen pen(QColor(140, 110, 200), 1.6);
+    pen.setDashPattern({5.0, 4.0});
+    painter->setPen(pen);
+    painter->drawPath(m_path);
+  }
+
 } // namespace HydroCouple::Composer

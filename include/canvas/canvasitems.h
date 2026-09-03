@@ -193,6 +193,58 @@ namespace HydroCouple::Composer
       QPainterPath m_path;
   };
 
+
+  /*!
+   * \brief An @from argument binding, drawn as its own kind of edge.
+   *
+   * Node to node, not port to port: a binding initializes an argument, and
+   * arguments have no ports — the value flows once, before the consumer
+   * initializes, not every step. The dashed stroke says exactly that at a
+   * glance, next to the solid exchange edges.
+   */
+  class BindingEdgeItem : public QGraphicsItem
+  {
+    public:
+      enum
+      {
+        Type = UserType + 4
+      };
+
+      /*!
+       * \brief Builds an edge for one binding.
+       * \param binding The binding this edge represents.
+       * \param provider The providing component's node.
+       * \param consumer The consuming component's node.
+       */
+      BindingEdgeItem(HydroCouple::SDK::IO::ArgumentBindingSpec binding,
+                      ComponentNodeItem *provider,
+                      ComponentNodeItem *consumer);
+
+      [[nodiscard]] int type() const override;
+
+      //! The binding this edge draws.
+      [[nodiscard]] const HydroCouple::SDK::IO::ArgumentBindingSpec &
+      binding() const;
+
+      //! Recomputes the path after a node moved.
+      void refresh();
+
+      [[nodiscard]] QRectF boundingRect() const override;
+
+      [[nodiscard]] QPainterPath shape() const override;
+
+      void paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
+                 QWidget *widget) override;
+
+    private:
+      [[nodiscard]] QPainterPath buildPath() const;
+
+      HydroCouple::SDK::IO::ArgumentBindingSpec m_binding;
+      ComponentNodeItem *m_provider = nullptr;
+      ComponentNodeItem *m_consumer = nullptr;
+      QPainterPath m_path;
+  };
+
 } // namespace HydroCouple::Composer
 
 #endif // HYDROCOUPLECOMPOSER_CANVAS_CANVASITEMS_H

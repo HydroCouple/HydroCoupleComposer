@@ -295,8 +295,28 @@ namespace HydroCouple::Composer
                      [&id](const ComponentSpec &c) { return c.id == id; }),
       after.components.end());
 
-    // A dangling connection endpoint would make the document invalid, so the
-    // component's connections go with it — and come back together on undo.
+    // A dangling reference would make the saved document unparseable — the
+    // spec refuses connections and @from bindings that name an undeclared
+    // component — so the component's connections AND the bindings that
+    // point at it go with it, and come back together on undo.
+    for (ComponentSpec &component : after.components)
+    {
+      for (auto it = component.arguments.begin();
+           it != component.arguments.end();)
+      {
+        if (HydroCouple::SDK::IO::isArgumentBinding(it.value()) &&
+            it.value()[HydroCouple::SDK::IO::kArgumentBindingKey]
+                .value("component", std::string()) == id)
+        {
+          it = component.arguments.erase(it);
+        }
+        else
+        {
+          ++it;
+        }
+      }
+    }
+
     after.connections.erase(
       std::remove_if(after.connections.begin(), after.connections.end(),
                      [&id](const ConnectionSpec &c)

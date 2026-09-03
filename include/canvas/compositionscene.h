@@ -59,6 +59,11 @@ namespace HydroCouple::Composer
       [[nodiscard]] QList<ConnectionEdgeItem *> edges() const;
 
       /*!
+       * \brief The @from binding edges currently drawn.
+       */
+      [[nodiscard]] QList<BindingEdgeItem *> bindingEdges() const;
+
+      /*!
        * \brief Adds a component to the document at a canvas position.
        *
        * This is what a drop from the component palette performs.
@@ -110,6 +115,7 @@ namespace HydroCouple::Composer
 
       QHash<QString, ComponentNodeItem *> m_nodes;
       QList<ConnectionEdgeItem *> m_edges;
+      QList<BindingEdgeItem *> m_bindingEdges;
 
       // In-progress port drag.
       PortItem *m_dragSource = nullptr;

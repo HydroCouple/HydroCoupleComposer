@@ -52,6 +52,7 @@ namespace HydroCouple::Composer
     clear();
     m_nodes.clear();
     m_edges.clear();
+    m_bindingEdges.clear();
     m_dragSource = nullptr;
     m_dragTarget = nullptr;
     m_dragPreview = nullptr;
@@ -123,6 +124,26 @@ namespace HydroCouple::Composer
       m_edges.append(edge);
     }
 
+    // Binding edges, node to node: an argument has no port, and the value
+    // flows once, before the consumer initializes.
+    for (const HydroCouple::SDK::IO::ArgumentBindingSpec &binding :
+         HydroCouple::SDK::IO::argumentBindings(m_document->spec()))
+    {
+      ComponentNodeItem *provider =
+        m_nodes.value(QString::fromStdString(binding.provider));
+      ComponentNodeItem *consumer =
+        m_nodes.value(QString::fromStdString(binding.component));
+
+      if (!provider || !consumer)
+      {
+        continue;
+      }
+
+      auto *edge = new BindingEdgeItem(binding, provider, consumer);
+      addItem(edge);
+      m_bindingEdges.append(edge);
+    }
+
     m_rebuilding = false;
   }
 
@@ -152,6 +173,11 @@ namespace HydroCouple::Composer
     {
       edge->refresh();
     }
+
+    for (BindingEdgeItem *edge : m_bindingEdges)
+    {
+      edge->refresh();
+    }
   }
 
   ComponentNodeItem *CompositionScene::node(const QString &componentId) const
@@ -162,6 +188,11 @@ namespace HydroCouple::Composer
   QList<ConnectionEdgeItem *> CompositionScene::edges() const
   {
     return m_edges;
+  }
+
+  QList<BindingEdgeItem *> CompositionScene::bindingEdges() const
+  {
+    return m_bindingEdges;
   }
 
   QString CompositionScene::uniqueComponentId(const QString &desired) const
