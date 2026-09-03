@@ -582,3 +582,122 @@ TEST_F(ConfiguratorTest, HowAReferenceWasReadIsRecordedOnTheArgument)
             HydroCouple::IArgument::ArgumentInputType::URL)
     << "an address was recorded as though it had been a path";
 }
+
+// ── Arguments bound to another component's output (@from) ─────────────────
+
+namespace
+{
+  //! Adds a second component the bindings can point at.
+  void addProvider(CompositionDocument &document)
+  {
+    HydroCouple::SDK::IO::ComponentSpec spec;
+    spec.id = "prov";
+    spec.info.componentInfoId = "composer.test.component";
+    ASSERT_TRUE(document.addComponent(spec, {}));
+  }
+}
+
+TEST_F(ConfiguratorTest, BindingAnArgumentRecordsTheReferenceNotAValue)
+{
+  addProvider(document);
+
+  // The live argument's payload before, to prove binding leaves it alone.
+  QString message;
+  HydroCouple::IModelComponent *live =
+    instances->instance(QStringLiteral("unit"));
+  ASSERT_NE(live, nullptr);
+  std::string before, ignored;
+  for (HydroCouple::IArgument *argument : live->arguments())
+  {
+    if (argument->id() == "rating")
+    {
+      ASSERT_TRUE(argument->serialize(
+        HydroCouple::IArgument::ArgumentInputType::JSON, before, ignored));
+    }
+  }
+
+  ASSERT_TRUE(configurator->applyArgumentBinding(
+    QStringLiteral("rating"), QStringLiteral("prov"),
+    QStringLiteral("values"), message))
+    << message.toStdString();
+
+  const auto spec = document.component(QStringLiteral("unit"));
+  ASSERT_TRUE(spec.has_value());
+  ASSERT_TRUE(spec->arguments.contains("rating"));
+  const nlohmann::json &payload = spec->arguments["rating"];
+  ASSERT_TRUE(payload.contains("@from")) << payload.dump();
+  EXPECT_EQ(payload["@from"]["component"], "prov");
+  EXPECT_EQ(payload["@from"]["output"], "values");
+  EXPECT_FALSE(payload.contains("values"))
+    << "a value was baked in beside the reference";
+
+  // Q9: provenance now, value at run — the live component was not fed.
+  for (HydroCouple::IArgument *argument : live->arguments())
+  {
+    if (argument->id() == "rating")
+    {
+      std::string after;
+      ASSERT_TRUE(argument->serialize(
+        HydroCouple::IArgument::ArgumentInputType::JSON, after, ignored));
+      EXPECT_EQ(after, before);
+    }
+  }
+}
+
+TEST_F(ConfiguratorTest, BindableOutputsComeFromOtherComponentsOnly)
+{
+  addProvider(document);
+
+  const auto sources =
+    configurator->bindableOutputsFor(QStringLiteral("rating"));
+  ASSERT_EQ(sources.size(), 1);
+  EXPECT_EQ(sources[0].componentId, QStringLiteral("prov"));
+  EXPECT_EQ(sources[0].outputId, QStringLiteral("values"));
+}
+
+TEST_F(ConfiguratorTest, ABindingToAMissingOutputIsRefusedByName)
+{
+  addProvider(document);
+
+  QString message;
+  EXPECT_FALSE(configurator->applyArgumentBinding(
+    QStringLiteral("rating"), QStringLiteral("prov"),
+    QStringLiteral("ghost"), message));
+  EXPECT_TRUE(message.contains(QStringLiteral("ghost")))
+    << message.toStdString();
+
+  const auto spec = document.component(QStringLiteral("unit"));
+  ASSERT_TRUE(spec.has_value());
+  EXPECT_FALSE(spec->arguments.contains("rating"));
+}
+
+TEST_F(ConfiguratorTest, ASelfBindingIsRefused)
+{
+  QString message;
+  EXPECT_FALSE(configurator->applyArgumentBinding(
+    QStringLiteral("rating"), QStringLiteral("unit"),
+    QStringLiteral("values"), message));
+  EXPECT_TRUE(message.contains(QStringLiteral("own")))
+    << message.toStdString();
+}
+
+TEST_F(ConfiguratorTest, ABoundArgumentShowsItsProvenanceChip)
+{
+  addProvider(document);
+
+  QString message;
+  ASSERT_TRUE(configurator->applyArgumentBinding(
+    QStringLiteral("rating"), QStringLiteral("prov"),
+    QStringLiteral("values"), message))
+    << message.toStdString();
+
+  // Reopen the panel: the chip must come from the DOCUMENT, because the
+  // live argument holds no value yet.
+  configurator->setComponent(QString());
+  configurator->setComponent(QStringLiteral("unit"));
+
+  auto *line = configurator->findChild<QLineEdit *>(
+    QStringLiteral("argument_rating_path"));
+  ASSERT_NE(line, nullptr);
+  EXPECT_EQ(line->text(), QStringLiteral("@from prov.values"));
+}

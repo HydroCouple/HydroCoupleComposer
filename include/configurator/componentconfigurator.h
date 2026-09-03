@@ -125,6 +125,49 @@ namespace HydroCouple::Composer
       void setLayerSources(std::function<QVector<LayerSource>()> provider);
 
       /*!
+       * \brief Another component's output offered as an argument's source.
+       */
+      struct OutputSource
+      {
+          QString componentId;
+          QString outputId;
+          QString caption;
+      };
+
+      /*!
+       * \brief The outputs an argument could be bound to.
+       *
+       * Every output of every OTHER component in the document. Deliberately
+       * unfiltered by type: there is no non-mutating way to ask an argument
+       * whether it could adopt a given item, and a heuristic (kind, rank)
+       * would wrongly exclude honest pairs — a mesh output's hyperslab
+       * plane says nothing about the surface a mesh argument reads. The
+       * run pipeline validates the pairing and names a mismatch.
+       *
+       * \param argumentId The argument the binding is for.
+       */
+      [[nodiscard]] QVector<OutputSource> bindableOutputsFor(
+        const QString &argumentId) const;
+
+      /*!
+       * \brief Binds an argument to another component's output.
+       *
+       * Records the reference — never a value: opening a composition shows
+       * provenance, and the value exists only after the provider has run,
+       * which is the run pipeline's job (the SDK's staged apply). The live
+       * component is deliberately not touched here.
+       *
+       * \param argumentId Argument to bind.
+       * \param providerId The providing component's document id.
+       * \param outputId The provider's output id.
+       * \param[out] message Diagnostic when refused.
+       * \returns true when the reference was recorded.
+       */
+      bool applyArgumentBinding(const QString &argumentId,
+                                const QString &providerId,
+                                const QString &outputId, QString &message);
+
+      /*!
        * \brief The raw JSON pane's current text.
        */
       [[nodiscard]] QString rawText() const;
@@ -165,6 +208,7 @@ namespace HydroCouple::Composer
       void rebuild();
       void refreshRawPane();
       void chooseLayerFor(const QString &argumentId, QLineEdit *line);
+      void chooseOutputFor(const QString &argumentId, QLineEdit *line);
       [[nodiscard]] HydroCouple::IArgument *argument(
         const QString &argumentId) const;
 

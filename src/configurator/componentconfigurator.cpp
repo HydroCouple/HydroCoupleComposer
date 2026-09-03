@@ -1,5 +1,7 @@
 #include "configurator/componentconfigurator.h"
 
+#include "hydrocouplesdk/io/compositionspec.h"
+
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
@@ -337,12 +339,51 @@ namespace HydroCouple::Composer
           fromLayer->setToolTip(
             tr("Read this argument from a layer already on the map."));
 
+          auto *fromOutput = new QPushButton(tr("Output…"), chooser);
+          fromOutput->setObjectName(QStringLiteral("argument_") +
+                                    descriptor.id +
+                                    QStringLiteral("_output"));
+          fromOutput->setToolTip(
+            tr("Bind this argument to another component's output; the value "
+               "is produced when the composition runs."));
+
           row->addWidget(line, 1);
           row->addWidget(browse);
           row->addWidget(fromLayer);
+          row->addWidget(fromOutput);
 
           connect(fromLayer, &QPushButton::clicked, this,
                   [this, line, id = descriptor.id] { chooseLayerFor(id, line); });
+
+          connect(fromOutput, &QPushButton::clicked, this,
+                  [this, line, id = descriptor.id]
+                  { chooseOutputFor(id, line); });
+
+          // A bound argument's chip: the document holds a reference, and
+          // provenance — not a value that does not exist yet — is what the
+          // line honestly shows (it appears once the provider has run).
+          if (m_document)
+          {
+            const std::optional<CompositionDocument::ComponentSpec> spec =
+              m_document->component(m_componentId);
+            if (spec)
+            {
+              const std::string key = descriptor.id.toStdString();
+              if (spec->arguments.contains(key) &&
+                  HydroCouple::SDK::IO::isArgumentBinding(
+                    spec->arguments[key]))
+              {
+                const auto &from = spec->arguments[key]
+                  [HydroCouple::SDK::IO::kArgumentBindingKey];
+                line->setText(
+                  QStringLiteral("@from %1.%2")
+                    .arg(QString::fromStdString(
+                           from.value("component", std::string())),
+                         QString::fromStdString(
+                           from.value("output", std::string()))));
+              }
+            }
+          }
 
           connect(line, &QLineEdit::editingFinished, this,
                   [this, line, id = descriptor.id]
@@ -643,6 +684,147 @@ namespace HydroCouple::Composer
 
     QString message;
     applyArgumentReference(argumentId, reference, message);
+  }
+
+  QVector<ComponentConfigurator::OutputSource>
+  ComponentConfigurator::bindableOutputsFor(const QString &argumentId) const
+  {
+    Q_UNUSED(argumentId);
+    QVector<OutputSource> sources;
+
+    if (!m_document || !m_instances)
+    {
+      return sources;
+    }
+
+    for (const QString &componentId : m_document->componentIds())
+    {
+      if (componentId == m_componentId)
+      {
+        continue; // A component cannot provide its own initialization.
+      }
+
+      for (const ExchangeItemDescriptor &output :
+           m_instances->outputs(componentId))
+      {
+        sources.append({componentId, output.id,
+                        QStringLiteral("%1.%2").arg(componentId, output.id)});
+      }
+    }
+
+    return sources;
+  }
+
+  bool ComponentConfigurator::applyArgumentBinding(const QString &argumentId,
+                                                   const QString &providerId,
+                                                   const QString &outputId,
+                                                   QString &message)
+  {
+    if (!argument(argumentId))
+    {
+      message = tr("no argument '%1' on '%2'").arg(argumentId, m_componentId);
+      m_status->setText(message);
+      return false;
+    }
+
+    if (providerId == m_componentId)
+    {
+      message = tr("'%1' cannot be bound to its own component").arg(argumentId);
+      m_status->setText(message);
+      return false;
+    }
+
+    // A NEW binding must name something that exists right now; the
+    // repairable-dangling allowance is for a provider deleted later, not
+    // for typing one that never was.
+    bool known = false;
+
+    for (const ExchangeItemDescriptor &output :
+         m_instances ? m_instances->outputs(providerId)
+                     : QList<ExchangeItemDescriptor>())
+    {
+      if (output.id == outputId)
+      {
+        known = true;
+        break;
+      }
+    }
+
+    if (!known)
+    {
+      message = tr("'%1' has no output '%2'").arg(providerId, outputId);
+      m_status->setText(message);
+      return false;
+    }
+
+    // The reference, never a value: the live component is not touched —
+    // the value exists only after the provider runs, in the run pipeline.
+    const nlohmann::json payload = {
+      {HydroCouple::SDK::IO::kArgumentBindingKey,
+       {{"component", providerId.toStdString()},
+        {"output", outputId.toStdString()}}}};
+
+    if (!m_document->setArgument(m_componentId, argumentId, payload))
+    {
+      message = tr("could not record the binding for '%1'").arg(argumentId);
+      m_status->setText(message);
+      return false;
+    }
+
+    m_status->setText(tr("'%1' is bound to %2.%3; the value is produced "
+                         "when the composition runs.")
+                        .arg(argumentId, providerId, outputId));
+    refreshRawPane();
+    Q_EMIT argumentChanged(m_componentId, argumentId);
+
+    return true;
+  }
+
+  void ComponentConfigurator::chooseOutputFor(const QString &argumentId,
+                                              QLineEdit *line)
+  {
+    const QVector<OutputSource> sources = bindableOutputsFor(argumentId);
+
+    if (sources.isEmpty())
+    {
+      m_status->setText(
+        tr("No other component in the composition offers an output."));
+      return;
+    }
+
+    QStringList names;
+    names.reserve(sources.size());
+
+    for (const OutputSource &source : sources)
+    {
+      names.append(source.caption);
+    }
+
+    bool chosen = false;
+    const QString picked = QInputDialog::getItem(
+      this, tr("Bind '%1' to a component output").arg(argumentId),
+      tr("Output:"), names, 0, false, &chosen);
+
+    if (!chosen || picked.isEmpty())
+    {
+      return;
+    }
+
+    const int index = names.indexOf(picked);
+
+    if (index < 0)
+    {
+      return;
+    }
+
+    QString message;
+
+    if (applyArgumentBinding(argumentId, sources.at(index).componentId,
+                             sources.at(index).outputId, message) &&
+        line)
+    {
+      line->setText(QStringLiteral("@from %1").arg(picked));
+    }
   }
 
   QString ComponentConfigurator::rawText() const
