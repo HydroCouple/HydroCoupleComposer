@@ -141,6 +141,7 @@ TEST_F(CanvasTest, BuildsCompositionByInteractionMatchingHandWrittenDocument)
   QString message;
 
   const QByteArray handWritten = R"({
+  "schema_version": "1.1",
   "components": [
     { "id": "upstream", "info": { "component_info_id": "composer.test.component" } },
     { "id": "downstream", "info": { "component_info_id": "composer.test.component" } }
