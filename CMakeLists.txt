@@ -364,6 +364,17 @@ qt_add_resources(composer_core "composer_icons"
         resources/icons/zoomin.svg
         resources/icons/zoomout.svg)
 
+# ── Application mark ────────────────────────────────────────────────────────
+# The full-colour brand raster, for QApplication::setWindowIcon on platforms
+# that do not take the icon from the bundle or the .rc. Same FILES-form
+# rationale as the chrome icons above. Regenerated, together with the .icns
+# and .ico below, by tools/make_icons.sh from
+# resources/branding/hydrocouplecomposer.svg — edit the SVG, not the rasters.
+qt_add_resources(composer_core "composer_branding"
+    PREFIX "/branding"
+    BASE "resources/images"
+    FILES resources/images/hydrocouplecomposer.png)
+
 # ── C3 — scene materials, compiled to .qsb ──────────────────────────────────
 # Loaded from :/shaders at runtime by SceneRenderer. qsb cross-compiles one
 # GLSL source to every backend Qt supports, which is what lets the same
@@ -420,7 +431,20 @@ set_target_properties(composer_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_definitions(composer_core PUBLIC QT_NO_KEYWORDS)
 
 # ── Application ─────────────────────────────────────────────────────────────
-qt_add_executable(HydroCoupleComposer MACOSX_BUNDLE src/app/main.cpp)
+# The bundle icon wiring is what fills CFBundleIconFile; without it the .app
+# ships icon-less (the v1→v2 CMake port dropped it). The Windows .rc carries
+# the .ico the same way the qmake build did.
+set(composer_icon_macos
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/HydroCoupleComposer.icns")
+set_source_files_properties(${composer_icon_macos} PROPERTIES
+    MACOSX_PACKAGE_LOCATION "Resources")
+set(composer_icon_windows
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/HydroCoupleComposer.rc")
+
+qt_add_executable(HydroCoupleComposer MACOSX_BUNDLE
+    src/app/main.cpp
+    $<$<PLATFORM_ID:Darwin>:${composer_icon_macos}>
+    $<$<PLATFORM_ID:Windows>:${composer_icon_windows}>)
 
 target_link_libraries(HydroCoupleComposer PRIVATE composer_core)
 
@@ -428,7 +452,8 @@ set_target_properties(HydroCoupleComposer PROPERTIES
     MACOSX_BUNDLE_BUNDLE_NAME "HydroCoupleComposer"
     MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
-    MACOSX_BUNDLE_GUI_IDENTIFIER "org.hydrocouple.composer")
+    MACOSX_BUNDLE_GUI_IDENTIFIER "org.hydrocouple.composer"
+    MACOSX_BUNDLE_ICON_FILE "HydroCoupleComposer.icns")
 
 install(TARGETS HydroCoupleComposer
     BUNDLE  DESTINATION .

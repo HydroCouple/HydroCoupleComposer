@@ -6,6 +6,7 @@
 
 #include "hydrocouplesdk/io/uriresolver.h"
 
+#include <QIcon>
 #include <QSettings>
 #include <QStyleHints>
 
@@ -19,6 +20,12 @@ namespace HydroCouple::Composer
     setOrganizationDomain(QStringLiteral("hydrocouple.org"));
     setApplicationName(QStringLiteral("HydroCoupleComposer"));
     setApplicationVersion(versionString());
+
+    // The brand mark, for every platform that does not take the icon from
+    // the macOS bundle or the Windows .rc (Linux window managers, portable
+    // builds). Compiled in as :/branding by composer_core.
+    setWindowIcon(
+      QIcon(QStringLiteral(":/branding/hydrocouplecomposer.png")));
 
     // The SDK refuses an https argument unless a host can fetch one. This is
     // that host: the fetch tier is already in the process for the basemaps.
