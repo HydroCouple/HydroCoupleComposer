@@ -101,8 +101,12 @@ namespace
       std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent>
       createComponentInstance() override
       {
+        // The instance carries the info's own id: a composition's
+        // adapted_outputs "factory" field matches IAdaptedOutputFactory::id()
+        // of the realized instance, and making authors write a different
+        // ".instance" id there would be a trap.
         return std::make_unique<TestAdapterFactoryComponent>(
-          "composer.test.adapterfactory.instance", this);
+          "composer.test.adapterfactory", this);
       }
   };
 

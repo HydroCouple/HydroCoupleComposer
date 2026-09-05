@@ -4,6 +4,7 @@
 
 #include "hydrocouplesdk/component/pulldrivenworkflow.h"
 #include "hydrocouplesdk/component/timesteppedworkflow.h"
+#include "hydrocouplesdk/data/sdkadaptedoutputfactory.h"
 #include "hydrocouplesdk/io/iothread.h"
 #include "hydrocouplesdk/io/modelinitializer.h"
 #include "hydrocouplesdk/io/runmanifest.h"
@@ -51,6 +52,12 @@ namespace HydroCouple::Composer
       std::vector<std::unique_ptr<HydroCouple::IModelComponent>> components;
       std::unique_ptr<HydroCouple::SDK::AbstractWorkflowComponent> workflow;
       std::unique_ptr<HydroCouple::SDK::IO::ModelInitializer> initializer;
+
+      // Standalone adapter factories realised for this run; the initializer's
+      // adapted outputs reference them, so they die after the initializer
+      // and before the component instances (see dispose()).
+      std::vector<std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent>>
+        adapterFactories;
 
       // Recording is optional: a composition that names no writers simply
       // runs without producing artefacts.
@@ -116,7 +123,8 @@ namespace HydroCouple::Composer
         ioThread.reset();
         recorder.reset();
         workflow.reset();
-        initializer.reset();
+        initializer.reset();       // owns the run's adapted outputs
+        adapterFactories.clear();  // referenced by those adapted outputs
         components.clear();
       }
   };
@@ -209,6 +217,41 @@ namespace HydroCouple::Composer
       {
         const auto it = byId.find(id);
         return it == byId.end() ? nullptr : it->second;
+      });
+
+    // Standalone adapter factories: the SDK's own plus one instance per
+    // loaded factory library, so a document's adapted_outputs can name
+    // them (the A4 resolver seam).
+    d->adapterFactories.clear();
+
+    for (HydroCouple::IComponentInfo *info : d->registry->entries(
+           ComponentRegistry::ComponentKind::AdapterFactory))
+    {
+      QString failure;
+      std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent> factory =
+        d->registry->createAdaptedOutputFactory(
+          QString::fromStdString(info->id()), failure);
+
+      if (factory)
+      {
+        d->adapterFactories.push_back(std::move(factory));
+      }
+    }
+
+    d->initializer->setAdapterFactoryResolver(
+      [priv = d.get()]
+      {
+        std::vector<HydroCouple::IAdaptedOutputFactory *> factories;
+        factories.push_back(
+          HydroCouple::SDK::SdkAdaptedOutputFactory::instance());
+
+        for (const std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent>
+               &factory : priv->adapterFactories)
+        {
+          factories.push_back(factory.get());
+        }
+
+        return factories;
       });
 
     std::string initializerMessage;

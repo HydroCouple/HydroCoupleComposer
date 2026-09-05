@@ -101,6 +101,18 @@ namespace HydroCouple::Composer
        */
       [[nodiscard]] ComponentRegistry *registry() const { return m_registry; }
 
+      /*!
+       * \brief Live standalone adapter factories for edit-time availability
+       *        queries: the SDK's own first, then one instance per loaded
+       *        factory library.
+       *
+       * Lazily realised and owned here, introspection only — a run realises
+       * its own set. Invalidated when the registry changes; dropped by
+       * clear(), before the registry goes away.
+       */
+      [[nodiscard]] std::vector<HydroCouple::IAdaptedOutputFactory *>
+      adapterFactories();
+
     Q_SIGNALS:
       /*!
        * \brief Emitted when a component's instance appears or is dropped.
@@ -117,6 +129,10 @@ namespace HydroCouple::Composer
 
       QHash<QString, std::shared_ptr<HydroCouple::IModelComponent>> m_instances;
       QHash<QString, QString> m_failures;
+
+      std::vector<std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent>>
+        m_adapterFactories;
+      bool m_adapterFactoriesRealised = false;
   };
 
 } // namespace HydroCouple::Composer

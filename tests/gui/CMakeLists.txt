@@ -187,7 +187,7 @@ add_dependencies(test_configurator testcomponent)
 composer_add_gui_test(test_simulationmanager)
 target_compile_definitions(test_simulationmanager PRIVATE
     COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>")
-add_dependencies(test_simulationmanager testcomponent)
+add_dependencies(test_simulationmanager testcomponent testadapterfactory)
 
 composer_add_gui_test(test_hcpimporter)
 target_compile_definitions(test_hcpimporter PRIVATE

@@ -1,5 +1,7 @@
 #include "project/componentinstances.h"
 
+#include "hydrocouplesdk/data/sdkadaptedoutputfactory.h"
+
 #include <QStringList>
 
 #include <exception>
@@ -53,11 +55,56 @@ namespace HydroCouple::Composer
                 }
               });
     }
+
+    // Edit-time adapter factories go stale when libraries come and go.
+    if (m_registry)
+    {
+      connect(m_registry, &ComponentRegistry::registryChanged, this,
+              [this]
+              {
+                m_adapterFactories.clear();
+                m_adapterFactoriesRealised = false;
+              });
+    }
   }
 
   ComponentInstances::~ComponentInstances()
   {
     clear();
+  }
+
+  std::vector<HydroCouple::IAdaptedOutputFactory *>
+  ComponentInstances::adapterFactories()
+  {
+    if (!m_adapterFactoriesRealised && m_registry)
+    {
+      m_adapterFactoriesRealised = true;
+
+      for (HydroCouple::IComponentInfo *info : m_registry->entries(
+             ComponentRegistry::ComponentKind::AdapterFactory))
+      {
+        QString failure;
+        std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent> factory =
+          m_registry->createAdaptedOutputFactory(
+            QString::fromStdString(info->id()), failure);
+
+        if (factory)
+        {
+          m_adapterFactories.push_back(std::move(factory));
+        }
+      }
+    }
+
+    std::vector<HydroCouple::IAdaptedOutputFactory *> factories;
+    factories.push_back(HydroCouple::SDK::SdkAdaptedOutputFactory::instance());
+
+    for (const std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent>
+           &factory : m_adapterFactories)
+    {
+      factories.push_back(factory.get());
+    }
+
+    return factories;
   }
 
   QString ComponentInstances::registryIdFor(const QString &componentId) const
@@ -224,6 +271,8 @@ namespace HydroCouple::Composer
 
     m_instances.clear();
     m_failures.clear();
+    m_adapterFactories.clear();
+    m_adapterFactoriesRealised = false;
 
     for (const QString &id : ids)
     {

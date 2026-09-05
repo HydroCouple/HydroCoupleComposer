@@ -449,3 +449,57 @@ TEST_F(SimulationTest, EmitsStateTransitions)
   EXPECT_TRUE(seen.contains(SimulationState::Running));
   EXPECT_TRUE(seen.contains(SimulationState::Finished));
 }
+
+// ── Standalone adapter factories in a run (CONNECT B3) ──────────────────────
+
+TEST_F(SimulationTest, ARunBuildsAdapterChainsFromStandaloneFactoryLibraries)
+{
+  QString message;
+  ASSERT_NE(registry.loadLibrary(
+              fixturePath(QStringLiteral("testadapterfactory")), message),
+            nullptr)
+    << message.toStdString();
+
+  const QByteArray adapted = R"({
+  "components": [
+    { "id": "upstream",
+      "info": { "component_info_id": "composer.test.component" } },
+    { "id": "downstream",
+      "info": { "component_info_id": "composer.test.component" } }
+  ],
+  "connections": [
+    { "from": { "component": "upstream", "output": "values",
+                "adapted_outputs": [
+                  { "factory": "composer.test.adapterfactory",
+                    "id": "double_it" } ] },
+      "to": { "component": "downstream", "input": "inflow" } }
+  ]
+})";
+
+  CompositionDocument document;
+  ASSERT_TRUE(document.loadFromJson(adapted, message)) << message.toStdString();
+
+  // With the factory library loaded, the chain resolves through the
+  // registry-backed resolver and the run completes.
+  QSignalSpy finishedSpy(manager.get(), &SimulationManager::finished);
+  ASSERT_TRUE(manager->start(document, message)) << message.toStdString();
+  EXPECT_TRUE(pumpUntil([&] { return finishedSpy.count() > 0; }))
+    << "the adapted run never finished; state="
+    << static_cast<int>(manager->state());
+  ASSERT_EQ(finishedSpy.count(), 1);
+  EXPECT_TRUE(finishedSpy.first().at(0).toBool())
+    << finishedSpy.first().at(1).toString().toStdString();
+
+  // Without it, the same document fails the apply, naming the adapter —
+  // which is what proves the run above resolved through the LIBRARY rather
+  // than something built in.
+  ComponentRegistry bareRegistry;
+  ASSERT_NE(bareRegistry.loadLibrary(
+              fixturePath(QStringLiteral("testcomponent")), message),
+            nullptr);
+  SimulationManager bareManager(&bareRegistry);
+  QString failure;
+  EXPECT_FALSE(bareManager.start(document, failure));
+  EXPECT_TRUE(failure.contains(QStringLiteral("double_it"))) 
+    << failure.toStdString();
+}
