@@ -157,6 +157,51 @@ namespace HydroCouple::Composer
 
       bool removeConnection(const ConnectionSpec &connection);
 
+      // A connection's IDENTITY is its endpoints plus role — exactly what
+      // sameConnection() compares. The adaptation chain is content: the
+      // chain-editing calls below address a step as (identity, index).
+
+      /*!
+       * \brief Inserts one adaptation step into a connection's chain.
+       * \param connection Names the connection (endpoints + role).
+       * \param index Position in the chain, 0..size; the step before the
+       *        consumer is the chain's last.
+       * \param step The step to insert; its id must be non-empty (the spec
+       *        refuses id-less steps at parse time).
+       */
+      bool insertConnectionAdapter(
+        const ConnectionSpec &connection, int index,
+        const HydroCouple::SDK::IO::AdaptedOutputSpec &step);
+
+      /*!
+       * \brief Removes one adaptation step; later steps renumber down.
+       */
+      bool removeConnectionAdapter(const ConnectionSpec &connection,
+                                   int index);
+
+      /*!
+       * \brief Replaces one argument payload on a chain step.
+       */
+      bool setConnectionAdapterArgument(const ConnectionSpec &connection,
+                                        int index, const QString &argumentId,
+                                        const nlohmann::json &payload);
+
+      /*!
+       * \brief Changes a connection's provider role.
+       * \returns false when the connection is unknown, the role is
+       *          unchanged, or another connection already holds the
+       *          resulting identity.
+       */
+      bool setConnectionRole(const ConnectionSpec &connection,
+                             const QString &role);
+
+      /*!
+       * \brief Deletes one argument payload entirely (e.g. an \@from
+       *        binding), restoring the component's own default.
+       */
+      bool clearArgument(const QString &componentId,
+                         const QString &argumentId);
+
       /*!
        * \brief Replaces one argument payload on a component.
        * \param componentId Component owning the argument.

@@ -16,6 +16,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QUndoStack>
 
@@ -467,4 +468,158 @@ TEST(CompositionDocumentExecution, OpenModeNeedsAManifestAndRunClearsIt)
     QStringLiteral("a"), IO::ExecutionMode::Run, QString()));
   EXPECT_TRUE(document.component(QStringLiteral("a"))
                 ->resultsManifest.empty());
+}
+
+// ── Adapter chains as document content (CONNECT C1) ─────────────────────────
+
+namespace
+{
+  //! A loaded two-component document with its one connection's identity.
+  struct ChainRig
+  {
+    HydroCouple::Composer::CompositionDocument document;
+    ConnectionSpec identity;
+
+    ChainRig()
+    {
+      QString message;
+      EXPECT_TRUE(document.loadFromJson(minimalComposition(), message))
+        << message.toStdString();
+      identity = makeConnection("upstream", "flow", "downstream", "inflow");
+    }
+  };
+
+  HydroCouple::SDK::IO::AdaptedOutputSpec makeStep(const std::string &id)
+  {
+    HydroCouple::SDK::IO::AdaptedOutputSpec step;
+    step.id = id;
+    return step;
+  }
+}
+
+TEST(CompositionDocumentChains, EditingAConnectionsChainIsUndoableAndSignalsConnectionsChanged)
+{
+  ChainRig rig;
+  QSignalSpy connections(&rig.document,
+                         &HydroCouple::Composer::CompositionDocument::connectionsChanged);
+
+  // An in-place chain edit keeps the connection COUNT identical — the old
+  // size-only diff in applySpec would never have redrawn it.
+  ASSERT_TRUE(rig.document.insertConnectionAdapter(rig.identity, 0,
+                                                   makeStep("linear_transform")));
+  ASSERT_EQ(rig.document.spec().connections.size(), 1u);
+  ASSERT_EQ(rig.document.spec().connections[0].adaptedOutputs.size(), 1u);
+  EXPECT_EQ(connections.count(), 1) << "the chain edit did not signal";
+
+  ASSERT_TRUE(rig.document.setConnectionAdapterArgument(
+    rig.identity, 0, QStringLiteral("multiplier"),
+    nlohmann::json{{"values", {2.0}}}));
+  EXPECT_EQ(rig.document.spec()
+              .connections[0]
+              .adaptedOutputs[0]
+              .arguments["multiplier"]["values"][0]
+              .get<double>(),
+            2.0);
+  EXPECT_EQ(connections.count(), 2);
+
+  rig.document.undoStack()->undo();
+  EXPECT_TRUE(rig.document.spec()
+                .connections[0]
+                .adaptedOutputs[0]
+                .arguments.empty());
+  rig.document.undoStack()->undo();
+  EXPECT_TRUE(rig.document.spec().connections[0].adaptedOutputs.empty());
+  EXPECT_EQ(connections.count(), 4);
+}
+
+TEST(CompositionDocumentChains, InsertingAnAdapterStepPreservesEndpointIdentity)
+{
+  ChainRig rig;
+  ASSERT_TRUE(rig.document.insertConnectionAdapter(rig.identity, 0,
+                                                   makeStep("linear_transform")));
+
+  // Identity is endpoints+role, so the adapted connection still answers to
+  // the same identity: no duplicate can be added, and removal by identity
+  // takes the chain with it.
+  EXPECT_FALSE(rig.document.addConnection(rig.identity))
+    << "an adapted connection stopped counting as a duplicate";
+  ASSERT_TRUE(rig.document.removeConnection(rig.identity));
+  EXPECT_TRUE(rig.document.spec().connections.empty());
+
+  // An id-less step is refused outright: the spec parse would reject the
+  // saved document.
+  rig.document.undoStack()->undo();
+  EXPECT_FALSE(rig.document.insertConnectionAdapter(rig.identity, 0,
+                                                    makeStep("")));
+}
+
+TEST(CompositionDocumentChains, RemovingAnAdapterStepRenumbersItsSiblings)
+{
+  ChainRig rig;
+  ASSERT_TRUE(rig.document.insertConnectionAdapter(rig.identity, 0,
+                                                   makeStep("first")));
+  ASSERT_TRUE(rig.document.insertConnectionAdapter(rig.identity, 1,
+                                                   makeStep("second")));
+  ASSERT_TRUE(rig.document.insertConnectionAdapter(rig.identity, 2,
+                                                   makeStep("third")));
+
+  ASSERT_TRUE(rig.document.removeConnectionAdapter(rig.identity, 1));
+
+  const auto &chain = rig.document.spec().connections[0].adaptedOutputs;
+  ASSERT_EQ(chain.size(), 2u);
+  EXPECT_EQ(chain[0].id, "first");
+  EXPECT_EQ(chain[1].id, "third");
+
+  // Out-of-range indexes are refusals, not clamps.
+  EXPECT_FALSE(rig.document.removeConnectionAdapter(rig.identity, 2));
+  EXPECT_FALSE(rig.document.removeConnectionAdapter(rig.identity, -1));
+}
+
+TEST(CompositionDocumentChains, ChangingTheRoleRefusesACollidingIdentity)
+{
+  ChainRig rig;
+
+  // A second link on the same endpoints under a different role is legal —
+  // that is what roles are for.
+  ConnectionSpec roled = rig.identity;
+  roled.role = "secondary";
+  ASSERT_TRUE(rig.document.addConnection(roled));
+
+  // Moving the plain link onto "secondary" would collide two identities.
+  EXPECT_FALSE(rig.document.setConnectionRole(rig.identity,
+                                              QStringLiteral("secondary")));
+
+  ASSERT_TRUE(rig.document.setConnectionRole(rig.identity,
+                                             QStringLiteral("primary")));
+  int primaries = 0;
+  for (const ConnectionSpec &link : rig.document.spec().connections)
+  {
+    if (link.role == "primary")
+    {
+      ++primaries;
+    }
+  }
+  EXPECT_EQ(primaries, 1);
+}
+
+TEST(CompositionDocumentChains, ClearingAnArgumentRemovesItsPayloadUndoably)
+{
+  ChainRig rig;
+  ASSERT_TRUE(rig.document.setArgument(
+    QStringLiteral("downstream"), QStringLiteral("rating"),
+    nlohmann::json{{"@from", {{"component", "upstream"},
+                              {"output", "flow"}}}}));
+
+  ASSERT_TRUE(rig.document.clearArgument(QStringLiteral("downstream"),
+                                         QStringLiteral("rating")));
+  EXPECT_FALSE(rig.document.spec().component("downstream")
+                 ->arguments.contains("rating"));
+
+  // Clearing what is not there is a refusal, not a silent no-op command.
+  EXPECT_FALSE(rig.document.clearArgument(QStringLiteral("downstream"),
+                                          QStringLiteral("rating")));
+
+  rig.document.undoStack()->undo();
+  EXPECT_TRUE(rig.document.spec().component("downstream")
+                ->arguments.contains("rating"));
 }
