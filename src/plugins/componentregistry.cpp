@@ -106,6 +106,22 @@ namespace HydroCouple::Composer
     return loaded;
   }
 
+  ComponentRegistry::ComponentKind ComponentRegistry::kindOf(
+    HydroCouple::IComponentInfo *info)
+  {
+    if (dynamic_cast<HydroCouple::IModelComponentInfo *>(info))
+    {
+      return ComponentKind::Model;
+    }
+
+    if (dynamic_cast<HydroCouple::IAdaptedOutputFactoryComponentInfo *>(info))
+    {
+      return ComponentKind::AdapterFactory;
+    }
+
+    return ComponentKind::Other;
+  }
+
   std::vector<HydroCouple::IComponentInfo *> ComponentRegistry::entries() const
   {
     std::vector<HydroCouple::IComponentInfo *> result;
@@ -114,6 +130,22 @@ namespace HydroCouple::Composer
     for (const auto &library : m_libraries)
     {
       result.push_back(library->componentInfo());
+    }
+
+    return result;
+  }
+
+  std::vector<HydroCouple::IComponentInfo *> ComponentRegistry::entries(
+    ComponentKind kind) const
+  {
+    std::vector<HydroCouple::IComponentInfo *> result;
+
+    for (const auto &library : m_libraries)
+    {
+      if (kindOf(library->componentInfo()) == kind)
+      {
+        result.push_back(library->componentInfo());
+      }
     }
 
     return result;
@@ -154,15 +186,20 @@ namespace HydroCouple::Composer
       return nullptr;
     }
 
-    // Only model components can be instantiated; adapted-output factory and
-    // workflow components register through the same entry point but answer a
-    // different interface.
+    // Only model components can be instantiated here; adapted-output factory
+    // and workflow components register through the same entry point but
+    // answer a different interface.
     auto *modelInfo = dynamic_cast<HydroCouple::IModelComponentInfo *>(info);
 
     if (!modelInfo)
     {
-      message = QStringLiteral("'%1' is not a model component")
-                  .arg(componentId);
+      message =
+        kindOf(info) == ComponentKind::AdapterFactory
+          ? QStringLiteral("'%1' is an adapted-output factory; adapters "
+                           "attach to connections, they are not placed as "
+                           "components")
+              .arg(componentId)
+          : QStringLiteral("'%1' is not a model component").arg(componentId);
       return nullptr;
     }
 
@@ -176,6 +213,41 @@ namespace HydroCouple::Composer
     }
 
     return instance;
+  }
+
+  std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent>
+  ComponentRegistry::createAdaptedOutputFactory(const QString &componentId,
+                                                QString &message)
+  {
+    HydroCouple::IComponentInfo *info = entry(componentId);
+
+    if (!info)
+    {
+      message = QStringLiteral("no component registered with id '%1'")
+                  .arg(componentId);
+      return nullptr;
+    }
+
+    auto *factoryInfo =
+      dynamic_cast<HydroCouple::IAdaptedOutputFactoryComponentInfo *>(info);
+
+    if (!factoryInfo)
+    {
+      message = QStringLiteral("'%1' is not an adapted-output factory")
+                  .arg(componentId);
+      return nullptr;
+    }
+
+    std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent> factory =
+      factoryInfo->createComponentInstance();
+
+    if (!factory)
+    {
+      message = QStringLiteral("'%1' failed to create a factory instance")
+                  .arg(componentId);
+    }
+
+    return factory;
   }
 
   void ComponentRegistry::clear()

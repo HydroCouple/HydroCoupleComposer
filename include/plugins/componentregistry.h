@@ -91,9 +91,37 @@ namespace HydroCouple::Composer
       int refresh();
 
       /*!
+       * \brief What a loaded library's info answers to.
+       */
+      enum class ComponentKind
+      {
+        Model,          //!< IModelComponentInfo — placeable on the canvas.
+        AdapterFactory, //!< IAdaptedOutputFactoryComponentInfo — attaches
+                        //!< to connections, never placed as a component.
+        Other           //!< Loads, but answers neither interface (e.g. a
+                        //!< future workflow component).
+      };
+
+      /*!
+       * \brief Classifies an info by the interface it answers.
+       *
+       * A cross-image dynamic_cast — safe under the interface headers'
+       * default-visibility push, the same guarantee createInstance()
+       * already leans on.
+       */
+      [[nodiscard]] static ComponentKind kindOf(
+        HydroCouple::IComponentInfo *info);
+
+      /*!
        * \brief Metadata for every loaded component library.
        */
       [[nodiscard]] std::vector<HydroCouple::IComponentInfo *> entries() const;
+
+      /*!
+       * \brief entries() filtered to one kind.
+       */
+      [[nodiscard]] std::vector<HydroCouple::IComponentInfo *> entries(
+        ComponentKind kind) const;
 
       /*!
        * \brief Metadata for the loaded library whose component id matches,
@@ -116,6 +144,18 @@ namespace HydroCouple::Composer
        */
       [[nodiscard]] std::unique_ptr<HydroCouple::IModelComponent>
       createInstance(const QString &componentId, QString &message);
+
+      /*!
+       * \brief Creates an adapted-output factory instance from a loaded
+       *        library.
+       * \param componentId Identifier of a registered
+       *        IAdaptedOutputFactoryComponentInfo.
+       * \param[out] message Diagnostic on failure.
+       * \returns The new factory, or nullptr. The caller owns it and must
+       *          destroy it before this registry is destroyed.
+       */
+      [[nodiscard]] std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent>
+      createAdaptedOutputFactory(const QString &componentId, QString &message);
 
       /*!
        * \brief Drops every loaded library.

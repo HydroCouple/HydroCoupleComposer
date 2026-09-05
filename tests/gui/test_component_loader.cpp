@@ -218,8 +218,9 @@ TEST_F(LoaderTest, ScanDirectoryKeepsComponentsAndRecordsRejections)
 
   const int loaded = registry.refresh();
 
-  EXPECT_EQ(loaded, 2) << "the stamped and the legacy component should load";
-  ASSERT_EQ(registry.entries().size(), 2u);
+  EXPECT_EQ(loaded, 3) << "the stamped component, the legacy component, and "
+                          "the adapter factory should load";
+  ASSERT_EQ(registry.entries().size(), 3u);
 
   std::set<std::string> ids;
   for (HydroCouple::IComponentInfo *info : registry.entries())
@@ -228,6 +229,7 @@ TEST_F(LoaderTest, ScanDirectoryKeepsComponentsAndRecordsRejections)
   }
   EXPECT_TRUE(ids.count("composer.test.component") == 1);
   EXPECT_TRUE(ids.count("composer.test.legacy") == 1);
+  EXPECT_TRUE(ids.count("composer.test.adapterfactory") == 1);
 
   // The rejections are diagnosable rather than silent.
   const std::vector<ComponentLoadFailure> failures = registry.failures();
@@ -258,4 +260,109 @@ TEST_F(LoaderTest, LoadingSamePathTwiceYieldsOneEntry)
   ASSERT_NE(first, nullptr) << message.toStdString();
   EXPECT_EQ(first, second) << "the info object is a library-owned singleton";
   EXPECT_EQ(registry.entries().size(), 1u);
+}
+
+// ── Adapter-factory components (CONNECT B1) ─────────────────────────────────
+
+#include "hydrocouplesdk/data/exchangeitems1d.h"
+#include "hydrocouplesdk/core/dimension.h"
+#include "hydrocouplesdk/core/valuedefinition.h"
+
+TEST_F(LoaderTest, RegistryTellsModelComponentsFromAdapterFactories)
+{
+  ComponentRegistry registry;
+  QString message;
+
+  ASSERT_NE(registry.loadLibrary(fixturePath(QStringLiteral("testcomponent")),
+                                 message),
+            nullptr)
+    << message.toStdString();
+  HydroCouple::IComponentInfo *factoryInfo = registry.loadLibrary(
+    fixturePath(QStringLiteral("testadapterfactory")), message);
+  ASSERT_NE(factoryInfo, nullptr) << message.toStdString();
+
+  EXPECT_EQ(ComponentRegistry::kindOf(
+              registry.entry(QStringLiteral("composer.test.component"))),
+            ComponentRegistry::ComponentKind::Model);
+  EXPECT_EQ(ComponentRegistry::kindOf(factoryInfo),
+            ComponentRegistry::ComponentKind::AdapterFactory);
+
+  const auto models =
+    registry.entries(ComponentRegistry::ComponentKind::Model);
+  ASSERT_EQ(models.size(), 1u);
+  EXPECT_EQ(models[0]->id(), "composer.test.component");
+
+  const auto factories =
+    registry.entries(ComponentRegistry::ComponentKind::AdapterFactory);
+  ASSERT_EQ(factories.size(), 1u);
+  EXPECT_EQ(factories[0]->id(), "composer.test.adapterfactory");
+
+  // Placing a factory as a component is refused with a message that says
+  // where adapters actually belong.
+  std::unique_ptr<HydroCouple::IModelComponent> instance =
+    registry.createInstance(QStringLiteral("composer.test.adapterfactory"),
+                            message);
+  EXPECT_EQ(instance, nullptr);
+  EXPECT_TRUE(message.contains(QStringLiteral("attach to connections")))
+    << message.toStdString();
+}
+
+TEST_F(LoaderTest, CreatesAnAdapterFactoryFromItsLibrary)
+{
+  ComponentRegistry registry;
+  QString message;
+
+  ASSERT_NE(registry.loadLibrary(
+              fixturePath(QStringLiteral("testadapterfactory")), message),
+            nullptr)
+    << message.toStdString();
+
+  std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent> factory =
+    registry.createAdaptedOutputFactory(
+      QStringLiteral("composer.test.adapterfactory"), message);
+  ASSERT_NE(factory, nullptr) << message.toStdString();
+  EXPECT_NE(factory->componentInfo(), nullptr);
+
+  // Offer → create → transform, across the library boundary: the whole
+  // factory pathway, not just a successful dlopen.
+  HydroCouple::SDK::Dimension dimension{"i"};
+  std::unique_ptr<HydroCouple::SDK::Quantity> quantity{
+    HydroCouple::SDK::Quantity::unitLess("Q")};
+  HydroCouple::SDK::Output1DDouble produced("produced", &dimension, 2,
+                                            quantity.get(), nullptr);
+  produced[0] = 3.0;
+  produced[1] = 4.0;
+
+  const std::vector<HydroCouple::IIdentity *> offerings =
+    factory->getAvailableAdaptedOutputIds(&produced);
+  ASSERT_EQ(offerings.size(), 1u);
+  EXPECT_EQ(offerings[0]->id(), "double_it");
+
+  std::unique_ptr<HydroCouple::IAdaptedOutput> adapted =
+    factory->createAdaptedOutput(offerings[0], &produced);
+  ASSERT_NE(adapted, nullptr);
+  adapted->initialize();
+
+  double values[2] = {0.0, 0.0};
+  const int64_t shape[1] = {2};
+  HydroCouple::BufferDescriptor destination;
+  destination.data  = values;
+  destination.kind  = HydroCouple::DataKind::Float64;
+  destination.rank  = 1;
+  destination.shape = shape;
+  const int64_t start = 0;
+  std::string readMessage;
+  ASSERT_TRUE(adapted->getValuesInto(destination,
+                                     std::span<const int64_t>(&start, 1),
+                                     std::span<const int64_t>(shape, 1),
+                                     &readMessage))
+    << readMessage;
+  EXPECT_DOUBLE_EQ(values[0], 6.0);
+  EXPECT_DOUBLE_EQ(values[1], 8.0);
+
+  // The provider's registry is non-owning; unregister, then destroy the
+  // adapter and factory before the registry drops the library.
+  EXPECT_TRUE(produced.removeAdaptedOutput(adapted.get()));
+  adapted.reset();
+  factory.reset();
 }

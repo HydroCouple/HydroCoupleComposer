@@ -199,7 +199,8 @@ composer_add_gui_test(test_component_loader)
 target_compile_definitions(test_component_loader PRIVATE
     COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>")
 add_dependencies(test_component_loader
-    testcomponent notacomponent badabicomponent legacycomponent)
+    testcomponent testadapterfactory notacomponent badabicomponent
+    legacycomponent)
 
 # ── Headless CLI (B4) ───────────────────────────────────────────────────────
 # Drives the shipped binary as a subprocess, because the property under test is
