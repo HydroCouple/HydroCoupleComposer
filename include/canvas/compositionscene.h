@@ -99,6 +99,13 @@ namespace HydroCouple::Composer
        */
       void rebuild();
 
+    Q_SIGNALS:
+      /*!
+       * \brief A component add was refused (e.g. an adapter-factory library
+       *        dropped on the canvas); \a reason says why, for the log.
+       */
+      void componentRefused(const QString &reason);
+
     protected:
       void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
       void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;

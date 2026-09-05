@@ -96,6 +96,11 @@ namespace HydroCouple::Composer
        */
       void clear();
 
+      /*!
+       * \brief The registry these instances are realised from.
+       */
+      [[nodiscard]] ComponentRegistry *registry() const { return m_registry; }
+
     Q_SIGNALS:
       /*!
        * \brief Emitted when a component's instance appears or is dropped.

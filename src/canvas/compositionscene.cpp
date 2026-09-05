@@ -220,6 +220,33 @@ namespace HydroCouple::Composer
       return QString();
     }
 
+    // A KNOWN non-model library is refused here rather than left to die as
+    // a red "unavailable" box; an id the registry has never seen still goes
+    // in — a document may legitimately name components that are not
+    // installed on this machine.
+    if (m_instances && m_instances->registry())
+    {
+      HydroCouple::IComponentInfo *info =
+        m_instances->registry()->entry(componentInfoId);
+
+      const ComponentRegistry::ComponentKind kind =
+        info ? ComponentRegistry::kindOf(info)
+             : ComponentRegistry::ComponentKind::Model;
+
+      if (kind != ComponentRegistry::ComponentKind::Model)
+      {
+        Q_EMIT componentRefused(
+          kind == ComponentRegistry::ComponentKind::AdapterFactory
+            ? QStringLiteral("'%1' is an adapted-output factory; adapters "
+                             "attach to connections, they are not placed "
+                             "as components")
+                .arg(componentInfoId)
+            : QStringLiteral("'%1' is not a model component")
+                .arg(componentInfoId));
+        return QString();
+      }
+    }
+
     ComponentSpec spec;
     spec.id = uniqueComponentId(instanceId.isEmpty() ? componentInfoId
                                                      : instanceId)

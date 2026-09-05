@@ -172,7 +172,7 @@ target_compile_definitions(test_compositiondocument PRIVATE
 composer_add_gui_test(test_compositioncanvas)
 target_compile_definitions(test_compositioncanvas PRIVATE
     COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>")
-add_dependencies(test_compositioncanvas testcomponent)
+add_dependencies(test_compositioncanvas testcomponent testadapterfactory)
 
 composer_add_gui_test(test_httpuriresolver)
 target_compile_definitions(test_httpuriresolver PRIVATE

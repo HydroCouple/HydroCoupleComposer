@@ -363,3 +363,98 @@ TEST_F(CanvasTest, ABindingEdgeFollowsItsNodes)
 
   EXPECT_NE(before, after) << "the edge did not follow the moved provider";
 }
+
+// ── Adapter factories in the palette and on the canvas (CONNECT B2) ─────────
+
+#include <QSignalSpy>
+
+TEST_F(CanvasTest, PaletteListsAdapterFactoriesUnderTheirOwnHeading)
+{
+  QString message;
+  ASSERT_NE(registry.loadLibrary(
+              fixturePath(QStringLiteral("testadapterfactory")), message),
+            nullptr)
+    << message.toStdString();
+
+  ComponentPaletteModel palette(&registry);
+
+  // Two sections: heading, model, heading, factory.
+  ASSERT_EQ(palette.rowCount(), 4);
+  EXPECT_TRUE(palette.data(palette.index(0, 0),
+                           ComponentPaletteModel::IsHeaderRole).toBool());
+  EXPECT_EQ(palette.data(palette.index(0, 0), Qt::DisplayRole).toString(),
+            QStringLiteral("Model components"));
+  EXPECT_EQ(palette.data(palette.index(1, 0),
+                         ComponentPaletteModel::ComponentIdRole).toString(),
+            QStringLiteral("composer.test.component"));
+  EXPECT_TRUE(palette.data(palette.index(2, 0),
+                           ComponentPaletteModel::IsHeaderRole).toBool());
+  EXPECT_EQ(palette.data(palette.index(2, 0), Qt::DisplayRole).toString(),
+            QStringLiteral("Adapter factories"));
+  EXPECT_EQ(palette.data(palette.index(3, 0),
+                         ComponentPaletteModel::ComponentIdRole).toString(),
+            QStringLiteral("composer.test.adapterfactory"));
+
+  // Headings are inert.
+  EXPECT_EQ(palette.flags(palette.index(0, 0)), Qt::NoItemFlags);
+
+  // A single-kind registry keeps the flat list it always had.
+  ComponentRegistry plainRegistry;
+  ASSERT_NE(plainRegistry.loadLibrary(
+              fixturePath(QStringLiteral("testcomponent")), message),
+            nullptr);
+  ComponentPaletteModel flat(&plainRegistry);
+  ASSERT_EQ(flat.rowCount(), 1);
+  EXPECT_FALSE(flat.data(flat.index(0, 0),
+                         ComponentPaletteModel::IsHeaderRole).toBool());
+}
+
+TEST_F(CanvasTest, AdapterFactoryRowsAreNotDraggable)
+{
+  QString message;
+  ASSERT_NE(registry.loadLibrary(
+              fixturePath(QStringLiteral("testadapterfactory")), message),
+            nullptr)
+    << message.toStdString();
+
+  ComponentPaletteModel palette(&registry);
+  ASSERT_EQ(palette.rowCount(), 4);
+
+  const QModelIndex factoryRow = palette.index(3, 0);
+  EXPECT_FALSE(palette.flags(factoryRow) & Qt::ItemIsDragEnabled);
+  EXPECT_EQ(palette.mimeData({factoryRow}), nullptr)
+    << "a factory row handed out a drop payload anyway";
+
+  const QModelIndex modelRow = palette.index(1, 0);
+  EXPECT_TRUE(palette.flags(modelRow) & Qt::ItemIsDragEnabled);
+  std::unique_ptr<QMimeData> mime(palette.mimeData({modelRow}));
+  ASSERT_NE(mime, nullptr);
+  EXPECT_EQ(QString::fromUtf8(mime->data(QLatin1String(kComponentMimeType))),
+            QStringLiteral("composer.test.component"));
+}
+
+TEST_F(CanvasTest, DroppingAFactoryOnTheCanvasLeavesTheDocumentUntouched)
+{
+  QString message;
+  ASSERT_NE(registry.loadLibrary(
+              fixturePath(QStringLiteral("testadapterfactory")), message),
+            nullptr)
+    << message.toStdString();
+
+  QSignalSpy refused(scene.get(), &CompositionScene::componentRefused);
+
+  EXPECT_TRUE(scene->addComponentAt(
+                QStringLiteral("composer.test.adapterfactory"),
+                QStringLiteral("factory"), QPointF(0, 0)).isEmpty());
+  EXPECT_TRUE(document.componentIds().isEmpty());
+  ASSERT_EQ(refused.count(), 1);
+  EXPECT_TRUE(refused.first().first().toString().contains(
+                QStringLiteral("attach to connections")))
+    << refused.first().first().toString().toStdString();
+
+  // A model component from the same registry still goes in.
+  EXPECT_FALSE(scene->addComponentAt(
+                 QStringLiteral("composer.test.component"),
+                 QStringLiteral("solver"), QPointF(0, 0)).isEmpty());
+  EXPECT_EQ(document.componentIds().size(), 1);
+}

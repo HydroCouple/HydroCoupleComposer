@@ -123,6 +123,8 @@ namespace HydroCouple::Composer
 
     connect(m_scene, &QGraphicsScene::selectionChanged, this,
             &ComposerMainWindow::onSelectionChanged);
+    connect(m_scene, &CompositionScene::componentRefused, this,
+            [this](const QString &reason) { log(reason); });
 
     connect(m_document, &CompositionDocument::modifiedChanged, this,
             [this](bool) { refreshTitle(); });
