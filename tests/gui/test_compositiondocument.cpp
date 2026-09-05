@@ -623,3 +623,89 @@ TEST(CompositionDocumentChains, ClearingAnArgumentRemovesItsPayloadUndoably)
   EXPECT_TRUE(rig.document.spec().component("downstream")
                 ->arguments.contains("rating"));
 }
+
+// ── Adapter positions in the sidecar (CONNECT C2) ───────────────────────────
+
+TEST(PresentationAdapters, TheSidecarRoundTripsAdapterPositionsKeyedByConnection)
+{
+  using HydroCouple::Composer::Presentation;
+
+  Presentation presentation;
+
+  // Two links on the SAME endpoints under different roles keep distinct
+  // chains — the role is part of the identity.
+  const ConnectionSpec plain =
+    makeConnection("source", "signal", "sink", "in");
+  ConnectionSpec roled = plain;
+  roled.role = "secondary";
+
+  presentation.setAdapterChain(plain, {QPointF(10, 20), QPointF(30, 40)});
+  presentation.setAdapterChain(roled, {QPointF(-5, 7)});
+
+  Presentation reloaded;
+  ASSERT_TRUE(reloaded.fromJson(presentation.toJson()));
+
+  EXPECT_EQ(reloaded.adapterChain(plain),
+            (QList<QPointF>{QPointF(10, 20), QPointF(30, 40)}));
+  EXPECT_EQ(reloaded.adapterChain(roled), (QList<QPointF>{QPointF(-5, 7)}));
+
+  // setAdapterPosition grows the list as needed; an empty set removes.
+  reloaded.setAdapterPosition(plain, 3, QPointF(99, 99));
+  EXPECT_EQ(reloaded.adapterChain(plain).size(), 4);
+  EXPECT_EQ(reloaded.adapterChain(plain)[3], QPointF(99, 99));
+
+  reloaded.setAdapterChain(plain, {});
+  EXPECT_TRUE(reloaded.adapterChain(plain).isEmpty());
+  EXPECT_FALSE(reloaded.adapterChain(roled).isEmpty());
+}
+
+TEST(PresentationAdapters, RenamingAComponentRekeysItsAdapterChains)
+{
+  using HydroCouple::Composer::Presentation;
+
+  Presentation presentation;
+  const ConnectionSpec link = makeConnection("a", "out", "b", "in");
+  presentation.setAdapterChain(link, {QPointF(1, 2)});
+
+  presentation.renameComponent(QStringLiteral("a"), QStringLiteral("alpha"));
+
+  const ConnectionSpec renamed = makeConnection("alpha", "out", "b", "in");
+  EXPECT_EQ(presentation.adapterChain(renamed),
+            (QList<QPointF>{QPointF(1, 2)}));
+  EXPECT_TRUE(presentation.adapterChain(link).isEmpty());
+
+  // Removing a component takes the chains that name it.
+  presentation.removeComponent(QStringLiteral("b"));
+  EXPECT_TRUE(presentation.adapterChain(renamed).isEmpty());
+}
+
+TEST(PresentationAdapters, MovingAnAdapterIsUndoableAndMerges)
+{
+  ChainRig rig;
+  ASSERT_TRUE(rig.document.insertConnectionAdapter(rig.identity, 0,
+                                                   makeStep("linear_transform")));
+
+  // A phantom step takes no position.
+  EXPECT_FALSE(rig.document.moveConnectionAdapter(rig.identity, 1,
+                                                  QPointF(5, 5)));
+
+  QSignalSpy moved(&rig.document,
+                   &HydroCouple::Composer::CompositionDocument::adapterPlacementChanged);
+
+  ASSERT_TRUE(rig.document.moveConnectionAdapter(rig.identity, 0,
+                                                 QPointF(120, 40)));
+  ASSERT_TRUE(rig.document.moveConnectionAdapter(rig.identity, 0,
+                                                 QPointF(140, 60)));
+  EXPECT_EQ(moved.count(), 2);
+
+  EXPECT_EQ(rig.document.presentation().adapterChain(rig.identity)[0],
+            QPointF(140, 60));
+
+  // Consecutive moves of one step merged into a single undo step: undoing
+  // once rewinds past both, leaving the insert on top of the stack.
+  rig.document.undoStack()->undo();
+  EXPECT_EQ(rig.document.presentation().adapterChain(rig.identity)[0],
+            QPointF(0, 0));
+  EXPECT_EQ(rig.document.undoStack()->undoText(),
+            QStringLiteral("Insert adapter 'linear_transform'"));
+}

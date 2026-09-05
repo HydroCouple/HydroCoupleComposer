@@ -218,6 +218,15 @@ namespace HydroCouple::Composer
        */
       bool moveComponent(const QString &componentId, const QPointF &position);
 
+      /*!
+       * \brief Moves a spliced adapter node (presentation only).
+       * \param connection The connection whose chain holds the step.
+       * \param index Chain step; must exist in the connection's chain.
+       * \param position New canvas position.
+       */
+      bool moveConnectionAdapter(const ConnectionSpec &connection, int index,
+                                 const QPointF &position);
+
       // ── Command plumbing ────────────────────────────────────────────────
       //
       // Commands apply their effects through these; they are not the editing
@@ -229,6 +238,9 @@ namespace HydroCouple::Composer
                                    const ComponentPresentation &placement);
 
       void applyComponentRemovedFromPresentation(const QString &componentId);
+
+      void applyAdapterPlacement(const ConnectionSpec &connection, int index,
+                                 const QPointF &position);
 
     Q_SIGNALS:
       //! Emitted whenever the composition's content changes in any way.
@@ -242,6 +254,9 @@ namespace HydroCouple::Composer
 
       //! Emitted when a component's placement changes.
       void placementChanged(const QString &componentId);
+
+      //! Emitted when a spliced adapter node's placement changes.
+      void adapterPlacementChanged();
 
       void filePathChanged(const QString &filePath);
 

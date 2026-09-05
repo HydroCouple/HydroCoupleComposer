@@ -28,9 +28,15 @@
 #include "mesh/meshdomain.h"
 
 #include <QHash>
+#include <QList>
 #include <QPointF>
 #include <QJsonArray>
 #include <QString>
+
+namespace HydroCouple::SDK::IO
+{
+  struct ConnectionSpec;
+}
 
 namespace HydroCouple::Composer
 {
@@ -73,6 +79,38 @@ namespace HydroCouple::Composer
       void renameComponent(const QString &fromId, const QString &toId);
 
       [[nodiscard]] QStringList componentIds() const;
+
+      // ── Adapter-node positions ───────────────────────────────────────────
+      // Where a connection's spliced adapter nodes sit, one point per chain
+      // step. Addressed by the connection's full identity (endpoints +
+      // role) rather than a composed string key: component ids may contain
+      // any character, so a "from.output->to.input" string would be
+      // ambiguous to parse back. A missing or short list is never an error
+      // — unplaced steps take default positions along the edge.
+
+      /*!
+       * \brief Saved positions for a connection's chain; empty when none.
+       */
+      [[nodiscard]] QList<QPointF> adapterChain(
+        const HydroCouple::SDK::IO::ConnectionSpec &connection) const;
+
+      /*!
+       * \brief Replaces a chain's saved positions; an empty list removes
+       *        the entry.
+       */
+      void setAdapterChain(
+        const HydroCouple::SDK::IO::ConnectionSpec &connection,
+        const QList<QPointF> &positions);
+
+      /*!
+       * \brief Sets one step's position, growing the list as needed.
+       */
+      void setAdapterPosition(
+        const HydroCouple::SDK::IO::ConnectionSpec &connection, int index,
+        const QPointF &position);
+
+      void removeAdapterChain(
+        const HydroCouple::SDK::IO::ConnectionSpec &connection);
 
       /*!
        * \brief Whether a mesh domain has been drawn for this composition.
@@ -129,7 +167,29 @@ namespace HydroCouple::Composer
       bool fromJson(const QByteArray &json);
 
     private:
+      /*!
+       * \brief One connection's adapter-node positions, with the identity
+       *        fields spelled out so rename and removal never parse keys.
+       */
+      struct AdapterChainEntry
+      {
+          QString fromComponent;
+          QString output;
+          QString toComponent;
+          QString input;
+          QString role;
+          QList<QPointF> positions;
+      };
+
+      //! Internal lookup key (unit-separated; never serialised).
+      [[nodiscard]] static QString chainKey(const QString &fromComponent,
+                                            const QString &output,
+                                            const QString &toComponent,
+                                            const QString &input,
+                                            const QString &role);
+
       QHash<QString, ComponentPresentation> m_components;
+      QHash<QString, AdapterChainEntry> m_adapterChains;
       MeshDomain m_meshDomain;
       QJsonArray m_layers;
   };

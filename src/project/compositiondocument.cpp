@@ -650,6 +650,37 @@ namespace HydroCouple::Composer
     return true;
   }
 
+  bool CompositionDocument::moveConnectionAdapter(
+    const ConnectionSpec &connection, int index, const QPointF &position)
+  {
+    // The step must exist in the document's chain; positions for phantom
+    // steps would linger in the sidecar with nothing to place.
+    const auto link = std::find_if(
+      m_spec.connections.begin(), m_spec.connections.end(),
+      [&connection](const ConnectionSpec &existing)
+      { return sameConnection(existing, connection); });
+
+    if (link == m_spec.connections.end() || index < 0 ||
+        index >= static_cast<int>(link->adaptedOutputs.size()))
+    {
+      return false;
+    }
+
+    const QList<QPointF> chain = m_presentation.adapterChain(connection);
+    const QPointF before =
+      index < chain.size() ? chain[index] : QPointF();
+
+    if (before == position)
+    {
+      return false;
+    }
+
+    m_undoStack->push(
+      new MoveAdapterCommand(this, connection, index, before, position));
+
+    return true;
+  }
+
   // ── Command plumbing ─────────────────────────────────────────────────────
 
   void CompositionDocument::applySpec(const CompositionSpec &spec)
@@ -688,6 +719,13 @@ namespace HydroCouple::Composer
   {
     m_presentation.removeComponent(componentId);
     Q_EMIT placementChanged(componentId);
+  }
+
+  void CompositionDocument::applyAdapterPlacement(
+    const ConnectionSpec &connection, int index, const QPointF &position)
+  {
+    m_presentation.setAdapterPosition(connection, index, position);
+    Q_EMIT adapterPlacementChanged();
   }
 
   // ── Internals ────────────────────────────────────────────────────────────
