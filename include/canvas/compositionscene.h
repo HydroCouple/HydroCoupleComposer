@@ -64,6 +64,11 @@ namespace HydroCouple::Composer
       [[nodiscard]] QList<BindingEdgeItem *> bindingEdges() const;
 
       /*!
+       * \brief The spliced adapter nodes currently drawn.
+       */
+      [[nodiscard]] QList<AdapterNodeItem *> adapterNodes() const;
+
+      /*!
        * \brief Adds a component to the document at a canvas position.
        *
        * This is what a drop from the component palette performs.
@@ -114,6 +119,7 @@ namespace HydroCouple::Composer
     private:
       void refreshEdges();
       void applyPlacement(const QString &componentId);
+      void applyAdapterPlacements();
       [[nodiscard]] PortItem *portAt(const QPointF &scenePosition) const;
       [[nodiscard]] QString uniqueComponentId(const QString &desired) const;
 
@@ -123,6 +129,7 @@ namespace HydroCouple::Composer
       QHash<QString, ComponentNodeItem *> m_nodes;
       QList<ConnectionEdgeItem *> m_edges;
       QList<BindingEdgeItem *> m_bindingEdges;
+      QList<AdapterNodeItem *> m_adapterNodes;
 
       // In-progress port drag.
       PortItem *m_dragSource = nullptr;

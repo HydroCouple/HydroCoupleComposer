@@ -148,8 +148,16 @@ namespace HydroCouple::Composer
       bool m_moving = false;
   };
 
+  class AdapterNodeItem;
+
   /*!
    * \brief One connection, drawn between an output port and an input port.
+   *
+   * One edge owns the WHOLE connection, spliced adapters included: the path
+   * routes output → adapter(s) → input, but selection of the edge still
+   * means "the connection", while selection of an adapter node means "that
+   * chain step". Splitting the edge into per-leg items would invent
+   * identities nothing else has.
    */
   class ConnectionEdgeItem : public QGraphicsItem
   {
@@ -180,7 +188,12 @@ namespace HydroCouple::Composer
       [[nodiscard]] const HydroCouple::SDK::IO::ConnectionSpec &connection() const;
 
       /*!
-       * \brief Recomputes the edge geometry from its ports.
+       * \brief The spliced adapter nodes to route through, in chain order.
+       */
+      void setAdapters(const QList<AdapterNodeItem *> &adapters);
+
+      /*!
+       * \brief Recomputes the edge geometry from its ports and adapters.
        */
       void refresh();
 
@@ -190,7 +203,73 @@ namespace HydroCouple::Composer
       HydroCouple::SDK::IO::ConnectionSpec m_connection;
       PortItem *m_from = nullptr;
       PortItem *m_to = nullptr;
+      QList<AdapterNodeItem *> m_adapters;
       QPainterPath m_path;
+  };
+
+  /*!
+   * \brief One adaptation-chain step, drawn as its own connector node
+   *        spliced into its connection's edge.
+   *
+   * Addressed as (connection identity, chain index) — the same coordinates
+   * the document's chain edits use — never by item pointer: a rebuild
+   * invalidates every item, and whatever holds one of these must re-find it
+   * by identity afterwards.
+   */
+  class AdapterNodeItem : public QGraphicsObject
+  {
+      Q_OBJECT
+
+    public:
+      enum
+      {
+        Type = UserType + 5
+      };
+
+      AdapterNodeItem(HydroCouple::SDK::IO::ConnectionSpec connection,
+                      int stepIndex,
+                      HydroCouple::SDK::IO::AdaptedOutputSpec step);
+
+      [[nodiscard]] int type() const override;
+
+      [[nodiscard]] QRectF boundingRect() const override;
+
+      void paint(QPainter *painter, const QStyleOptionGraphicsItem *option,
+                 QWidget *widget) override;
+
+      [[nodiscard]] const HydroCouple::SDK::IO::ConnectionSpec &connection() const;
+
+      [[nodiscard]] int stepIndex() const;
+
+      [[nodiscard]] const HydroCouple::SDK::IO::AdaptedOutputSpec &step() const;
+
+      //! Where the incoming leg attaches (left mid, scene coordinates).
+      [[nodiscard]] QPointF anchorIn() const;
+
+      //! Where the outgoing leg leaves (right mid, scene coordinates).
+      [[nodiscard]] QPointF anchorOut() const;
+
+    Q_SIGNALS:
+      /*!
+       * \brief Emitted when the user finishes moving this node — on release,
+       *        so a drag is one undo entry (and nothing modal ever opens
+       *        from a press).
+       */
+      void moved(const HydroCouple::SDK::IO::ConnectionSpec &connection,
+                 int stepIndex, const QPointF &position);
+
+    protected:
+      QVariant itemChange(GraphicsItemChange change,
+                          const QVariant &value) override;
+
+      void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
+
+    private:
+      HydroCouple::SDK::IO::ConnectionSpec m_connection;
+      int m_stepIndex = 0;
+      HydroCouple::SDK::IO::AdaptedOutputSpec m_step;
+      QSizeF m_size;
+      bool m_moving = false;
   };
 
 

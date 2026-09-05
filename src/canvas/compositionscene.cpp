@@ -25,6 +25,8 @@ namespace HydroCouple::Composer
               &CompositionScene::rebuild);
       connect(m_document, &CompositionDocument::placementChanged, this,
               &CompositionScene::applyPlacement);
+      connect(m_document, &CompositionDocument::adapterPlacementChanged, this,
+              &CompositionScene::applyAdapterPlacements);
     }
 
     if (m_instances)
@@ -49,10 +51,35 @@ namespace HydroCouple::Composer
 
     m_rebuilding = true;
 
+    // Selection survives the teardown by IDENTITY, never by item pointer:
+    // every item below is about to be destroyed, and in-place edits (a
+    // chain argument changed in the inspector) rebuild mid-interaction.
+    QStringList selectedComponents;
+    QList<ConnectionSpec> selectedConnections;
+    QList<QPair<ConnectionSpec, int>> selectedAdapters;
+
+    for (QGraphicsItem *item : selectedItems())
+    {
+      if (auto *node = qgraphicsitem_cast<ComponentNodeItem *>(item))
+      {
+        selectedComponents.append(node->componentId());
+      }
+      else if (auto *edge = qgraphicsitem_cast<ConnectionEdgeItem *>(item))
+      {
+        selectedConnections.append(edge->connection());
+      }
+      else if (auto *adapter = qgraphicsitem_cast<AdapterNodeItem *>(item))
+      {
+        selectedAdapters.append({adapter->connection(),
+                                 adapter->stepIndex()});
+      }
+    }
+
     clear();
     m_nodes.clear();
     m_edges.clear();
     m_bindingEdges.clear();
+    m_adapterNodes.clear();
     m_dragSource = nullptr;
     m_dragTarget = nullptr;
     m_dragPreview = nullptr;
@@ -122,6 +149,51 @@ namespace HydroCouple::Composer
       auto *edge = new ConnectionEdgeItem(connection, fromPort, toPort);
       addItem(edge);
       m_edges.append(edge);
+
+      // One spliced node per chain step. Saved positions come from the
+      // sidecar; unplaced steps sit at even fractions along the straight
+      // port-to-port line — a missing or short list is never an error.
+      const QList<QPointF> saved =
+        m_document->presentation().adapterChain(connection);
+      const int stepCount = static_cast<int>(connection.adaptedOutputs.size());
+
+      QList<AdapterNodeItem *> adapters;
+
+      for (int index = 0; index < stepCount; ++index)
+      {
+        auto *adapter = new AdapterNodeItem(
+          connection, index, connection.adaptedOutputs[
+                               static_cast<size_t>(index)]);
+
+        connect(adapter, &AdapterNodeItem::moved, this,
+                [this](const ConnectionSpec &identity, int stepIndex,
+                       const QPointF &position)
+                {
+                  // Through the document, so the move joins undo history.
+                  m_document->moveConnectionAdapter(identity, stepIndex,
+                                                    position);
+                });
+
+        addItem(adapter);
+
+        if (index < saved.size() && saved[index] != QPointF())
+        {
+          adapter->setPos(saved[index]);
+        }
+        else
+        {
+          const QPointF start = fromPort->anchor();
+          const QPointF end = toPort->anchor();
+          const qreal fraction =
+            static_cast<qreal>(index + 1) / static_cast<qreal>(stepCount + 1);
+          adapter->setPos(start + (end - start) * fraction);
+        }
+
+        adapters.append(adapter);
+        m_adapterNodes.append(adapter);
+      }
+
+      edge->setAdapters(adapters);
     }
 
     // Binding edges, node to node: an argument has no port, and the value
@@ -144,7 +216,64 @@ namespace HydroCouple::Composer
       m_bindingEdges.append(edge);
     }
 
+    // Re-select what was selected, by identity.
+    for (const QString &componentId : selectedComponents)
+    {
+      if (ComponentNodeItem *node = m_nodes.value(componentId))
+      {
+        node->setSelected(true);
+      }
+    }
+
+    const auto sameIdentity = [](const ConnectionSpec &lhs,
+                                 const ConnectionSpec &rhs)
+    {
+      return lhs.fromComponent == rhs.fromComponent &&
+             lhs.output == rhs.output &&
+             lhs.toComponent == rhs.toComponent && lhs.input == rhs.input &&
+             lhs.role == rhs.role;
+    };
+
+    for (const ConnectionSpec &identity : selectedConnections)
+    {
+      for (ConnectionEdgeItem *edge : m_edges)
+      {
+        if (sameIdentity(edge->connection(), identity))
+        {
+          edge->setSelected(true);
+        }
+      }
+    }
+
+    for (const QPair<ConnectionSpec, int> &address : selectedAdapters)
+    {
+      for (AdapterNodeItem *adapter : m_adapterNodes)
+      {
+        if (adapter->stepIndex() == address.second &&
+            sameIdentity(adapter->connection(), address.first))
+        {
+          adapter->setSelected(true);
+        }
+      }
+    }
+
     m_rebuilding = false;
+  }
+
+  void CompositionScene::applyAdapterPlacements()
+  {
+    for (AdapterNodeItem *adapter : m_adapterNodes)
+    {
+      const QList<QPointF> saved =
+        m_document->presentation().adapterChain(adapter->connection());
+
+      if (adapter->stepIndex() < saved.size())
+      {
+        adapter->setPos(saved[adapter->stepIndex()]);
+      }
+    }
+
+    refreshEdges();
   }
 
   void CompositionScene::applyPlacement(const QString &componentId)
@@ -193,6 +322,11 @@ namespace HydroCouple::Composer
   QList<BindingEdgeItem *> CompositionScene::bindingEdges() const
   {
     return m_bindingEdges;
+  }
+
+  QList<AdapterNodeItem *> CompositionScene::adapterNodes() const
+  {
+    return m_adapterNodes;
   }
 
   QString CompositionScene::uniqueComponentId(const QString &desired) const

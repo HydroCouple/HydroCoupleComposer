@@ -458,3 +458,113 @@ TEST_F(CanvasTest, DroppingAFactoryOnTheCanvasLeavesTheDocumentUntouched)
                  QStringLiteral("solver"), QPointF(0, 0)).isEmpty());
   EXPECT_EQ(document.componentIds().size(), 1);
 }
+
+// ── Spliced adapter nodes (CONNECT C3) ──────────────────────────────────────
+
+namespace
+{
+  //! A provider→consumer document whose connection carries a two-step chain.
+  void loadAdaptedPair(CompositionDocument &document)
+  {
+    QString message;
+    const QByteArray text = R"({
+      "schema_version": "1.1",
+      "components": [
+        { "id": "prov",
+          "info": { "component_info_id": "composer.test.component" } },
+        { "id": "consumer",
+          "info": { "component_info_id": "composer.test.component" } }
+      ],
+      "connections": [
+        { "from": { "component": "prov", "output": "values",
+                    "adapted_outputs": [
+                      { "id": "scale" },
+                      { "id": "shift" } ] },
+          "to": { "component": "consumer", "input": "inflow" } }
+      ]
+    })";
+    ASSERT_TRUE(document.loadFromJson(text, message)) << message.toStdString();
+  }
+}
+
+TEST_F(CanvasTest, AnAdaptedConnectionGrowsASplicedAdapterNodePerChainStep)
+{
+  ASSERT_NO_FATAL_FAILURE(loadAdaptedPair(document));
+
+  const QList<AdapterNodeItem *> adapters = scene->adapterNodes();
+  ASSERT_EQ(adapters.size(), 2);
+  EXPECT_EQ(adapters[0]->step().id, "scale");
+  EXPECT_EQ(adapters[0]->stepIndex(), 0);
+  EXPECT_EQ(adapters[1]->step().id, "shift");
+  EXPECT_EQ(adapters[1]->stepIndex(), 1);
+
+  // Still ONE edge: the connection keeps a single selectable identity.
+  EXPECT_EQ(scene->edges().size(), 1);
+
+  // Unplaced steps sit spread along the edge, not stacked on one point.
+  EXPECT_NE(adapters[0]->pos(), adapters[1]->pos());
+}
+
+TEST_F(CanvasTest, TheEdgeRoutesThroughItsAdapterNodesInChainOrder)
+{
+  ASSERT_NO_FATAL_FAILURE(loadAdaptedPair(document));
+
+  const QList<AdapterNodeItem *> adapters = scene->adapterNodes();
+  ASSERT_EQ(adapters.size(), 2);
+  ConnectionEdgeItem *edge = scene->edges().first();
+
+  // The stroked shape passes through every adapter's anchors — the legs
+  // really do route through the spliced nodes.
+  for (AdapterNodeItem *adapter : adapters)
+  {
+    EXPECT_TRUE(edge->shape().contains(edge->mapFromScene(adapter->anchorIn())))
+      << "the edge does not reach " << adapter->step().id << "'s inlet";
+    EXPECT_TRUE(edge->shape().contains(edge->mapFromScene(adapter->anchorOut())))
+      << "the edge does not leave " << adapter->step().id << "'s outlet";
+  }
+
+  // And it follows a node that moves.
+  adapters[0]->setPos(adapters[0]->pos() + QPointF(0.0, 140.0));
+  edge->refresh();
+  EXPECT_TRUE(edge->shape().contains(edge->mapFromScene(adapters[0]->anchorIn())))
+    << "the edge did not follow the moved adapter";
+}
+
+TEST_F(CanvasTest, DraggingAnAdapterNodePersistsItsPositionInTheSidecar)
+{
+  ASSERT_NO_FATAL_FAILURE(loadAdaptedPair(document));
+
+  const QList<AdapterNodeItem *> adapters = scene->adapterNodes();
+  ASSERT_EQ(adapters.size(), 2);
+  AdapterNodeItem *adapter = adapters[1];
+  const ConnectionSpec identity = adapter->connection();
+  const QPointF target = adapter->pos() + QPointF(60.0, 90.0);
+
+  adapter->setSelected(true);
+  dragOnScene(scene.get(), adapter->pos(), target);
+
+  const QList<QPointF> saved =
+    document.presentation().adapterChain(identity);
+  ASSERT_GT(saved.size(), 1);
+  EXPECT_EQ(saved[1], target) << "the drag did not reach the sidecar";
+
+  // Through the document means undoable.
+  document.undoStack()->undo();
+  EXPECT_NE(document.presentation().adapterChain(identity).value(1), target);
+
+  // And a selected adapter survives a rebuild BY IDENTITY — in-place chain
+  // edits rebuild the scene mid-interaction, and a selection held by item
+  // pointer would be gone.
+  adapter = scene->adapterNodes()[1];
+  adapter->setSelected(true);
+  scene->rebuild();
+  bool reselected = false;
+  for (AdapterNodeItem *rebuilt : scene->adapterNodes())
+  {
+    if (rebuilt->stepIndex() == 1 && rebuilt->isSelected())
+    {
+      reselected = true;
+    }
+  }
+  EXPECT_TRUE(reselected) << "selection did not survive the rebuild";
+}

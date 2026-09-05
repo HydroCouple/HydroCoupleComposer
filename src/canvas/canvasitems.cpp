@@ -288,6 +288,12 @@ namespace HydroCouple::Composer
     return Type;
   }
 
+  void ConnectionEdgeItem::setAdapters(const QList<AdapterNodeItem *> &adapters)
+  {
+    m_adapters = adapters;
+    refresh();
+  }
+
   QPainterPath ConnectionEdgeItem::buildPath() const
   {
     QPainterPath path;
@@ -297,14 +303,39 @@ namespace HydroCouple::Composer
       return path;
     }
 
-    const QPointF start = m_from->anchor();
-    const QPointF end = m_to->anchor();
+    // The waypoint list pairs off into legs: port → first adapter's inlet,
+    // each adapter's outlet → the next one's inlet, last outlet → the input
+    // port. The gap across each adapter body is deliberate — the node draws
+    // itself there.
+    QList<QPointF> points;
+    points.append(m_from->anchor());
 
-    // A horizontal-tangent cubic keeps edges readable when boxes are stacked.
-    const qreal reach = std::max(40.0, std::abs(end.x() - start.x()) * 0.5);
+    for (AdapterNodeItem *adapter : m_adapters)
+    {
+      if (!adapter)
+      {
+        continue;
+      }
 
-    path.moveTo(start);
-    path.cubicTo(start + QPointF(reach, 0.0), end - QPointF(reach, 0.0), end);
+      points.append(adapter->anchorIn());
+      points.append(adapter->anchorOut());
+    }
+
+    points.append(m_to->anchor());
+
+    for (int i = 0; i + 1 < points.size(); i += 2)
+    {
+      const QPointF start = points[i];
+      const QPointF end = points[i + 1];
+
+      // A horizontal-tangent cubic keeps legs readable when boxes stack.
+      const qreal reach =
+        std::max(40.0, std::abs(end.x() - start.x()) * 0.5);
+
+      path.moveTo(start);
+      path.cubicTo(start + QPointF(reach, 0.0), end - QPointF(reach, 0.0),
+                   end);
+    }
 
     return path;
   }
@@ -358,6 +389,123 @@ namespace HydroCouple::Composer
     return m_connection;
   }
 
+
+  // ── AdapterNodeItem ──────────────────────────────────────────────────────
+
+  namespace
+  {
+    constexpr qreal kAdapterWidth = 120.0;
+    constexpr qreal kAdapterHeight = 34.0;
+  }
+
+  AdapterNodeItem::AdapterNodeItem(
+    HydroCouple::SDK::IO::ConnectionSpec connection, int stepIndex,
+    HydroCouple::SDK::IO::AdaptedOutputSpec step)
+    : m_connection(std::move(connection)),
+      m_stepIndex(stepIndex),
+      m_step(std::move(step)),
+      m_size(kAdapterWidth, kAdapterHeight)
+  {
+    setFlag(ItemIsMovable, true);
+    setFlag(ItemIsSelectable, true);
+    setFlag(ItemSendsGeometryChanges, true);
+
+    const QString factory = m_step.factory.empty()
+                              ? QStringLiteral("any factory")
+                              : QString::fromStdString(m_step.factory);
+    setToolTip(QStringLiteral("adapter '%1' (%2) — step %3 of the "
+                              "chain from %4.%5")
+                 .arg(QString::fromStdString(m_step.id), factory)
+                 .arg(m_stepIndex + 1)
+                 .arg(QString::fromStdString(m_connection.fromComponent),
+                      QString::fromStdString(m_connection.output)));
+  }
+
+  int AdapterNodeItem::type() const
+  {
+    return Type;
+  }
+
+  QRectF AdapterNodeItem::boundingRect() const
+  {
+    // Centred on the origin, so pos() is the node's centre — the same point
+    // the sidecar stores and the default along-the-edge placement computes.
+    return {-m_size.width() / 2.0, -m_size.height() / 2.0, m_size.width(),
+            m_size.height()};
+  }
+
+  void AdapterNodeItem::paint(QPainter *painter,
+                              const QStyleOptionGraphicsItem *option,
+                              QWidget *)
+  {
+    const bool selected = option->state & QStyle::State_Selected;
+    const QRectF box = boundingRect();
+
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    // Amber, unmistakably not a component box: a connector spliced into
+    // the wire.
+    painter->setBrush(QColor(252, 246, 232));
+    painter->setPen(QPen(selected ? QColor(60, 120, 220)
+                                  : QColor(200, 150, 60),
+                         selected ? 2.0 : 1.4));
+    painter->drawRoundedRect(box, 6.0, 6.0);
+
+    painter->setPen(QColor(90, 70, 30));
+    const QFontMetricsF metrics(painter->font());
+    painter->drawText(box.adjusted(8.0, 0.0, -8.0, 0.0),
+                      Qt::AlignCenter,
+                      metrics.elidedText(QString::fromStdString(m_step.id),
+                                         Qt::ElideMiddle,
+                                         box.width() - 16.0));
+  }
+
+  const HydroCouple::SDK::IO::ConnectionSpec &AdapterNodeItem::connection() const
+  {
+    return m_connection;
+  }
+
+  int AdapterNodeItem::stepIndex() const
+  {
+    return m_stepIndex;
+  }
+
+  const HydroCouple::SDK::IO::AdaptedOutputSpec &AdapterNodeItem::step() const
+  {
+    return m_step;
+  }
+
+  QPointF AdapterNodeItem::anchorIn() const
+  {
+    return mapToScene(QPointF(-m_size.width() / 2.0, 0.0));
+  }
+
+  QPointF AdapterNodeItem::anchorOut() const
+  {
+    return mapToScene(QPointF(m_size.width() / 2.0, 0.0));
+  }
+
+  QVariant AdapterNodeItem::itemChange(GraphicsItemChange change,
+                                       const QVariant &value)
+  {
+    if (change == ItemPositionHasChanged)
+    {
+      m_moving = true;
+    }
+
+    return QGraphicsObject::itemChange(change, value);
+  }
+
+  void AdapterNodeItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
+  {
+    QGraphicsObject::mouseReleaseEvent(event);
+
+    if (m_moving)
+    {
+      m_moving = false;
+      Q_EMIT moved(m_connection, m_stepIndex, pos());
+    }
+  }
 
   // ── BindingEdgeItem ───────────────────────────────────────────────────────
 
