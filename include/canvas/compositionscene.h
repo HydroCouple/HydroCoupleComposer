@@ -168,6 +168,16 @@ namespace HydroCouple::Composer
       void insertAdapterInteractively(const HydroCouple::SDK::IO::ConnectionSpec &connection,
                                       int index);
       [[nodiscard]] PortItem *portAt(const QPointF &scenePosition) const;
+
+      /*!
+       * \brief The exact-hit port, or the nearest one within \a radius.
+       *
+       * Used by the connection drag's move and release — a 5 px dot is a
+       * hard target. The press keeps exact hits, so starting a drag on a
+       * node body still moves the node.
+       */
+      [[nodiscard]] PortItem *portNear(const QPointF &scenePosition,
+                                       qreal radius) const;
       [[nodiscard]] QString uniqueComponentId(const QString &desired) const;
 
       CompositionDocument *m_document = nullptr;

@@ -428,6 +428,8 @@ namespace HydroCouple::Composer
     // and invalidates every item pointer under our feet.
     QStringList components;
     QList<ConnectionSpec> connections;
+    QList<QPair<ConnectionSpec, int>> adapters;
+    QList<QPair<QString, QString>> bindings;
 
     for (QGraphicsItem *item : selectedItems())
     {
@@ -439,15 +441,65 @@ namespace HydroCouple::Composer
       {
         connections.append(static_cast<ConnectionEdgeItem *>(item)->connection());
       }
+      else if (auto *adapter = qgraphicsitem_cast<AdapterNodeItem *>(item))
+      {
+        adapters.append({adapter->connection(), adapter->stepIndex()});
+      }
+      else if (auto *binding = qgraphicsitem_cast<BindingEdgeItem *>(item))
+      {
+        bindings.append(
+          {QString::fromStdString(binding->binding().component),
+           QString::fromStdString(binding->binding().argument)});
+      }
     }
+
+    const auto sameIdentity = [](const ConnectionSpec &lhs,
+                                 const ConnectionSpec &rhs)
+    {
+      return lhs.fromComponent == rhs.fromComponent &&
+             lhs.output == rhs.output &&
+             lhs.toComponent == rhs.toComponent && lhs.input == rhs.input &&
+             lhs.role == rhs.role;
+    };
 
     int removed = 0;
 
-    // Connections first: removing a component already takes its connections,
-    // and doing it the other way round would count them twice.
+    // Adapter steps first, highest index first, so earlier removals never
+    // renumber a later one out from under us; steps whose whole connection
+    // is also selected are skipped — the connection removal takes its
+    // chain, and removing them here too would count them twice.
+    std::sort(adapters.begin(), adapters.end(),
+              [](const QPair<ConnectionSpec, int> &lhs,
+                 const QPair<ConnectionSpec, int> &rhs)
+              { return lhs.second > rhs.second; });
+
+    for (const QPair<ConnectionSpec, int> &address : adapters)
+    {
+      const bool parentSelected =
+        std::any_of(connections.begin(), connections.end(),
+                    [&address, &sameIdentity](const ConnectionSpec &link)
+                    { return sameIdentity(link, address.first); });
+
+      if (!parentSelected &&
+          m_document->removeConnectionAdapter(address.first, address.second))
+      {
+        ++removed;
+      }
+    }
+
+    // Connections before components: removing a component already takes its
+    // connections, and doing it the other way round would count them twice.
     for (const ConnectionSpec &connection : connections)
     {
       if (m_document->removeConnection(connection))
+      {
+        ++removed;
+      }
+    }
+
+    for (const QPair<QString, QString> &binding : bindings)
+    {
+      if (m_document->clearArgument(binding.first, binding.second))
       {
         ++removed;
       }
@@ -477,6 +529,42 @@ namespace HydroCouple::Composer
     }
 
     return nullptr;
+  }
+
+  PortItem *CompositionScene::portNear(const QPointF &scenePosition,
+                                       qreal radius) const
+  {
+    if (PortItem *exact = portAt(scenePosition))
+    {
+      return exact;
+    }
+
+    PortItem *best = nullptr;
+    qreal bestDistance = radius;
+
+    const QList<QGraphicsItem *> hits =
+      items(QRectF(scenePosition - QPointF(radius, radius),
+                   QSizeF(radius * 2.0, radius * 2.0)));
+
+    for (QGraphicsItem *item : hits)
+    {
+      if (item->type() != PortItem::Type)
+      {
+        continue;
+      }
+
+      auto *port = static_cast<PortItem *>(item);
+      const qreal distance =
+        QLineF(scenePosition, port->anchor()).length();
+
+      if (distance <= bestDistance)
+      {
+        best = port;
+        bestDistance = distance;
+      }
+    }
+
+    return best;
   }
 
   void CompositionScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
@@ -513,7 +601,7 @@ namespace HydroCouple::Composer
       path.lineTo(event->scenePos());
       m_dragPreview->setPath(path);
 
-      PortItem *candidate = portAt(event->scenePos());
+      PortItem *candidate = portNear(event->scenePos(), 12.0);
 
       if (candidate && candidate->direction() != PortItem::Direction::Input)
       {
@@ -551,7 +639,7 @@ namespace HydroCouple::Composer
   {
     if (m_dragSource)
     {
-      PortItem *target = portAt(event->scenePos());
+      PortItem *target = portNear(event->scenePos(), 12.0);
 
       if (m_dragTarget)
       {

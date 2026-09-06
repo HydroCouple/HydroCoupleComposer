@@ -691,3 +691,115 @@ TEST_F(CanvasTest, RemovingAnAdapterNodeShortensTheChainByOne)
   EXPECT_EQ(scene->adapterNodes().first()->stepIndex(), 0)
     << "the surviving step did not renumber";
 }
+
+// ── Binding-edge deletion, snap radius, mixed selections (CONNECT C6) ───────
+
+namespace
+{
+  //! Two resolvable components, deliberately unconnected.
+  void loadUnconnectedPair(CompositionDocument &document)
+  {
+    QString message;
+    const QByteArray text = R"({
+      "components": [
+        { "id": "prov",
+          "info": { "component_info_id": "composer.test.component" } },
+        { "id": "consumer",
+          "info": { "component_info_id": "composer.test.component" } }
+      ]
+    })";
+    ASSERT_TRUE(document.loadFromJson(text, message)) << message.toStdString();
+  }
+}
+
+TEST_F(CanvasTest, ABindingEdgeCanBeSelectedAndDeletedRemovingTheBinding)
+{
+  ASSERT_NO_FATAL_FAILURE(loadBoundPair(document));
+  ASSERT_EQ(scene->bindingEdges().size(), 1);
+
+  BindingEdgeItem *edge = scene->bindingEdges().first();
+  EXPECT_TRUE(edge->flags() & QGraphicsItem::ItemIsSelectable)
+    << "a binding edge that cannot be selected cannot be deleted";
+
+  edge->setSelected(true);
+  EXPECT_EQ(scene->removeSelection(), 1);
+
+  // The @from payload is gone from the document, undoably, and the canvas
+  // followed.
+  EXPECT_FALSE(document.spec().component("consumer")
+                 ->arguments.contains("rating"));
+  EXPECT_TRUE(scene->bindingEdges().isEmpty());
+
+  document.undoStack()->undo();
+  EXPECT_TRUE(document.spec().component("consumer")
+                ->arguments.contains("rating"));
+  EXPECT_EQ(scene->bindingEdges().size(), 1);
+}
+
+TEST_F(CanvasTest, AReleaseNearAPortStillCompletesTheConnection)
+{
+  ASSERT_NO_FATAL_FAILURE(loadUnconnectedPair(document));
+
+  ComponentNodeItem *prov = scene->node(QStringLiteral("prov"));
+  ComponentNodeItem *consumer = scene->node(QStringLiteral("consumer"));
+  ASSERT_NE(prov, nullptr);
+  ASSERT_NE(consumer, nullptr);
+  consumer->setPos(QPointF(320.0, 0.0));
+
+  PortItem *output = prov->port(QStringLiteral("values"),
+                                PortItem::Direction::Output);
+  PortItem *input = consumer->port(QStringLiteral("inflow"),
+                                   PortItem::Direction::Input);
+  ASSERT_NE(output, nullptr);
+  ASSERT_NE(input, nullptr);
+
+  // Released 8 px off the 5 px dot: inside the snap radius, and exactly
+  // the kind of miss a hand makes.
+  dragOnScene(scene.get(), output->anchor(),
+              input->anchor() + QPointF(8.0, 5.0));
+
+  ASSERT_EQ(document.spec().connections.size(), 1u)
+    << "a near-miss release dropped the connection";
+  EXPECT_EQ(document.spec().connections[0].input, "inflow");
+
+  // A release far from any port still connects nothing.
+  document.undoStack()->undo();
+  ASSERT_TRUE(document.spec().connections.empty());
+  dragOnScene(scene.get(),
+              scene->node(QStringLiteral("prov"))
+                ->port(QStringLiteral("values"), PortItem::Direction::Output)
+                ->anchor(),
+              QPointF(150.0, 300.0));
+  EXPECT_TRUE(document.spec().connections.empty());
+}
+
+TEST_F(CanvasTest, DeletingASelectionCountsAdaptersConnectionsAndChainsOnce)
+{
+  ASSERT_NO_FATAL_FAILURE(loadAdaptedPair(document));
+  ASSERT_EQ(scene->adapterNodes().size(), 2);
+
+  // Both adapter steps selected, connection not: two removals, chain empty,
+  // connection intact — and the descending order means the first removal
+  // never renumbered the second out from under us.
+  for (AdapterNodeItem *adapter : scene->adapterNodes())
+  {
+    adapter->setSelected(true);
+  }
+  EXPECT_EQ(scene->removeSelection(), 2);
+  EXPECT_TRUE(document.spec().connections[0].adaptedOutputs.empty());
+  ASSERT_EQ(document.spec().connections.size(), 1u);
+
+  document.undoStack()->undo();
+  document.undoStack()->undo();
+  ASSERT_EQ(scene->adapterNodes().size(), 2);
+
+  // Adapters AND their connection selected: the connection removal takes
+  // the chain, and the steps are not double-counted.
+  for (AdapterNodeItem *adapter : scene->adapterNodes())
+  {
+    adapter->setSelected(true);
+  }
+  scene->edges().first()->setSelected(true);
+  EXPECT_EQ(scene->removeSelection(), 1);
+  EXPECT_TRUE(document.spec().connections.empty());
+}

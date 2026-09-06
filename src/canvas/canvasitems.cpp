@@ -516,6 +516,7 @@ namespace HydroCouple::Composer
       m_provider(provider),
       m_consumer(consumer)
   {
+    setFlag(ItemIsSelectable, true); // Selectable, so Delete can remove it.
     setZValue(-2.0); // Behind the exchange edges: initialization underlies.
     setToolTip(QStringLiteral("%1.%2 \u27f5 %3.%4 \u2014 resolves when the "
                               "composition runs")
@@ -578,12 +579,16 @@ namespace HydroCouple::Composer
   }
 
   void BindingEdgeItem::paint(QPainter *painter,
-                              const QStyleOptionGraphicsItem *, QWidget *)
+                              const QStyleOptionGraphicsItem *option,
+                              QWidget *)
   {
+    const bool selected = option->state & QStyle::State_Selected;
+
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setBrush(Qt::NoBrush);
 
-    QPen pen(QColor(140, 110, 200), 1.6);
+    QPen pen(selected ? QColor(60, 120, 220) : QColor(140, 110, 200),
+             selected ? 2.5 : 1.6);
     pen.setDashPattern({5.0, 4.0});
     painter->setPen(pen);
     painter->drawPath(m_path);
