@@ -134,6 +134,25 @@ namespace HydroCouple::Composer
       void statusChanged(const QString &status, const QString &message);
 
       /*!
+       * \brief Emitted as the staged initialization advances inside start().
+       *
+       * Forwarded from ModelInitializer's progress callback, so a host can
+       * show the providers → consumers progression: \a activity is
+       * "initializing" as each component's apply begins, and
+       * "running provider" when an \c \@from binding runs its provider to
+       * completion. Emitted synchronously on the GUI thread — the staged
+       * apply happens inside start().
+       *
+       * \param stage The component's bindingStages() stage, from one.
+       * \param stageCount How many stages the composition has.
+       * \param componentId The component being applied or run.
+       * \param activity What is happening to it.
+       */
+      void initializationProgressed(int stage, int stageCount,
+                                    const QString &componentId,
+                                    const QString &activity);
+
+      /*!
        * \brief Emitted once per completed step.
        * \param step The step just completed, counting from one.
        */

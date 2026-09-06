@@ -500,6 +500,91 @@ TEST_F(SimulationTest, ARunBuildsAdapterChainsFromStandaloneFactoryLibraries)
   SimulationManager bareManager(&bareRegistry);
   QString failure;
   EXPECT_FALSE(bareManager.start(document, failure));
-  EXPECT_TRUE(failure.contains(QStringLiteral("double_it"))) 
+  EXPECT_TRUE(failure.contains(QStringLiteral("double_it")))
     << failure.toStdString();
+}
+
+// ── S4.4: the staged apply is observable ──────────────────────────────────
+
+TEST_F(SimulationTest, StartReportsStagedInitializationProgress)
+{
+  // 'calib' feeds downstream's 'rating' argument through @from, so the
+  // staged apply runs it to Finished before downstream initializes — the
+  // providers → consumers progression a host shows the user.
+  const QByteArray bound = R"({
+  "schema_version": "1.1",
+  "components": [
+    { "id": "calib",
+      "info": { "component_info_id": "composer.test.component" } },
+    { "id": "upstream",
+      "info": { "component_info_id": "composer.test.component" } },
+    { "id": "downstream",
+      "info": { "component_info_id": "composer.test.component" },
+      "arguments": {
+        "rating": { "@from": { "component": "calib",
+                               "output": "values" } } } }
+  ],
+  "connections": [
+    { "from": { "component": "upstream", "output": "values" },
+      "to": { "component": "downstream", "input": "inflow" } }
+  ]
+})";
+
+  QString message;
+  CompositionDocument document;
+  ASSERT_TRUE(document.loadFromJson(bound, message)) << message.toStdString();
+
+  QSignalSpy progressSpy(manager.get(),
+                         &SimulationManager::initializationProgressed);
+  QSignalSpy finishedSpy(manager.get(), &SimulationManager::finished);
+
+  ASSERT_TRUE(manager->start(document, message)) << message.toStdString();
+
+  // The staged apply happens inside start(), so the whole progression has
+  // already been reported here: one "initializing" per component, each
+  // provider's stage strictly before its consumer's, and the bound
+  // provider's run named while it happened.
+  ASSERT_GE(progressSpy.count(), 4);
+
+  int upstreamStage = -1;
+  int downstreamStage = -1;
+  bool calibRunReported = false;
+
+  for (const QList<QVariant> &event : progressSpy)
+  {
+    const int stage = event[0].toInt();
+    const QString componentId = event[2].toString();
+    const QString activity = event[3].toString();
+
+    EXPECT_EQ(event[1].toInt(), 2) << "stage count";
+
+    if (activity == QStringLiteral("initializing") &&
+        componentId == QStringLiteral("upstream"))
+    {
+      upstreamStage = stage;
+    }
+    if (activity == QStringLiteral("initializing") &&
+        componentId == QStringLiteral("downstream"))
+    {
+      downstreamStage = stage;
+    }
+    if (activity == QStringLiteral("running provider") &&
+        componentId == QStringLiteral("calib"))
+    {
+      calibRunReported = true;
+    }
+  }
+
+  EXPECT_EQ(upstreamStage, 1) << "stages count from one for people";
+  EXPECT_EQ(downstreamStage, 2)
+    << "the bound consumer must initialize after its provider's stage";
+  EXPECT_TRUE(calibRunReported)
+    << "the bound provider's run went unreported";
+
+  // And the binding did not wreck the run itself.
+  EXPECT_TRUE(pumpUntil([&] { return finishedSpy.count() == 1; }))
+    << "the bound run never finished; state="
+    << static_cast<int>(manager->state());
+  EXPECT_TRUE(finishedSpy.first().at(0).toBool())
+    << finishedSpy.first().at(1).toString().toStdString();
 }

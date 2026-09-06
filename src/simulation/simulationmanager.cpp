@@ -238,6 +238,19 @@ namespace HydroCouple::Composer
       }
     }
 
+    // The staged apply runs synchronously below, so the callback fires on
+    // the GUI thread and a plain emit is thread-correct.
+    d->initializer->setProgressCallback(
+      [this](int stage, int stageCount, const std::string &componentId,
+             const std::string &activity)
+      {
+        // The SDK reports the 0-based bindingStages() index; the signal
+        // counts from one, as a person reads "stage 1 of 2".
+        Q_EMIT initializationProgressed(
+          stage + 1, stageCount, QString::fromStdString(componentId),
+          QString::fromStdString(activity));
+      });
+
     d->initializer->setAdapterFactoryResolver(
       [priv = d.get()]
       {

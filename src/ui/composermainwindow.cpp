@@ -155,6 +155,19 @@ namespace HydroCouple::Composer
             {
               statusBar()->showMessage(tr("Step %1").arg(step));
             });
+    connect(m_simulation.get(),
+            &SimulationManager::initializationProgressed, this,
+            [this](int stage, int stageCount, const QString &componentId,
+                   const QString &activity)
+            {
+              const QString line =
+                tr("Stage %1/%2: %3 '%4'")
+                  .arg(stage)
+                  .arg(stageCount)
+                  .arg(activity, componentId);
+              log(line);
+              statusBar()->showMessage(line);
+            });
 
     refreshTitle();
     log(tr("HydroCouple Composer %1 — ready.")
