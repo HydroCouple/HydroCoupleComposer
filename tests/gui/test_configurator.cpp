@@ -21,6 +21,7 @@
 #include <QComboBox>
 #include <QDir>
 #include <QDoubleSpinBox>
+#include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QSpinBox>
@@ -696,8 +697,71 @@ TEST_F(ConfiguratorTest, ABoundArgumentShowsItsProvenanceChip)
   configurator->setComponent(QString());
   configurator->setComponent(QStringLiteral("unit"));
 
-  auto *line = configurator->findChild<QLineEdit *>(
-    QStringLiteral("argument_rating_path"));
-  ASSERT_NE(line, nullptr);
-  EXPECT_EQ(line->text(), QStringLiteral("@from prov.values"));
+  auto *badge = configurator->findChild<QLabel *>(
+    QStringLiteral("argument_rating_binding"));
+  ASSERT_NE(badge, nullptr);
+  EXPECT_EQ(badge->text(), QStringLiteral("@from prov.values"));
+  EXPECT_TRUE(badge->styleSheet().isEmpty())
+    << "a resolvable binding must not wear the dangling badge";
+
+  // The chip REPLACES the path box: a line edit showing "@from prov.values"
+  // would offer to load that text as a file the moment it was touched.
+  EXPECT_EQ(configurator->findChild<QLineEdit *>(
+              QStringLiteral("argument_rating_path")),
+            nullptr)
+    << "the binding is still presented as an editable path";
+}
+
+TEST_F(ConfiguratorTest, ADanglingBindingWearsARedBadge)
+{
+  // Removing a provider scrubs its bindings (the spec refuses documents
+  // naming undeclared components), so the reachable dangling state is a
+  // hand-authored payload — the raw pane and setArgument record without
+  // validating. Q11: worn visibly, repairable, never silently.
+  const nlohmann::json ghost = {
+    {HydroCouple::SDK::IO::kArgumentBindingKey,
+     {{"component", "ghost"}, {"output", "values"}}}};
+  ASSERT_TRUE(document.setArgument(QStringLiteral("unit"),
+                                   QStringLiteral("rating"), ghost));
+
+  configurator->setComponent(QString());
+  configurator->setComponent(QStringLiteral("unit"));
+
+  auto *badge = configurator->findChild<QLabel *>(
+    QStringLiteral("argument_rating_binding"));
+  ASSERT_NE(badge, nullptr);
+  EXPECT_FALSE(badge->styleSheet().isEmpty())
+    << "the dangling state is invisible";
+  EXPECT_TRUE(badge->toolTip().contains(QStringLiteral("ghost")))
+    << badge->toolTip().toStdString();
+}
+
+TEST_F(ConfiguratorTest, UnbindingRestoresTheFileRow)
+{
+  addProvider(document);
+
+  QString message;
+  ASSERT_TRUE(configurator->applyArgumentBinding(
+    QStringLiteral("rating"), QStringLiteral("prov"),
+    QStringLiteral("values"), message))
+    << message.toStdString();
+
+  configurator->setComponent(QString());
+  configurator->setComponent(QStringLiteral("unit"));
+
+  auto *unbind = configurator->findChild<QPushButton *>(
+    QStringLiteral("argument_rating_unbind"));
+  ASSERT_NE(unbind, nullptr);
+
+  unbind->click();
+  QCoreApplication::processEvents(); // the row swap is deferred
+
+  const auto spec = document.component(QStringLiteral("unit"));
+  ASSERT_TRUE(spec.has_value());
+  EXPECT_FALSE(spec->arguments.contains("rating"))
+    << "the binding survived the unbind";
+  EXPECT_NE(configurator->findChild<QLineEdit *>(
+              QStringLiteral("argument_rating_path")),
+            nullptr)
+    << "the file row never came back";
 }

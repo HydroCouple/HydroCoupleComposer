@@ -317,6 +317,100 @@ namespace HydroCouple::Composer
 
         case ArgumentEditorKind::FilePath:
         {
+          // A bound argument gets a CHIP, never a path box: a line edit
+          // showing "@from x.y" offers to load that text as a file the
+          // moment the user touches it, and hides the binding's status.
+          QString boundProvider;
+          QString boundOutput;
+          bool bound = false;
+
+          if (m_document)
+          {
+            const std::optional<CompositionDocument::ComponentSpec> spec =
+              m_document->component(m_componentId);
+            const std::string key = descriptor.id.toStdString();
+
+            if (spec && spec->arguments.contains(key) &&
+                HydroCouple::SDK::IO::isArgumentBinding(spec->arguments[key]))
+            {
+              const auto &from = spec->arguments[key]
+                [HydroCouple::SDK::IO::kArgumentBindingKey];
+              boundProvider = QString::fromStdString(
+                from.value("component", std::string()));
+              boundOutput = QString::fromStdString(
+                from.value("output", std::string()));
+              bound = true;
+            }
+          }
+
+          if (bound)
+          {
+            auto *chip = new QWidget(this);
+            auto *row = new QHBoxLayout(chip);
+            row->setContentsMargins(0, 0, 0, 0);
+
+            auto *badge = new QLabel(
+              QStringLiteral("@from %1.%2").arg(boundProvider, boundOutput),
+              chip);
+            badge->setObjectName(QStringLiteral("argument_") + descriptor.id +
+                                 QStringLiteral("_binding"));
+
+            // Q11: a provider deleted later leaves the binding dangling but
+            // repairable — worn visibly, never silently. Presence in the
+            // document is the edit-time check; whether the output resolves
+            // is the run pipeline's to diagnose.
+            if (m_document &&
+                !m_document->componentIds().contains(boundProvider))
+            {
+              badge->setStyleSheet(QStringLiteral(
+                "color: #c04040; border: 1px solid #c04040; padding: 1px;"));
+              badge->setToolTip(
+                tr("'%1' is not in the composition; rebind or remove the "
+                   "binding.")
+                  .arg(boundProvider));
+            }
+            else
+            {
+              badge->setToolTip(
+                tr("The value is produced when the composition runs."));
+            }
+
+            auto *rebind = new QPushButton(tr("Output…"), chip);
+            rebind->setObjectName(QStringLiteral("argument_") +
+                                  descriptor.id +
+                                  QStringLiteral("_output"));
+            connect(rebind, &QPushButton::clicked, this,
+                    [this, id = descriptor.id]
+                    { chooseOutputFor(id, nullptr); });
+
+            auto *unbind = new QPushButton(tr("✕"), chip);
+            unbind->setObjectName(QStringLiteral("argument_") +
+                                  descriptor.id +
+                                  QStringLiteral("_unbind"));
+            unbind->setToolTip(
+              tr("Remove the binding; the component's own default returns."));
+            connect(unbind, &QPushButton::clicked, this,
+                    [this, id = descriptor.id]
+                    {
+                      if (m_document &&
+                          m_document->clearArgument(m_componentId, id))
+                      {
+                        // Deferred: the rebuild deletes this button, and a
+                        // widget must not die inside its own signal.
+                        QMetaObject::invokeMethod(
+                          this, [this] { setComponent(m_componentId); },
+                          Qt::QueuedConnection);
+                      }
+                    });
+
+            row->addWidget(badge, 1);
+            row->addWidget(rebind);
+            row->addWidget(unbind);
+
+            editor = chip;
+            break;
+          }
+
           // A path box on its own would be a text box that happens to hold a
           // path; the filters the argument advertises are only worth anything
           // through a dialog that uses them.
@@ -358,32 +452,6 @@ namespace HydroCouple::Composer
           connect(fromOutput, &QPushButton::clicked, this,
                   [this, line, id = descriptor.id]
                   { chooseOutputFor(id, line); });
-
-          // A bound argument's chip: the document holds a reference, and
-          // provenance — not a value that does not exist yet — is what the
-          // line honestly shows (it appears once the provider has run).
-          if (m_document)
-          {
-            const std::optional<CompositionDocument::ComponentSpec> spec =
-              m_document->component(m_componentId);
-            if (spec)
-            {
-              const std::string key = descriptor.id.toStdString();
-              if (spec->arguments.contains(key) &&
-                  HydroCouple::SDK::IO::isArgumentBinding(
-                    spec->arguments[key]))
-              {
-                const auto &from = spec->arguments[key]
-                  [HydroCouple::SDK::IO::kArgumentBindingKey];
-                line->setText(
-                  QStringLiteral("@from %1.%2")
-                    .arg(QString::fromStdString(
-                           from.value("component", std::string())),
-                         QString::fromStdString(
-                           from.value("output", std::string()))));
-              }
-            }
-          }
 
           connect(line, &QLineEdit::editingFinished, this,
                   [this, line, id = descriptor.id]
@@ -776,6 +844,11 @@ namespace HydroCouple::Composer
                         .arg(argumentId, providerId, outputId));
     refreshRawPane();
     Q_EMIT argumentChanged(m_componentId, argumentId);
+
+    // Deferred: the rebuild swaps the file row for the binding chip, and
+    // the widget that initiated this must not die inside its own signal.
+    QMetaObject::invokeMethod(
+      this, [this] { setComponent(m_componentId); }, Qt::QueuedConnection);
 
     return true;
   }
