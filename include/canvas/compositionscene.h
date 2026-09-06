@@ -69,6 +69,42 @@ namespace HydroCouple::Composer
       [[nodiscard]] QList<AdapterNodeItem *> adapterNodes() const;
 
       /*!
+       * \brief One adapter a factory offers for splicing into a connection.
+       */
+      struct AdapterOffering
+      {
+          QString factoryId;
+          QString adapterId;
+          QString caption;
+      };
+
+      /*!
+       * \brief What the Insert adapter… menu lists for a connection:
+       *        offerings from the provider component's own factories first
+       *        (they win at run time), then the standalone ones — each
+       *        filtered through getAvailableAdaptedOutputIds() against the
+       *        LIVE provider output and consumer input.
+       *
+       * Availability is asked of the raw output, not an edit-time chain:
+       * edit-time never builds chains, and the run pipeline validates the
+       * real thing with its own messages.
+       */
+      [[nodiscard]] QList<AdapterOffering> adapterOfferings(
+        const HydroCouple::SDK::IO::ConnectionSpec &connection);
+
+      /*!
+       * \brief Inserts a chain step, capturing the offering's argument
+       *        defaults through a scratch instance — what the Insert
+       *        adapter… menu action performs.
+       *
+       * The scratch adapted output is unregistered and destroyed before the
+       * document edit; capturing defaults at insertion is what lets the
+       * inspector stay document-pure.
+       */
+      bool insertAdapter(const HydroCouple::SDK::IO::ConnectionSpec &connection, int index,
+                         const QString &factoryId, const QString &adapterId);
+
+      /*!
        * \brief Adds a component to the document at a canvas position.
        *
        * This is what a drop from the component palette performs.
@@ -115,11 +151,22 @@ namespace HydroCouple::Composer
       void mousePressEvent(QGraphicsSceneMouseEvent *event) override;
       void mouseMoveEvent(QGraphicsSceneMouseEvent *event) override;
       void mouseReleaseEvent(QGraphicsSceneMouseEvent *event) override;
+      void contextMenuEvent(QGraphicsSceneContextMenuEvent *event) override;
 
     private:
       void refreshEdges();
       void applyPlacement(const QString &componentId);
       void applyAdapterPlacements();
+
+      //! The live provider output / consumer input of a connection, or null.
+      [[nodiscard]] HydroCouple::IOutput *liveOutput(
+        const HydroCouple::SDK::IO::ConnectionSpec &connection) const;
+      [[nodiscard]] HydroCouple::IInput *liveInput(
+        const HydroCouple::SDK::IO::ConnectionSpec &connection) const;
+
+      //! Runs the Insert adapter… picker and applies the choice.
+      void insertAdapterInteractively(const HydroCouple::SDK::IO::ConnectionSpec &connection,
+                                      int index);
       [[nodiscard]] PortItem *portAt(const QPointF &scenePosition) const;
       [[nodiscard]] QString uniqueComponentId(const QString &desired) const;
 

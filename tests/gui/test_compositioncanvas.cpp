@@ -568,3 +568,126 @@ TEST_F(CanvasTest, DraggingAnAdapterNodePersistsItsPositionInTheSidecar)
   }
   EXPECT_TRUE(reselected) << "selection did not survive the rebuild";
 }
+
+// ── Adapter insertion through the menu seams (CONNECT C4) ───────────────────
+
+namespace
+{
+  //! A resolvable provider→consumer pair joined values→inflow.
+  void loadConnectedPair(CompositionDocument &document)
+  {
+    QString message;
+    const QByteArray text = R"({
+      "components": [
+        { "id": "prov",
+          "info": { "component_info_id": "composer.test.component" } },
+        { "id": "consumer",
+          "info": { "component_info_id": "composer.test.component" } }
+      ],
+      "connections": [
+        { "from": { "component": "prov", "output": "values" },
+          "to": { "component": "consumer", "input": "inflow" } }
+      ]
+    })";
+    ASSERT_TRUE(document.loadFromJson(text, message)) << message.toStdString();
+  }
+
+  ConnectionSpec pairIdentity()
+  {
+    ConnectionSpec identity;
+    identity.fromComponent = "prov";
+    identity.output = "values";
+    identity.toComponent = "consumer";
+    identity.input = "inflow";
+    return identity;
+  }
+}
+
+TEST_F(CanvasTest, TheInsertMenuOffersOnlyAdaptersTheFactoriesReportAvailable)
+{
+  QString message;
+  ASSERT_NE(registry.loadLibrary(
+              fixturePath(QStringLiteral("testadapterfactory")), message),
+            nullptr)
+    << message.toStdString();
+  ASSERT_NO_FATAL_FAILURE(loadConnectedPair(document));
+
+  const QList<CompositionScene::AdapterOffering> offerings =
+    scene->adapterOfferings(pairIdentity());
+
+  QStringList ids;
+  for (const CompositionScene::AdapterOffering &offering : offerings)
+  {
+    ids.append(offering.factoryId + QStringLiteral("/") + offering.adapterId);
+  }
+
+  // The SDK's factory rides along for every session; the standalone plugin
+  // adds its own; and what a factory does NOT offer for this output — the
+  // temporal adapter wants a time series, 'values' is a plain slab — never
+  // shows up.
+  EXPECT_TRUE(ids.contains(
+    QStringLiteral("hydrocouple.sdk.adapters/linear_transform")))
+    << ids.join(QStringLiteral(", ")).toStdString();
+  EXPECT_TRUE(ids.contains(QStringLiteral("hydrocouple.sdk.adapters/relaxation")));
+  EXPECT_TRUE(ids.contains(
+    QStringLiteral("composer.test.adapterfactory/double_it")));
+  EXPECT_FALSE(ids.join(QStringLiteral(",")).contains(
+    QStringLiteral("temporal_interpolation")))
+    << "an adapter the factory does not offer for this output was listed";
+}
+
+TEST_F(CanvasTest, InsertingAnAdapterThroughTheMenuMatchesTheHandWrittenDocument)
+{
+  ASSERT_NO_FATAL_FAILURE(loadConnectedPair(document));
+
+  ASSERT_TRUE(scene->insertAdapter(pairIdentity(), 0,
+                                   QStringLiteral("hydrocouple.sdk.adapters"),
+                                   QStringLiteral("linear_transform")));
+
+  const auto &chain = document.spec().connections[0].adaptedOutputs;
+  ASSERT_EQ(chain.size(), 1u);
+  EXPECT_EQ(chain[0].id, "linear_transform");
+  EXPECT_EQ(chain[0].factory, "hydrocouple.sdk.adapters");
+
+  // The scratch instance captured the argument keys and their defaults, so
+  // the inspector has editable payloads from the very first save.
+  ASSERT_TRUE(chain[0].arguments.contains("multiplier"))
+    << chain[0].arguments.dump();
+  EXPECT_EQ(chain[0].arguments["multiplier"]["values"][0].get<double>(), 1.0);
+  ASSERT_TRUE(chain[0].arguments.contains("offset"));
+  EXPECT_EQ(chain[0].arguments["offset"]["values"][0].get<double>(), 0.0);
+
+  // And the scratch is GONE: the live output's non-owning registry holds
+  // nothing, or the next refresh would chase a destroyed adapter.
+  HydroCouple::IModelComponent *prov =
+    instances->instance(QStringLiteral("prov"));
+  ASSERT_NE(prov, nullptr);
+  for (HydroCouple::IOutput *output : prov->outputs())
+  {
+    if (output && output->id() == "values")
+    {
+      EXPECT_TRUE(output->adaptedOutputs().empty())
+        << "the scratch adapted output was left registered";
+    }
+  }
+
+  // The canvas grew the spliced node.
+  ASSERT_EQ(scene->adapterNodes().size(), 1);
+  EXPECT_EQ(scene->adapterNodes().first()->step().id, "linear_transform");
+}
+
+TEST_F(CanvasTest, RemovingAnAdapterNodeShortensTheChainByOne)
+{
+  ASSERT_NO_FATAL_FAILURE(loadAdaptedPair(document));
+  ASSERT_EQ(scene->adapterNodes().size(), 2);
+
+  // What the node's Remove adapter action performs.
+  const AdapterNodeItem *first = scene->adapterNodes().first();
+  ASSERT_TRUE(document.removeConnectionAdapter(first->connection(),
+                                               first->stepIndex()));
+
+  ASSERT_EQ(scene->adapterNodes().size(), 1);
+  EXPECT_EQ(scene->adapterNodes().first()->step().id, "shift");
+  EXPECT_EQ(scene->adapterNodes().first()->stepIndex(), 0)
+    << "the surviving step did not renumber";
+}
