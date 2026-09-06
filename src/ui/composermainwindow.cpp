@@ -196,6 +196,11 @@ namespace HydroCouple::Composer
     return m_adapterInspector;
   }
 
+  ExecutionPanel *ComposerMainWindow::executionPanel() const
+  {
+    return m_executionPanel;
+  }
+
   MapCanvas *ComposerMainWindow::mapCanvas() const
   {
     return m_mapCanvas;
@@ -1311,6 +1316,20 @@ namespace HydroCouple::Composer
     m_adapterInspector = new AdapterInspector(m_document, adapterDock);
     adapterDock->setWidget(m_adapterInspector);
     addDockWidget(Qt::RightDockWidgetArea, adapterDock);
+
+    // ── Execution ────────────────────────────────────────────────────────
+    // The document's orchestration block, per-component execution modes,
+    // and the staged initialization preview. Binds to the whole document,
+    // not the selection.
+    auto *executionDock = new QDockWidget(tr("Execution"), this);
+    executionDock->setObjectName(QStringLiteral("executionPanelDock"));
+
+    m_executionPanel = new ExecutionPanel(m_document, executionDock);
+    executionDock->setWidget(m_executionPanel);
+    addDockWidget(Qt::RightDockWidgetArea, executionDock);
+    // Tabbed behind the Adapter dock: a third right-area panel stacked
+    // vertically starves the central canvas of space.
+    tabifyDockWidget(adapterDock, executionDock);
 
     // ── Attributes ───────────────────────────────────────────────────────
     auto *attributeDock = new QDockWidget(tr("Attributes"), this);

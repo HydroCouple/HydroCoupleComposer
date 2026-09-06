@@ -163,6 +163,8 @@ set(COMPOSER_SOURCES
     src/simulation/runrecording.cpp
     include/simulation/simulationmanager.h
     src/simulation/simulationmanager.cpp
+    include/simulation/executionpanel.h
+    src/simulation/executionpanel.cpp
     include/configurator/argumentdescriptor.h
     src/configurator/argumentdescriptor.cpp
     include/configurator/componentconfigurator.h

@@ -189,6 +189,10 @@ target_compile_definitions(test_adapterinspector PRIVATE
     COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>")
 add_dependencies(test_adapterinspector testcomponent)
 
+# S4.3 — document-pure: no component library, the panel must work on
+# documents naming uninstalled components too.
+composer_add_gui_test(test_executionpanel)
+
 composer_add_gui_test(test_simulationmanager)
 target_compile_definitions(test_simulationmanager PRIVATE
     COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>")

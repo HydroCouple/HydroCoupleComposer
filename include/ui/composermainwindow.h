@@ -20,6 +20,7 @@
 #include "plugins/componentregistry.h"
 #include "project/componentinstances.h"
 #include "project/compositiondocument.h"
+#include "simulation/executionpanel.h"
 #include "simulation/simulationmanager.h"
 #include "results/runbrowsermodel.h"
 #include "ui/panels/mapstatusbar.h"
@@ -96,6 +97,11 @@ namespace HydroCouple::Composer
        * \brief The adapter/connection inspector.
        */
       [[nodiscard]] AdapterInspector *adapterInspector() const;
+
+      /*!
+       * \brief The workflow/execution panel.
+       */
+      [[nodiscard]] ExecutionPanel *executionPanel() const;
 
       /*!
        * \brief The map view.
@@ -317,6 +323,7 @@ namespace HydroCouple::Composer
       CompositionCanvas *m_canvas = nullptr;
       ComponentConfigurator *m_configurator = nullptr;
       AdapterInspector *m_adapterInspector = nullptr;
+      ExecutionPanel *m_executionPanel = nullptr;
       ComponentPaletteModel *m_paletteModel = nullptr;
       QListView *m_paletteView = nullptr;
       QPlainTextEdit *m_log = nullptr;
