@@ -15,6 +15,7 @@
 
 #include "canvas/componentpalettemodel.h"
 #include "canvas/compositioncanvas.h"
+#include "configurator/adapterinspector.h"
 #include "configurator/componentconfigurator.h"
 #include "plugins/componentregistry.h"
 #include "project/componentinstances.h"
@@ -90,6 +91,11 @@ namespace HydroCouple::Composer
        * \brief The argument configurator.
        */
       [[nodiscard]] ComponentConfigurator *configurator() const;
+
+      /*!
+       * \brief The adapter/connection inspector.
+       */
+      [[nodiscard]] AdapterInspector *adapterInspector() const;
 
       /*!
        * \brief The map view.
@@ -310,6 +316,7 @@ namespace HydroCouple::Composer
       CompositionScene *m_scene = nullptr;
       CompositionCanvas *m_canvas = nullptr;
       ComponentConfigurator *m_configurator = nullptr;
+      AdapterInspector *m_adapterInspector = nullptr;
       ComponentPaletteModel *m_paletteModel = nullptr;
       QListView *m_paletteView = nullptr;
       QPlainTextEdit *m_log = nullptr;

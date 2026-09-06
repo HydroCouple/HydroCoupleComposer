@@ -184,6 +184,11 @@ target_compile_definitions(test_configurator PRIVATE
     COMPOSER_CONFIGURATOR_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/configurator")
 add_dependencies(test_configurator testcomponent)
 
+composer_add_gui_test(test_adapterinspector)
+target_compile_definitions(test_adapterinspector PRIVATE
+    COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>")
+add_dependencies(test_adapterinspector testcomponent)
+
 composer_add_gui_test(test_simulationmanager)
 target_compile_definitions(test_simulationmanager PRIVATE
     COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>")

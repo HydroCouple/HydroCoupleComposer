@@ -167,6 +167,8 @@ set(COMPOSER_SOURCES
     src/configurator/argumentdescriptor.cpp
     include/configurator/componentconfigurator.h
     src/configurator/componentconfigurator.cpp
+    include/configurator/adapterinspector.h
+    src/configurator/adapterinspector.cpp
     include/canvas/canvasitems.h
     src/canvas/canvasitems.cpp
     include/canvas/compositionscene.h

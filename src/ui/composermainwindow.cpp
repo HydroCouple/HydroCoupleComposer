@@ -191,6 +191,11 @@ namespace HydroCouple::Composer
     return m_configurator;
   }
 
+  AdapterInspector *ComposerMainWindow::adapterInspector() const
+  {
+    return m_adapterInspector;
+  }
+
   MapCanvas *ComposerMainWindow::mapCanvas() const
   {
     return m_mapCanvas;
@@ -1296,6 +1301,16 @@ namespace HydroCouple::Composer
       });
 
     addDockWidget(Qt::RightDockWidgetArea, configuratorDock);
+
+    // ── Adapter inspector ────────────────────────────────────────────────
+    // Beside the Arguments dock: a selected component fills Arguments, a
+    // selected adapter node or connection edge fills this one.
+    auto *adapterDock = new QDockWidget(tr("Adapter"), this);
+    adapterDock->setObjectName(QStringLiteral("adapterInspectorDock"));
+
+    m_adapterInspector = new AdapterInspector(m_document, adapterDock);
+    adapterDock->setWidget(m_adapterInspector);
+    addDockWidget(Qt::RightDockWidgetArea, adapterDock);
 
     // ── Attributes ───────────────────────────────────────────────────────
     auto *attributeDock = new QDockWidget(tr("Attributes"), this);
@@ -2592,16 +2607,36 @@ namespace HydroCouple::Composer
 
   void ComposerMainWindow::onSelectionChanged()
   {
+    // One panel per selection kind: a component fills Arguments, an adapter
+    // node or a connection edge fills the inspector, and whichever is not
+    // addressed empties rather than going stale.
     for (QGraphicsItem *item : m_scene->selectedItems())
     {
+      if (auto *adapter = qgraphicsitem_cast<AdapterNodeItem *>(item))
+      {
+        m_adapterInspector->setChainStep(adapter->connection(),
+                                         adapter->stepIndex());
+        m_configurator->setComponent(QString());
+        return;
+      }
+
+      if (auto *edge = qgraphicsitem_cast<ConnectionEdgeItem *>(item))
+      {
+        m_adapterInspector->showConnection(edge->connection());
+        m_configurator->setComponent(QString());
+        return;
+      }
+
       if (auto *node = qgraphicsitem_cast<ComponentNodeItem *>(item))
       {
         m_configurator->setComponent(node->componentId());
+        m_adapterInspector->clearSelection();
         return;
       }
     }
 
     m_configurator->setComponent(QString());
+    m_adapterInspector->clearSelection();
   }
 
   void ComposerMainWindow::onRun()
