@@ -10,7 +10,10 @@
 
 #include <QDialogButtonBox>
 #include <QJsonArray>
+#include <QComboBox>
 #include <QFormLayout>
+#include <QHBoxLayout>
+#include <QInputDialog>
 #include <QImage>
 #include <QLabel>
 #include <QLineEdit>
@@ -42,7 +45,26 @@ namespace HydroCouple::Composer
     m_password->setObjectName(QStringLiteral("servicePasswordEdit"));
     m_password->setEchoMode(QLineEdit::Password);
 
+    // Saved connections: an address is long, is typed once, and is wanted
+    // again in every project that draws on it.
+    m_saved = new QComboBox(this);
+    m_saved->setObjectName(QStringLiteral("serviceSavedCombo"));
+
+    m_save = new QPushButton(tr("&Save…"), this);
+    m_save->setObjectName(QStringLiteral("serviceSaveButton"));
+
+    m_forget = new QPushButton(tr("&Forget"), this);
+    m_forget->setObjectName(QStringLiteral("serviceForgetButton"));
+
+    auto *savedRow = new QWidget(this);
+    auto *savedLayout = new QHBoxLayout(savedRow);
+    savedLayout->setContentsMargins(0, 0, 0, 0);
+    savedLayout->addWidget(m_saved, 1);
+    savedLayout->addWidget(m_save);
+    savedLayout->addWidget(m_forget);
+
     auto *form = new QFormLayout;
+    form->addRow(tr("&Saved"), savedRow);
     form->addRow(tr("&Address"), m_url);
     form->addRow(tr("&User name"), m_username);
     form->addRow(tr("&Password"), m_password);
@@ -104,10 +126,125 @@ namespace HydroCouple::Composer
       }
     });
 
+    connect(m_saved, &QComboBox::activated, this, [this](int index) {
+      // Chosen, not merely shown: refilling the fields under a user who is
+      // scrolling the list with the keyboard would lose what they typed.
+      if (index > 0)
+      {
+        loadConnection(m_saved->itemText(index));
+      }
+    });
+
+    connect(m_save, &QPushButton::clicked, this, [this] {
+      // From a click — a release, never a press: a modal opened from a
+      // mouse press wedges input on macOS.
+      bool named = false;
+      const QString name = QInputDialog::getText(
+        this, tr("Save Connection"), tr("Call it:"), QLineEdit::Normal,
+        m_saved->currentIndex() > 0 ? m_saved->currentText() : QString(),
+        &named);
+
+      if (named && !name.isEmpty())
+      {
+        saveConnectionAs(name);
+      }
+    });
+
+    connect(m_forget, &QPushButton::clicked, this, [this] {
+      if (m_saved->currentIndex() > 0 && m_connections)
+      {
+        m_connections->remove(m_saved->currentText());
+        refreshConnections();
+      }
+    });
+
+    refreshConnections();
+
     resize(560, 480);
   }
 
   OgcServiceDialog::~OgcServiceDialog() = default;
+
+  void OgcServiceDialog::setConnections(ServiceConnections *connections)
+  {
+    m_connections = connections;
+    refreshConnections();
+  }
+
+  void OgcServiceDialog::refreshConnections()
+  {
+    if (!m_connections)
+    {
+      // The application's own settings, unless a caller supplied a store.
+      m_ownedConnections = std::make_unique<ServiceConnections>();
+      m_connections = m_ownedConnections.get();
+    }
+
+    const QString current = m_saved->currentIndex() > 0
+                              ? m_saved->currentText()
+                              : QString();
+
+    m_saved->clear();
+    m_saved->addItem(tr("— not saved —"));
+    m_saved->addItems(m_connections->names());
+
+    const int row = current.isEmpty() ? -1 : m_saved->findText(current);
+    m_saved->setCurrentIndex(row > 0 ? row : 0);
+
+    m_forget->setEnabled(m_saved->count() > 1);
+  }
+
+  bool OgcServiceDialog::saveConnectionAs(const QString &name)
+  {
+    if (!m_connections)
+    {
+      return false;
+    }
+
+    // Whether this is worth saving is the store's judgement, not a check
+    // repeated here: a connection with no address is refused there, for
+    // every caller rather than only for this button.
+    ServiceConnection connection;
+    connection.name = name;
+    connection.url = m_url->text();
+    connection.username = m_username->text();
+    connection.password = m_password->text();
+
+    if (!m_connections->save(connection))
+    {
+      return false;
+    }
+
+    refreshConnections();
+
+    const int row = m_saved->findText(name);
+
+    if (row > 0)
+    {
+      m_saved->setCurrentIndex(row);
+    }
+
+    return true;
+  }
+
+  void OgcServiceDialog::loadConnection(const QString &name)
+  {
+    if (!m_connections)
+    {
+      return;
+    }
+
+    const ServiceConnection connection = m_connections->connection(name);
+
+    if (!connection.isValid())
+    {
+      return;
+    }
+
+    m_url->setText(connection.url);
+    m_username->setText(connection.username);
+    m_password->setText(connection.password);
+  }
 
   HydroCouple::Ogc::ServiceCredentials OgcServiceDialog::credentials() const
   {

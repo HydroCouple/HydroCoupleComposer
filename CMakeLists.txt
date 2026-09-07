@@ -108,6 +108,7 @@ message(STATUS "HydroCoupleOgc : ${hydrocoupleogc_SOURCE_DIR}")
 
 # ── GDAL (GIS/CRS — Phase C) ────────────────────────────────────────────────
 find_package(GDAL REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 # ── nanoflann (header-only KD-tree for spatial picking — Phase C) ───────────
 find_package(nanoflann CONFIG REQUIRED)
@@ -198,6 +199,8 @@ set(COMPOSER_SOURCES
     src/layers/networktilesource.cpp
     include/layers/ogctilesource.h
     src/layers/ogctilesource.cpp
+    include/layers/serviceconnections.h
+    src/layers/serviceconnections.cpp
     include/layers/featurelayer.h
     src/layers/featurelayer.cpp
     include/layers/wfsfeaturelayer.h
@@ -417,6 +420,9 @@ target_link_libraries(composer_core
         HydroCoupleSDK::HydroCoupleTools
         HydroCoupleOgc::HydroCoupleOgc
         GDAL::GDAL
+        # AES-256-CBC for saved service passwords (O2). Qt supplies the
+        # PBKDF2 half but ships no cipher, and GDAL already brings this.
+        OpenSSL::Crypto
         nanoflann::nanoflann
         nlohmann_json::nlohmann_json)
 

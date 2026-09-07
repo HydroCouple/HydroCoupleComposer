@@ -71,6 +71,10 @@ target_compile_definitions(test_wcscoveragelayer PRIVATE
 composer_add_gui_test(test_ogcservicedialog)
 target_compile_definitions(test_ogcservicedialog PRIVATE
     COMPOSER_OGC_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/ogc")
+
+# O2 — saved connections. Drives its own settings file and its own machine
+# id, so it never writes where the application reads.
+composer_add_gui_test(test_serviceconnections)
 composer_add_gui_test(test_gdallayers)
 
 # C2 — component data items and meshes. Built on the SDK's own data-item

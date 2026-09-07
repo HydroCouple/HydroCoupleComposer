@@ -14,6 +14,7 @@
 #define HYDROCOUPLECOMPOSER_UI_DIALOGS_OGCSERVICEDIALOG_H
 
 #include "layers/ogctilesource.h"
+#include "layers/serviceconnections.h"
 #include "layers/wcscoveragelayer.h"
 #include "layers/wfsfeaturelayer.h"
 
@@ -32,6 +33,7 @@
 
 #include <memory>
 
+class QComboBox;
 class QDialogButtonBox;
 class QLabel;
 class QLineEdit;
@@ -67,6 +69,31 @@ namespace HydroCouple::Composer
        * \brief Which kind of service was found at that address.
        */
       [[nodiscard]] HydroCouple::Ogc::ServiceKind serviceKind() const;
+
+      /*!
+       * \brief Remembers addresses under names of the user's choosing.
+       *
+       * Injected so a test drives its own settings rather than the
+       * machine's, and so the machine-binding of saved passwords can be
+       * observed at all.
+       *
+       * \param connections The store to use. Not owned; must outlive this.
+       */
+      void setConnections(ServiceConnections *connections);
+
+      /*!
+       * \brief Saves what is typed in now under \a name.
+       *
+       * Public because it is what the Save button does, and because the
+       * name it would otherwise ask for in a modal is the one thing a test
+       * cannot type into a modal.
+       *
+       * \returns false when there is no address to save.
+       */
+      bool saveConnectionAs(const QString &name);
+
+      //! Fills the address and credentials from a saved connection.
+      void loadConnection(const QString &name);
 
       /*!
        * \brief The ground a feature request should be limited to.
@@ -206,6 +233,15 @@ namespace HydroCouple::Composer
       void fill();
 
       [[nodiscard]] HydroCouple::Ogc::ServiceCredentials credentials() const;
+
+      //! Refills the saved-connection list from the store.
+      void refreshConnections();
+
+      QComboBox *m_saved = nullptr;
+      QPushButton *m_save = nullptr;
+      QPushButton *m_forget = nullptr;
+      ServiceConnections *m_connections = nullptr;
+      std::unique_ptr<ServiceConnections> m_ownedConnections;
 
       QLineEdit *m_url = nullptr;
       QLineEdit *m_username = nullptr;
