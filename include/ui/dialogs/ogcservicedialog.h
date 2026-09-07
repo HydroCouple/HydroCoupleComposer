@@ -149,11 +149,29 @@ namespace HydroCouple::Composer
           //! WMTS only: which pyramid this row is for.
           QString matrixSetId;
 
+          /*!
+           * A pasted tile template rather than anything a service
+           * published. Not a ServiceKind, because it is not one: no OGC
+           * service is being spoken to, and the shared library's enum is
+           * not this dialog's to extend.
+           */
+          bool xyz = false;
+
           //! Empty when the layer can be drawn.
           QString unusableReason;
       };
 
       void ask(HydroCouple::Ogc::ServiceKind kind);
+
+      /*!
+       * \brief Tests a pasted tile template by asking it for one tile.
+       *
+       * A template publishes nothing about itself, so the only question
+       * that can be put to it is a tile — which makes fetching one both
+       * the connection and the test of it. Tile 0/0/0 is the whole world,
+       * which every global tile set has.
+       */
+      void probeTemplate();
 
       //! Fetches the chosen collection, then accepts.
       void fetchFeaturesThenAccept();

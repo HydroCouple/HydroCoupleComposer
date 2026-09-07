@@ -136,6 +136,62 @@ namespace HydroCouple::Composer
   };
 
   /*!
+   * \brief Tiles from a URL template — the slippy-map convention.
+   *
+   * There is no capabilities document to read and nothing to discover: the
+   * address IS the recipe, with \c {z}, \c {x} and \c {y} standing where
+   * the tile's coordinates go. That makes it the one kind of service whose
+   * address cannot be verified by reading what the server says about
+   * itself — only by asking it for a tile — which is why the dialog fetches
+   * one before offering it.
+   *
+   * It lives beside the WMS and WMTS sources rather than beside
+   * NetworkTileSource's built-in providers because a pasted template needs
+   * what the OGC base already has and the built-ins do not: credentials, a
+   * disk cache, refused-tile memory, and a reason() when it cannot draw.
+   */
+  class XyzTileSource : public OgcTileSource
+  {
+      Q_OBJECT
+
+    public:
+      /*!
+       * \brief Constructs a source over \a urlTemplate.
+       * \param urlTemplate Address with \c {z}, \c {x} and \c {y} in it.
+       * \param maximumZoom How deep the map may zoom on it.
+       * \param parent Owning object.
+       */
+      explicit XyzTileSource(QString urlTemplate, int maximumZoom = 19,
+                             QObject *parent = nullptr);
+
+      /*!
+       * \brief Whether \a address is a tile template rather than a service
+       *        address.
+       *
+       * What tells them apart is the placeholders: no web service address
+       * carries \c {z}/\c {x}/\c {y}, and no template works without them.
+       * So the dialog reads the address rather than asking the user which
+       * kind they pasted.
+       *
+       * \param address The address typed in.
+       */
+      [[nodiscard]] static bool isTemplate(const QString &address);
+
+      //! The template this source fills in.
+      [[nodiscard]] QString urlTemplate() const;
+
+      [[nodiscard]] bool isUsable() const override;
+
+      [[nodiscard]] QString urlFor(const TileId &tile) const override;
+
+      [[nodiscard]] int maximumZoom() const override;
+
+    private:
+      QString m_template;
+      int m_maximumZoom = 19;
+  };
+
+  /*!
    * \brief One GetMap per tile of the Web Mercator grid.
    */
   class WmsTileSource : public OgcTileSource

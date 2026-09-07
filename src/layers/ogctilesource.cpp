@@ -127,6 +127,59 @@ namespace HydroCouple::Composer
     return m_attribution;
   }
 
+  // ── XYZ ─────────────────────────────────────────────────────────────────
+
+  XyzTileSource::XyzTileSource(QString urlTemplate, int maximumZoom,
+                               QObject *parent)
+    : OgcTileSource(parent),
+      m_template(std::move(urlTemplate)),
+      m_maximumZoom(maximumZoom > 0 ? maximumZoom : 19)
+  {
+    if (!isTemplate(m_template))
+    {
+      m_reason = tr("A tile address needs {z}, {x} and {y} in it, so this "
+                    "one cannot say which tile it wants.");
+    }
+  }
+
+  bool XyzTileSource::isTemplate(const QString &address)
+  {
+    return address.contains(QLatin1String("{z}"))
+           && address.contains(QLatin1String("{x}"))
+           && address.contains(QLatin1String("{y}"));
+  }
+
+  QString XyzTileSource::urlTemplate() const
+  {
+    return m_template;
+  }
+
+  bool XyzTileSource::isUsable() const
+  {
+    return m_reason.isEmpty();
+  }
+
+  QString XyzTileSource::urlFor(const TileId &tile) const
+  {
+    if (!isUsable())
+    {
+      return {};
+    }
+
+    QString url = m_template;
+
+    url.replace(QLatin1String("{z}"), QString::number(tile.zoom));
+    url.replace(QLatin1String("{x}"), QString::number(tile.x));
+    url.replace(QLatin1String("{y}"), QString::number(tile.y));
+
+    return url;
+  }
+
+  int XyzTileSource::maximumZoom() const
+  {
+    return m_maximumZoom;
+  }
+
   // ── WMS ─────────────────────────────────────────────────────────────────
 
   WmsTileSource::WmsTileSource(

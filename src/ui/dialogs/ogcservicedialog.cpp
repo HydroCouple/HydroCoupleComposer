@@ -11,6 +11,7 @@
 #include <QDialogButtonBox>
 #include <QJsonArray>
 #include <QFormLayout>
+#include <QImage>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -31,7 +32,8 @@ namespace HydroCouple::Composer
     m_url = new QLineEdit(this);
     m_url->setObjectName(QStringLiteral("serviceUrlEdit"));
     m_url->setPlaceholderText(
-      tr("https://example.org/geoserver/wms — WMS or WMTS"));
+      tr("https://example.org/geoserver/wms — a service address, or a tile "
+         "template with {z}/{x}/{y} in it"));
 
     m_username = new QLineEdit(this);
     m_username->setObjectName(QStringLiteral("serviceUsernameEdit"));
@@ -127,9 +129,85 @@ namespace HydroCouple::Composer
     m_featureLayer.reset();
     m_buttons->button(QDialogButtonBox::Ok)->setEnabled(false);
 
+    // A tile template is not a service and has no capabilities document to
+    // ask for; the placeholders say so plainly, so the address is read
+    // rather than the user asked which kind they pasted.
+    if (XyzTileSource::isTemplate(m_url->text()))
+    {
+      probeTemplate();
+
+      return;
+    }
+
     // WMS first, because it is the older and far commoner of the two, and
     // an address that is neither costs one request to find out.
     ask(ServiceKind::Wms);
+  }
+
+  void OgcServiceDialog::probeTemplate()
+  {
+    const QString address = m_url->text();
+    const XyzTileSource probe(address);
+    const QString url = probe.urlFor(TileId{0, 0, 0});
+
+    if (url.isEmpty())
+    {
+      m_statusText = probe.reason();
+      m_status->setText(m_statusText);
+
+      return;
+    }
+
+    m_statusText = tr("Asking %1 for a tile…").arg(address);
+    m_status->setText(m_statusText);
+
+    m_client->get(
+      QUrl(url), credentials(),
+      [this, address](const HttpResponse &response) {
+        // What came back has to be an image. A server that answers an
+        // error page under a 200 — which is how a wrong template usually
+        // fails — passes every other check there is.
+        QImage tile;
+
+        if (!response.error.isEmpty())
+        {
+          m_statusText = tr("%1 did not answer: %2")
+                           .arg(address, response.error);
+          m_status->setText(m_statusText);
+
+          return;
+        }
+
+        if (!tile.loadFromData(response.body))
+        {
+          m_statusText =
+            tr("%1 answered, but not with a tile — check the address.")
+              .arg(address);
+          m_status->setText(m_statusText);
+
+          return;
+        }
+
+        Choice choice;
+        choice.xyz = true;
+        choice.title = QUrl(address).host();
+
+        if (choice.title.isEmpty())
+        {
+          choice.title = address;
+        }
+
+        m_choices.append(choice);
+        fill();
+
+        // fill() counts layers a service published; this one answered with
+        // a tile, which is the whole of what there was to find out.
+        m_statusText = tr("%1 serves tiles: %2 by %3.")
+                         .arg(choice.title)
+                         .arg(tile.width())
+                         .arg(tile.height());
+        m_status->setText(m_statusText);
+      });
   }
 
   void OgcServiceDialog::ask(ServiceKind kind)
@@ -762,6 +840,15 @@ namespace HydroCouple::Composer
     state.insert(QStringLiteral("url"), m_url->text());
     state.insert(QStringLiteral("name"), choice.title);
 
+    if (choice.xyz)
+    {
+      // The template is the whole recipe, so this is the one saved layer
+      // that needs no request to rebuild.
+      state.insert(QStringLiteral("type"), QStringLiteral("xyz"));
+
+      return state;
+    }
+
     if (choice.kind == HydroCouple::Ogc::ServiceKind::Wms)
     {
       state.insert(QStringLiteral("type"), QStringLiteral("wms"));
@@ -850,7 +937,11 @@ namespace HydroCouple::Composer
 
     std::unique_ptr<OgcTileSource> source;
 
-    if (choice.kind == ServiceKind::Wms)
+    if (choice.xyz)
+    {
+      source = std::make_unique<XyzTileSource>(m_url->text());
+    }
+    else if (choice.kind == ServiceKind::Wms)
     {
       source = std::make_unique<WmsTileSource>(
         m_wms, QStringList{choice.layerId});
@@ -870,7 +961,11 @@ namespace HydroCouple::Composer
     }
 
     source->setCredentials(credentials());
-    source->setAttribution(serviceTitle());
+
+    // A template has no title to publish, so the host is what the map can
+    // honestly attribute the tiles to — never the template itself, which
+    // would print the placeholders across the corner of the map.
+    source->setAttribution(choice.xyz ? choice.title : serviceTitle());
 
     return source;
   }

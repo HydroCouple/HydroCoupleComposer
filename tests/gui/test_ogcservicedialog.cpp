@@ -12,19 +12,23 @@
 #include "core/composerapplication.h"
 #include "layers/ogctilesource.h"
 #include "layers/wfsfeaturelayer.h"
+#include "layers/layerrestorer.h"
 #include "map/tilegrid.h"
 #include "ui/dialogs/ogcservicedialog.h"
 
 #include <gtest/gtest.h>
 
+#include <QBuffer>
 #include <QDialogButtonBox>
 #include <QElapsedTimer>
+#include <QJsonArray>
 #include <QFile>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <QRegularExpression>
 #include <QUrlQuery>
 
 using namespace HydroCouple::Composer;
@@ -72,6 +76,22 @@ namespace
 
       //! The GetFeature answer, and what was asked to get it.
       void answerFeaturesWith(const QByteArray &body) { m_features = body; }
+
+      //! Answer tile-shaped paths with \a png rather than an exception.
+      void serveTiles(const QByteArray &png) { m_tile = png; }
+
+      //! An XYZ template addressing this server.
+      [[nodiscard]] QString tileTemplate() const
+      {
+        return QStringLiteral("http://127.0.0.1:%1/{z}/{x}/{y}.png")
+          .arg(serverPort());
+      }
+
+      //! The tile paths asked for, in order.
+      [[nodiscard]] QStringList tilesAsked() const { return m_tilesAsked; }
+
+      //! Every request this server has answered, of any kind.
+      [[nodiscard]] int requestCount() const { return m_requests; }
 
       [[nodiscard]] QString lastRequest() const { return m_lastRequest; }
 
@@ -122,8 +142,42 @@ namespace
           query.queryItemValue(QStringLiteral("REQUEST"));
 
         m_lastRequest = target;
+        ++m_requests;
 
         QByteArray body;
+
+        // A tile path carries no SERVICE or REQUEST: it is the whole of
+        // what an XYZ template asks for.
+        static const QRegularExpression tilePath(
+          QStringLiteral("^/(\\d+)/(\\d+)/(\\d+)\\."));
+
+        if (service.isEmpty() && request.isEmpty()
+            && tilePath.match(QUrl(target).path()).hasMatch())
+        {
+          m_tilesAsked.append(QUrl(target).path());
+
+          QByteArray answer = "HTTP/1.1 200 OK\r\n";
+          answer += m_tile.isEmpty()
+                      ? "Content-Type: application/xml\r\n"
+                      : "Content-Type: image/png\r\n";
+
+          // Without a tile to serve, what comes back is what a mistyped
+          // template really gets: a page, under a 200.
+          const QByteArray payload =
+            m_tile.isEmpty() ? QByteArray("<html>404 not here</html>")
+                             : m_tile;
+
+          answer +=
+            "Content-Length: " + QByteArray::number(payload.size()) + "\r\n";
+          answer += "Connection: close\r\n\r\n";
+          answer += payload;
+
+          socket->write(answer);
+          socket->flush();
+          socket->disconnectFromHost();
+
+          return;
+        }
 
         if (request == QLatin1String("DescribeCoverage"))
         {
@@ -246,8 +300,11 @@ namespace
       bool m_stripWebMercator = false;
       QByteArray m_features;
       QByteArray m_coverage;
+      QByteArray m_tile;
       QString m_lastRequest;
       QStringList m_asked;
+      QStringList m_tilesAsked;
+      int m_requests = 0;
       QMap<QTcpSocket *, QByteArray> m_buffers;
   };
 
@@ -730,4 +787,122 @@ TEST_F(OgcServiceDialogTest, ACoverageWithATimeAxisIsRefusedRatherThanGuessedAt)
 
   EXPECT_NE(dialog.result(), QDialog::Accepted);
   EXPECT_EQ(dialog.takeCoverageLayer(), nullptr);
+}
+
+// ── O1: a pasted tile template ────────────────────────────────────────────
+
+namespace
+{
+  //! A real PNG, so what the dialog decodes is a tile and not a promise.
+  QByteArray tilePng()
+  {
+    QImage image(256, 256, QImage::Format_RGB32);
+    image.fill(Qt::darkGreen);
+
+    QByteArray bytes;
+    QBuffer buffer(&bytes);
+    buffer.open(QIODevice::WriteOnly);
+    image.save(&buffer, "PNG");
+
+    return bytes;
+  }
+}
+
+TEST_F(OgcServiceDialogTest, ATileTemplateIsTestedByFetchingOneTile)
+{
+  ServiceServer server;
+  server.offer(false, false);
+  server.serveTiles(tilePng());
+
+  OgcServiceDialog dialog;
+  connectTo(dialog, server.tileTemplate());
+
+  ASSERT_TRUE(waitFor([&] { return layerList(dialog)->count() > 0; }))
+    << dialog.status().toStdString();
+
+  // The address said what it was, so the capabilities ladder was never
+  // climbed: a template publishes nothing to read.
+  EXPECT_TRUE(server.asked().isEmpty())
+    << server.asked().join(QStringLiteral(",")).toStdString();
+
+  // What WAS asked is one tile — the whole world, which every global tile
+  // set has — and that answer is what the status reports.
+  EXPECT_EQ(server.tilesAsked(), QStringList{QStringLiteral("/0/0/0.png")});
+  EXPECT_TRUE(dialog.status().contains(QStringLiteral("256")))
+    << dialog.status().toStdString();
+
+  layerList(dialog)->setCurrentRow(0);
+
+  const std::unique_ptr<OgcTileSource> source = dialog.createSource();
+  ASSERT_NE(source, nullptr);
+  EXPECT_TRUE(source->isUsable());
+  EXPECT_TRUE(source->urlFor(TileId{5, 9, 12})
+                .endsWith(QStringLiteral("/5/9/12.png")))
+    << source->urlFor(TileId{5, 9, 12}).toStdString();
+
+  // The map attributes the tiles to the host, never to the template.
+  EXPECT_EQ(source->attribution(), QStringLiteral("127.0.0.1"));
+}
+
+TEST_F(OgcServiceDialogTest, ATemplateThatDoesNotAnswerWithATileIsRefused)
+{
+  ServiceServer server;
+  server.offer(false, false);
+  // No tile to serve: the address answers a page, under a 200 — which is
+  // how a mistyped template fails, and what a test that only checked for
+  // an HTTP error would call a success.
+
+  OgcServiceDialog dialog;
+  connectTo(dialog, server.tileTemplate());
+
+  ASSERT_TRUE(waitFor([&] { return !dialog.status().contains(
+                                     QStringLiteral("Asking")); }))
+    << dialog.status().toStdString();
+
+  EXPECT_EQ(layerList(dialog)->count(), 0);
+  EXPECT_EQ(dialog.createSource(), nullptr);
+  EXPECT_TRUE(dialog.status().contains(QStringLiteral("not with a tile")))
+    << dialog.status().toStdString();
+  EXPECT_FALSE(dialog.findChild<QDialogButtonBox *>()
+                 ->button(QDialogButtonBox::Ok)
+                 ->isEnabled());
+}
+
+TEST_F(OgcServiceDialogTest, ATemplateBasemapIsRebuiltWithoutAskingAnything)
+{
+  ServiceServer server;
+  server.offer(false, false);
+  server.serveTiles(tilePng());
+
+  OgcServiceDialog dialog;
+  connectTo(dialog, server.tileTemplate());
+
+  ASSERT_TRUE(waitFor([&] { return layerList(dialog)->count() > 0; }))
+    << dialog.status().toStdString();
+  layerList(dialog)->setCurrentRow(0);
+
+  const QJsonObject state = dialog.persistentStateForChoice();
+  EXPECT_EQ(state.value(QStringLiteral("type")).toString(),
+            QStringLiteral("xyz"));
+  EXPECT_EQ(state.value(QStringLiteral("url")).toString(),
+            server.tileTemplate());
+
+  // The template IS the recipe, so rebuilding it costs no request at all —
+  // the one saved layer that opens with the network down.
+  const int asked = server.requestCount();
+
+  LayerRestorer restorer;
+  MapLayer *restored = nullptr;
+  QString failure;
+
+  restorer.restore(QJsonArray{state},
+                   [&restored](MapLayer *layer) { restored = layer; },
+                   [&failure](const QString &message) { failure = message; });
+
+  ASSERT_NE(restored, nullptr) << failure.toStdString();
+  EXPECT_TRUE(restored->isBasemap());
+  EXPECT_EQ(server.requestCount(), asked)
+    << "rebuilding a template asked the service something";
+
+  delete restored;
 }

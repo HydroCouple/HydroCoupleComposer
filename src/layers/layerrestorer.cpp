@@ -263,6 +263,29 @@ namespace HydroCouple::Composer
       return;
     }
 
+    // A tile template is the whole recipe: there is no capabilities
+    // document behind it, so this is the one saved layer that is rebuilt
+    // without asking anything of the network.
+    if (type == QLatin1String("xyz"))
+    {
+      auto source = std::make_unique<XyzTileSource>(service);
+
+      if (!source->isUsable())
+      {
+        onFailed(tr("%1: %2").arg(name, source->reason()));
+
+        return;
+      }
+
+      source->setAttribution(name);
+
+      auto *layer = new TileLayer(name, std::move(source));
+      applyCommon(layer, entry);
+      onLayer(layer);
+
+      return;
+    }
+
     HydroCouple::Ogc::ServiceKind kind =
       HydroCouple::Ogc::ServiceKind::Unknown;
 
