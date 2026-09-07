@@ -19,6 +19,7 @@
 #include <gtest/gtest.h>
 
 #include <QBuffer>
+#include <QComboBox>
 #include <QDialogButtonBox>
 #include <QElapsedTimer>
 #include <QJsonArray>
@@ -903,6 +904,96 @@ TEST_F(OgcServiceDialogTest, ATemplateBasemapIsRebuiltWithoutAskingAnything)
   EXPECT_TRUE(restored->isBasemap());
   EXPECT_EQ(server.requestCount(), asked)
     << "rebuilding a template asked the service something";
+
+  delete restored;
+}
+
+// ── O3: per-layer drawing options ─────────────────────────────────────────
+
+TEST_F(OgcServiceDialogTest, TheChosenLayersOptionsReachTheRequest)
+{
+  ServiceServer server;
+  server.offer(true, false);
+
+  OgcServiceDialog dialog;
+  connectTo(dialog, server.endpoint());
+
+  ASSERT_TRUE(waitFor([&] { return layerList(dialog)->count() > 0; }));
+  layerList(dialog)->setCurrentRow(0);
+
+  auto *format =
+    dialog.findChild<QComboBox *>(QStringLiteral("serviceFormatCombo"));
+  ASSERT_NE(format, nullptr);
+
+  // What the server published, behind an entry that asks for nothing in
+  // particular — which is what every layer got until now.
+  ASSERT_GT(format->count(), 1) << "the service's formats were not offered";
+  EXPECT_EQ(format->itemText(0), QStringLiteral("(default)"));
+
+  const std::unique_ptr<OgcTileSource> byDefault = dialog.createSource();
+  ASSERT_NE(byDefault, nullptr);
+  const QString defaultUrl = byDefault->urlFor(TileId{3, 4, 5});
+
+  const int png = format->findText(QStringLiteral("image/png"));
+  ASSERT_GT(png, 0) << "the fixture publishes image/png";
+  format->setCurrentIndex(png);
+
+  const std::unique_ptr<OgcTileSource> chosen = dialog.createSource();
+  ASSERT_NE(chosen, nullptr);
+  const QString chosenUrl = chosen->urlFor(TileId{3, 4, 5});
+
+  EXPECT_TRUE(QUrl::fromPercentEncoding(chosenUrl.toUtf8())
+                .contains(QStringLiteral("image/png")))
+    << chosenUrl.toStdString();
+  EXPECT_NE(chosenUrl, defaultUrl)
+    << "choosing a format changed nothing about the request";
+}
+
+TEST_F(OgcServiceDialogTest, ChosenOptionsTravelIntoTheSavedRecipeAndBack)
+{
+  ServiceServer server;
+  server.offer(true, false);
+
+  OgcServiceDialog dialog;
+  connectTo(dialog, server.endpoint());
+
+  ASSERT_TRUE(waitFor([&] { return layerList(dialog)->count() > 0; }));
+  layerList(dialog)->setCurrentRow(0);
+
+  auto *format =
+    dialog.findChild<QComboBox *>(QStringLiteral("serviceFormatCombo"));
+  ASSERT_NE(format, nullptr);
+  const int png = format->findText(QStringLiteral("image/png"));
+  ASSERT_GT(png, 0);
+  format->setCurrentIndex(png);
+
+  // A basemap reopened in another format is a different backdrop, so the
+  // choice is part of the recipe rather than of the session.
+  const QJsonObject state = dialog.persistentStateForChoice();
+  EXPECT_EQ(state.value(QStringLiteral("format")).toString(),
+            QStringLiteral("image/png"));
+
+  LayerRestorer restorer;
+  MapLayer *restored = nullptr;
+  QString failure;
+
+  restorer.restore(QJsonArray{state},
+                   [&restored](MapLayer *layer) { restored = layer; },
+                   [&failure](const QString &message) { failure = message; });
+
+  ASSERT_TRUE(waitFor([&] { return restored || !failure.isEmpty(); }))
+    << "the restore never finished";
+  ASSERT_NE(restored, nullptr) << failure.toStdString();
+
+  auto *tiles = dynamic_cast<TileLayer *>(restored);
+  ASSERT_NE(tiles, nullptr);
+
+  auto *rebuilt = dynamic_cast<OgcTileSource *>(tiles->source());
+  ASSERT_NE(rebuilt, nullptr);
+  EXPECT_TRUE(QUrl::fromPercentEncoding(
+                rebuilt->urlFor(TileId{3, 4, 5}).toUtf8())
+                .contains(QStringLiteral("image/png")))
+    << "the format was saved but not applied on the way back";
 
   delete restored;
 }

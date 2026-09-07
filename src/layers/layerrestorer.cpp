@@ -347,7 +347,8 @@ namespace HydroCouple::Composer
           {
             auto source = std::make_unique<WmsTileSource>(
               capabilities, listOf(entry, QStringLiteral("layers")),
-              textOf(entry, QStringLiteral("format")));
+              textOf(entry, QStringLiteral("format")),
+              textOf(entry, QStringLiteral("style")));
 
             if (source->isUsable())
             {

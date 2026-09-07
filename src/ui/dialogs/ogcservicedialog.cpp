@@ -75,6 +75,23 @@ namespace HydroCouple::Composer
     m_layers = new QListWidget(this);
     m_layers->setObjectName(QStringLiteral("serviceLayerList"));
 
+    // What the chosen layer offers about how it is drawn. Hidden until a
+    // layer that offers something is chosen.
+    m_style = new QComboBox(this);
+    m_style->setObjectName(QStringLiteral("serviceStyleCombo"));
+
+    m_format = new QComboBox(this);
+    m_format->setObjectName(QStringLiteral("serviceFormatCombo"));
+
+    m_options = new QWidget(this);
+    auto *optionsLayout = new QHBoxLayout(m_options);
+    optionsLayout->setContentsMargins(0, 0, 0, 0);
+    optionsLayout->addWidget(new QLabel(tr("Style"), m_options));
+    optionsLayout->addWidget(m_style, 1);
+    optionsLayout->addWidget(new QLabel(tr("Format"), m_options));
+    optionsLayout->addWidget(m_format, 1);
+    m_options->setVisible(false);
+
     m_status = new QLabel(this);
     m_status->setObjectName(QStringLiteral("serviceStatusLabel"));
     m_status->setWordWrap(true);
@@ -89,6 +106,7 @@ namespace HydroCouple::Composer
     layout->addLayout(form);
     layout->addWidget(m_connect);
     layout->addWidget(m_layers, 1);
+    layout->addWidget(m_options);
     layout->addWidget(m_status);
     layout->addWidget(m_buttons);
 
@@ -119,6 +137,8 @@ namespace HydroCouple::Composer
                           && m_choices.at(row).unusableReason.isEmpty();
 
       m_buttons->button(QDialogButtonBox::Ok)->setEnabled(usable);
+
+      showOptionsFor(usable ? row : -1);
 
       if (row >= 0 && row < m_choices.size() && !usable)
       {
@@ -192,6 +212,83 @@ namespace HydroCouple::Composer
     m_saved->setCurrentIndex(row > 0 ? row : 0);
 
     m_forget->setEnabled(m_saved->count() > 1);
+  }
+
+  void OgcServiceDialog::showOptionsFor(int row)
+  {
+    m_style->clear();
+    m_format->clear();
+
+    if (row < 0 || row >= m_choices.size())
+    {
+      m_options->setVisible(false);
+
+      return;
+    }
+
+    const Choice &choice = m_choices.at(row);
+    QStringList styles;
+    QStringList formats;
+
+    if (choice.kind == ServiceKind::Wms)
+    {
+      for (const HydroCouple::Ogc::WmsLayerInfo &layer : m_wms.layers)
+      {
+        if (layer.name == choice.layerId)
+        {
+          styles = layer.styles;
+          break;
+        }
+      }
+
+      // A WMS publishes its formats once, for the whole service.
+      formats = m_wms.imageFormats;
+    }
+    else if (choice.kind == ServiceKind::Wmts)
+    {
+      for (const HydroCouple::Ogc::WmtsLayerInfo &layer : m_wmts.layers)
+      {
+        if (layer.identifier == choice.layerId)
+        {
+          styles = layer.styles;
+          formats = layer.formats;
+          break;
+        }
+      }
+    }
+
+    // The empty first entry is what the server draws when asked for
+    // nothing in particular, which is what every layer had until now.
+    if (styles.size() > 1)
+    {
+      m_style->addItem(tr("(default)"));
+      m_style->addItems(styles);
+    }
+
+    if (formats.size() > 1)
+    {
+      m_format->addItem(tr("(default)"));
+      m_format->addItems(formats);
+    }
+
+    m_style->setVisible(m_style->count() > 0);
+    m_format->setVisible(m_format->count() > 0);
+
+    // A server offering one style and one format is not asking a question,
+    // and a row of empty boxes would imply it was.
+    m_options->setVisible(m_style->count() > 0 || m_format->count() > 0);
+  }
+
+  QString OgcServiceDialog::chosenStyle() const
+  {
+    // Index 0 is "(default)" — asking for nothing in particular, which is
+    // what a request that names no style does.
+    return m_style->currentIndex() > 0 ? m_style->currentText() : QString();
+  }
+
+  QString OgcServiceDialog::chosenFormat() const
+  {
+    return m_format->currentIndex() > 0 ? m_format->currentText() : QString();
   }
 
   bool OgcServiceDialog::saveConnectionAs(const QString &name)
@@ -986,11 +1083,26 @@ namespace HydroCouple::Composer
       return state;
     }
 
+    // How the layer is drawn travels with which layer it is: a basemap
+    // reopened in another style is a different backdrop.
+    const auto withOptions = [this](QJsonObject &object) {
+      if (!chosenStyle().isEmpty())
+      {
+        object.insert(QStringLiteral("style"), chosenStyle());
+      }
+
+      if (!chosenFormat().isEmpty())
+      {
+        object.insert(QStringLiteral("format"), chosenFormat());
+      }
+    };
+
     if (choice.kind == HydroCouple::Ogc::ServiceKind::Wms)
     {
       state.insert(QStringLiteral("type"), QStringLiteral("wms"));
       state.insert(QStringLiteral("layers"),
                    QJsonArray{choice.layerId});
+      withOptions(state);
 
       return state;
     }
@@ -1000,6 +1112,7 @@ namespace HydroCouple::Composer
       state.insert(QStringLiteral("type"), QStringLiteral("wmts"));
       state.insert(QStringLiteral("layer"), choice.layerId);
       state.insert(QStringLiteral("matrixSet"), choice.matrixSetId);
+      withOptions(state);
 
       return state;
     }
@@ -1081,12 +1194,14 @@ namespace HydroCouple::Composer
     else if (choice.kind == ServiceKind::Wms)
     {
       source = std::make_unique<WmsTileSource>(
-        m_wms, QStringList{choice.layerId});
+        m_wms, QStringList{choice.layerId}, chosenFormat(), chosenStyle());
     }
     else
     {
       source = std::make_unique<WmtsTileSource>(m_wmts, choice.layerId,
-                                                choice.matrixSetId);
+                                                choice.matrixSetId,
+                                                chosenStyle(),
+                                                chosenFormat());
     }
 
     // The source is the authority on whether it can be drawn, so a stale

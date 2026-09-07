@@ -184,11 +184,13 @@ namespace HydroCouple::Composer
 
   WmsTileSource::WmsTileSource(
     const HydroCouple::Ogc::WmsCapabilities &capabilities,
-    const QStringList &layers, const QString &format, QObject *parent)
+    const QStringList &layers, const QString &format, const QString &style,
+    QObject *parent)
     : OgcTileSource(parent),
       m_capabilities(capabilities),
       m_layers(layers),
-      m_format(format)
+      m_format(format),
+      m_style(style)
   {
     if (!capabilities.ok)
     {
@@ -294,6 +296,14 @@ namespace HydroCouple::Composer
     request.widthPixels = TileGrid::kTileSize;
     request.heightPixels = TileGrid::kTileSize;
     request.format = m_format;
+
+    // STYLES is required by the standard and may be empty, which asks for
+    // each layer's default; naming one asks for that instead. One entry per
+    // layer, as the parameter is positional.
+    if (!m_style.isEmpty())
+    {
+      request.styles = QStringList(m_layers.size(), m_style);
+    }
 
     // A basemap is what everything else is drawn over, so it is the one
     // layer that does not want a transparent background.

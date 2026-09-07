@@ -204,11 +204,13 @@ namespace HydroCouple::Composer
        * \param capabilities What the server published.
        * \param layers Layer names, drawn bottom to top as listed.
        * \param format An advertised image format, or empty for the first.
+       * \param style A style the layer publishes, or empty for its default.
        * \param parent Owning object.
        */
       WmsTileSource(const HydroCouple::Ogc::WmsCapabilities &capabilities,
                     const QStringList &layers,
                     const QString &format = QString(),
+                    const QString &style = QString(),
                     QObject *parent = nullptr);
 
       [[nodiscard]] bool isUsable() const override;
@@ -238,6 +240,7 @@ namespace HydroCouple::Composer
       HydroCouple::Ogc::WmsCapabilities m_capabilities;
       QStringList m_layers;
       QString m_format;
+      QString m_style;
       QString m_crs;
       int m_maximumZoom = 19;
   };

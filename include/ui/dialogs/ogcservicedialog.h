@@ -237,6 +237,28 @@ namespace HydroCouple::Composer
       //! Refills the saved-connection list from the store.
       void refreshConnections();
 
+      /*!
+       * \brief Offers the styles and formats the chosen layer publishes.
+       *
+       * Per layer rather than per service: a WMS publishes formats once but
+       * styles per layer, and a WMTS publishes both per layer. Empty
+       * choices are hidden rather than shown empty — a server that offers
+       * one style is not asking a question.
+       *
+       * \param row The chosen row, or -1 for none.
+       */
+      void showOptionsFor(int row);
+
+      //! The chosen style, or empty for the server's default.
+      [[nodiscard]] QString chosenStyle() const;
+
+      //! The chosen image format, or empty for the server's default.
+      [[nodiscard]] QString chosenFormat() const;
+
+      QComboBox *m_style = nullptr;
+      QComboBox *m_format = nullptr;
+      QWidget *m_options = nullptr;
+
       QComboBox *m_saved = nullptr;
       QPushButton *m_save = nullptr;
       QPushButton *m_forget = nullptr;
