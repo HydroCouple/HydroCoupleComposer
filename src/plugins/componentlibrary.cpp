@@ -295,4 +295,19 @@ namespace HydroCouple::Composer
 #endif
   }
 
+  QStringList ComponentLibrary::libraryFilters()
+  {
+#if defined(_WIN32)
+    return {QStringLiteral("*.dll")};
+#elif defined(__APPLE__)
+    // ".so" is what a CMake MODULE library is called here, which is what
+    // every component plugin is; ".bundle" is the same idea under the
+    // older Apple spelling.
+    return {QStringLiteral("*.dylib"), QStringLiteral("*.so"),
+            QStringLiteral("*.bundle")};
+#else
+    return {QStringLiteral("*.so")};
+#endif
+  }
+
 } // namespace HydroCouple::Composer

@@ -17,6 +17,8 @@
 #include <gtest/gtest.h>
 
 #include <QDir>
+#include <QFile>
+#include <QTemporaryDir>
 #include <QFileInfo>
 #include <QString>
 
@@ -365,4 +367,35 @@ TEST_F(LoaderTest, CreatesAnAdapterFactoryFromItsLibrary)
   EXPECT_TRUE(produced.removeAdaptedOutput(adapted.get()));
   adapted.reset();
   factory.reset();
+}
+
+TEST_F(LoaderTest, AModuleStyleFileNameIsScannedLikeAnyOtherPlugin)
+{
+  // Every SHIPPED component is a CMake MODULE library, which on macOS is
+  // named ".so" and not ".dylib" — while this suite's own fixtures are
+  // SHARED and so are ".dylib". A scan that knew only the SHARED spelling
+  // found the fixtures and none of the real plugins, which is exactly why
+  // Load Directory came back empty against a real component build.
+  QTemporaryDir directory;
+  ASSERT_TRUE(directory.isValid());
+
+  const QString source =
+    QDir(fixtureDir())
+      .absoluteFilePath(QStringLiteral("libtestcomponent")
+                        + ComponentLibrary::librarySuffix());
+  ASSERT_TRUE(QFileInfo::exists(source)) << source.toStdString();
+
+  // The same library, named the way a MODULE build names it.
+  const QString moduleStyle =
+    directory.filePath(QStringLiteral("libhcc_meshgenerator.so"));
+  ASSERT_TRUE(QFile::copy(source, moduleStyle));
+
+  ComponentRegistry registry;
+  registry.setSearchPaths({directory.path()});
+
+  EXPECT_EQ(registry.refresh(), 1)
+    << "a module-style plugin was not scanned";
+  ASSERT_EQ(registry.entries().size(), 1u);
+  EXPECT_EQ(registry.entries().front()->id(),
+            std::string("composer.test.component"));
 }

@@ -53,12 +53,9 @@ namespace HydroCouple::Composer
       return 0;
     }
 
-    const QStringList filters{QStringLiteral("*") +
-                              ComponentLibrary::librarySuffix()};
-
     const QFileInfoList candidates =
-      directory.entryInfoList(filters, QDir::Files | QDir::NoSymLinks,
-                              QDir::Name);
+      directory.entryInfoList(ComponentLibrary::libraryFilters(),
+                              QDir::Files | QDir::NoSymLinks, QDir::Name);
 
     int loaded = 0;
 
