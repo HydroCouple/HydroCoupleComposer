@@ -17,6 +17,7 @@ namespace HydroCouple::Composer
     constexpr qreal kPortSpacing = 20.0;
     constexpr qreal kHeaderHeight = 26.0;
     constexpr qreal kMinimumWidth = 160.0;
+    constexpr qreal kMaximumWidth = 260.0;
     constexpr qreal kHorizontalPadding = 16.0;
   } // namespace
 
@@ -139,7 +140,35 @@ namespace HydroCouple::Composer
     const int rows = std::max(
       {static_cast<int>(m_inputs.size()), static_cast<int>(m_outputs.size()), 1});
 
-    m_size = QSizeF(kMinimumWidth,
+    // Wide enough to read the port names on both sides at once. A port
+    // whose name is clipped — "…_temperature" for "air_temperature" — is
+    // the one thing a user has to be sure of before dragging a connection
+    // to it, so the box grows to fit rather than eliding. Clamped, because
+    // a component with one very long item id must not push every other box
+    // off the canvas.
+    const QFontMetricsF metrics((QFont()));
+
+    qreal widest = 0.0;
+
+    for (int row = 0; row < rows; ++row)
+    {
+      const qreal left =
+        row < m_inputs.size()
+          ? metrics.horizontalAdvance(m_inputs[row]->itemId())
+          : 0.0;
+      const qreal right =
+        row < m_outputs.size()
+          ? metrics.horizontalAdvance(m_outputs[row]->itemId())
+          : 0.0;
+
+      // Both labels share one row, so it is the pair that has to fit.
+      widest = std::max(widest, left + right);
+    }
+
+    widest = std::max(widest, metrics.horizontalAdvance(m_caption));
+
+    m_size = QSizeF(std::clamp(widest + kHorizontalPadding * 2.0,
+                               kMinimumWidth, kMaximumWidth),
                     kHeaderHeight + (rows * kPortSpacing) + kPortSpacing * 0.5);
 
     for (int index = 0; index < m_inputs.size(); ++index)
@@ -196,21 +225,55 @@ namespace HydroCouple::Composer
     // Port labels, drawn inside the body on their respective sides.
     painter->setPen(QColor(70, 70, 80));
 
-    for (PortItem *port : m_inputs)
-    {
-      painter->drawText(
-        QRectF(kHorizontalPadding * 0.5, port->pos().y() - kPortSpacing * 0.5,
-               m_size.width() * 0.5, kPortSpacing),
-        Qt::AlignVCenter | Qt::AlignLeft, port->itemId());
-    }
+    // Drawn a row at a time, because the two labels share the row and the
+    // box was sized for the PAIR: splitting it down the middle instead
+    // would elide a lone long name inside a box already wide enough for
+    // it. Each side takes what it needs; when the pair does not fit — the
+    // width is clamped — they give way in proportion, elided rather than
+    // clipped, because "air_temper…" says a name was shortened where a
+    // hard cut just looks like a different port.
+    const qreal available = m_size.width() - kHorizontalPadding;
+    const int rows =
+      std::max(static_cast<int>(m_inputs.size()),
+               static_cast<int>(m_outputs.size()));
 
-    for (PortItem *port : m_outputs)
+    for (int row = 0; row < rows; ++row)
     {
-      painter->drawText(
-        QRectF(m_size.width() * 0.5 - kHorizontalPadding * 0.5,
-               port->pos().y() - kPortSpacing * 0.5, m_size.width() * 0.5,
-               kPortSpacing),
-        Qt::AlignVCenter | Qt::AlignRight, port->itemId());
+      PortItem *input = row < m_inputs.size() ? m_inputs[row] : nullptr;
+      PortItem *output = row < m_outputs.size() ? m_outputs[row] : nullptr;
+
+      const QString inText = input ? input->itemId() : QString();
+      const QString outText = output ? output->itemId() : QString();
+
+      qreal inWidth = metrics.horizontalAdvance(inText);
+      qreal outWidth = metrics.horizontalAdvance(outText);
+
+      if (inWidth + outWidth > available && inWidth + outWidth > 0.0)
+      {
+        const qreal share = available / (inWidth + outWidth);
+        inWidth *= share;
+        outWidth *= share;
+      }
+
+      const qreal y = (input ? input->pos().y() : output->pos().y())
+                      - kPortSpacing * 0.5;
+
+      if (input)
+      {
+        painter->drawText(
+          QRectF(kHorizontalPadding * 0.5, y, inWidth, kPortSpacing),
+          Qt::AlignVCenter | Qt::AlignLeft,
+          metrics.elidedText(inText, Qt::ElideRight, inWidth));
+      }
+
+      if (output)
+      {
+        painter->drawText(
+          QRectF(m_size.width() - kHorizontalPadding * 0.5 - outWidth, y,
+                 outWidth, kPortSpacing),
+          Qt::AlignVCenter | Qt::AlignRight,
+          metrics.elidedText(outText, Qt::ElideRight, outWidth));
+      }
     }
   }
 

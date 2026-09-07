@@ -940,3 +940,33 @@ TEST_F(CanvasTest, ABoundArgumentIsNotResolvedWhileEditing)
   EXPECT_FALSE(payload.isEmpty())
     << "the component lost its own default to an unresolved binding";
 }
+
+TEST_F(CanvasTest, ANodeIsWideEnoughToReadItsPortNames)
+{
+  // A port whose name is clipped is the one thing a user has to be sure of
+  // before dragging a connection to it, so the box grows to fit.
+  const QList<ExchangeItemDescriptor> none;
+  const QList<ExchangeItemDescriptor> shortNames{{QStringLiteral("in"),
+                                                  QStringLiteral("In"), false}};
+  const QList<ExchangeItemDescriptor> longNames{
+    {QStringLiteral("air_temperature_at_two_metres"),
+     QStringLiteral("Air temperature"), false}};
+
+  ComponentNodeItem narrow(QStringLiteral("a"), QStringLiteral("a"),
+                           shortNames, none);
+  ComponentNodeItem wide(QStringLiteral("b"), QStringLiteral("b"), longNames,
+                         none);
+
+  EXPECT_GT(wide.boundingRect().width(), narrow.boundingRect().width())
+    << "a long port name did not widen its component";
+
+  // Clamped, or one component with a very long item id would push every
+  // other box off the canvas.
+  const QList<ExchangeItemDescriptor> absurd{
+    {QString(400, QLatin1Char('x')), QStringLiteral("Absurd"), false}};
+  ComponentNodeItem clamped(QStringLiteral("c"), QStringLiteral("c"), absurd,
+                            none);
+
+  EXPECT_LE(clamped.boundingRect().width(), 280.0)
+    << "the width is not clamped";
+}
