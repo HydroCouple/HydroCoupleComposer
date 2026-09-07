@@ -22,6 +22,7 @@
 #include <QDir>
 #include <QGraphicsSceneMouseEvent>
 #include <QMimeData>
+#include <QSignalSpy>
 #include <QUndoStack>
 
 using namespace HydroCouple::Composer;
@@ -802,4 +803,140 @@ TEST_F(CanvasTest, DeletingASelectionCountsAdaptersConnectionsAndChainsOnce)
   scene->edges().first()->setSelected(true);
   EXPECT_EQ(scene->removeSelection(), 1);
   EXPECT_TRUE(document.spec().connections.empty());
+}
+
+// ── Edit-time instances describe the DOCUMENT's component ─────────────────
+
+namespace
+{
+  //! Reads one argument off the live instance behind a document component.
+  QString liveArgument(ComponentInstances &instances, const QString &componentId,
+                       const QString &argumentId)
+  {
+    HydroCouple::IModelComponent *component = instances.instance(componentId);
+    EXPECT_NE(component, nullptr);
+
+    if (!component)
+    {
+      return {};
+    }
+
+    for (HydroCouple::IArgument *argument : component->arguments())
+    {
+      if (argument && QString::fromStdString(argument->id()) == argumentId)
+      {
+        std::string payload;
+        std::string message;
+        EXPECT_TRUE(argument->serialize(
+          HydroCouple::IArgument::ArgumentInputType::JSON, payload, message))
+          << message;
+
+        return QString::fromStdString(payload);
+      }
+    }
+
+    return {};
+  }
+}
+
+TEST_F(CanvasTest, TheDocumentsArgumentsReachTheLiveComponent)
+{
+  // What a component's PORTS are depends on its arguments — a provider
+  // publishes one output per series in its source file — so an instance
+  // realised without them describes a default component rather than the one
+  // the document asks for.
+  const QByteArray configured = R"({
+    "schema_version": "1.1",
+    "components": [
+      { "id": "unit",
+        "info": { "component_info_id": "composer.test.component" },
+        "arguments": { "iterations": { "values": [7] } } }
+    ]
+  })";
+
+  QString message;
+  ASSERT_TRUE(document.loadFromJson(configured, message))
+    << message.toStdString();
+
+  EXPECT_TRUE(liveArgument(*instances, QStringLiteral("unit"),
+                           QStringLiteral("iterations"))
+                .contains(QStringLiteral("7")))
+    << "the document's argument never reached the component";
+}
+
+TEST_F(CanvasTest, ChangingAnArgumentRealisesTheComponentAgain)
+{
+  const QByteArray configured = R"({
+    "schema_version": "1.1",
+    "components": [
+      { "id": "unit",
+        "info": { "component_info_id": "composer.test.component" },
+        "arguments": { "iterations": { "values": [7] } } }
+    ]
+  })";
+
+  QString message;
+  ASSERT_TRUE(document.loadFromJson(configured, message))
+    << message.toStdString();
+  ASSERT_TRUE(liveArgument(*instances, QStringLiteral("unit"),
+                           QStringLiteral("iterations"))
+                .contains(QStringLiteral("7")));
+
+  // Configuring a component is how its ports come to exist; an instance
+  // cached from the old arguments would keep describing the old component
+  // for the rest of the session.
+  ASSERT_TRUE(document.setArgument(QStringLiteral("unit"),
+                                   QStringLiteral("iterations"),
+                                   nlohmann::json{{"values", {9}}}));
+
+  EXPECT_TRUE(liveArgument(*instances, QStringLiteral("unit"),
+                           QStringLiteral("iterations"))
+                .contains(QStringLiteral("9")))
+    << "the instance was not realised again after its arguments changed";
+
+  // An edit that leaves this component's block alone must NOT churn it:
+  // adding an unrelated component changes the document, not this box.
+  // Observed through the signal rather than the pointer, because a freed
+  // instance is routinely re-allocated at the same address.
+  QSignalSpy realised(instances.get(), &ComponentInstances::instanceChanged);
+
+  HydroCouple::SDK::IO::ComponentSpec other;
+  other.id = "second";
+  other.info.componentInfoId = "composer.test.component";
+  ASSERT_TRUE(document.addComponent(other, {}));
+
+  for (const QList<QVariant> &event : realised)
+  {
+    EXPECT_NE(event.at(0).toString(), QStringLiteral("unit"))
+      << "an unrelated edit rebuilt a component that had not changed";
+  }
+}
+
+TEST_F(CanvasTest, ABoundArgumentIsNotResolvedWhileEditing)
+{
+  // Q9: opening a composition never executes anything. Resolving an @from
+  // means running its provider to completion, so at edit time the binding
+  // is left alone and the component keeps its own default.
+  const QByteArray bound = R"({
+    "schema_version": "1.1",
+    "components": [
+      { "id": "prov",
+        "info": { "component_info_id": "composer.test.component" } },
+      { "id": "unit",
+        "info": { "component_info_id": "composer.test.component" },
+        "arguments": {
+          "label": { "@from": { "component": "prov", "output": "values" } } } }
+    ]
+  })";
+
+  QString message;
+  ASSERT_TRUE(document.loadFromJson(bound, message)) << message.toStdString();
+
+  const QString payload =
+    liveArgument(*instances, QStringLiteral("unit"), QStringLiteral("label"));
+
+  EXPECT_FALSE(payload.contains(QStringLiteral("@from")))
+    << "the binding reference was fed to the component as a value";
+  EXPECT_FALSE(payload.isEmpty())
+    << "the component lost its own default to an unresolved binding";
 }
