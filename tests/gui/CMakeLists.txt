@@ -79,6 +79,10 @@ composer_add_gui_test(test_serviceconnections)
 # Automatic placement for the coupling graph — a pure function, so these
 # gates need no scene.
 composer_add_gui_test(test_graphlayout)
+
+# The start page and the documents it remembers. Drives its own settings
+# file, so it never writes where the application reads.
+composer_add_gui_test(test_welcome)
 composer_add_gui_test(test_gdallayers)
 
 # C2 — component data items and meshes. Built on the SDK's own data-item

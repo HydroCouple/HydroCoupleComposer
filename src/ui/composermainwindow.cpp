@@ -92,9 +92,35 @@ namespace HydroCouple::Composer
     m_workspace = new QTabWidget(this);
     m_workspace->setObjectName(QStringLiteral("workspaceTabs"));
     m_workspace->setDocumentMode(true);
+    // Somewhere to start, ahead of the canvas: a composition needs
+    // components before it needs anything else, and an empty canvas says
+    // nothing about where those come from.
+    m_recent = new RecentCompositions(nullptr, this);
+    m_welcome = new WelcomePage(m_recent, this);
+
+    m_workspace->addTab(m_welcome,
+                        IconFactory::icon(QStringLiteral("welcome")),
+                        tr("Welcome"));
     m_workspace->addTab(m_canvas,
                         IconFactory::icon(QStringLiteral("composition")),
                         tr("Composition"));
+
+    connect(m_welcome, &WelcomePage::newRequested, this,
+            [this] { m_newAction->trigger(); });
+    connect(m_welcome, &WelcomePage::openRequested, this,
+            [this] { m_openAction->trigger(); });
+    connect(m_welcome, &WelcomePage::loadComponentsRequested, this,
+            [this] { m_loadComponentsAction->trigger(); });
+    connect(m_welcome, &WelcomePage::openRecentRequested, this,
+            [this](const QString &path)
+            {
+              QString message;
+
+              if (!openComposition(path, message))
+              {
+                QMessageBox::warning(this, tr("Cannot open"), message);
+              }
+            });
 
     // The transport sits under the views rather than in a dock beside them.
     // The bottom docks are tabbed, and a clock that could be tabbed behind
@@ -174,6 +200,13 @@ namespace HydroCouple::Composer
           .arg(ComposerApplication::versionString()));
     log(tr("Load component libraries from Components ▸ Load Directory…, then "
            "drag a component onto the canvas."));
+
+    // The welcome page is the first tab, so it opens on it by default; a
+    // user who has said not to show it starts on the canvas instead.
+    if (m_recent && !m_recent->showsWelcomeOnStartUp())
+    {
+      m_workspace->setCurrentWidget(m_canvas);
+    }
   }
 
   ComposerMainWindow::~ComposerMainWindow()
@@ -704,6 +737,16 @@ namespace HydroCouple::Composer
                 QMessageBox::warning(this, tr("Cannot open"), message);
               }
             });
+
+    // Rebuilt each time it is about to be shown, so it never disagrees with
+    // what has been opened since the window was made.
+    m_recentMenu = fileMenu->addMenu(tr("Open &Recent"));
+    m_recentMenu->setObjectName(QStringLiteral("recentMenu"));
+
+    connect(m_recentMenu, &QMenu::aboutToShow, this,
+            &ComposerMainWindow::rebuildRecentMenu);
+
+    rebuildRecentMenu();
 
     m_saveAction = fileMenu->addAction(tr("&Save"));
     m_saveAction->setObjectName(QStringLiteral("saveAction"));
@@ -2540,12 +2583,24 @@ namespace HydroCouple::Composer
   {
     if (!m_document->load(filePath, message))
     {
+      // Only a document that actually opened is worth offering again.
       return false;
     }
 
     log(tr("Opened %1").arg(filePath));
 
+    if (m_recent)
+    {
+      m_recent->remember(filePath);
+    }
+
     restoreLayers();
+
+    // The canvas is what was asked for; the welcome page has done its job.
+    if (m_workspace && m_canvas)
+    {
+      m_workspace->setCurrentWidget(m_canvas);
+    }
 
     return true;
   }
@@ -2625,6 +2680,52 @@ namespace HydroCouple::Composer
     }
 
     m_document->presentation().setLayers(layers);
+  }
+
+  void ComposerMainWindow::rebuildRecentMenu()
+  {
+    if (!m_recentMenu || !m_recent)
+    {
+      return;
+    }
+
+    m_recentMenu->clear();
+
+    const QStringList paths = m_recent->paths();
+
+    if (paths.isEmpty())
+    {
+      QAction *empty = m_recentMenu->addAction(tr("Nothing opened yet"));
+      empty->setEnabled(false);
+
+      return;
+    }
+
+    for (const QString &path : paths)
+    {
+      QAction *entry = m_recentMenu->addAction(QFileInfo(path).fileName());
+      entry->setToolTip(path);
+
+      connect(entry, &QAction::triggered, this,
+              [this, path]
+              {
+                QString message;
+
+                if (!openComposition(path, message))
+                {
+                  // A document that has moved stays on the list — the user
+                  // is the one who knows whether it is coming back — but
+                  // they are told which one, and why.
+                  QMessageBox::warning(this, tr("Cannot open"), message);
+                }
+              });
+    }
+
+    m_recentMenu->addSeparator();
+
+    QAction *clear = m_recentMenu->addAction(tr("Clear"));
+    clear->setObjectName(QStringLiteral("clearRecentAction"));
+    connect(clear, &QAction::triggered, this, [this] { m_recent->clear(); });
   }
 
   void ComposerMainWindow::restoreLayers()

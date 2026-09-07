@@ -283,6 +283,10 @@ set(COMPOSER_SOURCES
     src/ui/panels/layertreepanel.cpp
     include/ui/panels/runbrowserpanel.h
     src/ui/panels/runbrowserpanel.cpp
+    include/ui/recentcompositions.h
+    src/ui/recentcompositions.cpp
+    include/ui/welcomepage.h
+    src/ui/welcomepage.cpp
     include/ui/panels/mapstatusbar.h
     src/ui/panels/mapstatusbar.cpp
     include/ui/panels/timecontrolpanel.h
@@ -370,6 +374,7 @@ qt_add_resources(composer_core "composer_icons"
         resources/icons/transect.svg
         resources/icons/system.svg
         resources/icons/undo.svg
+        resources/icons/welcome.svg
         resources/icons/zoomin.svg
         resources/icons/zoomout.svg)
 

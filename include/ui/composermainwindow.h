@@ -24,6 +24,8 @@
 #include "simulation/simulationmanager.h"
 #include "results/runbrowsermodel.h"
 #include "ui/panels/mapstatusbar.h"
+#include "ui/recentcompositions.h"
+#include "ui/welcomepage.h"
 #include "ui/panels/runbrowserpanel.h"
 
 #include <QMainWindow>
@@ -278,6 +280,9 @@ namespace HydroCouple::Composer
       //! Rebuilds what the sidecar recorded, after opening.
       void restoreLayers();
 
+      //! Refills File ▸ Open Recent from the remembered documents.
+      void rebuildRecentMenu();
+
       /*!
        * \brief Adds a layer for every spatial data item in the composition.
        * \returns How many layers were added.
@@ -354,6 +359,9 @@ namespace HydroCouple::Composer
       QAction *m_undoAction = nullptr;
       QAction *m_redoAction = nullptr;
       QAction *m_layoutAction = nullptr;
+      QMenu *m_recentMenu = nullptr;
+      RecentCompositions *m_recent = nullptr;
+      WelcomePage *m_welcome = nullptr;
       QAction *m_loadComponentsAction = nullptr;
       QAction *m_lightAction = nullptr;
       QAction *m_darkAction = nullptr;

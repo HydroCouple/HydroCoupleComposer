@@ -401,8 +401,12 @@ TEST_F(ShellTest, FramingALayerFromTheTreeShowsTheMap)
   auto *workspace =
     window.findChild<QTabWidget *>(QStringLiteral("workspaceTabs"));
   ASSERT_NE(workspace, nullptr);
-  ASSERT_EQ(workspace->currentWidget(), window.canvas())
-    << "the composition should be the tab a session opens on";
+
+  // Which tab a session opens on is now the user's preference — the
+  // welcome page by default — so the tab this test needs is chosen rather
+  // than assumed. What it is about is what framing a layer does.
+  workspace->setCurrentWidget(window.canvas());
+  ASSERT_EQ(workspace->currentWidget(), window.canvas());
 
   auto *layer = new HydroCouple::Composer::Testing::ProbeLayer(
     QStringLiteral("probe"), QRectF(0.0, 0.0, 10.0, 10.0));
