@@ -970,3 +970,38 @@ TEST_F(CanvasTest, ANodeIsWideEnoughToReadItsPortNames)
   EXPECT_LE(clamped.boundingRect().width(), 280.0)
     << "the width is not clamped";
 }
+
+TEST_F(CanvasTest, AutoLayoutIsOneUndoStepAndOrdersProvidersFirst)
+{
+  const QString sink = scene->addComponentAt(
+    QStringLiteral("composer.test.component"), QStringLiteral("sink"),
+    QPointF(0.0, 0.0));
+  const QString source = scene->addComponentAt(
+    QStringLiteral("composer.test.component"), QStringLiteral("source"),
+    QPointF(0.0, 300.0));
+
+  ConnectionSpec connection;
+  connection.fromComponent = source.toStdString();
+  connection.output = "values";
+  connection.toComponent = sink.toStdString();
+  connection.input = "inflow";
+  ASSERT_TRUE(document.addConnection(connection));
+
+  const QPointF sinkBefore = document.presentation().component(sink).position;
+  const int undoBefore = document.undoStack()->count();
+
+  EXPECT_EQ(scene->applyAutoLayout(), 2);
+
+  // The provider ends up left of what it feeds, whatever they were dropped
+  // at — the arrangement comes from the connections.
+  EXPECT_LT(document.presentation().component(source).position.x(),
+            document.presentation().component(sink).position.x());
+
+  // One entry for the whole arrangement: a layout the user does not like is
+  // a single Ctrl+Z, not one per component.
+  EXPECT_EQ(document.undoStack()->count(), undoBefore + 1);
+
+  document.undoStack()->undo();
+  EXPECT_EQ(document.presentation().component(sink).position, sinkBefore)
+    << "undoing the layout did not put the components back";
+}

@@ -75,6 +75,10 @@ target_compile_definitions(test_ogcservicedialog PRIVATE
 # O2 — saved connections. Drives its own settings file and its own machine
 # id, so it never writes where the application reads.
 composer_add_gui_test(test_serviceconnections)
+
+# Automatic placement for the coupling graph — a pure function, so these
+# gates need no scene.
+composer_add_gui_test(test_graphlayout)
 composer_add_gui_test(test_gdallayers)
 
 # C2 — component data items and meshes. Built on the SDK's own data-item

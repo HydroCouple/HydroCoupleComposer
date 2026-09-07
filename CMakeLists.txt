@@ -178,6 +178,8 @@ set(COMPOSER_SOURCES
     src/canvas/compositionscene.cpp
     include/canvas/compositioncanvas.h
     src/canvas/compositioncanvas.cpp
+    include/canvas/graphlayout.h
+    src/canvas/graphlayout.cpp
     include/canvas/componentpalettemodel.h
     src/canvas/componentpalettemodel.cpp
     include/render/colorramp.h

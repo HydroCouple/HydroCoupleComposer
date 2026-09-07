@@ -353,6 +353,7 @@ namespace HydroCouple::Composer
       QAction *m_saveAction = nullptr;
       QAction *m_undoAction = nullptr;
       QAction *m_redoAction = nullptr;
+      QAction *m_layoutAction = nullptr;
       QAction *m_loadComponentsAction = nullptr;
       QAction *m_lightAction = nullptr;
       QAction *m_darkAction = nullptr;

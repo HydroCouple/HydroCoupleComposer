@@ -1,6 +1,9 @@
 #include "canvas/compositionscene.h"
 
+#include "canvas/graphlayout.h"
+
 #include <QGraphicsPathItem>
+#include <QUndoStack>
 #include <QGraphicsSceneContextMenuEvent>
 #include <QGraphicsSceneMouseEvent>
 #include <QInputDialog>
@@ -330,6 +333,66 @@ namespace HydroCouple::Composer
   QList<AdapterNodeItem *> CompositionScene::adapterNodes() const
   {
     return m_adapterNodes;
+  }
+
+  int CompositionScene::applyAutoLayout()
+  {
+    if (!m_document)
+    {
+      return 0;
+    }
+
+    // Measured from the items rather than assumed: a component's box is as
+    // wide as the port names it has to show, so the columns can only be
+    // spaced correctly by asking what is actually drawn.
+    QHash<QString, QSizeF> sizes;
+
+    for (auto it = m_nodes.constBegin(); it != m_nodes.constEnd(); ++it)
+    {
+      if (it.value())
+      {
+        sizes.insert(it.key(), it.value()->boundingRect().size());
+      }
+    }
+
+    const QHash<QString, QPointF> positions =
+      layoutComposition(m_document->spec(), sizes);
+
+    if (positions.isEmpty())
+    {
+      return 0;
+    }
+
+    int moved = 0;
+
+    m_document->undoStack()->beginMacro(tr("Lay out components"));
+
+    for (auto it = positions.constBegin(); it != positions.constEnd(); ++it)
+    {
+      if (m_document->moveComponent(it.key(), it.value()))
+      {
+        ++moved;
+      }
+    }
+
+    // A spliced adapter keeps whatever position it was dragged to, which
+    // after a re-layout is nowhere near the connection it belongs to. The
+    // null point is what rebuild() reads as "unplaced" (see the sidecar
+    // branch above), so writing it back is how a step is returned to
+    // sitting along its edge — undoably, inside this same macro.
+    for (const HydroCouple::SDK::IO::ConnectionSpec &connection :
+         m_document->spec().connections)
+    {
+      for (int index = 0;
+           index < static_cast<int>(connection.adaptedOutputs.size()); ++index)
+      {
+        m_document->moveConnectionAdapter(connection, index, QPointF());
+      }
+    }
+
+    m_document->undoStack()->endMacro();
+
+    return moved;
   }
 
   QString CompositionScene::uniqueComponentId(const QString &desired) const

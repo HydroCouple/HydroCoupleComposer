@@ -43,6 +43,15 @@ namespace HydroCouple::Composer
        */
       [[nodiscard]] CompositionScene *compositionScene() const;
 
+      /*!
+       * \brief Brings the whole composition into view.
+       *
+       * Called after an automatic layout, which otherwise routinely leaves
+       * the arrangement it just made off-screen — the legacy Composer's
+       * layout action ended the same way, and for the same reason.
+       */
+      void frameComposition();
+
     protected:
       void keyPressEvent(QKeyEvent *event) override;
       void wheelEvent(QWheelEvent *event) override;

@@ -805,6 +805,25 @@ namespace HydroCouple::Composer
     m_redoAction->setShortcut(QKeySequence::Redo);
     editMenu->addAction(m_redoAction);
 
+    editMenu->addSeparator();
+
+    m_layoutAction = editMenu->addAction(tr("&Layout Components"));
+    m_layoutAction->setObjectName(QStringLiteral("layoutComponentsAction"));
+    m_layoutAction->setToolTip(
+      tr("Arrange the composition left to right, providers before what they "
+         "feed."));
+    connect(m_layoutAction, &QAction::triggered, this,
+            [this]
+            {
+              const int moved = m_scene->applyAutoLayout();
+
+              if (moved > 0)
+              {
+                log(tr("Laid out %1 components.").arg(moved));
+                m_canvas->frameComposition();
+              }
+            });
+
     QMenu *componentsMenu = menuBar()->addMenu(tr("&Components"));
     componentsMenu->setObjectName(QStringLiteral("componentsMenu"));
 

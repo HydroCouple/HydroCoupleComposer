@@ -69,6 +69,19 @@ namespace HydroCouple::Composer
       [[nodiscard]] QList<AdapterNodeItem *> adapterNodes() const;
 
       /*!
+       * \brief Arranges the whole composition left to right by dependency.
+       *
+       * One undo entry for the lot: a layout the user does not like is a
+       * single Ctrl+Z, not one per component. Adapter nodes give up any
+       * position they were dragged to and return to sitting along their
+       * connection, because a spliced node left where the old edge used to
+       * run is stranded rather than placed.
+       *
+       * \returns How many components were moved.
+       */
+      int applyAutoLayout();
+
+      /*!
        * \brief One adapter a factory offers for splicing into a connection.
        */
       struct AdapterOffering
