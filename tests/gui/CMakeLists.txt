@@ -32,6 +32,8 @@ composer_add_gui_test(test_maptransform)
 composer_add_gui_test(test_layerstack)
 composer_add_gui_test(test_mapcanvas)
 composer_add_gui_test(test_maptools)
+target_compile_definitions(test_maptools PRIVATE
+    COMPOSER_PREFERENCES_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/preferences")
 
 # C1c — styling. The ramp and classification suites are value-type maths and
 # need no widgets; the labelling suite renders, because a halo that is not
@@ -83,6 +85,17 @@ composer_add_gui_test(test_graphlayout)
 # The start page and the documents it remembers. Drives its own settings
 # file, so it never writes where the application reads.
 composer_add_gui_test(test_welcome)
+target_compile_definitions(test_welcome PRIVATE
+    COMPOSER_PREFERENCES_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/preferences")
+
+# U7 — global preferences. The manager suite walks the key table over its
+# own .ini; the dialog suite drives every widget through OK and reopens.
+composer_add_gui_test(test_preferences)
+target_compile_definitions(test_preferences PRIVATE
+    COMPOSER_PREFERENCES_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/preferences")
+composer_add_gui_test(test_preferencesdialog)
+target_compile_definitions(test_preferencesdialog PRIVATE
+    COMPOSER_PREFERENCES_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/preferences")
 composer_add_gui_test(test_gdallayers)
 
 # C2 — component data items and meshes. Built on the SDK's own data-item
@@ -107,6 +120,8 @@ composer_add_gui_test(test_domaindraw)
 # E1b-3 — the reach that decides what was clicked, and the drag, insert and
 # remove gestures built on it.
 composer_add_gui_test(test_domainedit)
+target_compile_definitions(test_domainedit PRIVATE
+    COMPOSER_PREFERENCES_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/preferences")
 
 # E1c — features already on the map become part of the domain. Reads the
 # hand-authored GeoJSON beside the other mesh fixtures, so what a gate
@@ -170,6 +185,8 @@ composer_add_gui_test(test_viewhandoff)
 # C4 — identifying what is under a click. Drives the canvas with real mouse
 # events: telling a click from a pan is not observable from the hit test.
 composer_add_gui_test(test_picking)
+target_compile_definitions(test_picking PRIVATE
+    COMPOSER_PREFERENCES_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/preferences")
 
 # C4c — the attribute table. Driven through its real widgets: what is under
 # test is the wiring, not the model.

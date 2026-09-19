@@ -1,5 +1,6 @@
 #include "mesh/domaindrawtool.h"
 
+#include "core/preferencesmanager.h"
 #include "map/mapcanvas.h"
 #include "map/maptransform.h"
 #include "mesh/domainsnap.h"
@@ -34,7 +35,8 @@ namespace HydroCouple::Composer
 
     const DomainSnap hit = nearestVertex(
       m_model->domain(), world,
-      worldTolerance(kSnapPixels, m_canvas->transform().scale()));
+      worldTolerance(PreferencesManager::instance()->snapTolerancePixels(),
+                     m_canvas->transform().scale()));
 
     return hit.hit ? hit.point : world;
   }

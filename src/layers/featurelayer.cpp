@@ -1,5 +1,6 @@
 #include "layers/featurelayer.h"
 
+#include "core/preferencesmanager.h"
 #include "gis/spatialreference.h"
 #include "map/extentmath.h"
 #include "map/maptransform.h"
@@ -22,10 +23,15 @@ namespace HydroCouple::Composer
      * One colour rather than a themed pair: a selection has to stand out
      * against whatever the layer beneath it happens to be, and a highlight
      * that follows the theme is a highlight that matches its surroundings.
-     * Cyan, because it survives both a dark basemap and a pale one, and
-     * because almost nothing in hydrology is naturally that colour.
+     * The default is cyan, because it survives both a dark basemap and a
+     * pale one, and because almost nothing in hydrology is naturally that
+     * colour. A preference, read as the layer paints, so the map and the
+     * scene cannot hold two different answers.
      */
-    const QColor kSelectionColor(0, 200, 255);
+    QColor selectionColor()
+    {
+      return PreferencesManager::instance()->selectionColor();
+    }
 
     //! Wide enough to read as a halo around the feature, not as its stroke.
     constexpr double kSelectionWidth = 3.0;
@@ -326,7 +332,7 @@ namespace HydroCouple::Composer
         // it.
         if (m_selection.contains(i))
         {
-          painter.setPen(QPen(kSelectionColor, kSelectionWidth));
+          painter.setPen(QPen(selectionColor(), kSelectionWidth));
           painter.setBrush(Qt::NoBrush);
 
           switch (m_features.at(i).kind)
@@ -856,7 +862,7 @@ namespace HydroCouple::Composer
       return color;
     }
 
-    return m_selection.contains(feature) ? kSelectionColor : color;
+    return m_selection.contains(feature) ? selectionColor() : color;
   }
 
   QVector<SceneGeometry> FeatureLayer::sceneGeometry(

@@ -27,9 +27,6 @@ namespace HydroCouple::Composer
       Q_OBJECT
 
     public:
-      //! How many are remembered before the oldest is forgotten.
-      static constexpr int kMaximum = 10;
-
       /*!
        * \brief Opens the list.
        * \param settings Where to keep it; the application's own when null.
@@ -61,11 +58,6 @@ namespace HydroCouple::Composer
 
       //! Forgets all of them.
       void clear();
-
-      //! Whether the welcome page should be shown at start-up.
-      [[nodiscard]] bool showsWelcomeOnStartUp() const;
-
-      void setShowsWelcomeOnStartUp(bool shows);
 
     Q_SIGNALS:
       //! Emitted whenever the remembered list changes.

@@ -1,7 +1,11 @@
 #include "ui/recentcompositions.h"
 
+#include "core/preferencesmanager.h"
+
 #include <QFileInfo>
 #include <QSettings>
+
+#include <algorithm>
 
 namespace HydroCouple::Composer
 {
@@ -9,7 +13,6 @@ namespace HydroCouple::Composer
   namespace
   {
     constexpr const char *kPathsKey = "recentCompositions/paths";
-    constexpr const char *kWelcomeKey = "recentCompositions/showWelcome";
   } // namespace
 
   RecentCompositions::RecentCompositions(QSettings *settings, QObject *parent)
@@ -51,7 +54,11 @@ namespace HydroCouple::Composer
     current.removeAll(absolute);
     current.prepend(absolute);
 
-    while (current.size() > kMaximum)
+    // How many are kept is a preference, read on every remember rather
+    // than once, so lowering it trims the list on the next document opened.
+    const int limit = std::max(1, PreferencesManager::instance()->recentLimit());
+
+    while (current.size() > limit)
     {
       current.removeLast();
     }
@@ -73,25 +80,6 @@ namespace HydroCouple::Composer
   void RecentCompositions::clear()
   {
     write({});
-  }
-
-  bool RecentCompositions::showsWelcomeOnStartUp() const
-  {
-    QSettings own;
-    QSettings &settings = m_settings ? *m_settings : own;
-
-    // Shown until the user says otherwise: the first thing a new user meets
-    // should be somewhere to start, not an empty canvas.
-    return settings.value(QLatin1String(kWelcomeKey), true).toBool();
-  }
-
-  void RecentCompositions::setShowsWelcomeOnStartUp(bool shows)
-  {
-    QSettings own;
-    QSettings &settings = m_settings ? *m_settings : own;
-
-    settings.setValue(QLatin1String(kWelcomeKey), shows);
-    settings.sync();
   }
 
 } // namespace HydroCouple::Composer

@@ -23,9 +23,6 @@
 
 namespace HydroCouple::Composer
 {
-  //! How close to a vertex or edge, in pixels, counts as being on it.
-  inline constexpr double kSnapPixels = 10.0;
-
   /*!
    * \brief What was found near a point on the map.
    */

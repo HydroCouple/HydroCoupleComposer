@@ -1,13 +1,13 @@
 #include "core/composerapplication.h"
 
 #include "core/httpuriresolver.h"
+#include "core/preferencesmanager.h"
 #include "core/version.h"
 #include "ui/theme/thememanager.h"
 
 #include "hydrocouplesdk/io/uriresolver.h"
 
 #include <QIcon>
-#include <QSettings>
 #include <QStyleHints>
 
 namespace HydroCouple::Composer
@@ -38,9 +38,7 @@ namespace HydroCouple::Composer
     // gets the same appearance.
     ThemeManager *theme = ThemeManager::instance();
     theme->setMode(ThemeManager::modeFromString(
-      QSettings().value(QStringLiteral("appearance/mode"),
-                        QStringLiteral("System"))
-        .toString()));
+      PreferencesManager::instance()->themeMode()));
     theme->apply();
 
     // "System" follows the OS appearance live rather than only at startup.

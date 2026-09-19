@@ -1,6 +1,7 @@
 #include "ui/composermainwindow.h"
 
 #include "core/composerapplication.h"
+#include "core/preferencesmanager.h"
 #include "layers/dataitemlayer.h"
 #include "layers/rasterdataitemlayer.h"
 #include "layers/differencelayer.h"
@@ -33,6 +34,7 @@
 #include "layers/wcscoveragelayer.h"
 #include "layers/wfsfeaturelayer.h"
 #include "ui/dialogs/ogcservicedialog.h"
+#include "ui/dialogs/preferencesdialog.h"
 #include "ui/panels/attributetablepanel.h"
 #include "ui/panels/layertreepanel.h"
 #include "ui/panels/runbrowserpanel.h"
@@ -57,7 +59,6 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPlainTextEdit>
-#include <QSettings>
 #include <QStatusBar>
 #include <QStyle>
 #include <QTabWidget>
@@ -203,10 +204,14 @@ namespace HydroCouple::Composer
 
     // The welcome page is the first tab, so it opens on it by default; a
     // user who has said not to show it starts on the canvas instead.
-    if (m_recent && !m_recent->showsWelcomeOnStartUp())
+    if (!PreferencesManager::instance()->showWelcomeOnStartUp())
     {
       m_workspace->setCurrentWidget(m_canvas);
     }
+
+    // The library directories remembered from earlier sessions, scanned
+    // before any document opens so its components are there to be found.
+    applyComponentSearchPaths();
   }
 
   ComposerMainWindow::~ComposerMainWindow()
@@ -316,9 +321,18 @@ namespace HydroCouple::Composer
     m_mapCanvas = new MapCanvas(this);
     m_mapCanvas->setModel(m_layerStack);
 
-    // Web Mercator: it is what tiled basemaps are published in, and a map
-    // whose CRS differs from its backdrop's has to resample every tile.
-    m_mapCanvas->setCrs(SpatialReference::webMercator());
+    // Web Mercator unless the preferences say otherwise: it is what tiled
+    // basemaps are published in, and a map whose CRS differs from its
+    // backdrop's has to resample every tile. A preference that names a
+    // system GDAL does not know falls back to it rather than to no CRS.
+    {
+      QString message;
+      std::unique_ptr<SpatialReference> initial =
+        SpatialReference::fromDefinition(
+          PreferencesManager::instance()->defaultMapCrs(), message);
+      m_mapCanvas->setCrs(initial ? std::move(initial)
+                                  : SpatialReference::webMercator());
+    }
 
     m_workspace->addTab(m_mapCanvas,
                         IconFactory::icon(QStringLiteral("globe")),
@@ -329,6 +343,18 @@ namespace HydroCouple::Composer
     // is the single owner of what is drawn.
     m_sceneView = new SceneView(this);
     m_sceneView->setModel(m_layerStack);
+
+    // How a scene opens is a preference; how it is looked at afterwards is
+    // the ribbon's, so these are read once here and not again.
+    {
+      const PreferencesManager *prefs = PreferencesManager::instance();
+      m_sceneView->setProjection(
+        prefs->defaultSceneProjection() == QLatin1String("Orthographic")
+          ? CameraProjection::Orthographic
+          : CameraProjection::Perspective);
+      m_sceneView->setVerticalExaggeration(
+        prefs->defaultVerticalExaggeration());
+    }
 
     m_workspace->addTab(m_sceneView,
                         IconFactory::icon(QStringLiteral("scene_3d")),
@@ -887,6 +913,18 @@ namespace HydroCouple::Composer
               log(tr("Loaded %1 component library(ies) from %2")
                     .arg(loaded)
                     .arg(directory));
+
+              // Remembered, so the next launch finds the same libraries
+              // without being asked again. The preference is the record;
+              // the registry's search paths follow it.
+              PreferencesManager *prefs = PreferencesManager::instance();
+              QStringList paths = prefs->componentSearchPaths();
+
+              if (!paths.contains(directory))
+              {
+                paths.append(directory);
+                prefs->setComponentSearchPaths(paths);
+              }
             });
 
     QMenu *runMenu = menuBar()->addMenu(tr("&Run"));
@@ -991,20 +1029,52 @@ namespace HydroCouple::Composer
       appearanceGroup->addAction(action);
 
       connect(action, &QAction::triggered, this,
-              [this, theme, mode = appearance.mode]
+              [mode = appearance.mode]
               {
+                // Written to the preference, which is what applies it:
+                // the ribbon, the menu and the dialog all set the same key
+                // and all follow it, so none of them can disagree.
+                PreferencesManager::instance()->setThemeMode(
+                  ThemeManager::modeToString(mode));
+              });
+    }
+
+    connect(PreferencesManager::instance(),
+            &PreferencesManager::preferenceChanged, this,
+            [this, theme](const QString &group, const QString &name)
+            {
+              if (group == QLatin1String("Appearance")
+                  && name == QLatin1String("themeMode"))
+              {
+                const QString modeName =
+                  PreferencesManager::instance()->themeMode();
+                const ThemeManager::Mode mode =
+                  ThemeManager::modeFromString(modeName);
                 theme->setMode(mode);
                 theme->apply();
 
-                // Persisted so the choice survives a restart, matching how
-                // openswmm.gui remembers its appearance preference.
-                QSettings().setValue(QStringLiteral("appearance/mode"),
-                                     ThemeManager::modeToString(mode));
+                (mode == ThemeManager::Mode::Light  ? m_lightAction
+                 : mode == ThemeManager::Mode::Dark ? m_darkAction
+                                                    : m_systemAction)
+                  ->setChecked(true);
 
-                log(tr("Appearance: %1")
-                      .arg(ThemeManager::modeToString(mode)));
-              });
-    }
+                log(tr("Appearance: %1").arg(modeName));
+              }
+              else if (group == QLatin1String("Components")
+                       && name == QLatin1String("searchPaths"))
+              {
+                applyComponentSearchPaths();
+              }
+            });
+
+    m_preferencesAction = new QAction(tr("&Preferences…"), this);
+    m_preferencesAction->setObjectName(QStringLiteral("preferencesAction"));
+    m_preferencesAction->setMenuRole(QAction::PreferencesRole);
+    m_preferencesAction->setShortcut(QKeySequence::Preferences);
+    connect(m_preferencesAction, &QAction::triggered, this,
+            &ComposerMainWindow::onPreferences);
+    appearanceMenu->addSeparator();
+    appearanceMenu->addAction(m_preferencesAction);
 
     QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
     helpMenu->setObjectName(QStringLiteral("helpMenu"));
@@ -1167,6 +1237,10 @@ namespace HydroCouple::Composer
     appearance->addAction(m_darkAction, tr("Dark"));
     appearance->addAction(m_systemAction, tr("System"));
 
+    RibbonGroup *settingsGroup =
+      m_ribbon->addGroup(QStringLiteral("view"), tr("Settings"));
+    settingsGroup->addAction(m_preferencesAction, tr("Preferences"));
+
     ensureIcon(m_newAction, QStringLiteral("new"));
     ensureIcon(m_openAction, QStringLiteral("open"));
     ensureIcon(m_saveAction, QStringLiteral("save"));
@@ -1179,6 +1253,7 @@ namespace HydroCouple::Composer
     ensureIcon(m_lightAction, QStringLiteral("sun"));
     ensureIcon(m_darkAction, QStringLiteral("dark"));
     ensureIcon(m_systemAction, QStringLiteral("system"));
+    ensureIcon(m_preferencesAction, QStringLiteral("preferences"));
     ensureIcon(m_zoomFullAction, QStringLiteral("extent"));
     ensureIcon(m_zoomInAction, QStringLiteral("zoomin"));
     ensureIcon(m_zoomOutAction, QStringLiteral("zoomout"));
@@ -2009,6 +2084,60 @@ namespace HydroCouple::Composer
     if (dialog.exec() == QDialog::Accepted)
     {
       log(tr("Updated %1.").arg(layer->name()));
+    }
+  }
+
+  void ComposerMainWindow::onPreferences()
+  {
+    // Shown from an action's triggered() — a release, never a press: a modal
+    // opened from a mouse press wedges input on macOS.
+    PreferencesDialog dialog(PreferencesManager::instance(), this);
+
+    // The dialog cannot pick a CRS by itself; the catalogue is the GIS
+    // layer's, so the window lends it the same chooser the map uses.
+    dialog.setCrsChooser(
+      [this](const QString &current) -> QString
+      {
+        CrsSelectionDialog chooser(this);
+        QString message;
+
+        if (std::unique_ptr<SpatialReference> crs =
+              SpatialReference::fromDefinition(current, message))
+        {
+          chooser.setCurrentCrs(crs.get());
+        }
+
+        return chooser.exec() == QDialog::Accepted ? chooser.selectedAuthCode()
+                                                   : QString();
+      });
+
+    dialog.exec();
+  }
+
+  void ComposerMainWindow::applyComponentSearchPaths()
+  {
+    const PreferencesManager *prefs = PreferencesManager::instance();
+    const QStringList paths = prefs->componentSearchPaths();
+
+    m_registry->setSearchPaths(paths);
+
+    if (!prefs->rescanComponentsOnStartUp())
+    {
+      return;
+    }
+
+    // Scanned one directory at a time through the same path Load Directory
+    // uses, so a library that fails to load is reported the same way.
+    for (const QString &directory : paths)
+    {
+      const int loaded = loadComponentDirectory(directory);
+
+      if (loaded > 0)
+      {
+        log(tr("Loaded %1 component library(ies) from %2")
+              .arg(loaded)
+              .arg(directory));
+      }
     }
   }
 

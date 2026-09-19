@@ -1,5 +1,6 @@
 #include "scene/sceneview.h"
 
+#include "core/preferencesmanager.h"
 #include "layers/featurelayer.h"
 #include "map/layerstackmodel.h"
 #include "map/maplayer.h"
@@ -21,17 +22,24 @@ namespace HydroCouple::Composer
      * \brief How near a click has to land, in pixels.
      *
      * In pixels rather than world units because it is a property of pointing,
-     * not of the data — the same reasoning, and the same number, as the map's.
+     * not of the data — the same preference the map reads, read on every
+     * pick so a change in the dialog applies to the next click.
      */
-    constexpr double kPickRadiusPixels = 6.0;
+    double pickRadiusPixels()
+    {
+      return PreferencesManager::instance()->pickTolerancePixels();
+    }
 
     /*!
      * \brief How far the mouse may move and still count as a click.
      *
      * Orbiting and picking share the left button, so they are told apart by
-     * whether the scene turned.
+     * whether the scene turned. The same preference as the map's.
      */
-    constexpr int kClickSlopPixels = 3;
+    int clickSlopPixels()
+    {
+      return PreferencesManager::instance()->dragThresholdPixels();
+    }
 
     //! Degrees of rotation per pixel dragged. Chosen so a drag across the
     //! width of a typical view is most of a turn, which is what makes
@@ -68,6 +76,27 @@ namespace HydroCouple::Composer
 
     // The depth buffer the pipeline's depth test needs comes with
     // QRhiWidget's automatic render target, which is on by default.
+
+    // The background is a preference; the selection colour is baked into the
+    // vertices (C3a), so a change to it means rebuilding the batches, not
+    // only repainting.
+    PreferencesManager *prefs = PreferencesManager::instance();
+    m_background = prefs->sceneBackgroundColor();
+
+    connect(prefs, &PreferencesManager::preferenceChanged, this,
+            [this, prefs](const QString &group, const QString &name)
+            {
+              if (group == QLatin1String("3D View")
+                  && name == QLatin1String("backgroundColor"))
+              {
+                setBackgroundColor(prefs->sceneBackgroundColor());
+              }
+              else if (group == QLatin1String("Selection"))
+              {
+                m_renderer.invalidate();
+                update();
+              }
+            });
   }
 
   SceneView::~SceneView() = default;
@@ -381,8 +410,8 @@ namespace HydroCouple::Composer
 
       // Width and height explicitly, not isNull(): a zero-area QRect reports
       // itself null, which would throw away a legitimate thin drag.
-      const bool dragged = rectangle.width() > kClickSlopPixels
-                           && rectangle.height() > kClickSlopPixels;
+      const bool dragged = rectangle.width() > clickSlopPixels()
+                           && rectangle.height() > clickSlopPixels();
 
       applyBand(rectangle, dragged, event->pos());
 
@@ -402,8 +431,8 @@ namespace HydroCouple::Composer
     const QPoint travelled = event->pos() - m_pressPosition;
 
     if (wasOrbiting && event->button() == Qt::LeftButton &&
-        std::abs(travelled.x()) <= kClickSlopPixels &&
-        std::abs(travelled.y()) <= kClickSlopPixels)
+        std::abs(travelled.x()) <= clickSlopPixels() &&
+        std::abs(travelled.y()) <= clickSlopPixels())
     {
       int feature = -1;
       FeatureLayer *layer = pickAt(event->pos(), feature);
@@ -665,7 +694,7 @@ namespace HydroCouple::Composer
     // one screen is easily tenfold.
     QPointF offset;
     const double tolerance =
-      groundUnder(pixel + QPoint(int(kPickRadiusPixels), 0), offset)
+      groundUnder(pixel + QPoint(int(pickRadiusPixels()), 0), offset)
         ? std::hypot(offset.x() - ground.x(), offset.y() - ground.y())
         : 0.0;
 

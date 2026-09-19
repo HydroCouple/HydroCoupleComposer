@@ -1,6 +1,7 @@
 #include "ui/welcomepage.h"
 
 #include "core/composerapplication.h"
+#include "core/preferencesmanager.h"
 #include "ui/recentcompositions.h"
 
 #include <QCheckBox>
@@ -119,14 +120,25 @@ namespace HydroCouple::Composer
     m_showOnStartUp->setObjectName(QStringLiteral("welcomeShowOnStartUp"));
     layout->addWidget(m_showOnStartUp);
 
+    // The same preference the dialog edits, so the two cannot disagree: the
+    // box writes the preference and follows it, rather than owning a copy.
+    PreferencesManager *prefs = PreferencesManager::instance();
+    m_showOnStartUp->setChecked(prefs->showWelcomeOnStartUp());
+
+    connect(m_showOnStartUp, &QCheckBox::toggled, prefs,
+            [prefs](bool shows) { prefs->setShowWelcomeOnStartUp(shows); });
+    connect(prefs, &PreferencesManager::preferenceChanged, this,
+            [this, prefs](const QString &group, const QString &name)
+            {
+              if (group == QLatin1String("General")
+                  && name == QLatin1String("showWelcomeOnStartUp"))
+              {
+                m_showOnStartUp->setChecked(prefs->showWelcomeOnStartUp());
+              }
+            });
+
     if (m_recent)
     {
-      m_showOnStartUp->setChecked(m_recent->showsWelcomeOnStartUp());
-
-      connect(m_showOnStartUp, &QCheckBox::toggled, m_recent,
-              [this](bool shows)
-              { m_recent->setShowsWelcomeOnStartUp(shows); });
-
       connect(m_recent, &RecentCompositions::changed, this,
               &WelcomePage::refresh);
     }

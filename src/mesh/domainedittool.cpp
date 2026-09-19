@@ -1,5 +1,6 @@
 #include "mesh/domainedittool.h"
 
+#include "core/preferencesmanager.h"
 #include "map/mapcanvas.h"
 #include "map/maptransform.h"
 #include "mesh/domainsnap.h"
@@ -32,7 +33,9 @@ namespace HydroCouple::Composer
 
   double DomainEditTool::tolerance() const
   {
-    return worldTolerance(kSnapPixels, m_canvas->transform().scale());
+    return worldTolerance(
+      PreferencesManager::instance()->snapTolerancePixels(),
+      m_canvas->transform().scale());
   }
 
   bool DomainEditTool::press(QMouseEvent *event)

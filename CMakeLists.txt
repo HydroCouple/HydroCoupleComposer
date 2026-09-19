@@ -128,6 +128,8 @@ configure_file(
 set(COMPOSER_SOURCES
     include/core/composerapplication.h
     src/core/composerapplication.cpp
+    include/core/preferencesmanager.h
+    src/core/preferencesmanager.cpp
     src/core/httpuriresolver.cpp
     include/plugins/componentabi.h
     include/plugins/componentlibrary.h
@@ -277,6 +279,8 @@ set(COMPOSER_SOURCES
     src/ui/dialogs/crsselectiondialog.cpp
     include/ui/dialogs/layerpropertiesdialog.h
     src/ui/dialogs/layerpropertiesdialog.cpp
+    include/ui/dialogs/preferencesdialog.h
+    src/ui/dialogs/preferencesdialog.cpp
     include/ui/dialogs/ogcservicedialog.h
     src/ui/dialogs/ogcservicedialog.cpp
     include/ui/panels/layertreepanel.h
@@ -362,6 +366,7 @@ qt_add_resources(composer_core "composer_icons"
         resources/icons/pause.svg
         resources/icons/play.svg
         resources/icons/plugins.svg
+        resources/icons/preferences.svg
         resources/icons/redo.svg
         resources/icons/save.svg
         resources/icons/scene_3d.svg

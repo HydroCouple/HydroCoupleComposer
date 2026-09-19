@@ -8,12 +8,16 @@
  */
 
 #include "core/composerapplication.h"
+#include "core/preferencesmanager.h"
+#include "settingsredirect.h"
 #include "ui/composermainwindow.h"
 #include "ui/recentcompositions.h"
+#include "ui/theme/thememanager.h"
 #include "ui/welcomepage.h"
 
 #include <gtest/gtest.h>
 
+#include <QAction>
 #include <QCheckBox>
 #include <QListWidget>
 #include <QMenu>
@@ -34,6 +38,12 @@ namespace
       {
         if (!qApp)
         {
+          // The page and the window read the application-wide preferences,
+          // which must not be the developer's own.
+          Testing::redirectSettingsTo(
+            QStringLiteral(COMPOSER_PREFERENCES_FIXTURE_DIR)
+            + QStringLiteral("/test_welcome"));
+
           static int argc = 1;
           static char arg0[] = "test_welcome";
           static char *argv[] = {arg0, nullptr};
@@ -49,6 +59,7 @@ namespace
 
       void SetUp() override
       {
+        PreferencesManager::instance()->resetToDefaults();
         ASSERT_TRUE(directory.isValid());
         settings = std::make_unique<QSettings>(
           directory.filePath(QStringLiteral("recent.ini")),
@@ -95,18 +106,29 @@ TEST_F(WelcomeTest, TheMostRecentComesFirstAndIsNotListedTwice)
 
 TEST_F(WelcomeTest, OnlyTheLastTenAreKept)
 {
-  for (int index = 0; index < RecentCompositions::kMaximum + 5; ++index)
+  // Ten by default, and a preference: the second half of the test lowers
+  // it and expects the list to shrink on the next document remembered.
+  const int limit = PreferencesManager::instance()->recentLimit();
+  ASSERT_EQ(limit, 10);
+
+  for (int index = 0; index < limit + 5; ++index)
   {
     recent->remember(
       writeDocument(QStringLiteral("doc%1.json").arg(index)));
   }
 
-  EXPECT_EQ(recent->paths().size(), RecentCompositions::kMaximum);
+  EXPECT_EQ(recent->paths().size(), limit);
   EXPECT_TRUE(recent->paths().first().contains(QStringLiteral("doc14")))
     << "the newest was not kept";
   EXPECT_FALSE(recent->paths().join(QChar(',')).contains(
     QStringLiteral("doc0.json")))
     << "the oldest was not forgotten";
+
+  PreferencesManager::instance()->setRecentLimit(3);
+  recent->remember(writeDocument(QStringLiteral("doc99.json")));
+  EXPECT_EQ(recent->paths().size(), 3)
+    << "lowering the limit did not trim the list";
+  EXPECT_TRUE(recent->paths().first().contains(QStringLiteral("doc99")));
 }
 
 TEST_F(WelcomeTest, ThePageListsWhatWasOpenedAndAsksToOpenIt)
@@ -140,7 +162,8 @@ TEST_F(WelcomeTest, ThePageListsWhatWasOpenedAndAsksToOpenIt)
 
 TEST_F(WelcomeTest, TheStartUpPreferenceIsRememberedBothWays)
 {
-  EXPECT_TRUE(recent->showsWelcomeOnStartUp()) << "shown until told otherwise";
+  PreferencesManager *prefs = PreferencesManager::instance();
+  EXPECT_TRUE(prefs->showWelcomeOnStartUp()) << "shown until told otherwise";
 
   WelcomePage page(recent.get());
   auto *check =
@@ -149,11 +172,45 @@ TEST_F(WelcomeTest, TheStartUpPreferenceIsRememberedBothWays)
   EXPECT_TRUE(check->isChecked());
 
   check->setChecked(false);
-  EXPECT_FALSE(recent->showsWelcomeOnStartUp())
-    << "unchecking it did not reach the settings";
+  EXPECT_FALSE(prefs->showWelcomeOnStartUp())
+    << "unchecking it did not reach the preference";
 
-  check->setChecked(true);
-  EXPECT_TRUE(recent->showsWelcomeOnStartUp());
+  // And the other way: the preferences dialog sets the same key, and the
+  // box on the page has to follow it rather than keep a copy of its own.
+  prefs->setShowWelcomeOnStartUp(true);
+  EXPECT_TRUE(check->isChecked())
+    << "a change made elsewhere did not reach the page";
+}
+
+TEST_F(WelcomeTest, TheAppearanceActionsAndThePreferenceAreOneSetting)
+{
+  ComposerMainWindow window;
+  window.setAttribute(Qt::WA_QuitOnClose, false);
+
+  PreferencesManager *prefs = PreferencesManager::instance();
+  ThemeManager *theme = ThemeManager::instance();
+  const ThemeManager::Mode original = theme->mode();
+
+  auto *dark = window.findChild<QAction *>(QStringLiteral("appearanceDark"));
+  auto *light = window.findChild<QAction *>(QStringLiteral("appearanceLight"));
+  ASSERT_NE(dark, nullptr);
+  ASSERT_NE(light, nullptr);
+
+  // Set through the preference, as the dialog does: the theme follows and
+  // the matching action lights up, without the action being touched.
+  prefs->setThemeMode(QStringLiteral("Dark"));
+  EXPECT_EQ(theme->mode(), ThemeManager::Mode::Dark);
+  EXPECT_TRUE(dark->isChecked());
+
+  // Set through the action, as the ribbon does: the preference records it,
+  // which is what makes the choice survive a restart.
+  light->trigger();
+  EXPECT_EQ(prefs->themeMode(), QStringLiteral("Light"));
+  EXPECT_EQ(theme->mode(), ThemeManager::Mode::Light);
+
+  prefs->resetToDefaults();
+  theme->setMode(original);
+  theme->apply();
 }
 
 TEST_F(WelcomeTest, TheWindowOpensOnTheWelcomeTabAndLeavesItWhenADocumentOpens)

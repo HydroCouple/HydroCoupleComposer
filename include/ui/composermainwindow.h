@@ -216,6 +216,7 @@ namespace HydroCouple::Composer
       void onSelectionChanged();
       void onLayerProperties(HydroCouple::Composer::MapLayer *layer);
       void onSetMapCrs();
+      void onPreferences();
       void onOpenRun();
 
       //! Draws the recorded item the run browser asked for.
@@ -267,6 +268,10 @@ namespace HydroCouple::Composer
       void createToolBar();
       void createDocks();
       void createMapView();
+
+      //! Hands the remembered library directories to the registry and,
+      //! when the preference says so, scans them.
+      void applyComponentSearchPaths();
 
       /*!
        * \brief Puts \a layer on the map and frames it.
@@ -366,6 +371,7 @@ namespace HydroCouple::Composer
       QAction *m_lightAction = nullptr;
       QAction *m_darkAction = nullptr;
       QAction *m_systemAction = nullptr;
+      QAction *m_preferencesAction = nullptr;
       QAction *m_runAction = nullptr;
       QAction *m_pauseAction = nullptr;
       QAction *m_stopAction = nullptr;

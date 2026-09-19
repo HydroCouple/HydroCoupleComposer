@@ -13,7 +13,9 @@
  */
 
 #include "core/composerapplication.h"
+#include "core/preferencesmanager.h"
 #include "gis/spatialreference.h"
+#include "settingsredirect.h"
 #include "map/layerstackmodel.h"
 #include "map/mapcanvas.h"
 #include "map/maptool.h"
@@ -43,6 +45,12 @@ namespace
       {
         if (!qApp)
         {
+          // The tools read the application-wide preferences, which a test
+          // must not write into the developer's own configuration.
+          Testing::redirectSettingsTo(
+            QStringLiteral(COMPOSER_PREFERENCES_FIXTURE_DIR)
+            + QStringLiteral("/test_maptools"));
+
           static int argc = 1;
           static char arg0[] = "test_maptools";
           static char *argv[] = {arg0, nullptr};
@@ -156,6 +164,41 @@ TEST_F(MapToolsTest, AClickUnderThePanToolIdentifiesWhatIsUnderIt)
 
   EXPECT_EQ(spy.count(), 1)
     << "panning selected whatever the drag happened to end on";
+}
+
+TEST_F(MapToolsTest, TheDragThresholdIsAPreferenceReadOnEveryGesture)
+{
+  PreferencesManager *prefs = PreferencesManager::instance();
+  prefs->resetToDefaults();
+
+  LayerStackModel stack;
+  MapCanvas canvas;
+  canvas.setModel(&stack);
+  showFixture(canvas);
+
+  auto *layer = new Testing::ProbeLayer(QStringLiteral("probe"),
+                                        QRectF(-10.0, -10.0, 20.0, 20.0));
+  ASSERT_GE(stack.addLayer(layer), 0);
+
+  QSignalSpy spy(&canvas, &MapCanvas::featurePicked);
+
+  // Two pixels of travel is inside the default slop, so it is a click.
+  drag(canvas, QPoint(400, 200), QPoint(402, 202));
+  ASSERT_EQ(spy.count(), 1) << "the default slop no longer reads as a click";
+
+  // With no slop at all the same two pixels are a pan — read on this
+  // gesture, not at the tool's construction, or the change would wait for
+  // the next tool.
+  prefs->setDragThresholdPixels(0);
+  drag(canvas, QPoint(400, 200), QPoint(402, 202));
+  EXPECT_EQ(spy.count(), 1) << "a zero threshold still let a drag pick";
+
+  // And with a generous one, eight pixels are a click.
+  prefs->setDragThresholdPixels(10);
+  drag(canvas, QPoint(400, 200), QPoint(408, 200));
+  EXPECT_EQ(spy.count(), 2) << "a wide threshold did not make a short drag a click";
+
+  prefs->resetToDefaults();
 }
 
 TEST_F(MapToolsTest, DraggingARectangleFramesExactlyThatRectangle)

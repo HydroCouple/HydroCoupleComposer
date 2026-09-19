@@ -1,5 +1,6 @@
 #include "map/mapcanvas.h"
 
+#include "core/preferencesmanager.h"
 #include "gis/spatialreference.h"
 #include "layers/featurelayer.h"
 #include "map/extentmath.h"
@@ -27,24 +28,6 @@ namespace HydroCouple::Composer
   {
     //! Wheel notches are 120 eighths of a degree; one notch is one step.
     constexpr double kWheelZoomFactor = 1.2;
-
-    /*!
-     * \brief How near a click has to land, in pixels.
-     *
-     * In pixels rather than map units because it is a property of pointing,
-     * not of the data: the same conduit is equally hard to hit at any zoom,
-     * and a tolerance in metres is generous on a city and useless on a pipe.
-     */
-    constexpr double kPickRadiusPixels = 6.0;
-
-    /*!
-     * \brief How far the mouse may move and still count as a click.
-     *
-     * Panning and picking share the left button, so they are told apart by
-     * whether the view moved. Zero would make every pick a matter of holding
-     * perfectly still.
-     */
-    constexpr int kClickSlopPixels = 3;
 
     /*!
      * \brief Air left around data when a command frames it.
@@ -116,6 +99,18 @@ namespace HydroCouple::Composer
     setAttribute(Qt::WA_OpaquePaintEvent);
 
     m_transform.setViewport(QSizeF(size()));
+
+    // The selection colour is read by the layers as they paint, so a change
+    // to it needs nothing more than a repaint.
+    connect(PreferencesManager::instance(),
+            &PreferencesManager::preferenceChanged, this,
+            [this](const QString &group, const QString &)
+            {
+              if (group == QLatin1String("Selection"))
+              {
+                update();
+              }
+            });
   }
 
   MapCanvas::~MapCanvas() = default;
@@ -1049,8 +1044,15 @@ namespace HydroCouple::Composer
       return nullptr;
     }
 
+    // The tolerance is a preference in pixels rather than map units because
+    // it is a property of pointing, not of the data: the same conduit is
+    // equally hard to hit at any zoom, and a tolerance in metres is generous
+    // on a city and useless on a pipe. Read here, on every pick, so a change
+    // in the preferences dialog applies to the next click.
     const QPointF world = m_transform.toWorld(QPointF(screen));
-    const double tolerance = kPickRadiusPixels / m_transform.scale();
+    const double tolerance =
+      PreferencesManager::instance()->pickTolerancePixels()
+      / m_transform.scale();
 
     // layers() is top-first, which is the order the answer has to come in:
     // the feature the user can see is the one on top.

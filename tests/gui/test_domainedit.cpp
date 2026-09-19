@@ -17,7 +17,9 @@
  */
 
 #include "core/composerapplication.h"
+#include "core/preferencesmanager.h"
 #include "map/mapcanvas.h"
+#include "settingsredirect.h"
 #include "map/maptool.h"
 #include "map/maptransform.h"
 #include "mesh/domainedittool.h"
@@ -72,6 +74,12 @@ namespace
       {
         if (!qApp)
         {
+          // The editor reads the application-wide snap preference, which a
+          // test must not write into the developer's own configuration.
+          Testing::redirectSettingsTo(
+            QStringLiteral(COMPOSER_PREFERENCES_FIXTURE_DIR)
+            + QStringLiteral("/test_domainedit"));
+
           static int argc = 1;
           static char arg0[] = "test_domainedit";
           static char *argv[] = {arg0, nullptr};
@@ -538,6 +546,27 @@ TEST_F(DomainEditTest, ADragOntoAnotherVertexLandsExactlyOnIt)
 
   EXPECT_EQ(m_model->domain().boundary.at(1), QPointF(-150.0, -50.0))
     << "the drag landed where the pointer was, not on the vertex it reached";
+}
+
+TEST_F(DomainEditTest, TheSnapReachIsAPreferenceReadOnEveryDrag)
+{
+  PreferencesManager *prefs = PreferencesManager::instance();
+  prefs->resetToDefaults();
+  useTool();
+
+  // Twelve units short of the hole's corner: beyond the default ten, so
+  // the drag lands where the pointer was...
+  drag(screenFor(QPointF(-100.0, -150.0)), screenFor(QPointF(-162.0, -50.0)));
+  EXPECT_EQ(m_model->domain().boundary.at(1), QPointF(-162.0, -50.0))
+    << "twelve units snapped at a ten-pixel reach";
+
+  // ...and within a widened reach, the same release snaps onto it.
+  prefs->setSnapTolerancePixels(20.0);
+  drag(screenFor(QPointF(-162.0, -50.0)), screenFor(QPointF(-162.0, -50.0) + QPointF(0.0, 1.0)));
+  EXPECT_EQ(m_model->domain().boundary.at(1), QPointF(-150.0, -50.0))
+    << "widening the reach did not apply to the next drag";
+
+  prefs->resetToDefaults();
 }
 
 TEST_F(DomainEditTest, ClickingAnEdgeInsertsACornerAndTheSameDragMovesIt)

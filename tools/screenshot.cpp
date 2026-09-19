@@ -9,10 +9,12 @@
  *
  * Usage: composer_screenshot <output.png> [component-library-directory]
  *        composer_screenshot <output.png> --map
+ *        composer_screenshot <output.png> --preferences [category]
  */
 
 #include "canvas/compositionscene.h"
 #include "core/composerapplication.h"
+#include "core/preferencesmanager.h"
 #include "map/layerstackmodel.h"
 #include "map/mapcanvas.h"
 #include "map/maplayer.h"
@@ -24,6 +26,7 @@
 #include "render/layerstyle.h"
 #include "scene/sceneview.h"
 #include "ui/composermainwindow.h"
+#include "ui/dialogs/preferencesdialog.h"
 #include "ui/toolbars/ribbonbar.h"
 #include "ui/theme/thememanager.h"
 #include "ui/panels/layertreepanel.h"
@@ -266,6 +269,38 @@ int main(int argc, char *argv[])
     // setMode only records the choice; apply() is what repaints.
     ThemeManager::instance()->setMode(ThemeManager::Mode::Dark);
     ThemeManager::instance()->apply();
+  }
+
+  // --preferences [category]: the dialog alone, over the real preferences,
+  // opened at the named category. A dialog is the one piece of chrome the
+  // window capture cannot show, since it is modal and opened on demand.
+  if (argc > 2
+      && QString::fromLocal8Bit(argv[2]) == QLatin1String("--preferences"))
+  {
+    PreferencesDialog dialog(PreferencesManager::instance());
+    dialog.setCrsChooser([](const QString &current) { return current; });
+
+    if (argc > 3 && !QString::fromLocal8Bit(argv[3]).startsWith(QLatin1String("--")))
+    {
+      dialog.openAtCategory(QString::fromLocal8Bit(argv[3]));
+    }
+
+    dialog.show();
+    QCoreApplication::processEvents();
+    QCoreApplication::processEvents();
+
+    const QPixmap capture = dialog.grab();
+
+    if (!capture.save(outputPath))
+    {
+      std::cerr << "could not write " << outputPath.toStdString() << '\n';
+      return 1;
+    }
+
+    std::cout << "wrote " << QFileInfo(outputPath).absoluteFilePath().toStdString()
+              << " (" << capture.width() << "x" << capture.height() << ")\n";
+
+    return 0;
   }
 
   ComposerMainWindow window;
