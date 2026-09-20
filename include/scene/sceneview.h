@@ -19,6 +19,7 @@
 #define HYDROCOUPLECOMPOSER_SCENE_SCENEVIEW_H
 
 #include "map/maplayer.h"
+#include "scene/axisgizmo.h"
 #include "scene/camera.h"
 #include "scene/scenegeometry.h"
 #include "scene/scenerenderer.h"
@@ -331,7 +332,26 @@ namespace HydroCouple::Composer
       [[nodiscard]] bool groundOrPlaneUnder(const QPoint &pixel,
                                             QPointF &ground) const;
 
+      /*!
+       * \brief The orientation cue's square, in widget coordinates.
+       *
+       * Empty when the cue is switched off or the view has no room for
+       * one. This is the single place the corner is worked out: the
+       * renderer is handed the same rectangle scaled to device pixels,
+       * so a click can never land on a cue drawn somewhere else.
+       */
+      [[nodiscard]] QRect gizmoRect() const;
+
+      /*!
+       * \brief Answers a press on the cue, if that is what it was.
+       *
+       * \returns True when the press was consumed, so the caller knows
+       *          not to start an orbit with it as well.
+       */
+      [[nodiscard]] bool takeGizmoPress(const QPoint &pixel);
+
       SceneRenderer m_renderer;
+
       Camera m_camera;
       QColor m_background = QColor(0x1a, 0x1d, 0x21);
 
@@ -346,6 +366,11 @@ namespace HydroCouple::Composer
       //! Built on first use, because a view nobody drags never needs one.
       std::unique_ptr<QRubberBand> m_band;
       bool m_framed = false;
+
+      //! The orientation cue, as preferences last described it.
+      bool m_showGizmo = true;
+      int m_gizmoSize = 96;
+      GizmoCorner m_gizmoCorner = GizmoCorner::BottomLeft;
   };
 
 } // namespace HydroCouple::Composer

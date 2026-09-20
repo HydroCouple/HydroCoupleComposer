@@ -90,6 +90,10 @@ target_compile_definitions(test_welcome PRIVATE
 
 # U7 — global preferences. The manager suite walks the key table over its
 # own .ini; the dialog suite drives every widget through OK and reopens.
+# U4 — the orientation cue: arithmetic over the camera's angles.
+composer_add_gui_test(test_axisgizmo)
+composer_add_gui_test(test_gizmodraw)
+
 # U3 — what a point layer and a filled ring contribute to the 3D view.
 composer_add_gui_test(test_scenemarkers)
 

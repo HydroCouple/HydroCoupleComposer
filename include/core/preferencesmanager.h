@@ -136,6 +136,24 @@ namespace HydroCouple::Composer
       [[nodiscard]] double defaultVerticalExaggeration() const;
       void setDefaultVerticalExaggeration(double factor);
 
+      //! Whether the orientation cue is drawn over the 3D view.
+      [[nodiscard]] bool showAxisGizmo() const;
+      void setShowAxisGizmo(bool show);
+      //! The side of the gizmo's square viewport, in logical pixels.
+      [[nodiscard]] int axisGizmoSizePixels() const;
+      void setAxisGizmoSizePixels(int pixels);
+      /*!
+       * \brief Which corner of the 3D view the gizmo occupies.
+       *
+       * Stored and returned by name — "BottomLeft" and the rest — rather
+       * than as scene/axisgizmo.h's enum, so that preferences, which
+       * every layer reads, does not drag the scene layer in behind it.
+       * gizmoCornerFromName() does the translation, next to the enum it
+       * translates into.
+       */
+      [[nodiscard]] QString axisGizmoCorner() const;
+      void setAxisGizmoCorner(const QString &corner);
+
     Q_SIGNALS:
       /*!
        * \brief A stored value changed.

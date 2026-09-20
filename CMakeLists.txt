@@ -291,6 +291,8 @@ set(COMPOSER_SOURCES
     src/ui/recentcompositions.cpp
     include/ui/selectionhub.h
     src/ui/selectionhub.cpp
+    include/scene/axisgizmo.h
+    src/scene/axisgizmo.cpp
     include/layers/componentlayer.h
     include/ui/welcomepage.h
     src/ui/welcomepage.cpp

@@ -2,6 +2,7 @@
 
 #include "map/layerstackmodel.h"
 #include "map/maplayer.h"
+#include "scene/axisgizmo.h"
 #include "scene/scenesource.h"
 
 #include <QFile>
@@ -365,6 +366,7 @@ namespace HydroCouple::Composer
   {
     m_batches.clear();
     m_batchesValid = false;
+    m_gizmo = {};
     m_trianglePipeline.reset();
     m_linePipeline.reset();
     m_groundPipeline.reset();
@@ -515,6 +517,131 @@ namespace HydroCouple::Composer
     }
   }
 
+  void SceneRenderer::setAxisGizmoViewport(const QRect &deviceRect)
+  {
+    m_gizmoRect = deviceRect;
+  }
+
+  bool SceneRenderer::ensureAxisGizmo(QRhiResourceUpdateBatch *updates)
+  {
+    if (m_gizmo.indexCount > 0)
+    {
+      return true;
+    }
+
+    // A device that refused the cue once is not asked again every frame.
+    if (m_gizmo.refused || !m_rhi)
+    {
+      return false;
+    }
+
+    const SceneGeometry geometry = buildAxisGizmo();
+
+    if (geometry.isEmpty())
+    {
+      m_gizmo.refused = true;
+
+      return false;
+    }
+
+    const quint32 vertexBytes =
+      quint32(geometry.vertices.size() * int(sizeof(SceneVertex)));
+    const quint32 indexBytes =
+      quint32(geometry.indices.size() * int(sizeof(quint32)));
+
+    m_gizmo.vertexBuffer.reset(m_rhi->newBuffer(
+      QRhiBuffer::Immutable, QRhiBuffer::VertexBuffer, vertexBytes));
+    m_gizmo.indexBuffer.reset(m_rhi->newBuffer(
+      QRhiBuffer::Immutable, QRhiBuffer::IndexBuffer, indexBytes));
+    m_gizmo.uniformBuffer.reset(m_rhi->newBuffer(
+      QRhiBuffer::Dynamic, QRhiBuffer::UniformBuffer, kUniformBlockSize));
+
+    if (!m_gizmo.vertexBuffer->create() || !m_gizmo.indexBuffer->create() ||
+        !m_gizmo.uniformBuffer->create())
+    {
+      m_gizmo = {};
+      m_gizmo.refused = true;
+
+      return false;
+    }
+
+    m_gizmo.bindings.reset(m_rhi->newShaderResourceBindings());
+    m_gizmo.bindings->setBindings({ QRhiShaderResourceBinding::uniformBuffer(
+      0,
+      QRhiShaderResourceBinding::VertexStage |
+        QRhiShaderResourceBinding::FragmentStage,
+      m_gizmo.uniformBuffer.get()) });
+
+    if (!m_gizmo.bindings->create())
+    {
+      m_gizmo = {};
+      m_gizmo.refused = true;
+
+      return false;
+    }
+
+    // Uploaded into the frame's own batch rather than queued in
+    // m_pendingUpdates, which render() has already drained by the time it
+    // asks for the cue: queueing here would hold the geometry back a
+    // frame and draw the first one from buffers nothing had written.
+    updates->uploadStaticBuffer(m_gizmo.vertexBuffer.get(),
+                                geometry.vertices.constData());
+    updates->uploadStaticBuffer(m_gizmo.indexBuffer.get(),
+                                geometry.indices.constData());
+
+    m_gizmo.indexCount = quint32(geometry.indices.size());
+
+    return true;
+  }
+
+  void SceneRenderer::drawAxisGizmo(QRhiCommandBuffer *cb,
+                                    const QSize &pixelSize)
+  {
+    if (m_gizmoRect.width() <= 0 || m_gizmoRect.height() <= 0
+        || m_gizmo.indexCount == 0 || !m_trianglePipeline)
+    {
+      return;
+    }
+
+    cb->setGraphicsPipeline(m_trianglePipeline.get());
+
+    // QRhi takes viewports in OpenGL's bottom-left origin, and the rect
+    // arrives in the widget's top-left one. Without this line the cue
+    // appears in the corner diagonally opposite the one the user chose,
+    // which is the sort of bug that looks like a wrong preference rather
+    // than a wrong renderer.
+    const int bottomUpY =
+      pixelSize.height() - m_gizmoRect.y() - m_gizmoRect.height();
+
+    // The cue has to sit in front of the scene, and the depth buffer
+    // already holds the scene's depths — this pass cleared it once, at
+    // the top, and QRhi gives no way to clear a region part-way through.
+    //
+    // So rather than turning depth off, which would make the cue's own
+    // arms draw in submission order and put Up in front of East whichever
+    // way the camera faced, the viewport's depth range is squeezed into
+    // the nearest hundredth of the buffer. Every fragment of the cue then
+    // beats every fragment of the scene, while the arms keep their depths
+    // *relative to each other* and occlude one another correctly. It is
+    // the one thing a viewport can do that a pipeline cannot.
+    constexpr float kGizmoDepth = 0.01f;
+
+    cb->setViewport({ float(m_gizmoRect.x()), float(bottomUpY),
+                      float(m_gizmoRect.width()),
+                      float(m_gizmoRect.height()), 0.0f, kGizmoDepth });
+
+    cb->setShaderResources(m_gizmo.bindings.get());
+
+    const QRhiCommandBuffer::VertexInput input(m_gizmo.vertexBuffer.get(), 0);
+    cb->setVertexInput(0, 1, &input, m_gizmo.indexBuffer.get(), 0,
+                       QRhiCommandBuffer::IndexUInt32);
+    cb->drawIndexed(m_gizmo.indexCount);
+
+    // Deliberately not counted in the statistics. Those are there to tell
+    // the user how heavy their scene is, and a fixed three-arm cue that
+    // is always the same size would only be noise in that number.
+  }
+
   void SceneRenderer::render(QRhiCommandBuffer *cb, QRhiRenderTarget *target,
                              const Camera &camera, const QColor &background)
   {
@@ -581,6 +708,43 @@ namespace HydroCouple::Composer
                                    kUniformBlockSize, block);
     }
 
+    // The cue's own uniform, written here with the rest because a
+    // resource update batch is submitted by beginPass and there is no
+    // second chance at it once the pass is open.
+    if (!m_gizmoRect.isEmpty() && ensureAxisGizmo(updates))
+    {
+      float block[kUniformBlockSize / sizeof(float)] = {};
+
+      // The camera's rotation and nothing else. No model matrix, so the
+      // cue is untouched by vertical exaggeration — a north arrow that
+      // stretched when the user exaggerated the terrain would be telling
+      // them something false about the terrain.
+      const QMatrix4x4 gizmoMvp =
+        m_rhi->clipSpaceCorrMatrix()
+        * axisGizmoMatrix(camera.azimuth(), camera.elevation());
+
+      const QMatrix4x4 identity;
+
+      std::copy_n(gizmoMvp.constData(), 16, block);
+      std::copy_n(identity.constData(), 16, block + 16);
+
+      // The same headlight the scene uses, so the arm facing the user is
+      // the lit one at every angle.
+      block[32] = toLight.x();
+      block[33] = toLight.y();
+      block[34] = toLight.z();
+      block[35] = 0.0f;
+      block[36] = 1.0f;
+      block[37] = float(m_ambient);
+
+      // No coplanar nudge: nothing in the cue is coplanar with anything,
+      // and it is drawn into a depth range of its own in any case.
+      block[38] = 0.0f;
+
+      updates->updateDynamicBuffer(m_gizmo.uniformBuffer.get(), 0,
+                                   kUniformBlockSize, block);
+    }
+
     cb->beginPass(target, background, { 1.0f, 0 }, updates);
 
     for (const Batch &batch : m_batches)
@@ -612,6 +776,10 @@ namespace HydroCouple::Composer
         batch.primitive == ScenePrimitive::Lines ? batch.indexCount / 2
                                                  : batch.indexCount / 3;
     }
+
+    // Last, so that it is drawn over a scene that has finished writing
+    // its depths rather than into the middle of them.
+    drawAxisGizmo(cb, pixelSize);
 
     cb->endPass();
   }

@@ -82,6 +82,9 @@ namespace HydroCouple::Composer
     // only repainting.
     PreferencesManager *prefs = PreferencesManager::instance();
     m_background = prefs->sceneBackgroundColor();
+    m_showGizmo = prefs->showAxisGizmo();
+    m_gizmoSize = prefs->axisGizmoSizePixels();
+    m_gizmoCorner = gizmoCornerFromName(prefs->axisGizmoCorner());
 
     connect(prefs, &PreferencesManager::preferenceChanged, this,
             [this, prefs](const QString &group, const QString &name)
@@ -90,6 +93,20 @@ namespace HydroCouple::Composer
                   && name == QLatin1String("backgroundColor"))
               {
                 setBackgroundColor(prefs->sceneBackgroundColor());
+              }
+              else if (group == QLatin1String("3D View")
+                       && name.startsWith(QLatin1String("axisGizmo")))
+              {
+                m_gizmoSize = prefs->axisGizmoSizePixels();
+                m_gizmoCorner =
+                  gizmoCornerFromName(prefs->axisGizmoCorner());
+                update();
+              }
+              else if (group == QLatin1String("3D View")
+                       && name == QLatin1String("showAxisGizmo"))
+              {
+                m_showGizmo = prefs->showAxisGizmo();
+                update();
               }
               else if (group == QLatin1String("Selection"))
               {
@@ -306,9 +323,65 @@ namespace HydroCouple::Composer
     }
   }
 
+  QRect SceneView::gizmoRect() const
+  {
+    if (!m_showGizmo)
+    {
+      return {};
+    }
+
+    return axisGizmoRect(size(), m_gizmoSize, m_gizmoCorner);
+  }
+
+  bool SceneView::takeGizmoPress(const QPoint &pixel)
+  {
+    const QRect rect = gizmoRect();
+
+    if (!rect.contains(pixel))
+    {
+      return false;
+    }
+
+    const GizmoAxis axis = axisGizmoHit(axisGizmoPoint(pixel, rect),
+                                        m_camera.azimuth(),
+                                        m_camera.elevation());
+
+    double azimuth = m_camera.azimuth();
+    double elevation = m_camera.elevation();
+
+    if (!axisGizmoView(axis, azimuth, elevation))
+    {
+      // A press inside the cue's square but not on an arm is still the
+      // cue's: letting it fall through would start an orbit from a click
+      // the user aimed at a button, which feels like a slipped grip.
+      return true;
+    }
+
+    m_camera.setAzimuth(azimuth);
+    m_camera.setElevation(elevation);
+    update();
+
+    return true;
+  }
+
   void SceneView::render(QRhiCommandBuffer *cb)
   {
     frameOnFirstGeometry();
+
+    // The same rectangle the hit test uses, in device pixels. Scaled from
+    // the one rect rather than recomputed from the device size, because a
+    // corner worked out twice is a corner that will eventually be two
+    // corners — and on a retina display the inset alone would differ.
+    const QRect logical = gizmoRect();
+    const double ratio = devicePixelRatioF();
+
+    m_renderer.setAxisGizmoViewport(
+      logical.isEmpty()
+        ? QRect()
+        : QRect(int(std::lround(logical.x() * ratio)),
+                int(std::lround(logical.y() * ratio)),
+                int(std::lround(logical.width() * ratio)),
+                int(std::lround(logical.height() * ratio))));
 
     m_renderer.render(cb, renderTarget(), m_camera, m_background);
   }
@@ -320,6 +393,26 @@ namespace HydroCouple::Composer
 
   void SceneView::mousePressEvent(QMouseEvent *event)
   {
+    // First: a press on the cue is a press on a control, not the start of
+    // a gesture over the scene.
+    if (event->button() == Qt::LeftButton && takeGizmoPress(event->pos()))
+    {
+      // Said rather than assumed. The release handler reads these, and
+      // returning early without clearing them would leave the view
+      // holding whatever the last gesture left behind — which happens to
+      // be harmless today only because release clears them, and that is
+      // a poor thing for correctness here to rest on.
+      m_orbiting = false;
+      m_panning = false;
+      m_banding = false;
+      m_pressPosition = event->pos();
+      m_lastMousePosition = event->pos();
+
+      event->accept();
+
+      return;
+    }
+
     m_pressPosition = event->pos();
     m_lastMousePosition = event->pos();
 

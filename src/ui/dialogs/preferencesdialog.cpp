@@ -1,6 +1,7 @@
 #include "ui/dialogs/preferencesdialog.h"
 
 #include "core/preferencesmanager.h"
+#include "scene/axisgizmo.h"
 
 #include <QCheckBox>
 #include <QColorDialog>
@@ -379,6 +380,38 @@ namespace HydroCouple::Composer
     m_exaggeration->setPrefix(tr("×"));
     form->addRow(tr("Default vertical exaggeration"), m_exaggeration);
 
+    m_showGizmo = new QCheckBox(tr("Show the orientation cue"), page);
+    m_showGizmo->setObjectName(QStringLiteral("showGizmo"));
+    form->addRow(QString(), m_showGizmo);
+
+    m_gizmoSize = new QSpinBox(page);
+    m_gizmoSize->setObjectName(QStringLiteral("gizmoSize"));
+    // The floor is the manager's too: a viewport of zero pixels is not an
+    // invisible gizmo, it is a validation error on some backends. Set it
+    // here as well so the dialog cannot ask for one in the first place.
+    m_gizmoSize->setRange(24, 256);
+    m_gizmoSize->setSingleStep(8);
+    m_gizmoSize->setSuffix(tr(" px"));
+    form->addRow(tr("Orientation cue size"), m_gizmoSize);
+
+    m_gizmoCorner = new QComboBox(page);
+    m_gizmoCorner->setObjectName(QStringLiteral("gizmoCorner"));
+    m_gizmoCorner->addItem(tr("Bottom left"),
+                           gizmoCornerName(GizmoCorner::BottomLeft));
+    m_gizmoCorner->addItem(tr("Bottom right"),
+                           gizmoCornerName(GizmoCorner::BottomRight));
+    m_gizmoCorner->addItem(tr("Top left"),
+                           gizmoCornerName(GizmoCorner::TopLeft));
+    m_gizmoCorner->addItem(tr("Top right"),
+                           gizmoCornerName(GizmoCorner::TopRight));
+    form->addRow(tr("Orientation cue corner"), m_gizmoCorner);
+
+    // The size and the corner say nothing while the cue is hidden.
+    connect(m_showGizmo, &QCheckBox::toggled, m_gizmoSize,
+            &QWidget::setEnabled);
+    connect(m_showGizmo, &QCheckBox::toggled, m_gizmoCorner,
+            &QWidget::setEnabled);
+
     return page;
   }
 
@@ -415,6 +448,18 @@ namespace HydroCouple::Composer
     m_sceneProjection->setCurrentIndex(
       m_sceneProjection->findData(prefs.defaultSceneProjection()));
     m_exaggeration->setValue(prefs.defaultVerticalExaggeration());
+
+    m_showGizmo->setChecked(prefs.showAxisGizmo());
+    m_gizmoSize->setValue(prefs.axisGizmoSizePixels());
+
+    // Through the enum and back, so that a stored name nobody recognises
+    // shows the corner it will actually be drawn in rather than leaving
+    // the box on whatever happened to be there.
+    m_gizmoCorner->setCurrentIndex(m_gizmoCorner->findData(
+      gizmoCornerName(gizmoCornerFromName(prefs.axisGizmoCorner()))));
+
+    m_gizmoSize->setEnabled(m_showGizmo->isChecked());
+    m_gizmoCorner->setEnabled(m_showGizmo->isChecked());
   }
 
   void PreferencesDialog::apply()
@@ -452,6 +497,10 @@ namespace HydroCouple::Composer
     prefs.setDefaultSceneProjection(
       m_sceneProjection->currentData().toString());
     prefs.setDefaultVerticalExaggeration(m_exaggeration->value());
+
+    prefs.setShowAxisGizmo(m_showGizmo->isChecked());
+    prefs.setAxisGizmoSizePixels(m_gizmoSize->value());
+    prefs.setAxisGizmoCorner(m_gizmoCorner->currentData().toString());
   }
 
   void PreferencesDialog::resetToDefaults()

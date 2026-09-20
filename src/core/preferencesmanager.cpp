@@ -2,6 +2,8 @@
 
 #include <QSettings>
 
+#include <algorithm>
+
 namespace HydroCouple::Composer
 {
 
@@ -56,6 +58,10 @@ namespace HydroCouple::Composer
       {kScene, QStringLiteral("defaultProjection"),
        QStringLiteral("Perspective")},
       {kScene, QStringLiteral("defaultVerticalExaggeration"), 1.0},
+      {kScene, QStringLiteral("showAxisGizmo"), true},
+      {kScene, QStringLiteral("axisGizmoSizePixels"), 96},
+      {kScene, QStringLiteral("axisGizmoCorner"),
+       QStringLiteral("BottomLeft")},
     };
 
     return table;
@@ -312,6 +318,41 @@ namespace HydroCouple::Composer
   void PreferencesManager::setDefaultVerticalExaggeration(double factor)
   {
     setValue(kScene, QStringLiteral("defaultVerticalExaggeration"), factor);
+  }
+
+  bool PreferencesManager::showAxisGizmo() const
+  {
+    return value(kScene, QStringLiteral("showAxisGizmo")).toBool();
+  }
+
+  void PreferencesManager::setShowAxisGizmo(bool show)
+  {
+    setValue(kScene, QStringLiteral("showAxisGizmo"), show);
+  }
+
+  int PreferencesManager::axisGizmoSizePixels() const
+  {
+    // Floored rather than trusted. The value reaches the renderer as a
+    // viewport side, and a viewport of zero or of a negative width is not
+    // an invisible gizmo — on some backends it is a validation error that
+    // takes the whole frame down with it.
+    return std::max(24, value(kScene, QStringLiteral("axisGizmoSizePixels"))
+                          .toInt());
+  }
+
+  void PreferencesManager::setAxisGizmoSizePixels(int pixels)
+  {
+    setValue(kScene, QStringLiteral("axisGizmoSizePixels"), pixels);
+  }
+
+  QString PreferencesManager::axisGizmoCorner() const
+  {
+    return value(kScene, QStringLiteral("axisGizmoCorner")).toString();
+  }
+
+  void PreferencesManager::setAxisGizmoCorner(const QString &corner)
+  {
+    setValue(kScene, QStringLiteral("axisGizmoCorner"), corner);
   }
 
 } // namespace HydroCouple::Composer

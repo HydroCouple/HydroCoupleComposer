@@ -121,6 +121,9 @@ namespace HydroCouple::Composer
       QToolButton *m_sceneBackground = nullptr;
       QComboBox *m_sceneProjection = nullptr;
       QDoubleSpinBox *m_exaggeration = nullptr;
+      QCheckBox *m_showGizmo = nullptr;
+      QSpinBox *m_gizmoSize = nullptr;
+      QComboBox *m_gizmoCorner = nullptr;
   };
 
 } // namespace HydroCouple::Composer
