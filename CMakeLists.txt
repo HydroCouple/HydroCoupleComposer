@@ -474,7 +474,10 @@ set_target_properties(HydroCoupleComposer PROPERTIES
     MACOSX_BUNDLE_BUNDLE_NAME "HydroCoupleComposer"
     MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
-    MACOSX_BUNDLE_GUI_IDENTIFIER "org.hydrocouple.composer"
+    # The same domain QSettings derives from the organisation domain and the
+    # application name, so Cocoa's window and panel state and the
+    # application's own preferences share one plist.
+    MACOSX_BUNDLE_GUI_IDENTIFIER "org.hydrocouple.HydroCoupleComposer"
     MACOSX_BUNDLE_ICON_FILE "HydroCoupleComposer.icns")
 
 install(TARGETS HydroCoupleComposer
