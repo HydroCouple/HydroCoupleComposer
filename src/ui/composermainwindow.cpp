@@ -21,6 +21,7 @@
 #include "map/mapcanvas.h"
 #include "scene/camera.h"
 #include "scene/scenesource.h"
+#include "scene/navigation.h"
 #include "scene/sceneview.h"
 #include "map/maplayer.h"
 #include "project/hcpimporter.h"
@@ -384,34 +385,62 @@ namespace HydroCouple::Composer
     connect(m_workspace, &QTabWidget::currentChanged, this,
             [this](int index)
             {
+              // Linking is a preference now (U5b). Read at the moment of
+              // the switch rather than cached, because the only thing
+              // this saves is one settings lookup per tab change and the
+              // thing it costs is a stale answer after the user changes
+              // their mind in the dialog.
+              if (viewLinkFromName(PreferencesManager::instance()->linkViews())
+                  != ViewLink::OnTabSwitch)
+              {
+                return;
+              }
+
               QWidget *arriving = m_workspace->widget(index);
 
               if (arriving == m_sceneView)
               {
-                // Only when the map is showing data. An empty map shows its
-                // default view around the origin, and handing *that* over
-                // would count as having framed the scene deliberately — so a
-                // model loaded afterwards would never be framed at all, and
-                // the 3D tab would sit looking at nothing near the origin.
-                if (!m_mapCanvas->fullExtent().isEmpty())
-                {
-                  m_sceneView->showGroundExtent(
-                    m_mapCanvas->transform().visibleExtent());
-                }
+                frameSceneFromMap();
               }
               else if (arriving == m_mapCanvas)
               {
-                // Empty before the 3D view has had a size, which is exactly
-                // the case where it has nothing to hand over anyway.
-                const QRectF ground = m_sceneView->groundExtent();
-
-                if (!ground.isEmpty())
-                {
-                  m_mapCanvas->setVisibleExtent(ground);
-                }
+                frameMapFromScene();
               }
             });
 
+  }
+
+  bool ComposerMainWindow::frameSceneFromMap()
+  {
+    // Only when the map is showing data. An empty map shows its default
+    // view around the origin, and handing *that* over would count as
+    // having framed the scene deliberately — so a model loaded afterwards
+    // would never be framed at all, and the 3D tab would sit looking at
+    // nothing near the origin.
+    if (m_mapCanvas->fullExtent().isEmpty())
+    {
+      return false;
+    }
+
+    m_sceneView->showGroundExtent(m_mapCanvas->transform().visibleExtent());
+
+    return true;
+  }
+
+  bool ComposerMainWindow::frameMapFromScene()
+  {
+    // Empty before the 3D view has had a size, which is exactly the case
+    // where it has nothing to hand over anyway.
+    const QRectF ground = m_sceneView->groundExtent();
+
+    if (ground.isEmpty())
+    {
+      return false;
+    }
+
+    m_mapCanvas->setVisibleExtent(ground);
+
+    return true;
   }
 
   void ComposerMainWindow::createActions()
@@ -714,6 +743,96 @@ namespace HydroCouple::Composer
               else
               {
                 m_mapCanvas->zoomBy(1.0 / 1.25);
+              }
+            });
+
+    // ── the 3D tab's own navigation (U5a) ─────────────────────────────
+    //
+    // Unconditional, unlike the menu's: a button on the 3D strip that
+    // moved the map because the map was in front would be a button that
+    // did nothing the user could see. Each brings the 3D view forward
+    // first, the same way the exaggeration spin on that strip does.
+    const auto sceneAction = [this](const QString &name, const QString &text,
+                                    auto &&work) -> QAction *
+    {
+      auto *action = new QAction(text, this);
+      action->setObjectName(name);
+
+      connect(action, &QAction::triggered, this,
+              [this, work]
+              {
+                m_workspace->setCurrentWidget(m_sceneView);
+                work();
+              });
+
+      return action;
+    };
+
+    m_sceneZoomInAction =
+      sceneAction(QStringLiteral("sceneZoomInAction"), tr("Zoom In (3D)"),
+                  [this] { m_sceneView->zoomIn(); });
+
+    m_sceneZoomOutAction =
+      sceneAction(QStringLiteral("sceneZoomOutAction"), tr("Zoom Out (3D)"),
+                  [this] { m_sceneView->zoomOut(); });
+
+    m_sceneZoomFullAction = sceneAction(
+      QStringLiteral("sceneZoomFullAction"), tr("Full Extent (3D)"),
+      [this] { m_sceneView->zoomToFullExtent(); });
+
+    m_sceneResetViewAction = sceneAction(
+      QStringLiteral("sceneResetViewAction"), tr("Reset View"),
+      [this] { m_sceneView->showNamedView(NamedView::Reset); });
+    m_sceneResetViewAction->setToolTip(
+      tr("North up, at the tilt a new view starts with."));
+
+    m_sceneTopViewAction = sceneAction(
+      QStringLiteral("sceneTopViewAction"), tr("Top View"),
+      [this] { m_sceneView->showNamedView(NamedView::Top); });
+    m_sceneTopViewAction->setToolTip(
+      tr("Straight down, without turning the map."));
+
+    m_sceneLookAtSelectionAction = sceneAction(
+      QStringLiteral("sceneLookAtSelectionAction"), tr("Look at Selection"),
+      [this]
+      {
+        if (!m_sceneView->lookAtSelection())
+        {
+          // Said, rather than left looking like a dead button. Framing
+          // everything instead would lose the position the user spent a
+          // minute finding, which is worse than doing nothing.
+          statusBar()->showMessage(
+            tr("Nothing is selected to look at."), 4000);
+        }
+      });
+
+    m_syncFromMapAction = sceneAction(
+      QStringLiteral("syncFromMapAction"), tr("Sync from Map"),
+      [this]
+      {
+        if (!frameSceneFromMap())
+        {
+          statusBar()->showMessage(
+            tr("The map has nothing to frame the 3D view on."), 4000);
+        }
+      });
+    m_syncFromMapAction->setToolTip(
+      tr("Frame the 3D view on what the map is showing."));
+
+    m_syncFromSceneAction = new QAction(tr("Sync from 3D"), this);
+    m_syncFromSceneAction->setObjectName(QStringLiteral("syncFromSceneAction"));
+    m_syncFromSceneAction->setToolTip(
+      tr("Frame the map on the ground the 3D view is looking at."));
+    connect(m_syncFromSceneAction, &QAction::triggered, this,
+            [this]
+            {
+              // The mirror image, so it brings the *map* forward.
+              m_workspace->setCurrentWidget(m_mapCanvas);
+
+              if (!frameMapFromScene())
+              {
+                statusBar()->showMessage(
+                  tr("The 3D view has nothing to frame the map on."), 4000);
               }
             });
 
@@ -1168,6 +1287,7 @@ namespace HydroCouple::Composer
     navigate->addAction(m_zoomFullAction, tr("Full\nExtent"));
     navigate->addAction(m_zoomInAction, tr("Zoom\nIn"));
     navigate->addAction(m_zoomOutAction, tr("Zoom\nOut"));
+    navigate->addAction(m_syncFromSceneAction, tr("Sync from\n3D"));
 
     RibbonGroup *data = m_ribbon->addGroup(QStringLiteral("map"), tr("Data"));
     data->addAction(m_addVectorAction, tr("Add\nVector"));
@@ -1218,6 +1338,17 @@ namespace HydroCouple::Composer
     sceneTools->addAction(m_sceneSelectToolAction, tr("Select"));
     sceneTools->addAction(m_sceneZoomInToolAction, tr("Zoom In\nBox"));
     sceneTools->addAction(m_sceneZoomOutToolAction, tr("Zoom Out\nBox"));
+
+    RibbonGroup *sceneNavigate =
+      m_ribbon->addGroup(QStringLiteral("scene"), tr("Navigate"));
+    sceneNavigate->addAction(m_sceneZoomFullAction, tr("Full\nExtent"));
+    sceneNavigate->addAction(m_sceneZoomInAction, tr("Zoom\nIn"));
+    sceneNavigate->addAction(m_sceneZoomOutAction, tr("Zoom\nOut"));
+    sceneNavigate->addAction(m_sceneResetViewAction, tr("Reset\nView"));
+    sceneNavigate->addAction(m_sceneTopViewAction, tr("Top\nView"));
+    sceneNavigate->addAction(m_sceneLookAtSelectionAction,
+                             tr("Look at\nSelection"));
+    sceneNavigate->addAction(m_syncFromMapAction, tr("Sync from\nMap"));
 
     RibbonGroup *projection =
       m_ribbon->addGroup(QStringLiteral("scene"), tr("Projection"));

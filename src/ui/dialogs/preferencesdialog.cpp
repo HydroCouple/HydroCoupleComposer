@@ -2,6 +2,7 @@
 
 #include "core/preferencesmanager.h"
 #include "scene/axisgizmo.h"
+#include "scene/navigation.h"
 
 #include <QCheckBox>
 #include <QColorDialog>
@@ -406,6 +407,43 @@ namespace HydroCouple::Composer
                            gizmoCornerName(GizmoCorner::TopRight));
     form->addRow(tr("Orientation cue corner"), m_gizmoCorner);
 
+    m_linkViews = new QComboBox(page);
+    m_linkViews->setObjectName(QStringLiteral("linkViews"));
+    m_linkViews->addItem(tr("On tab switch"),
+                         viewLinkName(ViewLink::OnTabSwitch));
+    m_linkViews->addItem(tr("Never"), viewLinkName(ViewLink::Never));
+    m_linkViews->setToolTip(
+      tr("Whether arriving at a view frames it on what the other one was "
+         "showing."));
+    form->addRow(tr("Link 2D and 3D views"), m_linkViews);
+
+    m_orbitSensitivity = new QDoubleSpinBox(page);
+    m_orbitSensitivity->setObjectName(QStringLiteral("orbitSensitivity"));
+    // The same bounds orbitStep() enforces. Stated here too so the spin
+    // box cannot offer a value the camera will quietly refuse — a control
+    // that accepts a number and then ignores it is worse than one that
+    // will not accept it.
+    m_orbitSensitivity->setRange(0.05, 1.2);
+    m_orbitSensitivity->setSingleStep(0.05);
+    m_orbitSensitivity->setDecimals(2);
+    m_orbitSensitivity->setSuffix(tr("°/px"));
+    form->addRow(tr("Orbit sensitivity"), m_orbitSensitivity);
+
+    m_invertWheel = new QCheckBox(tr("Invert the 3D scroll wheel"), page);
+    m_invertWheel->setObjectName(QStringLiteral("invertWheel"));
+    form->addRow(QString(), m_invertWheel);
+
+    m_panModifier = new QComboBox(page);
+    m_panModifier->setObjectName(QStringLiteral("panModifier"));
+    m_panModifier->addItem(tr("Middle or right drag"),
+                           panModifierName(PanModifier::MiddleDrag));
+    m_panModifier->addItem(tr("Middle, right, or Shift and left drag"),
+                           panModifierName(PanModifier::ShiftDrag));
+    m_panModifier->setToolTip(
+      tr("Middle and right always pan. The second choice adds Shift with "
+         "the left button, for trackpads and mice with no middle button."));
+    form->addRow(tr("Pan the 3D view with"), m_panModifier);
+
     // The size and the corner say nothing while the cue is hidden.
     connect(m_showGizmo, &QCheckBox::toggled, m_gizmoSize,
             &QWidget::setEnabled);
@@ -460,6 +498,16 @@ namespace HydroCouple::Composer
 
     m_gizmoSize->setEnabled(m_showGizmo->isChecked());
     m_gizmoCorner->setEnabled(m_showGizmo->isChecked());
+
+    // Each through its enum and back, so a stored name nobody recognises
+    // shows the behaviour that will actually be used rather than leaving
+    // the box on whatever happened to be there.
+    m_linkViews->setCurrentIndex(m_linkViews->findData(
+      viewLinkName(viewLinkFromName(prefs.linkViews()))));
+    m_orbitSensitivity->setValue(prefs.orbitDegreesPerPixel());
+    m_invertWheel->setChecked(prefs.invertWheel());
+    m_panModifier->setCurrentIndex(m_panModifier->findData(
+      panModifierName(panModifierFromName(prefs.panModifier()))));
   }
 
   void PreferencesDialog::apply()
@@ -501,6 +549,11 @@ namespace HydroCouple::Composer
     prefs.setShowAxisGizmo(m_showGizmo->isChecked());
     prefs.setAxisGizmoSizePixels(m_gizmoSize->value());
     prefs.setAxisGizmoCorner(m_gizmoCorner->currentData().toString());
+
+    prefs.setLinkViews(m_linkViews->currentData().toString());
+    prefs.setOrbitDegreesPerPixel(m_orbitSensitivity->value());
+    prefs.setInvertWheel(m_invertWheel->isChecked());
+    prefs.setPanModifier(m_panModifier->currentData().toString());
   }
 
   void PreferencesDialog::resetToDefaults()

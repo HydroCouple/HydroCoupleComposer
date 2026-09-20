@@ -21,6 +21,7 @@
 #include "map/maplayer.h"
 #include "scene/axisgizmo.h"
 #include "scene/camera.h"
+#include "scene/navigation.h"
 #include "scene/scenegeometry.h"
 #include "scene/scenerenderer.h"
 
@@ -127,6 +128,30 @@ namespace HydroCouple::Composer
        * \brief Moves the camera one step further out.
        */
       void zoomOut();
+
+      /*!
+       * \brief Points the camera at a view the user named.
+       *
+       * The framing is left alone: "look down" is a question about
+       * orientation, and answering it by also re-framing would undo a
+       * zoom the user chose. What moves is the camera's angles, which is
+       * all the names describe.
+       */
+      void showNamedView(NamedView view);
+
+      /*!
+       * \brief Frames what is selected, or does nothing if nothing is.
+       *
+       * Deliberately not "frame everything when nothing is selected".
+       * Pressing this with an empty selection and having the view leap
+       * to the whole model is the kind of helpfulness that loses someone
+       * the position they spent a minute finding.
+       *
+       * \returns False when there was no selection to look at, so a
+       *          caller can say so rather than leaving the press looking
+       *          like it failed.
+       */
+      bool lookAtSelection();
 
       /*!
        * \brief The ground the view is looking at.
@@ -366,6 +391,11 @@ namespace HydroCouple::Composer
       //! Built on first use, because a view nobody drags never needs one.
       std::unique_ptr<QRubberBand> m_band;
       bool m_framed = false;
+
+      //! How the view is driven, as preferences last described it.
+      double m_orbitDegreesPerPixel = 0.4;
+      bool m_invertWheel = false;
+      PanModifier m_panModifier = PanModifier::MiddleDrag;
 
       //! The orientation cue, as preferences last described it.
       bool m_showGizmo = true;

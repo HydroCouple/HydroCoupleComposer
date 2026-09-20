@@ -94,6 +94,9 @@ target_compile_definitions(test_welcome PRIVATE
 composer_add_gui_test(test_axisgizmo)
 composer_add_gui_test(test_gizmodraw)
 
+# U5 — how a drag, a wheel notch and a named view move the camera.
+composer_add_gui_test(test_navigation)
+
 # U3 — what a point layer and a filled ring contribute to the 3D view.
 composer_add_gui_test(test_scenemarkers)
 

@@ -2,6 +2,7 @@
 
 #include "core/preferencesmanager.h"
 #include "layers/featurelayer.h"
+#include "map/extentmath.h"
 #include "map/layerstackmodel.h"
 #include "map/maplayer.h"
 #include "pick/terrainray.h"
@@ -41,11 +42,6 @@ namespace HydroCouple::Composer
       return PreferencesManager::instance()->dragThresholdPixels();
     }
 
-    //! Degrees of rotation per pixel dragged. Chosen so a drag across the
-    //! width of a typical view is most of a turn, which is what makes
-    //! orbiting feel like turning an object rather than nudging one.
-    constexpr double kDegreesPerPixel = 0.4;
-
     constexpr double kZoomPerNotch = 1.15;
 
     //! What a click under the zoom tools moves by, matching the map's.
@@ -82,6 +78,9 @@ namespace HydroCouple::Composer
     // only repainting.
     PreferencesManager *prefs = PreferencesManager::instance();
     m_background = prefs->sceneBackgroundColor();
+    m_orbitDegreesPerPixel = prefs->orbitDegreesPerPixel();
+    m_invertWheel = prefs->invertWheel();
+    m_panModifier = panModifierFromName(prefs->panModifier());
     m_showGizmo = prefs->showAxisGizmo();
     m_gizmoSize = prefs->axisGizmoSizePixels();
     m_gizmoCorner = gizmoCornerFromName(prefs->axisGizmoCorner());
@@ -107,6 +106,15 @@ namespace HydroCouple::Composer
               {
                 m_showGizmo = prefs->showAxisGizmo();
                 update();
+              }
+              else if (group == QLatin1String("3D View"))
+              {
+                // The interaction settings, re-read as a group. They
+                // change no pixels, so no repaint: the next drag or notch
+                // simply uses the new numbers.
+                m_orbitDegreesPerPixel = prefs->orbitDegreesPerPixel();
+                m_invertWheel = prefs->invertWheel();
+                m_panModifier = panModifierFromName(prefs->panModifier());
               }
               else if (group == QLatin1String("Selection"))
               {
@@ -155,6 +163,82 @@ namespace HydroCouple::Composer
 
     update();
     Q_EMIT cameraChanged();
+  }
+
+  void SceneView::showNamedView(NamedView view)
+  {
+    double azimuth = m_camera.azimuth();
+    double elevation = m_camera.elevation();
+
+    namedViewAngles(view, azimuth, elevation);
+
+    m_camera.setAzimuth(azimuth);
+    m_camera.setElevation(elevation);
+
+    update();
+    Q_EMIT cameraChanged();
+  }
+
+  bool SceneView::lookAtSelection()
+  {
+    LayerStackModel *stack = m_renderer.model();
+
+    if (!stack)
+    {
+      return false;
+    }
+
+    QRectF ground;
+    bool valid = false;
+
+    for (MapLayer *layer : stack->layers())
+    {
+      auto *features = dynamic_cast<FeatureLayer *>(layer);
+
+      if (!features || !features->isVisible())
+      {
+        continue;
+      }
+
+      for (int index : features->selection())
+      {
+        if (index < 0 || index >= features->features().size())
+        {
+          continue;
+        }
+
+        // expandTo rather than QRectF::united, for the fifth time in this
+        // program: united() discards a rectangle it calls null and a
+        // zero-area one is null, so a selection of point features would
+        // frame the last one and lose the rest (D26).
+        expandTo(ground, valid, features->features().at(index).bounds);
+      }
+    }
+
+    if (!valid)
+    {
+      return false;
+    }
+
+    // The selection's rectangle is flat — features carry their footprint,
+    // not their relief — and framing a box of zero height would put the
+    // camera down on the ground plane looking along it. The scene's own
+    // Z range gives it depth; without one, a token height, because a
+    // degenerate box is the one thing frameBounds cannot be given.
+    const Bounds3D scene = m_renderer.sceneBounds();
+
+    const float low = scene.isValid() ? scene.minimum().z() : 0.0f;
+    const float high = scene.isValid() ? scene.maximum().z() : 1.0f;
+
+    Bounds3D target;
+    target.expandTo(
+      QVector3D(float(ground.left()), float(ground.top()), low));
+    target.expandTo(
+      QVector3D(float(ground.right()), float(ground.bottom()), high));
+
+    frameBounds(target);
+
+    return true;
   }
 
   void SceneView::zoomOut()
@@ -416,16 +500,15 @@ namespace HydroCouple::Composer
     m_pressPosition = event->pos();
     m_lastMousePosition = event->pos();
 
-    // Middle and right always pan, under every tool — the convention every
-    // GIS 3D view uses, so muscle memory carries over and panning stays
-    // reachable whatever the left button has been given to.
-    m_panning = event->button() == Qt::MiddleButton ||
-                event->button() == Qt::RightButton;
+    m_panning =
+      pressShouldPan(event->button(), event->modifiers(), m_panModifier);
 
-    m_orbiting = event->button() == Qt::LeftButton
+    // Not "else if" by accident: a shift-left press that pans must not
+    // also start an orbit or a band, or one drag would do two things.
+    m_orbiting = !m_panning && event->button() == Qt::LeftButton
                  && m_toolKind == SceneToolKind::Orbit;
 
-    m_banding = event->button() == Qt::LeftButton
+    m_banding = !m_panning && event->button() == Qt::LeftButton
                 && m_toolKind != SceneToolKind::Orbit;
 
     if (m_banding)
@@ -471,10 +554,9 @@ namespace HydroCouple::Composer
 
     if (m_orbiting)
     {
-      // Dragging right turns the scene right, which means turning the camera
-      // the other way.
-      m_camera.orbit(-delta.x() * kDegreesPerPixel,
-                     delta.y() * kDegreesPerPixel);
+      const OrbitStep step = orbitStep(delta, m_orbitDegreesPerPixel);
+
+      m_camera.orbit(step.azimuth, step.elevation);
     }
     else
     {
@@ -821,16 +903,21 @@ namespace HydroCouple::Composer
 
   void SceneView::wheelEvent(QWheelEvent *event)
   {
-    const double notches = event->angleDelta().y() / 120.0;
+    const double factor =
+      wheelDollyFactor(event->angleDelta().y(), kZoomPerNotch, m_invertWheel);
 
-    if (qFuzzyIsNull(notches))
+    // Exactly one means the wheel reported no movement, which a trackpad
+    // does between real scrolls. Compared exactly rather than fuzzily
+    // because that is what the function promises for that case, and a
+    // fuzzy comparison here would also swallow a genuine small scroll.
+    if (factor == 1.0)
     {
       QRhiWidget::wheelEvent(event);
 
       return;
     }
 
-    m_camera.dolly(std::pow(1.0 / kZoomPerNotch, notches));
+    m_camera.dolly(factor);
 
     update();
     Q_EMIT cameraChanged();

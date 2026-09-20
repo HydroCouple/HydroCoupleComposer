@@ -62,6 +62,11 @@ namespace HydroCouple::Composer
       {kScene, QStringLiteral("axisGizmoSizePixels"), 96},
       {kScene, QStringLiteral("axisGizmoCorner"),
        QStringLiteral("BottomLeft")},
+      {kScene, QStringLiteral("linkViews"),
+       QStringLiteral("OnTabSwitch")},
+      {kScene, QStringLiteral("orbitDegreesPerPixel"), 0.4},
+      {kScene, QStringLiteral("invertWheel"), false},
+      {kScene, QStringLiteral("panModifier"), QStringLiteral("MiddleDrag")},
     };
 
     return table;
@@ -353,6 +358,50 @@ namespace HydroCouple::Composer
   void PreferencesManager::setAxisGizmoCorner(const QString &corner)
   {
     setValue(kScene, QStringLiteral("axisGizmoCorner"), corner);
+  }
+
+  QString PreferencesManager::linkViews() const
+  {
+    return value(kScene, QStringLiteral("linkViews")).toString();
+  }
+
+  void PreferencesManager::setLinkViews(const QString &link)
+  {
+    setValue(kScene, QStringLiteral("linkViews"), link);
+  }
+
+  double PreferencesManager::orbitDegreesPerPixel() const
+  {
+    // Not clamped here. The one place that knows what a usable turn rate
+    // is, is the one that turns the camera — orbitStep() in
+    // scene/navigation.h — and a second opinion held here would be a
+    // second set of bounds to keep in step with it.
+    return value(kScene, QStringLiteral("orbitDegreesPerPixel")).toDouble();
+  }
+
+  void PreferencesManager::setOrbitDegreesPerPixel(double degrees)
+  {
+    setValue(kScene, QStringLiteral("orbitDegreesPerPixel"), degrees);
+  }
+
+  bool PreferencesManager::invertWheel() const
+  {
+    return value(kScene, QStringLiteral("invertWheel")).toBool();
+  }
+
+  void PreferencesManager::setInvertWheel(bool invert)
+  {
+    setValue(kScene, QStringLiteral("invertWheel"), invert);
+  }
+
+  QString PreferencesManager::panModifier() const
+  {
+    return value(kScene, QStringLiteral("panModifier")).toString();
+  }
+
+  void PreferencesManager::setPanModifier(const QString &modifier)
+  {
+    setValue(kScene, QStringLiteral("panModifier"), modifier);
   }
 
 } // namespace HydroCouple::Composer

@@ -124,6 +124,10 @@ namespace HydroCouple::Composer
       QCheckBox *m_showGizmo = nullptr;
       QSpinBox *m_gizmoSize = nullptr;
       QComboBox *m_gizmoCorner = nullptr;
+      QComboBox *m_linkViews = nullptr;
+      QDoubleSpinBox *m_orbitSensitivity = nullptr;
+      QCheckBox *m_invertWheel = nullptr;
+      QComboBox *m_panModifier = nullptr;
   };
 
 } // namespace HydroCouple::Composer

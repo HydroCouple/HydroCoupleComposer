@@ -273,6 +273,24 @@ namespace HydroCouple::Composer
 
     private:
       void createActions();
+
+      /*!
+       * \brief Frames the 3D view on what the map is showing.
+       *
+       * The two halves of the tab-switch hand-off, given names so that
+       * the *Sync now* faces and the tab switch itself are the same code
+       * rather than two copies that drift. Each declines when the source
+       * view has nothing to hand over, which is why they answer rather
+       * than simply acting: an empty map's default framing is not a
+       * deliberate one, and adopting it would leave the 3D tab looking
+       * at a couple of units around the origin forever after.
+       *
+       * \returns False when there was nothing to hand over.
+       */
+      bool frameSceneFromMap();
+
+      //! Frames the map on the ground the 3D view is looking at.
+      bool frameMapFromScene();
       void createMenus();
       void createToolBar();
       void createDocks();
@@ -403,6 +421,28 @@ namespace HydroCouple::Composer
       QAction *m_zoomFullAction = nullptr;
       QAction *m_zoomInAction = nullptr;
       QAction *m_zoomOutAction = nullptr;
+
+      /*!
+       * \brief The 3D tab's own navigation, which acts on the scene alone.
+       *
+       * The menu's Zoom In / Out / Full Extent dispatch to whichever view
+       * is in front, so a shortcut always means "zoom what I see". That
+       * is right for a shortcut and wrong for a ribbon: the 3D tab is a
+       * place, and a button on it that moved the *map* because the map
+       * happened to be in front would be a button that did nothing
+       * visible. These are the 3D tab's, unconditionally, and like every
+       * other control on that strip they bring the 3D view forward.
+       */
+      QAction *m_sceneZoomInAction = nullptr;
+      QAction *m_sceneZoomOutAction = nullptr;
+      QAction *m_sceneZoomFullAction = nullptr;
+      QAction *m_sceneResetViewAction = nullptr;
+      QAction *m_sceneTopViewAction = nullptr;
+      QAction *m_sceneLookAtSelectionAction = nullptr;
+
+      //! Performs the framing hand-off on demand, in either direction.
+      QAction *m_syncFromSceneAction = nullptr;
+      QAction *m_syncFromMapAction = nullptr;
       QAction *m_layerPropertiesAction = nullptr;
       QAction *m_mapCrsAction = nullptr;
       QAction *m_selectToolAction = nullptr;

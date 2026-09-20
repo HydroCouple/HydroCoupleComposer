@@ -154,6 +154,25 @@ namespace HydroCouple::Composer
       [[nodiscard]] QString axisGizmoCorner() const;
       void setAxisGizmoCorner(const QString &corner);
 
+      /*!
+       * \brief Whether switching tabs hands the framing over.
+       *
+       * Stored by name — "OnTabSwitch" or "Never" — for the same reason
+       * the gizmo's corner is: scene/navigation.h owns the enum and the
+       * translation, and preferences is read by every layer.
+       */
+      [[nodiscard]] QString linkViews() const;
+      void setLinkViews(const QString &link);
+      //! Degrees the 3D camera turns per pixel of orbit drag.
+      [[nodiscard]] double orbitDegreesPerPixel() const;
+      void setOrbitDegreesPerPixel(double degrees);
+      //! Whether the 3D wheel zooms the opposite way.
+      [[nodiscard]] bool invertWheel() const;
+      void setInvertWheel(bool invert);
+      //! "MiddleDrag" or "ShiftDrag"; see scene/navigation.h.
+      [[nodiscard]] QString panModifier() const;
+      void setPanModifier(const QString &modifier);
+
     Q_SIGNALS:
       /*!
        * \brief A stored value changed.

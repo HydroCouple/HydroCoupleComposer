@@ -293,6 +293,8 @@ set(COMPOSER_SOURCES
     src/ui/selectionhub.cpp
     include/scene/axisgizmo.h
     src/scene/axisgizmo.cpp
+    include/scene/navigation.h
+    src/scene/navigation.cpp
     include/layers/componentlayer.h
     include/ui/welcomepage.h
     src/ui/welcomepage.cpp
