@@ -253,6 +253,47 @@ namespace HydroCouple::Composer
       [[nodiscard]] virtual bool supportsExtrusion() const { return false; }
 
       /*!
+       * \brief How big a point marker is drawn, in map units; 0 is automatic.
+       *
+       * In map units rather than pixels, and a solid rather than a
+       * camera-facing sprite. A screen-sized billboard is the nicer answer
+       * and needs a third pipeline with its own shader; a solid needs none,
+       * is correct from every angle, and is lit by the material already
+       * there. Automatic sizes it from the layer's own extent, which is the
+       * only scale a layer knows without asking the scene.
+       */
+      [[nodiscard]] double markerSize() const { return m_markerSize; }
+
+      /*!
+       * \brief Sets the marker size.
+       * \param size Size in map units, or 0 to size it from the extent.
+       */
+      virtual void setMarkerSize(double size) { m_markerSize = size; }
+
+      /*!
+       * \brief Whether rings are filled in the scene.
+       *
+       * Off by default: filling an arbitrary ring against terrain is a
+       * constrained triangulation, and an outline that follows the ground
+       * already says what the map cannot. Fans work on a **convex** ring,
+       * which is what a mesh face is — so this is what makes a component's
+       * face-attached output read as a surface rather than as wireframe.
+       * Rings that are not convex are left as outlines rather than
+       * tessellated wrongly.
+       */
+      [[nodiscard]] bool fillsRings() const { return m_fillRings; }
+
+      /*!
+       * \brief Sets whether rings are filled.
+       */
+      virtual void setFillsRings(bool fills) { m_fillRings = fills; }
+
+      /*!
+       * \brief Whether filling rings would do anything for this source.
+       */
+      [[nodiscard]] virtual bool supportsRingFill() const { return false; }
+
+      /*!
        * \brief The geometry batches to draw, in draw order.
        *
        * A list rather than one batch because a single layer routinely needs
@@ -303,6 +344,8 @@ namespace HydroCouple::Composer
       ZPolicy m_zPolicy;
       bool m_terrainEnabled = true;
       double m_extrusionHeight = 0.0;
+      double m_markerSize = 0.0;
+      bool m_fillRings = false;
   };
 
 } // namespace HydroCouple::Composer

@@ -327,6 +327,15 @@ namespace HydroCouple::Composer
       [[nodiscard]] const ISceneSource *sceneSource() const override;
 
       /*!
+       * \brief Never: a mesh already draws its faces as a surface.
+       *
+       * FeatureLayer offers ring filling for polygon layers, and a face
+       * mesh is one — but its own sceneGeometry() builds the surface, so
+       * the control would be offered and do nothing.
+       */
+      [[nodiscard]] bool supportsRingFill() const override { return false; }
+
+      /*!
        * \brief Surfaces for faces, segments for edges, nothing for nodes.
        *
        * A node mesh is a point cloud, which the map already draws and which

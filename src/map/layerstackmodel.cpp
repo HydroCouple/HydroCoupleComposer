@@ -633,6 +633,60 @@ namespace HydroCouple::Composer
     selectOnly(layer, feature >= 0 ? QSet<int>{feature} : QSet<int>{});
   }
 
+  SelectionMode selectionModeFor(Qt::KeyboardModifiers modifiers)
+  {
+    if (modifiers.testFlag(Qt::ShiftModifier))
+    {
+      return SelectionMode::Add;
+    }
+
+    // ControlModifier is ⌘ on macOS, so this one test is right everywhere.
+    if (modifiers.testFlag(Qt::ControlModifier))
+    {
+      return SelectionMode::Toggle;
+    }
+
+    return SelectionMode::Replace;
+  }
+
+  void LayerStackModel::select(MapLayer *layer, const QSet<int> &features,
+                               SelectionMode mode)
+  {
+    auto *target = dynamic_cast<FeatureLayer *>(layer);
+
+    if (mode == SelectionMode::Replace || !target)
+    {
+      selectOnly(layer, features);
+
+      return;
+    }
+
+    // Adding across layers needs no special case, and a guard for it was
+    // written here and then deleted: at most one layer holds a selection
+    // at a time (selectOnly clears the rest), so when another layer holds
+    // one this layer's own is empty — and a union with empty is exactly
+    // the replacement the guard was going to perform. It could not change
+    // an outcome, so it was code with nothing to say. The behaviour it was
+    // protecting is still gated, by
+    // AddingAcrossLayersReplacesRatherThanSplitting; what enforces it is
+    // selectOnly below.
+    QSet<int> combined = target->selection();
+
+    for (int feature : features)
+    {
+      if (mode == SelectionMode::Toggle && combined.contains(feature))
+      {
+        combined.remove(feature);
+      }
+      else
+      {
+        combined.insert(feature);
+      }
+    }
+
+    selectOnly(layer, combined);
+  }
+
   void LayerStackModel::selectOnly(MapLayer *layer, const QSet<int> &features)
   {
     for (MapLayer *candidate : m_layers)

@@ -2,6 +2,7 @@
 
 #include "gis/spatialreference.h"
 #include "layers/gdalrasterlayer.h"
+#include "layers/featurelayer.h"
 #include "layers/meshlayer.h"
 #include "map/maplayer.h"
 #include "ui/dialogs/crsselectiondialog.h"
@@ -674,6 +675,78 @@ namespace HydroCouple::Composer
       form->addRow(tr("Extrusion height"), m_extrusionSpin);
     }
 
+    // ── What this layer looks like in the scene (U3) ────────────────────
+
+    if (auto *features = dynamic_cast<FeatureLayer *>(m_layer);
+        features && features->geometryKind() == GeometryKind::Point)
+    {
+      m_markerSizeSpin = new QDoubleSpinBox(page);
+      m_markerSizeSpin->setObjectName(QStringLiteral("renderingMarkerSpin"));
+      m_markerSizeSpin->setRange(0.0, 100000.0);
+      m_markerSizeSpin->setDecimals(3);
+      m_markerSizeSpin->setSpecialValueText(tr("Automatic"));
+      m_markerSizeSpin->setToolTip(
+        tr("How big each point is drawn in 3D, in map units. Zero sizes it "
+           "from the layer's own extent."));
+      form->addRow(tr("Marker size"), m_markerSizeSpin);
+    }
+
+    if (scene->supportsRingFill())
+    {
+      m_fillRingsCheck =
+        new QCheckBox(tr("Fill rings as faces in 3D"), page);
+      m_fillRingsCheck->setObjectName(QStringLiteral("renderingFillCheck"));
+      m_fillRingsCheck->setToolTip(
+        tr("Draws each ring as a surface rather than an outline. Convex "
+           "rings only — a mesh face is one; a catchment boundary usually "
+           "is not, and is left as an outline."));
+      form->addRow(QString(), m_fillRingsCheck);
+    }
+
+    // The peel. MeshLayer has been able to show a range of layers since
+    // C3b-1, and the range that made a 500k-cell peel interactive was
+    // measured in C3b-3 — but nothing has ever offered it to a user.
+    if (auto *mesh = dynamic_cast<MeshLayer *>(m_layer);
+        mesh && mesh->isLayered())
+    {
+      const int layers = mesh->layering().layerCount;
+
+      m_peelFirstSpin = new QSpinBox(page);
+      m_peelFirstSpin->setObjectName(QStringLiteral("renderingPeelFirstSpin"));
+      m_peelFirstSpin->setRange(0, layers - 1);
+      m_peelLastSpin = new QSpinBox(page);
+      m_peelLastSpin->setObjectName(QStringLiteral("renderingPeelLastSpin"));
+      m_peelLastSpin->setRange(0, layers - 1);
+
+      // Interface 0 is the surface and the count grows downwards, which is
+      // FVQual's convention and the one the layering itself uses (C3b-1).
+      m_peelFirstSpin->setToolTip(
+        tr("The topmost layer shown; 0 is the surface."));
+      m_peelLastSpin->setToolTip(tr("The deepest layer shown."));
+
+      form->addRow(tr("Show layers from"), m_peelFirstSpin);
+      form->addRow(tr("…down to"), m_peelLastSpin);
+
+      // Kept in order as they are moved, so a range cannot be inverted into
+      // one that shows nothing.
+      connect(m_peelFirstSpin, &QSpinBox::valueChanged, this,
+              [this](int value)
+              {
+                if (m_peelLastSpin->value() < value)
+                {
+                  m_peelLastSpin->setValue(value);
+                }
+              });
+      connect(m_peelLastSpin, &QSpinBox::valueChanged, this,
+              [this](int value)
+              {
+                if (m_peelFirstSpin->value() > value)
+                {
+                  m_peelFirstSpin->setValue(value);
+                }
+              });
+    }
+
     connect(m_drapeCombo, &QComboBox::currentIndexChanged, this,
             [this](int) { updateEnabledState(); });
 
@@ -770,6 +843,23 @@ namespace HydroCouple::Composer
       {
         m_extrusionSpin->setValue(scene->extrusionHeight());
       }
+
+      if (m_markerSizeSpin)
+      {
+        m_markerSizeSpin->setValue(scene->markerSize());
+      }
+
+      if (m_fillRingsCheck)
+      {
+        m_fillRingsCheck->setChecked(scene->fillsRings());
+      }
+    }
+
+    if (auto *mesh = dynamic_cast<MeshLayer *>(m_layer);
+        mesh && m_peelFirstSpin && m_peelLastSpin)
+    {
+      m_peelFirstSpin->setValue(mesh->firstVisibleLayer());
+      m_peelLastSpin->setValue(mesh->lastVisibleLayer());
     }
 
     const LayerStyle *style = m_layer->style();
@@ -929,6 +1019,23 @@ namespace HydroCouple::Composer
       {
         scene->setExtrusionHeight(m_extrusionSpin->value());
       }
+
+      if (m_markerSizeSpin)
+      {
+        scene->setMarkerSize(m_markerSizeSpin->value());
+      }
+
+      if (m_fillRingsCheck)
+      {
+        scene->setFillsRings(m_fillRingsCheck->isChecked());
+      }
+    }
+
+    if (auto *mesh = dynamic_cast<MeshLayer *>(m_layer);
+        mesh && m_peelFirstSpin && m_peelLastSpin)
+    {
+      mesh->setVisibleLayers(m_peelFirstSpin->value(),
+                             m_peelLastSpin->value());
     }
 
     LayerStyle *style = m_layer->style();

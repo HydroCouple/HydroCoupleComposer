@@ -35,6 +35,7 @@
 #include "layers/wfsfeaturelayer.h"
 #include "ui/dialogs/ogcservicedialog.h"
 #include "ui/dialogs/preferencesdialog.h"
+#include "ui/selectionhub.h"
 #include "ui/panels/attributetablepanel.h"
 #include "ui/panels/layertreepanel.h"
 #include "ui/panels/runbrowserpanel.h"
@@ -61,6 +62,7 @@
 #include <QPlainTextEdit>
 #include <QStatusBar>
 #include <QStyle>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QVBoxLayout>
 #include <QToolBar>
@@ -102,6 +104,11 @@ namespace HydroCouple::Composer
     m_workspace->addTab(m_welcome,
                         IconFactory::icon(QStringLiteral("welcome")),
                         tr("Welcome"));
+
+    // Only this tab closes. setTabsClosable() would put a button on the
+    // composition, the map and the 3D view too, and those are not things a
+    // user can be without.
+    installWelcomeCloseButton(m_workspace->indexOf(m_welcome));
     m_workspace->addTab(m_canvas,
                         IconFactory::icon(QStringLiteral("composition")),
                         tr("Composition"));
@@ -141,6 +148,10 @@ namespace HydroCouple::Composer
     setCentralWidget(central);
 
     createMapView();
+
+    // Built after the map view, because the layer stack is made there and
+    // the hub reads it. Owned by the window, like every other view glue.
+    m_selectionHub = new SelectionHub(m_scene, m_layerStack, this);
 
     createActions();
     createMenus();
@@ -1079,6 +1090,15 @@ namespace HydroCouple::Composer
     QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
     helpMenu->setObjectName(QStringLiteral("helpMenu"));
 
+    m_welcomeAction = helpMenu->addAction(tr("&Welcome"));
+    m_welcomeAction->setObjectName(QStringLiteral("welcomeAction"));
+    m_welcomeAction->setToolTip(
+      tr("Show the start page again after closing it."));
+    connect(m_welcomeAction, &QAction::triggered, this,
+            &ComposerMainWindow::showWelcomeTab);
+
+    helpMenu->addSeparator();
+
     QAction *about = helpMenu->addAction(tr("&About"));
     connect(about, &QAction::triggered, this,
             [this]
@@ -1237,6 +1257,10 @@ namespace HydroCouple::Composer
     appearance->addAction(m_darkAction, tr("Dark"));
     appearance->addAction(m_systemAction, tr("System"));
 
+    RibbonGroup *startGroup =
+      m_ribbon->addGroup(QStringLiteral("view"), tr("Start"));
+    startGroup->addAction(m_welcomeAction, tr("Welcome"));
+
     RibbonGroup *settingsGroup =
       m_ribbon->addGroup(QStringLiteral("view"), tr("Settings"));
     settingsGroup->addAction(m_preferencesAction, tr("Preferences"));
@@ -1254,6 +1278,7 @@ namespace HydroCouple::Composer
     ensureIcon(m_darkAction, QStringLiteral("dark"));
     ensureIcon(m_systemAction, QStringLiteral("system"));
     ensureIcon(m_preferencesAction, QStringLiteral("preferences"));
+    ensureIcon(m_welcomeAction, QStringLiteral("welcome"));
     ensureIcon(m_zoomFullAction, QStringLiteral("extent"));
     ensureIcon(m_zoomInAction, QStringLiteral("zoomin"));
     ensureIcon(m_zoomOutAction, QStringLiteral("zoomout"));
@@ -1382,6 +1407,32 @@ namespace HydroCouple::Composer
 
     connect(m_layerTree, &LayerTreePanel::layerPropertiesRequested, this,
             &ComposerMainWindow::onLayerProperties);
+
+    // ── The two halves of one selection ──────────────────────────────────
+    // A component chosen on the canvas brings its layers forward; a feature
+    // picked on the map or in 3D selects the component that produced it.
+    // Neither view knows about the other: the hub asks, and these two
+    // connections are the only places the answer is acted on.
+    connect(m_selectionHub, &SelectionHub::currentLayerRequested, this,
+            [this](MapLayer *layer)
+            {
+              if (m_layerTree->setCurrentLayer(layer))
+              {
+                // The tree is docked with the palette; a row made current
+                // behind another tab is a selection nobody can see.
+                if (auto *dock =
+                      qobject_cast<QDockWidget *>(m_layerTree->parentWidget()))
+                {
+                  dock->raise();
+                }
+              }
+            });
+
+    connect(m_selectionHub, &SelectionHub::componentSelectionRequested, this,
+            [this](const QString &componentId)
+            {
+              m_scene->selectComponent(componentId);
+            });
 
     connect(m_layerTree, &LayerTreePanel::currentLayerChanged, this,
             [this](MapLayer *layer)
@@ -1696,6 +1747,10 @@ namespace HydroCouple::Composer
 
           if (raster)
           {
+            // Where it came from, recorded at the one place both ids are
+            // known: the item carries its own id, never its owner's.
+            raster->setProvenance(componentId,
+                                  QString::fromStdString(item->id()));
             m_layerStack->addLayer(raster.release());
           }
           else
@@ -1722,6 +1777,7 @@ namespace HydroCouple::Composer
         }
 
         layer->setName(tr("%1 — %2").arg(componentId, layer->name()));
+        layer->setProvenance(componentId, QString::fromStdString(item->id()));
 
         m_layerStack->addLayer(layer.release());
         ++added;
@@ -2087,6 +2143,86 @@ namespace HydroCouple::Composer
     }
   }
 
+  void ComposerMainWindow::installWelcomeCloseButton(int index)
+  {
+    if (index < 0)
+    {
+      return;
+    }
+
+    QTabBar *bar = m_workspace->tabBar();
+
+    // Which side the button belongs on is the style's to say, not ours.
+    // Fusion — which this application installs everywhere (D12) — answers
+    // RightSide, but asking keeps the button where the platform puts it
+    // rather than where one platform happened to put it.
+    const auto side = static_cast<QTabBar::ButtonPosition>(bar->style()->styleHint(
+      QStyle::SH_TabBar_CloseButtonPosition, nullptr, bar));
+
+    // Created once and kept. QTabBar does not delete a tab button when its
+    // tab is removed, so building a fresh one on every restore would leave
+    // a dead button parented to the bar each time.
+    if (!m_welcomeCloseButton)
+    {
+      m_welcomeCloseButton = new QToolButton(bar);
+      m_welcomeCloseButton->setObjectName(
+        QStringLiteral("welcomeTabCloseButton"));
+      m_welcomeCloseButton->setAutoRaise(true);
+      m_welcomeCloseButton->setToolTip(tr("Close the start page"));
+      m_welcomeCloseButton->setIcon(
+        style()->standardIcon(QStyle::SP_TitleBarCloseButton));
+      m_welcomeCloseButton->setIconSize(QSize(12, 12));
+
+      connect(m_welcomeCloseButton, &QToolButton::clicked, this,
+              &ComposerMainWindow::closeWelcomeTab);
+    }
+
+    bar->setTabButton(index, side, m_welcomeCloseButton);
+  }
+
+  void ComposerMainWindow::closeWelcomeTab()
+  {
+    const int index = m_workspace->indexOf(m_welcome);
+
+    if (index < 0)
+    {
+      return;
+    }
+
+    // Removed, not deleted: the page keeps its recent list and its start-up
+    // box, so bringing it back is the same page rather than a new one that
+    // has to be rebuilt. Qt leaves it parented to the stack, so there is no
+    // stray top-level window to guard against — measured, not assumed.
+    //
+    // Where to go next is left to Qt, and that is not laziness: measured,
+    // it moves to the composition when the start page was the tab being
+    // looked at, and stays put when it was not. Sending the user to the
+    // composition unconditionally would have pulled them off the map they
+    // were reading because they tidied away a tab they were not on.
+    m_workspace->removeTab(index);
+
+    // Closing the start page is a thing done to this session, not a change
+    // of mind about start-up: that is the preference on the page itself,
+    // and it is deliberately left alone here.
+    log(tr("Start page closed — Help ▸ Welcome brings it back."));
+  }
+
+  void ComposerMainWindow::showWelcomeTab()
+  {
+    int index = m_workspace->indexOf(m_welcome);
+
+    if (index < 0)
+    {
+      // Back where it was, ahead of the canvas.
+      index = m_workspace->insertTab(0, m_welcome,
+                                     IconFactory::icon(QStringLiteral("welcome")),
+                                     tr("Welcome"));
+      installWelcomeCloseButton(index);
+    }
+
+    m_workspace->setCurrentWidget(m_welcome);
+  }
+
   void ComposerMainWindow::onPreferences()
   {
     // Shown from an action's triggered() — a release, never a press: a modal
@@ -2419,6 +2555,12 @@ namespace HydroCouple::Composer
       raster->setName(tr("%1 — %2 — %3")
                         .arg(session->title(), componentId, raster->name()));
 
+      // A recorded run's component id is the one the run recorded under,
+      // which is the same id the composition used — so a layer opened from
+      // a run still points at the component on the canvas, when one is
+      // loaded. When none is, the hub simply finds nothing to select.
+      raster->setProvenance(componentId, itemId);
+
       RasterDataItemLayer *addedRaster = raster.release();
       m_layerStack->addLayer(addedRaster);
 
@@ -2456,6 +2598,7 @@ namespace HydroCouple::Composer
     // point of holding two runs open.
     layer->setName(tr("%1 — %2 — %3")
                      .arg(session->title(), componentId, layer->name()));
+    layer->setProvenance(componentId, itemId);
 
     DataItemLayer *added = layer.release();
     m_layerStack->addLayer(added);
@@ -2469,6 +2612,10 @@ namespace HydroCouple::Composer
     // window is otherwise drawn behind whichever tab happens to be showing.
     m_workspace->setCurrentWidget(m_mapCanvas);
     m_mapCanvas->zoomToLayer(added);
+
+    // A recorded item names the component that produced it, so opening one
+    // points the canvas at that component when the composition is loaded.
+    m_selectionHub->runItemShown(added);
 
     return true;
   }
@@ -2677,6 +2824,10 @@ namespace HydroCouple::Composer
         statusBar()->showMessage(
           tr("%1 — feature %2").arg(layer->name()).arg(feature), 5000);
       }
+
+      // The one place both views' picks arrive, which is why the hub is
+      // told from here rather than subscribing to each view itself.
+      m_selectionHub->featurePicked(layer);
     };
 
     connect(m_mapCanvas, &MapCanvas::featurePicked, this, announcePick);

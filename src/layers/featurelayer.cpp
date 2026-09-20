@@ -18,6 +18,98 @@ namespace HydroCouple::Composer
   namespace
   {
     /*!
+     * \brief Whether \a ring turns the same way at every corner.
+     *
+     * A fan from the first vertex tessellates a convex ring correctly and
+     * a concave one wrongly — it spans the notch. Mesh faces are convex by
+     * construction, which is the case ring filling exists for; anything
+     * else is left as an outline rather than drawn wrong.
+     *
+     * Collinear corners contribute no turn and are skipped rather than
+     * failing the test: a densified ring is full of them.
+     */
+    bool isConvexRing(const QVector<QPointF> &ring)
+    {
+      if (ring.size() < 3)
+      {
+        return false;
+      }
+
+      int sign = 0;
+
+      for (int i = 0; i < ring.size(); ++i)
+      {
+        const QPointF &a = ring.at(i);
+        const QPointF &b = ring.at((i + 1) % ring.size());
+        const QPointF &c = ring.at((i + 2) % ring.size());
+
+        const double cross = (b.x() - a.x()) * (c.y() - b.y())
+                             - (b.y() - a.y()) * (c.x() - b.x());
+
+        if (qFuzzyIsNull(cross))
+        {
+          continue;
+        }
+
+        const int turn = cross > 0.0 ? 1 : -1;
+
+        if (sign == 0)
+        {
+          sign = turn;
+        }
+        else if (turn != sign)
+        {
+          return false;
+        }
+      }
+
+      // Every corner collinear is a degenerate ring, not a convex one.
+      return sign != 0;
+    }
+
+    /*!
+     * \brief Appends an octahedral marker of \a size centred on \a centre.
+     *
+     * Six vertices, eight faces: the smallest solid that reads as a point
+     * from any direction and needs no billboarding. Its own centre sits at
+     * the sampled height, so half of it stands above the surface — which is
+     * also why it needs no coplanar nudge to be seen on one.
+     */
+    void appendMarker(SceneGeometry &into, const QVector3D &centre,
+                      float size, const QColor &color)
+    {
+      const float half = size * 0.5f;
+      const quint32 base = quint32(into.vertices.size());
+
+      // Normals point out along each axis; the material lights both sides,
+      // so a face lit from behind still reads.
+      const QVector3D directions[6] = {
+        { 1.0f, 0.0f, 0.0f },  { -1.0f, 0.0f, 0.0f },
+        { 0.0f, 1.0f, 0.0f },  { 0.0f, -1.0f, 0.0f },
+        { 0.0f, 0.0f, 1.0f },  { 0.0f, 0.0f, -1.0f },
+      };
+
+      for (const QVector3D &direction : directions)
+      {
+        into.addVertex(centre + direction * half, direction, color);
+      }
+
+      // Each face joins one horizontal pair to a pole: +x/+y/top and so on
+      // round the equator, then the same four to the bottom.
+      const quint32 faces[8][3] = {
+        { 0, 2, 4 }, { 2, 1, 4 }, { 1, 3, 4 }, { 3, 0, 4 },
+        { 2, 0, 5 }, { 1, 2, 5 }, { 3, 1, 5 }, { 0, 3, 5 },
+      };
+
+      for (const auto &face : faces)
+      {
+        into.indices.append(base + face[0]);
+        into.indices.append(base + face[1]);
+        into.indices.append(base + face[2]);
+      }
+    }
+
+    /*!
      * \brief The colour a selected feature is outlined in.
      *
      * One colour rather than a themed pair: a selection has to stand out
@@ -775,12 +867,23 @@ namespace HydroCouple::Composer
 
   const ISceneSource *FeatureLayer::sceneSource() const
   {
-    return m_kind == GeometryKind::Point ? nullptr : this;
+    // Every kind now, points included: they are drawn as solid markers
+    // rather than left out, so a gauge network is visible in the view that
+    // shows the terrain it stands on (U3a). Before this, a point layer
+    // contributed bounds but nothing to look at.
+    return this;
   }
 
   bool FeatureLayer::supportsAttributeZ() const
   {
     return true;
+  }
+
+  bool FeatureLayer::supportsRingFill() const
+  {
+    // Only a polygon layer has rings to fill. Offering it on lines would be
+    // offering a control that does nothing.
+    return m_kind == GeometryKind::Polygon;
   }
 
   Bounds3D FeatureLayer::sceneBounds() const
@@ -865,15 +968,100 @@ namespace HydroCouple::Composer
     return m_selection.contains(feature) ? selectionColor() : color;
   }
 
+  double FeatureLayer::resolvedMarkerSize() const
+  {
+    if (m_markerSize > 0.0)
+    {
+      return m_markerSize;
+    }
+
+    const QRectF box = extent();
+
+    // The diagonal, not isEmpty(): a row of gauges along a river has a real
+    // extent and a height of exactly zero, and QRectF calls that empty.
+    // This program has paid for that rectangle three times now — D26's
+    // extent maths, C4a's point bounds, and here, where it made every
+    // collinear point layer invisible until a gate caught it.
+    const double diagonal = std::hypot(box.width(), box.height());
+
+    if (diagonal <= 0.0)
+    {
+      // One point, or several in the same place: nothing to scale from, and
+      // guessing a size in map units — metres? degrees? — would be guessing
+      // by a factor of a hundred thousand. Nothing is drawn until a size is
+      // given, which the layer properties dialog offers.
+      return 0.0;
+    }
+
+    return diagonal / 50.0;
+  }
+
+  SceneGeometry FeatureLayer::markerGeometry(
+    const ITerrainSource *terrain, const LayerStyle *layerStyle) const
+  {
+    SceneGeometry markers;
+    markers.primitive = ScenePrimitive::Triangles;
+
+    const double size = resolvedMarkerSize();
+
+    if (size <= 0.0)
+    {
+      return markers;
+    }
+
+    const ZPolicy &policy = zPolicy();
+    const QVector<QVector<QPolygonF>> &projected = projectedFeatures();
+
+    for (int feature = 0; feature < projected.size(); ++feature)
+    {
+      const QColor color = sceneColorFor(layerStyle, feature);
+
+      if (!color.isValid())
+      {
+        continue;
+      }
+
+      double flatBase = policy.constant;
+
+      if (policy.mode == ZMode::FromAttribute)
+      {
+        bool numeric = false;
+        const double value =
+          attributeValue(feature, policy.field).toDouble(&numeric);
+
+        flatBase = (numeric ? value : 0.0) + policy.offset;
+      }
+
+      for (const QPolygonF &part : projected.at(feature))
+      {
+        for (const QPointF &point : part)
+        {
+          double z = flatBase;
+
+          if (policy.mode == ZMode::OnTerrain)
+          {
+            // The same sampler the drapes use, so a station and the line
+            // through it sit at the same height on the same ground.
+            const QVector<double> sampled =
+              sampleGround(terrain, QVector<QPointF>{ point });
+
+            z = (sampled.isEmpty() ? 0.0 : sampled.first()) + policy.offset;
+          }
+
+          appendMarker(markers,
+                       QVector3D(float(point.x()), float(point.y()), float(z)),
+                       float(size), color);
+        }
+      }
+    }
+
+    return markers;
+  }
+
   QVector<SceneGeometry> FeatureLayer::sceneGeometry(
     const SceneContext &context) const
   {
     QVector<SceneGeometry> batches;
-
-    if (m_kind == GeometryKind::Point)
-    {
-      return batches;
-    }
 
     // Asking to drape on a stack that holds no terrain degrades to flat
     // rather than to nothing: the layer is still data, and a network that
@@ -892,11 +1080,33 @@ namespace HydroCouple::Composer
     const QVector<QVector<QPolygonF>> &projected = projectedFeatures();
     const LayerStyle *layerStyle = style();
 
+    if (m_kind == GeometryKind::Point)
+    {
+      SceneGeometry markers = markerGeometry(terrain, layerStyle);
+
+      // Appended only when there is something in it, as every other batch
+      // here is: an empty batch is not nothing, it is a batch the renderer
+      // uploads and draws no triangles from.
+      if (!markers.isEmpty())
+      {
+        batches.append(std::move(markers));
+      }
+
+      return batches;
+    }
+
     SceneGeometry crest;
     crest.primitive = ScenePrimitive::Lines;
 
     SceneGeometry curtain;
     curtain.primitive = ScenePrimitive::Triangles;
+
+    // Filled rings, when the layer asks and the ring admits a fan. Drawn
+    // before the crest, which then reads as the edge of its own face.
+    const bool filling = m_fillRings && supportsRingFill();
+
+    SceneGeometry fill;
+    fill.primitive = ScenePrimitive::Triangles;
 
     // Lines have no surface to face, so they are lit as if facing up; the
     // shader's headlight term then leaves them at full colour.
@@ -955,6 +1165,33 @@ namespace HydroCouple::Composer
         else
         {
           ground.fill(flatBase);
+        }
+
+        if (filling && path.size() >= 3 && isConvexRing(path))
+        {
+          // A fan from the first vertex. Lit as facing up: a draped face
+          // follows the ground, and deriving a normal per triangle would
+          // make a flat field of faces read as a crumpled one.
+          const quint32 anchor = fill.addVertex(
+            QVector3D(float(path.at(0).x()), float(path.at(0).y()),
+                      float(ground.at(0))),
+            up, color);
+
+          for (int i = 1; i + 1 < path.size(); ++i)
+          {
+            const quint32 first = fill.addVertex(
+              QVector3D(float(path.at(i).x()), float(path.at(i).y()),
+                        float(ground.at(i))),
+              up, color);
+            const quint32 second = fill.addVertex(
+              QVector3D(float(path.at(i + 1).x()), float(path.at(i + 1).y()),
+                        float(ground.at(i + 1))),
+              up, color);
+
+            fill.indices.append(anchor);
+            fill.indices.append(first);
+            fill.indices.append(second);
+          }
         }
 
         quint32 previous = crest.addVertex(
@@ -1022,8 +1259,13 @@ namespace HydroCouple::Composer
       }
     }
 
-    // The curtain first, so the crest that caps it is drawn over its own
-    // top edge rather than fighting it.
+    // Faces first, then the curtain, then the crest: each is drawn over
+    // the one it caps rather than fighting it.
+    if (!fill.isEmpty())
+    {
+      batches.append(std::move(fill));
+    }
+
     if (!curtain.isEmpty())
     {
       batches.append(std::move(curtain));

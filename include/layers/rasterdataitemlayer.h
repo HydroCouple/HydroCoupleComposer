@@ -16,6 +16,7 @@
 #ifndef HYDROCOUPLECOMPOSER_LAYERS_RASTERDATAITEMLAYER_H
 #define HYDROCOUPLECOMPOSER_LAYERS_RASTERDATAITEMLAYER_H
 
+#include "layers/componentlayer.h"
 #include "map/maplayer.h"
 #include "render/colorramp.h"
 #include "scene/groundplane.h"
@@ -41,7 +42,9 @@ namespace HydroCouple::Composer
   /*!
    * \brief A component's raster data item drawn on the map.
    */
-  class RasterDataItemLayer : public MapLayer, public ISceneSource
+  class RasterDataItemLayer : public MapLayer,
+                              public ISceneSource,
+                              public IComponentLayer
   {
     public:
       /*!

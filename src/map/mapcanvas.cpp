@@ -925,7 +925,7 @@ namespace HydroCouple::Composer
     zoomAtPixel(factor, rectangle.center());
   }
 
-  void MapCanvas::selectIn(const QRect &rectangle)
+  void MapCanvas::selectIn(const QRect &rectangle, SelectionMode mode)
   {
     syncViewport();
 
@@ -960,7 +960,7 @@ namespace HydroCouple::Composer
 
       if (!caught.isEmpty())
       {
-        m_model->selectOnly(features, caught);
+        m_model->select(features, caught, mode);
 
         // The count, not one index: a band that caught forty features has
         // no single feature to name, and -1 would read as "nothing".
@@ -977,17 +977,26 @@ namespace HydroCouple::Composer
     Q_EMIT featurePicked(nullptr, -1);
   }
 
-  void MapCanvas::pickAndSelectAt(const QPoint &screen)
+  void MapCanvas::pickAndSelectAt(const QPoint &screen, SelectionMode mode)
   {
     int feature = -1;
     FeatureLayer *layer = pickAt(screen, feature);
 
     // Clicking empty map clears the selection, which is how a user says
     // "nothing" — leaving the last selection standing would make the table
-    // beside it describe somewhere they have navigated away from.
+    // beside it describe somewhere they have navigated away from. A
+    // modified click that misses is treated the same way: Shift-clicking
+    // nothing is still pointing at nothing.
     if (m_model)
     {
-      m_model->selectOnly(layer, feature);
+      if (!layer || feature < 0)
+      {
+        m_model->selectOnly(nullptr, QSet<int>{});
+      }
+      else
+      {
+        m_model->select(layer, QSet<int>{feature}, mode);
+      }
     }
 
     Q_EMIT featurePicked(layer, feature);

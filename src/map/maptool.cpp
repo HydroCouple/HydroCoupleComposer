@@ -89,7 +89,10 @@ namespace HydroCouple::Composer
     if (std::abs(travelled.x()) <= clickSlopPixels() &&
         std::abs(travelled.y()) <= clickSlopPixels())
     {
-      m_canvas->pickAndSelectAt(event->pos());
+      // Shift adds and ⌘/Ctrl toggles, as every GIS does; the rule lives
+      // with the stack so the map and the 3D view cannot disagree on it.
+      m_canvas->pickAndSelectAt(event->pos(),
+                                selectionModeFor(event->modifiers()));
     }
 
     return true;
@@ -152,6 +155,9 @@ namespace HydroCouple::Composer
 
     const QRect rectangle = QRect(m_origin, event->pos()).normalized();
 
+    // Asked once, here, so the click and the rectangle paths agree.
+    m_selectionMode = selectionModeFor(event->modifiers());
+
     endGesture();
 
     // Width and height explicitly, not isNull() or isEmpty(): a zero-area
@@ -185,12 +191,12 @@ namespace HydroCouple::Composer
 
   void SelectTool::useRectangle(const QRect &rectangle)
   {
-    m_canvas->selectIn(rectangle);
+    m_canvas->selectIn(rectangle, m_selectionMode);
   }
 
   void SelectTool::useClick(const QPoint &pixel)
   {
-    m_canvas->pickAndSelectAt(pixel);
+    m_canvas->pickAndSelectAt(pixel, m_selectionMode);
   }
 
   QCursor SelectTool::idleCursor() const

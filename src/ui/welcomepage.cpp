@@ -4,10 +4,13 @@
 #include "core/preferencesmanager.h"
 #include "ui/recentcompositions.h"
 
+#include <QAction>
 #include <QCheckBox>
 #include <QFileInfo>
+#include <QHBoxLayout>
 #include <QLabel>
 #include <QListWidget>
+#include <QMenu>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QVBoxLayout>
@@ -95,14 +98,43 @@ namespace HydroCouple::Composer
 
     layout->addSpacing(12);
 
+    // The heading carries the one action that acts on the whole list. A
+    // remembered document that has moved is kept and marked rather than
+    // dropped, which is right — but it means the list only ever grows, so
+    // there has to be a way to empty it.
+    auto *recentHeading = new QHBoxLayout;
+    recentHeading->setContentsMargins(0, 0, 0, 0);
+
     auto *recentLabel = new QLabel(tr("Recent"), content);
     recentLabel->setFont(sectionFont);
-    layout->addWidget(recentLabel);
+    recentHeading->addWidget(recentLabel);
+    recentHeading->addStretch(1);
+
+    m_clearRecent = new QPushButton(tr("Clear list"), content);
+    m_clearRecent->setObjectName(QStringLiteral("welcomeClearRecentButton"));
+    m_clearRecent->setFlat(true);
+    m_clearRecent->setCursor(Qt::PointingHandCursor);
+    recentHeading->addWidget(m_clearRecent);
+
+    connect(m_clearRecent, &QPushButton::clicked, this,
+            [this]
+            {
+              if (m_recent)
+              {
+                m_recent->clear();
+              }
+            });
+
+    layout->addLayout(recentHeading);
 
     m_list = new QListWidget(content);
     m_list->setObjectName(QStringLiteral("welcomeRecentList"));
     m_list->setAlternatingRowColors(true);
+    m_list->setContextMenuPolicy(Qt::CustomContextMenu);
     layout->addWidget(m_list, 1);
+
+    connect(m_list, &QListWidget::customContextMenuRequested, this,
+            &WelcomePage::showRecentMenu);
 
     // A single click, not a double: this is a list of links, and everything
     // else on this page opens on one click too.
@@ -152,10 +184,16 @@ namespace HydroCouple::Composer
 
     if (!m_recent)
     {
+      m_clearRecent->setEnabled(false);
+
       return;
     }
 
     const QStringList paths = m_recent->paths();
+
+    // Nothing to clear when there is nothing in it: a live button over an
+    // empty list is an offer that does nothing.
+    m_clearRecent->setEnabled(!paths.isEmpty());
 
     if (paths.isEmpty())
     {
@@ -184,6 +222,43 @@ namespace HydroCouple::Composer
         item->setForeground(QColor(150, 90, 90));
         item->setToolTip(tr("%1 is no longer there.").arg(path));
       }
+    }
+  }
+
+  QMenu *WelcomePage::recentMenuFor(QListWidgetItem *item)
+  {
+    if (!item || !m_recent)
+    {
+      return nullptr;
+    }
+
+    const QString path = item->data(Qt::UserRole).toString();
+
+    if (path.isEmpty())
+    {
+      // The "nothing opened yet" placeholder is a message, not an entry.
+      return nullptr;
+    }
+
+    auto *menu = new QMenu(this);
+
+    // Opening is asked of the window, because that is the one path that
+    // also records the document as recent. Forgetting is done to the store
+    // here: nothing about it needs the window's help.
+    connect(menu->addAction(tr("Open")), &QAction::triggered, this,
+            [this, path] { Q_EMIT openRecentRequested(path); });
+    connect(menu->addAction(tr("Remove from List")), &QAction::triggered,
+            this, [this, path] { m_recent->forget(path); });
+
+    return menu;
+  }
+
+  void WelcomePage::showRecentMenu(const QPoint &point)
+  {
+    if (QMenu *menu = recentMenuFor(m_list->itemAt(point)))
+    {
+      menu->setAttribute(Qt::WA_DeleteOnClose);
+      menu->popup(m_list->viewport()->mapToGlobal(point));
     }
   }
 

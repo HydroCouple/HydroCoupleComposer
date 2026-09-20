@@ -25,10 +25,12 @@
 #include "results/runbrowsermodel.h"
 #include "ui/panels/mapstatusbar.h"
 #include "ui/recentcompositions.h"
+#include "ui/selectionhub.h"
 #include "ui/welcomepage.h"
 #include "ui/panels/runbrowserpanel.h"
 
 #include <QMainWindow>
+#include <QPointer>
 
 #include <memory>
 
@@ -40,6 +42,7 @@ class QMenu;
 class QListView;
 class QPlainTextEdit;
 class QTabWidget;
+class QToolButton;
 
 namespace HydroCouple::Composer
 {
@@ -217,6 +220,12 @@ namespace HydroCouple::Composer
       void onLayerProperties(HydroCouple::Composer::MapLayer *layer);
       void onSetMapCrs();
       void onPreferences();
+
+      //! Puts the welcome page back, or brings it forward if it is there.
+      void showWelcomeTab();
+
+      //! Takes the welcome tab away, keeping the page and its state.
+      void closeWelcomeTab();
       void onOpenRun();
 
       //! Draws the recorded item the run browser asked for.
@@ -272,6 +281,15 @@ namespace HydroCouple::Composer
       //! Hands the remembered library directories to the registry and,
       //! when the preference says so, scans them.
       void applyComponentSearchPaths();
+
+      /*!
+       * \brief Puts the close button on the welcome tab at \a index.
+       *
+       * One button, kept across close/restore cycles. QTabBar does not
+       * delete a tab button when its tab is removed — measured — so a fresh
+       * button per restore would leave an orphan on the bar every time.
+       */
+      void installWelcomeCloseButton(int index);
 
       /*!
        * \brief Puts \a layer on the map and frames it.
@@ -372,6 +390,13 @@ namespace HydroCouple::Composer
       QAction *m_darkAction = nullptr;
       QAction *m_systemAction = nullptr;
       QAction *m_preferencesAction = nullptr;
+      QAction *m_welcomeAction = nullptr;
+
+      //! Carries selection between the canvas and the layer views.
+      SelectionHub *m_selectionHub = nullptr;
+
+      //! Guarded rather than raw: the tab bar owns it once it is installed.
+      QPointer<QToolButton> m_welcomeCloseButton;
       QAction *m_runAction = nullptr;
       QAction *m_pauseAction = nullptr;
       QAction *m_stopAction = nullptr;

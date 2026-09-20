@@ -319,6 +319,27 @@ namespace HydroCouple::Composer
     return m_model;
   }
 
+  bool LayerTreePanel::setCurrentLayer(MapLayer *layer)
+  {
+    if (!m_model || !layer)
+    {
+      return false;
+    }
+
+    const int row = m_model->rowOf(layer);
+
+    if (row < 0)
+    {
+      return false;
+    }
+
+    const QModelIndex index = m_model->index(row, 0);
+    m_view->setCurrentIndex(index);
+    m_view->scrollTo(index);
+
+    return true;
+  }
+
   MapLayer *LayerTreePanel::currentLayer() const
   {
     if (!m_model)

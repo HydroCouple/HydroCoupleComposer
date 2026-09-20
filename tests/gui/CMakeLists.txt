@@ -90,6 +90,12 @@ target_compile_definitions(test_welcome PRIVATE
 
 # U7 — global preferences. The manager suite walks the key table over its
 # own .ini; the dialog suite drives every widget through OK and reopens.
+# U3 — what a point layer and a filled ring contribute to the 3D view.
+composer_add_gui_test(test_scenemarkers)
+
+# U6 — one selection across the canvas and the layer views.
+composer_add_gui_test(test_selectionhub)
+
 composer_add_gui_test(test_preferences)
 target_compile_definitions(test_preferences PRIVATE
     COMPOSER_PREFERENCES_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/preferences")

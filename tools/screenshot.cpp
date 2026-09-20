@@ -10,6 +10,7 @@
  * Usage: composer_screenshot <output.png> [component-library-directory]
  *        composer_screenshot <output.png> --map
  *        composer_screenshot <output.png> --preferences [category]
+ *        composer_screenshot <output.png> --welcome-closed
  */
 
 #include "canvas/compositionscene.h"
@@ -32,6 +33,7 @@
 #include "ui/panels/layertreepanel.h"
 
 #include <QDir>
+#include <QToolButton>
 #include <QDockWidget>
 #include <QFileInfo>
 #include <QPainter>
@@ -303,9 +305,24 @@ int main(int argc, char *argv[])
     return 0;
   }
 
+  // --welcome-closed: the shell after the start page has been closed, so
+  // the close button and what it leaves behind can both be reviewed.
+  const bool closeWelcome =
+    argc > 2
+    && QString::fromLocal8Bit(argv[2]) == QLatin1String("--welcome-closed");
+
   ComposerMainWindow window;
   window.resize(1400, 880);
   window.show();
+
+  if (closeWelcome)
+  {
+    if (auto *close = window.findChild<QToolButton *>(
+          QStringLiteral("welcomeTabCloseButton")))
+    {
+      close->click();
+    }
+  }
 
   if (captureMesh || captureScene || captureLayered)
   {

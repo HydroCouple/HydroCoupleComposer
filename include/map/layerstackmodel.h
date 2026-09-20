@@ -34,6 +34,24 @@ namespace HydroCouple::Composer
   /*!
    * \brief An ordered, owning list of map layers.
    */
+  /*!
+   * \brief How a new pick combines with the selection already held.
+   */
+  enum class SelectionMode
+  {
+    Replace,  //!< The pick becomes the selection — a plain click.
+    Add,      //!< The pick joins the selection — Shift.
+    Toggle,   //!< The pick flips — Ctrl on Windows and Linux, ⌘ on macOS.
+  };
+
+  /*!
+   * \brief The mode \a modifiers ask for.
+   *
+   * Qt maps ⌘ to ControlModifier on macOS, so one rule covers every
+   * platform and matches what a GIS user already has in their fingers.
+   */
+  [[nodiscard]] SelectionMode selectionModeFor(Qt::KeyboardModifiers modifiers);
+
   class LayerStackModel : public QAbstractItemModel
   {
       Q_OBJECT
@@ -211,6 +229,23 @@ namespace HydroCouple::Composer
        *        the layer.
        */
       void selectOnly(MapLayer *layer, const QSet<int> &features);
+
+      /*!
+       * \brief Applies \a features to \a layer according to \a mode.
+       *
+       * Replace is selectOnly. Add and Toggle change the selection *within*
+       * one layer — and only within the layer that already holds one: the
+       * stack's rule that a selection lives on a single layer is what lets
+       * the attribute table show it, so adding across layers falls back to
+       * replacing rather than producing a selection two thirds of which
+       * nothing can display.
+       *
+       * \param layer The layer to select in; nullptr clears everything.
+       * \param features Feature indices to apply.
+       * \param mode How to combine them with what is already selected.
+       */
+      void select(MapLayer *layer, const QSet<int> &features,
+                  SelectionMode mode);
 
       /*!
        * \brief Whether \a index is a legend row rather than a layer.

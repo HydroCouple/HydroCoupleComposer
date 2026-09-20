@@ -246,7 +246,8 @@ namespace HydroCouple::Composer
        *
        * \param rectangle Screen rectangle to select within.
        */
-      void selectIn(const QRect &rectangle);
+      void selectIn(const QRect &rectangle,
+                    SelectionMode mode = SelectionMode::Replace);
 
       /*!
        * \brief Identifies what is under \a screen and selects it.
@@ -257,7 +258,8 @@ namespace HydroCouple::Composer
        *
        * \param screen Widget position, as a click gives.
        */
-      void pickAndSelectAt(const QPoint &screen);
+      void pickAndSelectAt(const QPoint &screen,
+                           SelectionMode mode = SelectionMode::Replace);
 
       /*!
        * \brief Sets the section line drawn across the map.

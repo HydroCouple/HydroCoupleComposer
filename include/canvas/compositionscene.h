@@ -54,6 +54,18 @@ namespace HydroCouple::Composer
       [[nodiscard]] ComponentNodeItem *node(const QString &componentId) const;
 
       /*!
+       * \brief Selects the node for \a componentId, and only it.
+       *
+       * An empty id, or one with no node, clears the selection: the caller
+       * is saying "nothing here", and leaving the previous node lit would
+       * make the canvas claim a relationship that does not hold.
+       *
+       * \param componentId The component to select.
+       * \returns Whether a node was found and selected.
+       */
+      bool selectComponent(const QString &componentId);
+
+      /*!
        * \brief Every connection edge currently drawn.
        */
       [[nodiscard]] QList<ConnectionEdgeItem *> edges() const;

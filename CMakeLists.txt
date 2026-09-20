@@ -289,6 +289,9 @@ set(COMPOSER_SOURCES
     src/ui/panels/runbrowserpanel.cpp
     include/ui/recentcompositions.h
     src/ui/recentcompositions.cpp
+    include/ui/selectionhub.h
+    src/ui/selectionhub.cpp
+    include/layers/componentlayer.h
     include/ui/welcomepage.h
     src/ui/welcomepage.cpp
     include/ui/panels/mapstatusbar.h

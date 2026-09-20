@@ -19,6 +19,9 @@
 
 class QCheckBox;
 class QListWidget;
+class QListWidgetItem;
+class QMenu;
+class QPushButton;
 
 namespace HydroCouple::Composer
 {
@@ -40,6 +43,21 @@ namespace HydroCouple::Composer
       explicit WelcomePage(RecentCompositions *recent,
                            QWidget *parent = nullptr);
 
+      /*!
+       * \brief What can be done to the remembered entry \a item.
+       *
+       * The actions are wired, so triggering one does the work. Separate
+       * from showing the menu — and public — because QMenu::exec() blocks,
+       * and a menu no test can reach is a menu nobody has checked (the
+       * same seam PreferencesDialog::apply() offers).
+       *
+       * \param item The row the menu is for.
+       * \returns The menu, owned by the caller, or nullptr when the row is
+       *   not a remembered document — the "nothing opened yet" placeholder
+       *   is a message, not an entry.
+       */
+      [[nodiscard]] QMenu *recentMenuFor(QListWidgetItem *item);
+
     Q_SIGNALS:
       void newRequested();
       void openRequested();
@@ -55,8 +73,12 @@ namespace HydroCouple::Composer
       //! Refills the recent list from the store.
       void refresh();
 
+      //! Shows recentMenuFor() at \a point, when there is one to show.
+      void showRecentMenu(const QPoint &point);
+
       RecentCompositions *m_recent = nullptr;
       QListWidget *m_list = nullptr;
+      QPushButton *m_clearRecent = nullptr;
       QCheckBox *m_showOnStartUp = nullptr;
   };
 

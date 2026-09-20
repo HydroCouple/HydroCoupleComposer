@@ -154,6 +154,12 @@ namespace HydroCouple::Composer
       QDoubleSpinBox *m_rasterMaximumSpin = nullptr;
       QDoubleSpinBox *m_extrusionSpin = nullptr;
 
+      // U3 — how the layer reads in the 3D view.
+      QDoubleSpinBox *m_markerSizeSpin = nullptr;
+      QCheckBox *m_fillRingsCheck = nullptr;
+      QSpinBox *m_peelFirstSpin = nullptr;
+      QSpinBox *m_peelLastSpin = nullptr;
+
       QComboBox *m_modeCombo = nullptr;
       QComboBox *m_attributeCombo = nullptr;
       QComboBox *m_methodCombo = nullptr;

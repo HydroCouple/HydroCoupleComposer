@@ -678,6 +678,16 @@ namespace HydroCouple::Composer
 
     if (m_entity == MeshEntity::Node)
     {
+      // A node mesh is a cloud of points, and points are markers now (U3a).
+      // Before this a node-attached variable was themed on the map and
+      // showed nothing at all in the view beside it.
+      SceneGeometry markers = markerGeometry(nullptr, style());
+
+      if (!markers.isEmpty())
+      {
+        batches.append(std::move(markers));
+      }
+
       return batches;
     }
 

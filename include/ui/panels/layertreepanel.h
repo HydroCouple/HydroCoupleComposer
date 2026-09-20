@@ -57,6 +57,19 @@ namespace HydroCouple::Composer
       [[nodiscard]] MapLayer *currentLayer() const;
 
       /*!
+       * \brief Makes \a layer the current row, and shows it.
+       *
+       * Scrolls to it, because a row made current below the fold is a
+       * selection the user cannot see. A layer that is not in the stack,
+       * or nullptr, leaves the current row alone rather than clearing it:
+       * "I could not find that" is not the same as "nothing is selected".
+       *
+       * \param layer The layer to make current.
+       * \returns Whether the row was found and made current.
+       */
+      bool setCurrentLayer(MapLayer *layer);
+
+      /*!
        * \brief The underlying view, for selection handling and tests.
        */
       [[nodiscard]] QTreeView *view() const;

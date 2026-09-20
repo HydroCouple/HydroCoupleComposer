@@ -149,6 +149,8 @@ namespace HydroCouple::Composer
       //! Features carry attributes, so a height can be read from one.
       [[nodiscard]] bool supportsAttributeZ() const override;
 
+      [[nodiscard]] bool supportsRingFill() const override;
+
       void setExtrusionHeight(double height) override;
 
       //! A line or a ring can stand up; that is what extrusion is for.
@@ -201,6 +203,17 @@ namespace HydroCouple::Composer
        *
        * \param context The terrain to drape on, when the stack has one.
        */
+      /*!
+       * \brief The size a marker is drawn at, resolved.
+       *
+       * markerSize() when it was set, and otherwise a fiftieth of the
+       * layer's extent diagonal — small enough to read as a symbol, and
+       * derived from the only scale a layer knows without asking the scene
+       * what else is in it. Zero when the extent is empty, which draws
+       * nothing rather than a marker of unknowable size.
+       */
+      [[nodiscard]] double resolvedMarkerSize() const;
+
       [[nodiscard]] QVector<SceneGeometry> sceneGeometry(
         const SceneContext &context) const override;
 
@@ -227,6 +240,15 @@ namespace HydroCouple::Composer
         const;
 
     protected:
+      /*!
+       * \brief One solid marker per point feature.
+       *
+       * \param terrain The surface to sit them on, or nullptr for flat.
+       * \param layerStyle The style their colours come from.
+       */
+      [[nodiscard]] SceneGeometry markerGeometry(
+        const ITerrainSource *terrain, const LayerStyle *layerStyle) const;
+
       /*!
        * \brief The colour a feature takes in the scene.
        *

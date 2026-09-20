@@ -315,6 +315,25 @@ namespace HydroCouple::Composer
     }
   }
 
+  bool CompositionScene::selectComponent(const QString &componentId)
+  {
+    ComponentNodeItem *wanted = node(componentId);
+
+    // Cleared first, then one selected: setSelected(true) on a node adds
+    // to whatever was already selected, and a canvas that accumulates one
+    // highlight per click is a canvas that stops meaning anything.
+    clearSelection();
+
+    if (!wanted)
+    {
+      return false;
+    }
+
+    wanted->setSelected(true);
+
+    return true;
+  }
+
   ComponentNodeItem *CompositionScene::node(const QString &componentId) const
   {
     return m_nodes.value(componentId);
