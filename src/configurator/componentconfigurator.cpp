@@ -215,7 +215,13 @@ namespace HydroCouple::Composer
 
       QWidget *editor = nullptr;
 
-      switch (descriptor.kind)
+      // inlineKind, not kind: the typed kinds (U2a) name what an argument
+      // *is*, and until each has a dialog of its own (U2b/U2c) the dock
+      // still has to draw something. Switching on kind here would make a
+      // newly-typed argument match no case, produce no editor, and vanish
+      // from the form — so each dialog that lands moves its kind from one
+      // to the other, one at a time.
+      switch (descriptor.inlineKind)
       {
         case ArgumentEditorKind::Categorical:
         {

@@ -55,9 +55,105 @@ namespace HydroCouple::Composer
     FilePath,
     //! A rank-1 or rank-2 grid of values.
     Table,
+
+    // ── the typed kinds (U2a) ────────────────────────────────────────────
+    //
+    // Chosen from the data-item interfaces the argument answers to, then
+    // from its value definition, and only then from rank and data kind —
+    // in that order, because an interface is the component telling us what
+    // the argument *is*, while a rank is us guessing from its shape.
+    //
+    // Never from the argument's id or caption. That rule is B5a's and it
+    // stands: an argument called "startDate" that holds a number is a
+    // number, and a component whose author spells captions differently
+    // must not get a different editor for it.
+
+    //! A scalar with a unit, editable in a unit of the user's choosing.
+    Quantity,
+    //! Values against times; the argument answers ITimeSeriesComponentDataItem.
+    TimeSeries,
+    //! A surface or mesh; IPolyhedralSurfaceComponentDataItem.
+    Mesh,
+    //! Features with geometry; IGeometryComponentDataItem or a network.
+    Geometry,
+    //! A raster; IRasterComponentDataItem or a regular grid.
+    Raster,
+    //! Values against identifiers; IIdBasedComponentDataItem.
+    IdTable,
+    //! A length of time: a scalar whose unit has only time in it.
+    Duration,
+    //! A coordinate reference system.
+    Crs,
+    //! Text long enough to want its own pane, and often read from a file.
+    LongText,
+
     //! Nothing better fits; the raw JSON pane is the editor.
     Raw
   };
+
+  /*!
+   * \brief What an argument says about itself, as plain values.
+   *
+   * The half of describeArgument() that talks to HydroCouple's interfaces
+   * hands this to the half that decides — chooseEditorKind() — which then
+   * needs no component, no library and no interfaces to test. The order of
+   * that decision chain is the thing most likely to be wrong, and order is
+   * pure logic: a mesh that also varies in time must not arrive at the
+   * time-series editor and lose its geometry, and a categorical argument
+   * must not be read as a table merely because it holds a hundred values.
+   */
+  struct ArgumentFacts
+  {
+      //! Its IQuality offers a fixed set of values.
+      bool hasCategories = false;
+      //! Its payload is one value rather than a grid.
+      bool isScalar = true;
+      //! It reads files, and says which.
+      bool hasFileFilters = false;
+
+      HydroCouple::DataKind dataKind = HydroCouple::DataKind::Unknown;
+
+      // ── the typed interfaces it answers to ─────────────────────────────
+      bool isTimeSeries = false;
+      bool isPolyhedralSurface = false;
+      bool isRaster = false;
+      bool isGeometry = false;
+      bool isIdBased = false;
+
+      //! Its IQuantity carries an IUnit.
+      bool hasUnit = false;
+      //! That unit's dimensions are time and nothing else.
+      bool unitIsPureTime = false;
+      //! validComponentDataItemTypes() names ISpatialReferenceSystem.
+      bool acceptsSpatialReference = false;
+  };
+
+  /*!
+   * \brief The editor \a facts call for.
+   *
+   * Pure, total and order-sensitive; see ArgumentFacts.
+   */
+  [[nodiscard]] ArgumentEditorKind chooseEditorKind(const ArgumentFacts &facts);
+
+  /*!
+   * \brief The editor \a facts called for before the typed kinds existed.
+   *
+   * The pre-U2a chain, kept and still used. A typed kind names what an
+   * argument *is*; until that kind has a dialog of its own (U2b, U2c) the
+   * dock still has to draw something, and the honest something is what it
+   * drew yesterday. Without this, widening the enum would make every
+   * newly-typed argument fall through the configurator's switch and
+   * render nothing at all — a component's meteorology would simply
+   * disappear from its form, which is a far worse outcome than a table.
+   *
+   * Each dialog that lands deletes one line of the descriptor's use of
+   * this, and when the last one lands this goes with it.
+   */
+  [[nodiscard]] ArgumentEditorKind genericEditorKind(
+    const ArgumentFacts &facts);
+
+  //! A stable token for \a kind, for messages and for settings.
+  [[nodiscard]] QString argumentEditorKindName(ArgumentEditorKind kind);
 
   /*!
    * \brief Everything an editor needs about one argument.
@@ -68,7 +164,20 @@ namespace HydroCouple::Composer
       QString caption;
       QString description;
 
+      /*!
+       * \brief What the argument is, as its interfaces declare it.
+       *
+       * The summary text and, once it exists, the dialog.
+       */
       ArgumentEditorKind kind = ArgumentEditorKind::Raw;
+
+      /*!
+       * \brief What the dock draws inline, until \c kind has its dialog.
+       *
+       * Equal to \c kind for every kind that had an editor before U2a.
+       * See genericEditorKind().
+       */
+      ArgumentEditorKind inlineKind = ArgumentEditorKind::Raw;
 
       bool isOptional = true;
       bool isReadOnly = false;

@@ -97,6 +97,10 @@ composer_add_gui_test(test_gizmodraw)
 # U5 — how a drag, a wheel notch and a named view move the camera.
 composer_add_gui_test(test_navigation)
 
+# U2a - which editor an argument gets, and in what order that is decided.
+# Pure: no component library, no widgets.
+composer_add_gui_test(test_argumentkinds)
+
 # U3 — what a point layer and a filled ring contribute to the 3D view.
 composer_add_gui_test(test_scenemarkers)
 
