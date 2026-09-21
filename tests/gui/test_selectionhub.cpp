@@ -29,6 +29,38 @@ namespace Testing = HydroCouple::Composer::Testing;
 
 namespace
 {
+  /*!
+   * \brief Puts a component on the canvas the way the application does.
+   *
+   * Through the document, so the scene's rebuild registers the node in
+   * its own index. Every case here used to call scene.addItem(node)
+   * directly, which puts the item on the QGraphicsScene and *not* in
+   * that index — so node() answered null, selectComponent() found
+   * nothing to select, and one case dereferenced the null and took the
+   * process with it. A crash is not a failing gate: it also took down
+   * the falsifier's baseline, and eleven mutations that "passed" against
+   * a suite that was already red proved nothing at all.
+   *
+   * \returns The node, never null.
+   */
+  ComponentNodeItem *placeComponent(CompositionDocument &document,
+                                    CompositionScene &scene,
+                                    const QString &id,
+                                    const QString &caption)
+  {
+    HydroCouple::SDK::IO::ComponentSpec spec;
+    spec.id = id.toStdString();
+    spec.caption = caption.toStdString();
+    spec.info.componentInfoId = "org.hydrocouple.testing.probe";
+
+    if (!document.addComponent(spec, {}))
+    {
+      return nullptr;
+    }
+
+    return scene.node(id);
+  }
+
   class SelectionHubTest : public ::testing::Test
   {
     protected:
@@ -117,9 +149,10 @@ TEST_F(SelectionHubTest, SelectingAComponentBringsItsLayerForward)
                                             QStringLiteral("catchment"));
   ASSERT_GE(stack.addLayer(layer), 0);
 
-  auto *node = new ComponentNodeItem(QStringLiteral("catchment"),
-                                     QStringLiteral("Catchment"), {}, {});
-  scene.addItem(node);
+  ComponentNodeItem *node =
+    placeComponent(document, scene, QStringLiteral("catchment"),
+                   QStringLiteral("Catchment"));
+  ASSERT_NE(node, nullptr) << "the node was never registered";
 
   QSignalSpy asked(&hub, &SelectionHub::currentLayerRequested);
   node->setSelected(true);
@@ -135,9 +168,10 @@ TEST_F(SelectionHubTest, AComponentWithNoLayersAsksForNothing)
   CompositionScene scene(&document, nullptr);
   SelectionHub hub(&scene, &stack);
 
-  auto *node = new ComponentNodeItem(QStringLiteral("channel"),
-                                     QStringLiteral("Channel"), {}, {});
-  scene.addItem(node);
+  ComponentNodeItem *node =
+    placeComponent(document, scene, QStringLiteral("channel"),
+                   QStringLiteral("Channel"));
+  ASSERT_NE(node, nullptr) << "the node was never registered";
 
   QSignalSpy asked(&hub, &SelectionHub::currentLayerRequested);
   node->setSelected(true);
@@ -189,9 +223,10 @@ TEST_F(SelectionHubTest, TheTwoDirectionsDoNotChaseEachOther)
                                             QStringLiteral("catchment"));
   ASSERT_GE(stack.addLayer(layer), 0);
 
-  auto *node = new ComponentNodeItem(QStringLiteral("catchment"),
-                                     QStringLiteral("Catchment"), {}, {});
-  scene.addItem(node);
+  ComponentNodeItem *node =
+    placeComponent(document, scene, QStringLiteral("catchment"),
+                   QStringLiteral("Catchment"));
+  ASSERT_NE(node, nullptr) << "the node was never registered";
 
   // Wired head to tail, exactly as the window wires it: a pick selects the
   // component, and selecting a component asks for its layer. Without the
@@ -220,12 +255,15 @@ TEST_F(SelectionHubTest, SelectingAComponentSelectsThatOneAndClearsTheRest)
   CompositionDocument document;
   CompositionScene scene(&document, nullptr);
 
-  auto *first = new ComponentNodeItem(QStringLiteral("catchment"),
-                                      QStringLiteral("Catchment"), {}, {});
-  auto *second = new ComponentNodeItem(QStringLiteral("channel"),
-                                       QStringLiteral("Channel"), {}, {});
-  scene.addItem(first);
-  scene.addItem(second);
+  ComponentNodeItem *first =
+    placeComponent(document, scene, QStringLiteral("catchment"),
+                   QStringLiteral("Catchment"));
+  ASSERT_NE(first, nullptr) << "the node was never registered";
+
+  ComponentNodeItem *second =
+    placeComponent(document, scene, QStringLiteral("channel"),
+                   QStringLiteral("Channel"));
+  ASSERT_NE(second, nullptr) << "the node was never registered";
 
   EXPECT_TRUE(scene.selectComponent(QStringLiteral("catchment")));
   EXPECT_TRUE(first->isSelected());

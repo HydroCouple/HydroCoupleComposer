@@ -80,11 +80,22 @@ namespace
         release(canvas, to);
       }
 
-      static void press(MapCanvas &canvas, const QPoint &at)
+      /*!
+       * \brief A press, with whatever the user was holding.
+       *
+       * The modifiers used to be hard-coded to none here, and every
+       * gesture in this file went through it — so nothing in the suite
+       * ever reached the tool's modifier handling, and a mutation that
+       * dropped the modifiers on the way to the canvas survived against
+       * a green suite. A default argument keeps every existing caller
+       * unchanged while making the other half reachable.
+       */
+      static void press(MapCanvas &canvas, const QPoint &at,
+                        Qt::KeyboardModifiers modifiers = Qt::NoModifier)
       {
         QMouseEvent event(QEvent::MouseButtonPress, QPointF(at),
                           canvas.mapToGlobal(QPointF(at)), Qt::LeftButton,
-                          Qt::LeftButton, Qt::NoModifier);
+                          Qt::LeftButton, modifiers);
         QApplication::sendEvent(&canvas, &event);
       }
 
@@ -96,11 +107,12 @@ namespace
         QApplication::sendEvent(&canvas, &event);
       }
 
-      static void release(MapCanvas &canvas, const QPoint &at)
+      static void release(MapCanvas &canvas, const QPoint &at,
+                          Qt::KeyboardModifiers modifiers = Qt::NoModifier)
       {
         QMouseEvent event(QEvent::MouseButtonRelease, QPointF(at),
                           canvas.mapToGlobal(QPointF(at)), Qt::LeftButton,
-                          Qt::LeftButton, Qt::NoModifier);
+                          Qt::LeftButton, modifiers);
         QApplication::sendEvent(&canvas, &event);
       }
 
@@ -383,6 +395,55 @@ TEST_F(MapToolsTest, TheSelectToolTakesEveryFeatureTheBandCrosses)
   drag(canvas, QPoint(700, 320), QPoint(780, 380));
 
   EXPECT_TRUE(layer->selection().isEmpty());
+}
+
+TEST_F(MapToolsTest, TheModifiersReachTheCanvasFromAClick)
+{
+  // U6 gave the map Shift-adds and Cmd-toggles, and nothing here ever
+  // pressed either — so a mutation that dropped the modifiers on the way
+  // from the tool to the canvas survived against a suite that was
+  // otherwise green. The rule itself (selectionModeFor) has its own gates
+  // in test_layerstack; what was missing is that a *click* carries them
+  // that far.
+  LayerStackModel stack;
+  MapCanvas canvas;
+  canvas.setModel(&stack);
+  showFixture(canvas);
+
+  auto *layer = new Testing::VectorProbe(QStringLiteral("network"));
+
+  layer->addLine({QPointF(-200.0, -20.0), QPointF(-200.0, 20.0)},
+                 QStringLiteral("west"));
+  layer->addLine({QPointF(0.0, -20.0), QPointF(0.0, 20.0)},
+                 QStringLiteral("middle"));
+
+  ASSERT_GE(stack.addLayer(layer), 0);
+
+  canvas.setToolKind(MapToolKind::Select);
+
+  press(canvas, QPoint(200, 200));
+  release(canvas, QPoint(200, 200));
+
+  ASSERT_EQ(layer->selection().size(), 1);
+  ASSERT_TRUE(layer->selection().contains(0));
+
+  // Shift adds. Without the modifiers reaching the canvas this replaces,
+  // and the count stays at one.
+  press(canvas, QPoint(400, 200), Qt::ShiftModifier);
+  release(canvas, QPoint(400, 200), Qt::ShiftModifier);
+
+  EXPECT_EQ(layer->selection().size(), 2)
+    << "Shift-clicking replaced the selection instead of adding to it";
+  EXPECT_TRUE(layer->selection().contains(0));
+  EXPECT_TRUE(layer->selection().contains(1));
+
+  // And the control, without which the above would also pass for a tool
+  // that simply never replaced anything: no modifier still replaces.
+  press(canvas, QPoint(200, 200));
+  release(canvas, QPoint(200, 200));
+
+  EXPECT_EQ(layer->selection().size(), 1);
+  EXPECT_TRUE(layer->selection().contains(0));
 }
 
 TEST_F(MapToolsTest, ABandTakesALineThatMerelyCrossesIt)

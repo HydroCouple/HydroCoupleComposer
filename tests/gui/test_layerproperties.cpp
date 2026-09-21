@@ -370,6 +370,65 @@ TEST_F(LayerPropertiesTest, AppliesIdentityAndRenderingToAStyllessLayer)
     << "the map was never told, so the change would sit invisible";
 }
 
+TEST_F(LayerPropertiesTest, ThePeelRangeCannotBeInvertedIntoOneThatShowsNothing)
+{
+  // The peel range has had no UI since C3b-1 and got one in U3c. Its two
+  // spin boxes are independent, so nothing but the clamp between them
+  // stops a user dragging "from" past "down to" — and a range whose first
+  // layer is below its last selects no layers at all, which draws an
+  // empty water column and reads as a broken mesh rather than a range
+  // typed backwards.
+  //
+  // No case reached these boxes, so the clamp could be deleted in silence.
+  LayeredMesh layered;
+  layered.horizontal.nodeX = {0.0, 10.0, 10.0, 0.0};
+  layered.horizontal.nodeY = {0.0, 0.0, 10.0, 10.0};
+  layered.horizontal.nodeZ = {0.0, 0.0, 0.0, 0.0};
+  layered.horizontal.faceNodeOffsets = {0, 4};
+  layered.horizontal.faceNodes = {0, 1, 2, 3};
+  layered.layerCount = 4;
+  layered.interfaceZ.resize(5);
+
+  for (int k = 0; k <= 4; ++k)
+  {
+    layered.interfaceZ[size_t(k)] = -2.5 * double(k);
+  }
+
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("column"), layered.horizontal, MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+  ASSERT_TRUE(layer->setLayering(layered, message)) << message.toStdString();
+  ASSERT_GT(layer->layering().layerCount, 1);
+
+  LayerPropertiesDialog dialog(layer.get());
+
+  auto *first =
+    dialog.findChild<QSpinBox *>(QStringLiteral("renderingPeelFirstSpin"));
+  auto *last =
+    dialog.findChild<QSpinBox *>(QStringLiteral("renderingPeelLastSpin"));
+
+  ASSERT_NE(first, nullptr) << "a layered mesh has no peel control";
+  ASSERT_NE(last, nullptr);
+
+  // Push the first past the last: the last comes with it.
+  last->setValue(2);
+  first->setValue(3);
+
+  EXPECT_GE(last->value(), first->value())
+    << "the range inverted: first " << first->value() << ", last "
+    << last->value();
+
+  // And the other way round, which is a separate connection and so a
+  // separate thing to forget.
+  first->setValue(3);
+  last->setValue(1);
+
+  EXPECT_LE(first->value(), last->value())
+    << "the range inverted from the other end: first " << first->value()
+    << ", last " << last->value();
+}
+
 TEST_F(LayerPropertiesTest, ReportsWhereTheLayerCameFrom)
 {
   const CreditedProbeLayer credited(QStringLiteral("basemap"),

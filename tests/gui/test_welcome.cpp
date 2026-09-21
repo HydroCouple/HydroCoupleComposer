@@ -221,6 +221,34 @@ TEST_F(WelcomeTest, TheRecentListCanBeEmptiedAndEntriesDropped)
   EXPECT_TRUE(list->item(0)->data(Qt::UserRole).toString().isEmpty());
 }
 
+TEST_F(WelcomeTest, APageWithNoStoreOffersNothingToClear)
+{
+  // The page takes its store by pointer, and nothing obliges a caller to
+  // pass one — a page built before the store exists, or in a context that
+  // has none, is a live possibility. Its Clear button must be dead, or it
+  // offers to empty a list that does not exist and the press goes
+  // somewhere it was never designed to go.
+  //
+  // No case here built such a page, so the line that disables the button
+  // was unreachable by the suite and could be deleted without complaint.
+  WelcomePage page(nullptr);
+
+  auto *clear =
+    page.findChild<QPushButton *>(QStringLiteral("welcomeClearRecentButton"));
+
+  ASSERT_NE(clear, nullptr);
+  EXPECT_FALSE(clear->isEnabled())
+    << "a page with no store still offers to clear one";
+
+  // And the list is empty rather than stale or invented.
+  auto *list =
+    page.findChild<QListWidget *>(QStringLiteral("welcomeRecentList"));
+
+  ASSERT_NE(list, nullptr);
+  EXPECT_LE(list->count(), 1)
+    << "a page with no store listed documents it cannot have";
+}
+
 TEST_F(WelcomeTest, TheRecentMenuOpensAndForgetsButOffersNothingOnThePlaceholder)
 {
   const QString path = writeDocument(QStringLiteral("study.json"));

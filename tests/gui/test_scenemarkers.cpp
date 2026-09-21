@@ -107,19 +107,37 @@ TEST_F(MarkerTest, AMarkerIsCentredOnItsPointAndSizedFromTheExtent)
   SceneContext context;
   const SceneGeometry markers = points.sceneGeometry(context).first();
 
-  // The first marker's six vertices straddle its point by half the size.
-  double minX = 1e9;
-  double maxX = -1e9;
+  // The first marker's six vertices straddle its point by half the size,
+  // on every axis. This used to measure x alone, and a mutation that hung
+  // the marker half a size *above* its point slid straight past — the one
+  // axis being checked was the one the mutation left alone. A marker
+  // floating over its gauge is exactly the kind of wrong that looks
+  // deliberate.
+  double minimum[3] = { 1e9, 1e9, 1e9 };
+  double maximum[3] = { -1e9, -1e9, -1e9 };
 
   for (int i = 0; i < 6; ++i)
   {
-    minX = std::min(minX, double(markers.vertices.at(i).x));
-    maxX = std::max(maxX, double(markers.vertices.at(i).x));
+    const SceneVertex &vertex = markers.vertices.at(i);
+    const double position[3] = { double(vertex.x), double(vertex.y),
+                                 double(vertex.z) };
+
+    for (int axis = 0; axis < 3; ++axis)
+    {
+      minimum[axis] = std::min(minimum[axis], position[axis]);
+      maximum[axis] = std::max(maximum[axis], position[axis]);
+    }
   }
 
-  EXPECT_NEAR(minX, -5.0, 1e-4);
-  EXPECT_NEAR(maxX, 5.0, 1e-4);
-  EXPECT_NEAR((minX + maxX) / 2.0, 0.0, 1e-4) << "not centred on its point";
+  const char *names[3] = { "x", "y", "z" };
+
+  for (int axis = 0; axis < 3; ++axis)
+  {
+    EXPECT_NEAR(minimum[axis], -5.0, 1e-4) << names[axis];
+    EXPECT_NEAR(maximum[axis], 5.0, 1e-4) << names[axis];
+    EXPECT_NEAR((minimum[axis] + maximum[axis]) / 2.0, 0.0, 1e-4)
+      << "not centred on its point in " << names[axis];
+  }
 
   // An explicit size overrides the automatic one.
   points.setMarkerSize(2.0);

@@ -148,11 +148,16 @@ namespace HydroCouple::Composer
       }
 
       // sceneSource() is the layer's opt-in to being DRAWN; bounds answer
-      // the different question of where the data IS. A point layer opts out
-      // of drawing -- it has no 3D form yet -- but its footprint still
-      // belongs in the framing, or "Zoom to Full Extent" frames a different
-      // world in each view. Backdrops stay excluded in both, by their own
-      // answer: a basemap's sceneBounds() is empty on purpose.
+      // the different question of where the data IS. The two differ, and
+      // a layer that draws nothing still has to count toward the framing,
+      // or "Zoom to Full Extent" frames a different world in each view.
+      // Backdrops stay excluded in both, by their own answer: a basemap
+      // is an ISceneSource whose sceneBounds() is empty on purpose, so it
+      // is answered below rather than falling through to its extent —
+      // which, for a world basemap, would frame the planet.
+      //
+      // (The example here used to be a point layer, which opted out of
+      // drawing until U3 gave points their markers. It is no longer one.)
       const auto *source = layer->sceneSource();
 
       if (!source)
@@ -163,7 +168,40 @@ namespace HydroCouple::Composer
       if (source)
       {
         bounds.expandTo(source->sceneBounds());
+
+        continue;
       }
+
+      // A layer that is not an ISceneSource at all. Until now this fell
+      // through and contributed nothing, which made the promise above
+      // true only by coincidence: every layer type in the tree happens
+      // to descend from FeatureLayer or MeshLayer, and so happens to be
+      // an ISceneSource. Nothing stated that, and the first layer type
+      // that was not one would have been dropped from the framing in
+      // silence — the symptom being a 3D view that cuts off half of what
+      // the map was showing, which reads as a camera fault.
+      //
+      // extent() is pure virtual on MapLayer, so every layer has an
+      // answer. Flat at z = 0, because a layer with no 3D form has no
+      // relief to contribute.
+      const QRectF footprint = layer->extent();
+
+      // Compared against a default-constructed rectangle rather than
+      // asked isNull() or isEmpty(). Both of those are true for a
+      // zero-area rectangle wherever it sits, so either would drop a
+      // point layer's footprint — the trap this codebase has paid for
+      // five times. This comparison drops only the rectangle that says
+      // "no extent", and in the one case the two readings overlap (a
+      // point at exactly the origin) they contribute the same thing.
+      if (footprint == QRectF())
+      {
+        continue;
+      }
+
+      bounds.expandTo(QVector3D(float(footprint.left()),
+                                float(footprint.top()), 0.0f));
+      bounds.expandTo(QVector3D(float(footprint.right()),
+                                float(footprint.bottom()), 0.0f));
     }
 
     return bounds;
