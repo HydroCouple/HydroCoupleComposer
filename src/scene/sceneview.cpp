@@ -289,6 +289,11 @@ namespace HydroCouple::Composer
     return m_camera.groundExtent(double(width()) / double(height()));
   }
 
+  QRectF SceneView::sceneFootprint() const
+  {
+    return m_renderer.sceneBounds().footprint();
+  }
+
   void SceneView::showGroundExtent(const QRectF &extent)
   {
     // isNull, matching what Camera itself refuses, so that "framed" is

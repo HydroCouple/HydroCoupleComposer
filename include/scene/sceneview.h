@@ -170,6 +170,18 @@ namespace HydroCouple::Composer
       [[nodiscard]] QRectF groundExtent() const;
 
       /*!
+       * \brief The ground the scene's data covers, or empty when there is
+       *        none.
+       *
+       * What groundExtent() should be read against. A tilted camera's
+       * ground rectangle is the bounding box of a trapezoid and is
+       * several times the data it was fitted to — measured, between two
+       * and seven times, depending on the tilt — so handing it straight
+       * to the map frames the map on mostly empty ground.
+       */
+      [[nodiscard]] QRectF sceneFootprint() const;
+
+      /*!
        * \brief Looks at \a extent on the ground.
        *
        * The map's half of the hand-off. Only the framing moves: the camera

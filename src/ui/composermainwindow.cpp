@@ -438,7 +438,43 @@ namespace HydroCouple::Composer
       return false;
     }
 
-    m_mapCanvas->setVisibleExtent(ground);
+    // Bounded by where the data is. A tilted camera's ground rectangle is
+    // the bounding box of a trapezoid, and fitted to a 1000 x 700 extent
+    // it measures 3.6 times that at 45 degrees and 7.4 at 30 — with real
+    // relief, not only for a flat stack. Handing that straight over frames
+    // the map on mostly empty ground, and the further the camera is tilted
+    // the worse it gets, which is the opposite of what a user tilting to
+    // see relief expects.
+    //
+    // The intersection says what the 3D view is looking at *and* has
+    // something to show: zoomed into a corner it is that corner, zoomed
+    // out it is the data.
+    const QRectF data = m_sceneView->sceneFootprint();
+
+    QRectF framed = ground;
+
+    if (!data.isNull() || data != QRectF())
+    {
+      // Intersected by hand. QRectF::intersected() returns empty whenever
+      // either rectangle has no area, so a stack whose data is a single
+      // row of gauges — a zero-height footprint — would hand over nothing
+      // through the operator that looks like the obvious one. Sixth time.
+      const double left = std::max(ground.left(), data.left());
+      const double right = std::min(ground.right(), data.right());
+      const double top = std::max(ground.top(), data.top());
+      const double bottom = std::min(ground.bottom(), data.bottom());
+
+      if (left > right || top > bottom)
+      {
+        // The camera is looking somewhere the data is not. Leaving the
+        // map where it is beats framing it on empty ground.
+        return false;
+      }
+
+      framed = QRectF(QPointF(left, top), QPointF(right, bottom));
+    }
+
+    m_mapCanvas->setVisibleExtent(framed);
 
     return true;
   }

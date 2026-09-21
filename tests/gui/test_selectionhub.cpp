@@ -228,10 +228,8 @@ TEST_F(SelectionHubTest, TheTwoDirectionsDoNotChaseEachOther)
                    QStringLiteral("Catchment"));
   ASSERT_NE(node, nullptr) << "the node was never registered";
 
-  // Wired head to tail, exactly as the window wires it: a pick selects the
-  // component, and selecting a component asks for its layer. Without the
-  // guard this does not fail — it recurses until the process dies, which
-  // is why the falsifier judges this gate by exit status too.
+  // Wired as the window wires it: a pick selects the component on the
+  // canvas, and nothing is wired back the other way.
   QObject::connect(&hub, &SelectionHub::componentSelectionRequested, &scene,
                    [&scene](const QString &id) { scene.selectComponent(id); });
 
@@ -242,10 +240,63 @@ TEST_F(SelectionHubTest, TheTwoDirectionsDoNotChaseEachOther)
 
   EXPECT_EQ(componentAsked.count(), 1);
 
-  // The canvas selection that the pick caused does not bounce back as a
-  // second layer request: one hop, then it stops.
-  EXPECT_LE(layerAsked.count(), 1);
+  // Exactly none, and this is the assertion the guard is for. The map
+  // already knows which layer was picked; asking it to make that layer
+  // current again is redundant at best, and at worst it fights a tree
+  // selection the user made.
+  //
+  // It used to read EXPECT_LE(..., 1), which the guard's removal walked
+  // straight through: selectComponent() clears before it selects, and the
+  // clearing pass finds nothing selected and so emits nothing, leaving a
+  // count of exactly one either way. A bound that both behaviours satisfy
+  // is not a gate.
+  EXPECT_EQ(layerAsked.count(), 0)
+    << "the pick bounced back as a layer request";
   EXPECT_TRUE(scene.node(QStringLiteral("catchment"))->isSelected());
+}
+
+TEST_F(SelectionHubTest, AHostileWiringStillTerminates)
+{
+  // The property the guard promises, rather than the wiring that happens
+  // to exist. Above, the window wires one direction and the chain stops
+  // on its own after a hop; here both directions are closed, so a hub
+  // without its guard does not fail this case — it recurses until the
+  // process dies. That is why the falsifier judges this one by exit
+  // status as well as by assertion (C4c's lesson: a crash prints no
+  // [FAILED] line).
+  //
+  // Nothing in the application wires it this way today. It is written
+  // down because "no closed loop exists" is a property of four
+  // connections in composermainwindow.cpp, and the hub is the wrong place
+  // to be relying on that.
+  CompositionDocument document;
+  LayerStackModel stack;
+  CompositionScene scene(&document, nullptr);
+  SelectionHub hub(&scene, &stack);
+
+  auto *layer = new Testing::ComponentProbe(QStringLiteral("runoff"),
+                                            QStringLiteral("catchment"));
+  ASSERT_GE(stack.addLayer(layer), 0);
+
+  ComponentNodeItem *node =
+    placeComponent(document, scene, QStringLiteral("catchment"),
+                   QStringLiteral("Catchment"));
+  ASSERT_NE(node, nullptr) << "the node was never registered";
+
+  QObject::connect(&hub, &SelectionHub::componentSelectionRequested, &scene,
+                   [&scene](const QString &id) { scene.selectComponent(id); });
+
+  // The return leg, which the window does not have.
+  QObject::connect(&hub, &SelectionHub::currentLayerRequested, &hub,
+                   [&hub](MapLayer *picked) { hub.featurePicked(picked); });
+
+  QSignalSpy componentAsked(&hub, &SelectionHub::componentSelectionRequested);
+
+  hub.featurePicked(layer);
+
+  // Reaching this line at all is most of the result.
+  EXPECT_EQ(componentAsked.count(), 1)
+    << "the two directions chased each other";
 }
 
 // ── the scene's own half ────────────────────────────────────────────────
