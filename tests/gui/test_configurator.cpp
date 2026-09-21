@@ -139,9 +139,24 @@ TEST_F(ConfiguratorTest, DescribesEveryArgumentTheComponentPublishes)
 // The editor is chosen from what the component advertises, not from a schema.
 TEST_F(ConfiguratorTest, ChoosesEditorsFromComponentMetadata)
 {
-  EXPECT_EQ(descriptorFor(QStringLiteral("iterations")).kind,
-            ArgumentEditorKind::Integer);
+  // Two kinds, two meanings (U2a). `kind` is what the argument *is*;
+  // `inlineKind` is what the dock draws until that kind has a dialog of
+  // its own. For every argument this fixture publishes they agree — none
+  // of them answers a typed data-item interface — and saying so here is
+  // what would catch a typed kind leaking into the dock before its
+  // editor exists.
+  const ArgumentDescriptor iterations =
+    descriptorFor(QStringLiteral("iterations"));
+
+  EXPECT_EQ(iterations.kind, ArgumentEditorKind::Integer)
+    << "a count carrying a unitless coefficient is still a count: a unit "
+       "object is not a unit, and offering to convert between nothing and "
+       "nothing is not an editor";
+  EXPECT_EQ(iterations.inlineKind, ArgumentEditorKind::Integer);
+
   EXPECT_EQ(descriptorFor(QStringLiteral("label")).kind,
+            ArgumentEditorKind::Text);
+  EXPECT_EQ(descriptorFor(QStringLiteral("label")).inlineKind,
             ArgumentEditorKind::Text);
 
   // A value definition that enumerates categories becomes a choice.
@@ -154,6 +169,7 @@ TEST_F(ConfiguratorTest, ChoosesEditorsFromComponentMetadata)
   // Rank decides the table, and the shape comes from the component.
   const ArgumentDescriptor grid = descriptorFor(QStringLiteral("grid"));
   EXPECT_EQ(grid.kind, ArgumentEditorKind::Table);
+  EXPECT_EQ(grid.inlineKind, ArgumentEditorKind::Table);
   EXPECT_EQ(grid.rows, 2);
   EXPECT_EQ(grid.columns, 3);
 

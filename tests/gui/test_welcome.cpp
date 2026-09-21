@@ -9,6 +9,7 @@
 
 #include "core/composerapplication.h"
 #include "core/preferencesmanager.h"
+#include "map/mapcanvas.h"
 #include "settingsredirect.h"
 #include "ui/composermainwindow.h"
 #include "ui/recentcompositions.h"

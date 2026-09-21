@@ -1448,6 +1448,25 @@ namespace HydroCouple::Composer
     ensureIcon(m_addComponentLayersAction, QStringLiteral("add_component_layers"));
     ensureIcon(m_addMeshAction, QStringLiteral("add_mesh"));
 
+    // The 3D tab's Navigate group (U5). Zoom and Full Extent share the
+    // map's glyphs deliberately: the gesture is the same one, and giving
+    // it a second appearance on a second tab would suggest it was not.
+    // The three that have no counterpart on the map get their own.
+    ensureIcon(m_sceneZoomFullAction, QStringLiteral("extent"));
+    ensureIcon(m_sceneZoomInAction, QStringLiteral("zoomin"));
+    ensureIcon(m_sceneZoomOutAction, QStringLiteral("zoomout"));
+    ensureIcon(m_sceneResetViewAction, QStringLiteral("reset_view"));
+    ensureIcon(m_sceneTopViewAction, QStringLiteral("top_view"));
+    ensureIcon(m_sceneLookAtSelectionAction,
+               QStringLiteral("look_at_selection"));
+
+    // The two hand-offs read as one picture each: the view being taken
+    // from, an arrow, and the view being framed. Which is the source is
+    // the whole difference between them, so they are not one glyph
+    // mirrored — a mirrored arrow is a coin toss at ribbon size.
+    ensureIcon(m_syncFromMapAction, QStringLiteral("sync_from_map"));
+    ensureIcon(m_syncFromSceneAction, QStringLiteral("sync_from_scene"));
+
     m_ribbon->setCurrentTab(QStringLiteral("home"));
 
     // The ribbon and the workspace are two tab strips describing one

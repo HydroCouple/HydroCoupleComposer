@@ -437,13 +437,43 @@ namespace
     EXPECT_FALSE(network.sceneGeometry({}).isEmpty());
   }
 
-  TEST_F(DrapeTest, APointLayerContributesNothing)
+  TEST_F(DrapeTest, APointLayerContributesMarkersRatherThanNothing)
   {
+    // Until U3 this asserted the opposite, with the reason "a point cloud
+    // has no 3D form that is not invented". The reason still holds for
+    // what lies *between* the points — nothing is stitched across them —
+    // but it never justified drawing the points themselves as nothing.
+    // They are markers now: one solid each, at the position given.
     Network network(QStringLiteral("junctions"));
     network.addPoint({ 50.0, 50.0 });
+    network.addPoint({ 80.0, 20.0 });
 
-    EXPECT_FALSE(network.sceneSource())
-      << "a point cloud has no 3D form that is not invented";
+    ASSERT_TRUE(network.sceneSource())
+      << "a point layer is invisible in 3D again";
+
+    const QVector<SceneVertex> vertices =
+      allVertices(network.sceneGeometry({}));
+
+    ASSERT_FALSE(vertices.isEmpty());
+
+    // Each marker is centred on its own point, so both survive: a single
+    // marker at the midpoint would be an invention of exactly the kind
+    // the old comment warned about.
+    bool nearFirst = false;
+    bool nearSecond = false;
+
+    for (const SceneVertex &vertex : vertices)
+    {
+      nearFirst = nearFirst
+                  || (std::abs(double(vertex.x) - 50.0) < 20.0
+                      && std::abs(double(vertex.y) - 50.0) < 20.0);
+      nearSecond = nearSecond
+                   || (std::abs(double(vertex.x) - 80.0) < 20.0
+                       && std::abs(double(vertex.y) - 20.0) < 20.0);
+    }
+
+    EXPECT_TRUE(nearFirst);
+    EXPECT_TRUE(nearSecond);
   }
 
   TEST_F(DrapeTest, ADrapedLineLiesOnAPlane)

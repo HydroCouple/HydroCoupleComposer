@@ -23,6 +23,7 @@
 #include "scene/sceneimage.h"
 #include "scene/scenerenderer.h"
 
+#include "probelayer.h"
 #include "vectorprobe.h"
 
 #include <gtest/gtest.h>
@@ -626,15 +627,42 @@ TEST_F(Scene3DTest, AClassSwitchedOffInTheLegendIsNotDrawnInTheScene)
 
 // ── Geometry supply ─────────────────────────────────────────────────────────
 
-TEST_F(Scene3DTest, ANodeMeshSuppliesNoSceneGeometry)
+TEST_F(Scene3DTest, ANodeMeshSuppliesMarkersRatherThanNothing)
 {
+  // Until U3 this asserted the opposite, and it was right to: a node mesh
+  // is a cloud of values with no faces to drape them on, and inventing a
+  // surface between them would have been inventing data. What changed is
+  // not that answer but the question — the nodes are now drawn *as nodes*,
+  // one solid marker each, which asserts nothing about what lies between
+  // them.
   QString message;
   const std::unique_ptr<MeshLayer> layer = MeshLayer::create(
     QStringLiteral("nodes"), quadAt(0.0), MeshEntity::Node, message);
   ASSERT_NE(layer, nullptr);
 
   ASSERT_NE(layer->sceneSource(), nullptr);
-  EXPECT_TRUE(layer->sceneSource()->sceneGeometry({}).isEmpty());
+
+  const QVector<SceneGeometry> batches =
+    layer->sceneSource()->sceneGeometry({});
+
+  ASSERT_FALSE(batches.isEmpty())
+    << "a node mesh is invisible in 3D again";
+
+  int vertices = 0;
+
+  for (const SceneGeometry &batch : batches)
+  {
+    EXPECT_EQ(batch.primitive, ScenePrimitive::Triangles)
+      << "the nodes are drawn as solids, not stitched into a surface";
+    EXPECT_FALSE(batch.isEmpty()) << "an empty batch was handed over";
+
+    vertices += batch.vertices.size();
+  }
+
+  // Markers are solids of a fixed vertex count, so the total divides
+  // evenly by it. A surface stitched between the nodes would not.
+  EXPECT_GT(vertices, 0);
+  EXPECT_EQ(vertices % 4, 0);
 }
 
 TEST_F(Scene3DTest, AnEdgeMeshSuppliesLines)
@@ -1023,13 +1051,20 @@ TEST_F(Scene3DTest, SceneBoundsCountLayersThatCannotBeDrawn)
                       QColor(220, 40, 40)),
             nullptr);
 
-  // A point layer opts out of drawing -- its sceneSource() is null -- but
-  // it sits far east of the quad and the framing must know.
-  auto *gauges = new Testing::VectorProbe(QStringLiteral("gauges"));
-  gauges->addPoint({950.0, 50.0});
-  ASSERT_EQ(gauges->sceneSource(), nullptr)
+  // The property under test has not changed: a layer with no 3D form of
+  // its own still has to count toward the framing, or switching to the 3D
+  // tab would cut off half of what the map was showing.
+  //
+  // The *fixture* changed. This used to use a point layer, which had no
+  // sceneSource() until U3 gave points their markers — and the gate then
+  // failed with its own guard rather than its assertion, which is the
+  // fixture telling the truth about itself. A plain MapLayer has no 3D
+  // form and no prospect of one, so it cannot drift back.
+  auto *flat = new Testing::ProbeLayer(QStringLiteral("basemap"),
+                                       QRectF(900.0, 0.0, 100.0, 100.0));
+  ASSERT_EQ(flat->sceneSource(), nullptr)
     << "the fixture stopped being the case under test";
-  ASSERT_GE(stack.addLayer(gauges), 0);
+  ASSERT_GE(stack.addLayer(flat), 0);
 
   EXPECT_GT(renderer.sceneBounds().maximum().x(), 800.0f)
     << "a layer with no 3D form was left out of the framing";

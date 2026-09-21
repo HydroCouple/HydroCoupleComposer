@@ -351,6 +351,11 @@ qt_add_resources(composer_core "composer_icons"
     BASE "resources/icons"
     FILES
         resources/icons/add_component_layers.svg
+        resources/icons/look_at_selection.svg
+        resources/icons/reset_view.svg
+        resources/icons/sync_from_map.svg
+        resources/icons/sync_from_scene.svg
+        resources/icons/top_view.svg
         resources/icons/add_mesh.svg
         resources/icons/add_raster.svg
         resources/icons/add_vector.svg

@@ -373,3 +373,25 @@ TEST(ArgumentKindTest, TheFallbackIsExactlyTheOldChain)
     }
   }
 }
+
+TEST(ArgumentKindTest, ADimensionlessCoefficientIsNotAQuantity)
+{
+  // Found by the build, not by me. The SDK's Quantity::unitLess() hands
+  // out a real IUnit whose every dimension is zero, and an iteration
+  // count carries one — so a rule that asked "is there a unit object?"
+  // put a unit-converting spin box on a plain integer and offered to
+  // convert it between nothing and nothing. The rule asks about
+  // dimensions now, and ArgumentFacts carries the answer rather than the
+  // pointer, so this gate is the whole of it.
+  ArgumentFacts counted = number();
+  counted.dataKind = DataKind::Int32;
+  counted.hasUnit = false;
+
+  EXPECT_EQ(chooseEditorKind(counted), ArgumentEditorKind::Integer);
+
+  // And something that does measure still gets the converting editor.
+  ArgumentFacts measured = number();
+  measured.hasUnit = true;
+
+  EXPECT_EQ(chooseEditorKind(measured), ArgumentEditorKind::Quantity);
+}

@@ -49,6 +49,49 @@ namespace HydroCouple::Composer
      * does a frequency — one per second is a rate, and an editor offering
      * to show that in hours would be offering nonsense.
      */
+    /*!
+     * \brief Whether \a unit measures anything at all.
+     *
+     * A unit object is not the same as a unit. The SDK's
+     * Quantity::unitLess() hands out a real IUnit whose every fundamental
+     * dimension is zero — a coefficient, not a measurement — and an
+     * iteration count carries one. Treating that as "has a unit" put a
+     * unit-converting spin box on a plain integer, offering to convert it
+     * between a display unit and a stored unit that are both nothing.
+     *
+     * So the question is dimensionality, not the presence of a pointer.
+     */
+    bool unitIsDimensionful(HydroCouple::IUnit *unit)
+    {
+      HydroCouple::IUnitDimensions *dimensions =
+        unit ? unit->dimensions() : nullptr;
+
+      if (!dimensions)
+      {
+        return false;
+      }
+
+      using Fundamental =
+        HydroCouple::IUnitDimensions::FundamentalUnitDimension;
+
+      constexpr Fundamental all[] = {
+        Fundamental::Length,            Fundamental::Mass,
+        Fundamental::Time,              Fundamental::ElectricCurrent,
+        Fundamental::Temperature,       Fundamental::AmountOfSubstance,
+        Fundamental::LuminousIntensity, Fundamental::Currency,
+      };
+
+      for (Fundamental dimension : all)
+      {
+        if (dimensions->power(dimension) != 0.0)
+        {
+          return true;
+        }
+      }
+
+      return false;
+    }
+
     bool unitIsPureTime(HydroCouple::IUnit *unit)
     {
       HydroCouple::IUnitDimensions *dimensions =
@@ -468,7 +511,11 @@ namespace HydroCouple::Composer
     facts.isScalar = descriptor.isScalar();
     facts.hasFileFilters = !descriptor.fileFilters.isEmpty();
     facts.dataKind = descriptor.dataKind;
-    facts.hasUnit = !descriptor.unit.isEmpty();
+    // Set below, from the unit's dimensions rather than from its caption:
+    // a dimensionless coefficient is not something to offer conversions
+    // for. The caption still reaches the label, which is a separate
+    // question and not this one.
+    facts.hasUnit = false;
 
     // An argument *is* an IComponentDataItem (hydrocouple.h), so a typed
     // argument can answer the typed interfaces directly. Nothing here
@@ -508,6 +555,7 @@ namespace HydroCouple::Composer
     if (auto *quantity =
           dynamic_cast<HydroCouple::IQuantity *>(argument->valueDefinition()))
     {
+      facts.hasUnit = unitIsDimensionful(quantity->unit());
       facts.unitIsPureTime = unitIsPureTime(quantity->unit());
     }
 

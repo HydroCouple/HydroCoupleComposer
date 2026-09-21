@@ -81,8 +81,20 @@ namespace
     return best;
   }
 
-  //! Pixels in \a region that are not the background.
-  int drawn(const QImage &image, const QRect &region, const QColor &background)
+  /*!
+   * \brief Pixels inside \a region where the two images differ.
+   *
+   * Against a reference *render*, never against a nominal colour. The
+   * first version of this compared each pixel to the sheet's fill of
+   * (90,90,90) and every pixel differed — the sheet is lit, so it is
+   * never drawn in the colour it was given. That gate failed in all four
+   * corners at once and in the empty-viewport case too, and accused the
+   * viewport of being upside down while the renderer was correct.
+   *
+   * Comparing two renders of the same scene removes the assumption
+   * entirely: whatever lighting does, it does to both.
+   */
+  int differing(const QImage &left, const QImage &right, const QRect &region)
   {
     int count = 0;
 
@@ -90,11 +102,7 @@ namespace
     {
       for (int x = region.left(); x <= region.right(); ++x)
       {
-        const QColor pixel = image.pixelColor(x, y);
-
-        if (std::abs(pixel.red() - background.red()) > 12
-            || std::abs(pixel.green() - background.green()) > 12
-            || std::abs(pixel.blue() - background.blue()) > 12)
+        if (left.pixelColor(x, y) != right.pixelColor(x, y))
         {
           ++count;
         }
@@ -102,6 +110,19 @@ namespace
     }
 
     return count;
+  }
+
+  //! Everything outside \a region, as the rectangles above and below it
+  //! and the two beside it.
+  QVector<QRect> outside(const QRect &region, int side)
+  {
+    return {
+      QRect(0, 0, side, region.top()),
+      QRect(0, region.bottom() + 1, side, side - region.bottom() - 1),
+      QRect(0, region.top(), region.left(), region.height()),
+      QRect(region.right() + 1, region.top(), side - region.right() - 1,
+            region.height()),
+    };
   }
 
   class GizmoDrawTest : public ::testing::Test
@@ -173,21 +194,29 @@ TEST_F(GizmoDrawTest, TheCueIsDrawnOverASceneThatFillsTheView)
 TEST_F(GizmoDrawTest, AnEmptyViewportDrawsNoCueAtAll)
 {
   // Switching the cue off has to leave the corner alone, not draw it
-  // somewhere harmless.
+  // somewhere harmless. Measured as a difference between two renders of
+  // the same scene, so nothing here depends on knowing what colour a lit
+  // sheet comes out.
   const QRect rect =
     axisGizmoRect(QSize(kSide, kSide), 96, GizmoCorner::BottomLeft);
 
-  const QImage with = draw(rect);
+  ASSERT_FALSE(rect.isEmpty());
+
   const QImage without = draw(QRect());
+  const QImage with = draw(rect);
 
-  ASSERT_FALSE(with.isNull());
   ASSERT_FALSE(without.isNull());
+  ASSERT_FALSE(with.isNull());
 
-  const QColor sheet(90, 90, 90);
+  EXPECT_GT(differing(with, without, rect), 100)
+    << "the cue never appeared";
 
-  EXPECT_GT(drawn(with, rect, sheet), 100) << "the cue never appeared";
-  EXPECT_EQ(drawn(without, rect, sheet), 0)
-    << "something was drawn where the cue should not have been";
+  // And the same scene drawn twice with no cue is the same picture — the
+  // control for the comparison above, without which a renderer that
+  // varied frame to frame would make this gate meaningless.
+  EXPECT_EQ(differing(without, draw(QRect()), rect), 0)
+    << "two renders of one scene disagree, so no pixel gate here means "
+       "anything";
 }
 
 TEST_F(GizmoDrawTest, TheCueIsInTheCornerItWasAskedFor)
@@ -197,7 +226,13 @@ TEST_F(GizmoDrawTest, TheCueIsInTheCornerItWasAskedFor)
   // backwards puts the cue in the corner diagonally opposite the one the
   // user chose, which reads as a broken preference rather than a broken
   // renderer.
-  const QColor sheet(90, 90, 90);
+  //
+  // Stated as "inside the asked rectangle something changed, and outside
+  // it nothing did". That is stronger than checking the opposite corner
+  // — it catches the cue landing anywhere it was not asked to, not only
+  // in the one place a flip would put it.
+  const QImage without = draw(QRect());
+  ASSERT_FALSE(without.isNull());
 
   struct Case
   {
@@ -212,24 +247,27 @@ TEST_F(GizmoDrawTest, TheCueIsInTheCornerItWasAskedFor)
 
   for (const Case &one : cases)
   {
-    const QRect asked =
-      axisGizmoRect(QSize(kSide, kSide), 96, one.corner);
+    const QRect asked = axisGizmoRect(QSize(kSide, kSide), 96, one.corner);
 
     ASSERT_FALSE(asked.isEmpty()) << one.name;
 
     const QImage image = draw(asked);
     ASSERT_FALSE(image.isNull()) << one.name;
 
-    // The opposite corner is where a flipped axis would put it.
-    const QRect opposite(kSide - asked.x() - asked.width(),
-                         kSide - asked.y() - asked.height(), asked.width(),
-                         asked.height());
-
-    EXPECT_GT(drawn(image, asked, sheet), 100)
+    EXPECT_GT(differing(image, without, asked), 100)
       << "nothing drawn in the " << one.name << " corner";
-    EXPECT_EQ(drawn(image, opposite, sheet), 0)
-      << "the cue landed opposite the " << one.name << " corner it was "
-         "asked for — the viewport's Y is the wrong way up";
+
+    for (const QRect &elsewhere : outside(asked, kSide))
+    {
+      if (elsewhere.isEmpty())
+      {
+        continue;
+      }
+
+      EXPECT_EQ(differing(image, without, elsewhere), 0)
+        << "the cue drew outside the " << one.name
+        << " corner it was asked for";
+    }
   }
 }
 
@@ -250,19 +288,6 @@ TEST_F(GizmoDrawTest, TurningTheCameraTurnsTheDrawnCue)
   ASSERT_FALSE(north.isNull());
   ASSERT_FALSE(east.isNull());
 
-  int differing = 0;
-
-  for (int y = rect.top(); y <= rect.bottom(); ++y)
-  {
-    for (int x = rect.left(); x <= rect.right(); ++x)
-    {
-      if (north.pixelColor(x, y) != east.pixelColor(x, y))
-      {
-        ++differing;
-      }
-    }
-  }
-
-  EXPECT_GT(differing, 100)
+  EXPECT_GT(differing(north, east, rect), 100)
     << "the cue drew the same picture from two different angles";
 }
