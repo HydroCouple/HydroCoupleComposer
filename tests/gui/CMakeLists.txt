@@ -101,6 +101,10 @@ composer_add_gui_test(test_navigation)
 # Pure: no component library, no widgets.
 composer_add_gui_test(test_argumentkinds)
 
+# U2b - the window that edits one argument. Widgets, but no component and
+# no document: the committer is a callback, so these run anywhere.
+composer_add_gui_test(test_argumentdialogs)
+
 # U3 — what a point layer and a filled ring contribute to the 3D view.
 composer_add_gui_test(test_scenemarkers)
 

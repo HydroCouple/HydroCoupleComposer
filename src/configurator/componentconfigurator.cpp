@@ -1,5 +1,8 @@
 #include "configurator/componentconfigurator.h"
 
+#include "ui/dialogs/argumenteditordialog.h"
+#include "ui/dialogs/argumenteditorfactory.h"
+
 #include "hydrocouplesdk/io/compositionspec.h"
 
 #include <QCheckBox>
@@ -16,6 +19,8 @@
 #include <QSpinBox>
 #include <QTableWidget>
 #include <QVBoxLayout>
+
+#include <algorithm>
 
 namespace HydroCouple::Composer
 {
@@ -123,7 +128,13 @@ namespace HydroCouple::Composer
     }
   }
 
-  ComponentConfigurator::~ComponentConfigurator() = default;
+  ComponentConfigurator::~ComponentConfigurator()
+  {
+    // The windows are parented to this and would be deleted with it
+    // anyway; closing them first means none of them runs a committer
+    // against a half-destroyed configurator on the way out.
+    closeArgumentDialogs();
+  }
 
   QString ComponentConfigurator::componentId() const
   {
@@ -165,6 +176,12 @@ namespace HydroCouple::Composer
 
   void ComponentConfigurator::setComponent(const QString &componentId)
   {
+    // Before anything else. A window editing an argument of the component
+    // being navigated away from would still hold a committer pointing at
+    // this configurator, and applying from it would write a payload to
+    // whichever component happened to be shown by then.
+    closeArgumentDialogs();
+
     m_componentId = componentId;
     rebuild();
   }
@@ -593,10 +610,92 @@ namespace HydroCouple::Composer
         label += QStringLiteral(" *");
       }
 
-      m_form->addRow(label, editor);
+      // Every argument gets a way into its own window, whatever the dock
+      // draws inline. Until U2c lands the typed dialogs that window is
+      // the raw JSON editor — which is not a placeholder: it is what the
+      // component-wide raw pane already offered, now reachable one
+      // argument at a time and with the component's refusal shown
+      // against the argument it was about.
+      auto *row = new QWidget(this);
+      auto *rowLayout = new QHBoxLayout(row);
+      rowLayout->setContentsMargins(0, 0, 0, 0);
+      rowLayout->addWidget(editor, 1);
+
+      auto *edit = new QPushButton(tr("Edit…"), row);
+      edit->setObjectName(QStringLiteral("edit_") + descriptor.id);
+      edit->setEnabled(!descriptor.isReadOnly);
+      edit->setToolTip(
+        hasTypedEditor(descriptor.kind)
+          ? tr("Open the editor for this argument.")
+          : tr("Open this argument's payload as JSON."));
+
+      connect(edit, &QPushButton::clicked, this,
+              [this, id = descriptor.id] { editArgument(id); });
+
+      rowLayout->addWidget(edit);
+
+      m_form->addRow(label, row);
     }
 
     refreshRawPane();
+  }
+
+  ArgumentEditorDialog *ComponentConfigurator::editArgument(
+    const QString &argumentId)
+  {
+    // Raised rather than reopened. Two windows on one argument would let
+    // a user apply two different payloads in an order they did not
+    // choose, and the second would silently win.
+    if (ArgumentEditorDialog *open = m_argumentDialogs.value(argumentId))
+    {
+      open->raise();
+      open->activateWindow();
+
+      return open;
+    }
+
+    const auto found = std::find_if(
+      m_descriptors.cbegin(), m_descriptors.cend(),
+      [&argumentId](const ArgumentDescriptor &candidate)
+      { return candidate.id == argumentId; });
+
+    if (found == m_descriptors.cend())
+    {
+      return nullptr;
+    }
+
+    ArgumentEditorDialog *dialog = createArgumentEditor(*found, this);
+
+    // The only path a payload takes to the component and the document,
+    // the same one every inline editor uses. The dialog knows nothing
+    // about either; it offers, and this answers.
+    dialog->setCommitter(
+      [this](const QString &id, const nlohmann::json &payload,
+             QString &message) -> bool
+      { return applyArgument(id, payload, message); });
+
+    m_argumentDialogs.insert(argumentId, dialog);
+    dialog->show();
+
+    return dialog;
+  }
+
+  void ComponentConfigurator::closeArgumentDialogs()
+  {
+    // Taken by value first: closing a window deletes it, which clears the
+    // QPointer that is being iterated over.
+    const QList<QPointer<ArgumentEditorDialog>> open =
+      m_argumentDialogs.values();
+
+    m_argumentDialogs.clear();
+
+    for (const QPointer<ArgumentEditorDialog> &dialog : open)
+    {
+      if (dialog)
+      {
+        dialog->close();
+      }
+    }
   }
 
   void ComponentConfigurator::refreshRawPane()

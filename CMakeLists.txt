@@ -295,6 +295,12 @@ set(COMPOSER_SOURCES
     src/scene/axisgizmo.cpp
     include/scene/navigation.h
     src/scene/navigation.cpp
+    include/ui/dialogs/argumenteditordialog.h
+    src/ui/dialogs/argumenteditordialog.cpp
+    include/ui/dialogs/rawargumentdialog.h
+    src/ui/dialogs/rawargumentdialog.cpp
+    include/ui/dialogs/argumenteditorfactory.h
+    src/ui/dialogs/argumenteditorfactory.cpp
     include/layers/componentlayer.h
     include/ui/welcomepage.h
     src/ui/welcomepage.cpp

@@ -22,6 +22,7 @@
 #include "project/compositiondocument.h"
 
 #include <QHash>
+#include <QPointer>
 #include <QUrl>
 #include <QWidget>
 
@@ -35,6 +36,7 @@ class QPushButton;
 
 namespace HydroCouple::Composer
 {
+  class ArgumentEditorDialog;
 
   /*!
    * \brief Argument editors and a raw payload pane for one component.
@@ -84,6 +86,21 @@ namespace HydroCouple::Composer
        * \param[out] message Diagnostic when rejected.
        * \returns true when accepted and recorded.
        */
+      /*!
+       * \brief Opens the window that edits \a argumentId, or raises it.
+       *
+       * Modeless, so the Mesh and Geometry editors can ask the user to
+       * pick on the map while open. The window is handed a committer
+       * that leads back to applyArgument(), which is the only path a
+       * payload takes to the component and the document (B2).
+       *
+       * \returns The window, or nullptr when there is no such argument.
+       */
+      ArgumentEditorDialog *editArgument(const QString &argumentId);
+
+      //! Closes every argument window this component has open.
+      void closeArgumentDialogs();
+
       bool applyArgument(const QString &argumentId,
                          const nlohmann::json &payload, QString &message);
 
@@ -222,6 +239,21 @@ namespace HydroCouple::Composer
       QPlainTextEdit *m_rawPane = nullptr;
       QLabel *m_status = nullptr;
       QPushButton *m_componentEditorButton = nullptr;
+
+      /*!
+       * \brief The argument windows open on this component, by argument.
+       *
+       * One per argument at a time — a second window on the same
+       * argument would let a user apply two different payloads in an
+       * order they did not choose. They are modeless and delete
+       * themselves on close, so these are QPointers and a null entry
+       * means "closed" rather than "dangling".
+       *
+       * Closed when the component changes: a window editing an argument
+       * of a component that is no longer shown would offer payloads for
+       * something the form has moved on from.
+       */
+      QHash<QString, QPointer<ArgumentEditorDialog>> m_argumentDialogs;
 
       std::function<QVector<LayerSource>()> m_layerSources;
   };
