@@ -1,0 +1,83 @@
+{
+  "type": "FeatureCollection",
+  "name": "catchments",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mill Creek catchment",
+        "note": "outer ring with a lake cut out of it — one feature, two rings"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-111.9350, 40.7250], [-111.9050, 40.7250],
+            [-111.9050, 40.7550], [-111.9350, 40.7550],
+            [-111.9350, 40.7250]
+          ],
+          [
+            [-111.9280, 40.7350], [-111.9280, 40.7420],
+            [-111.9200, 40.7420], [-111.9200, 40.7350],
+            [-111.9280, 40.7350]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "North lobe",
+        "note": "a separate polygon that sits inside the big one"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-111.9150, 40.7460], [-111.9090, 40.7460],
+            [-111.9090, 40.7510], [-111.9150, 40.7510],
+            [-111.9150, 40.7460]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Twin ponds",
+        "note": "ONE feature holding TWO disjoint polygons — the MultiPolygon case"
+      },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [[
+            [-111.9320, 40.7460], [-111.9270, 40.7460],
+            [-111.9270, 40.7500], [-111.9320, 40.7500],
+            [-111.9320, 40.7460]
+          ]],
+          [[
+            [-111.9230, 40.7460], [-111.9180, 40.7460],
+            [-111.9180, 40.7500], [-111.9230, 40.7500],
+            [-111.9230, 40.7460]
+          ]]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Survey error",
+        "note": "three points on one diagonal: a full bounding box, and no ground at all"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-111.9330, 40.7270], [-111.9280, 40.7310],
+            [-111.9230, 40.7350], [-111.9330, 40.7270]
+          ]
+        ]
+      }
+    }
+  ]
+}

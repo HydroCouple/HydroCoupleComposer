@@ -546,7 +546,7 @@ namespace
 {
   //! A mesh item of \a steps levels with value = step*100 + entity.
   std::unique_ptr<Testing::StubTimeSurfaceItem> surfaceItem(
-    HydroCouple::Spatial::MeshDataObjectType attachedTo, int steps = 3)
+    HydroCouple::Spatial::MeshLocation attachedTo, int steps = 3)
   {
     auto item = std::make_unique<Testing::StubTimeSurfaceItem>(
       "depth", twoTriangleMesh(), attachedTo, steps);
@@ -570,16 +570,16 @@ TEST_F(DataItemLayerTest, ASurfaceItemIsDrawnOnTheEntityItsValuesBelongTo)
 {
   struct Expectation
   {
-      HydroCouple::Spatial::MeshDataObjectType attachedTo;
+      HydroCouple::Spatial::MeshLocation attachedTo;
       int features;
       GeometryKind kind;
       const char *what;
   };
 
   const Expectation cases[] = {
-    {HydroCouple::Spatial::MeshDataObjectType::Vertex, 4, GeometryKind::Point, "vertex"},
-    {HydroCouple::Spatial::MeshDataObjectType::Edge, 5, GeometryKind::Line, "edge"},
-    {HydroCouple::Spatial::MeshDataObjectType::Cell, 2, GeometryKind::Polygon, "cell"},
+    {HydroCouple::Spatial::MeshLocation::Node, 4, GeometryKind::Point, "vertex"},
+    {HydroCouple::Spatial::MeshLocation::Edge, 5, GeometryKind::Line, "edge"},
+    {HydroCouple::Spatial::MeshLocation::Face, 2, GeometryKind::Polygon, "cell"},
   };
 
   for (const Expectation &expected : cases)
@@ -614,7 +614,7 @@ TEST_F(DataItemLayerTest, ASurfaceItemIsDrawnOnTheEntityItsValuesBelongTo)
 TEST_F(DataItemLayerTest, AnEdgeItemsFeaturesAreTheMeshsEdges)
 {
   const std::unique_ptr<Testing::StubTimeSurfaceItem> item =
-    surfaceItem(HydroCouple::Spatial::MeshDataObjectType::Edge);
+    surfaceItem(HydroCouple::Spatial::MeshLocation::Edge);
 
   QString message;
   const std::unique_ptr<DataItemLayer> layer =
@@ -649,11 +649,15 @@ TEST_F(DataItemLayerTest, AnEdgeItemsFeaturesAreTheMeshsEdges)
 
 TEST_F(DataItemLayerTest, AnEdgeItemOnASurfaceWithNoEdgesIsRefused)
 {
+  // The faces go too: a mesh view derives an edge from every face loop, so
+  // clearing only the declared edges still leaves the triangles' five.
   MeshDefinition faceless = twoTriangleMesh();
   faceless.edgeNodes.clear();
+  faceless.faceNodes.clear();
+  faceless.faceNodeOffsets.clear();
 
   Testing::StubTimeSurfaceItem item("depth", faceless,
-                                    HydroCouple::Spatial::MeshDataObjectType::Edge, 3);
+                                    HydroCouple::Spatial::MeshLocation::Edge, 3);
 
   QString message;
   const std::unique_ptr<DataItemLayer> layer =
@@ -678,7 +682,7 @@ TEST_F(DataItemLayerTest, SkipsEdgesWhoseEndpointsPointOutsideTheMesh)
   malformed.edgeNodes.push_back({0, 99});
 
   Testing::StubTimeSurfaceItem item("depth", malformed,
-                                    HydroCouple::Spatial::MeshDataObjectType::Edge,
+                                    HydroCouple::Spatial::MeshLocation::Edge,
                                     2);
 
   QString message;

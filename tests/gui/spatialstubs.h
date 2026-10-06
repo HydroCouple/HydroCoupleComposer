@@ -75,8 +75,26 @@ namespace HydroCouple::Composer::Testing
         return HydroCouple::IUnit::DistanceUnits::Degrees;
       }
 
+      // No vertical datum declared: the honest answer for a stub that only
+      // positions things in plan.
+      [[nodiscard]] const std::string &verticalAuthName() const override
+      {
+        return m_noVertical;
+      }
+      [[nodiscard]] int verticalAuthSRID() const override { return 0; }
+      [[nodiscard]] const std::string &verticalSrText() const override
+      {
+        return m_noVertical;
+      }
+      [[nodiscard]] HydroCouple::IUnit::DistanceUnits verticalDistanceUnits()
+        const override
+      {
+        return HydroCouple::IUnit::DistanceUnits::Unknown;
+      }
+
     private:
       std::string m_authority = "EPSG";
+      std::string m_noVertical;
       std::string m_wkt;
       int m_srid = 0;
   };
@@ -87,7 +105,7 @@ namespace HydroCouple::Composer::Testing
 
   //! Builds an SDK PointAdapter positioned at (x, y).
   inline std::unique_ptr<StubPoint> makePoint(
-    double x, double y, unsigned int index,
+    double x, double y, int64_t index,
     Spatial::ISpatialReferenceSystem *crs)
   {
     return std::make_unique<StubPoint>(
@@ -97,7 +115,7 @@ namespace HydroCouple::Composer::Testing
 
   //! Builds an SDK PolygonAdapter over a closed ring of coordinates.
   inline std::unique_ptr<StubPolygonBase> makePolygon(
-    const std::vector<std::pair<double, double>> &ring, unsigned int index,
+    const std::vector<std::pair<double, double>> &ring, int64_t index,
     Spatial::ISpatialReferenceSystem *crs)
   {
     HydroCouple::SDK::Spatial::LineString exterior;
@@ -313,6 +331,25 @@ namespace HydroCouple::Composer::Testing
         return const_cast<HydroCouple::SDK::Temporal::TimeSpan *>(&m_span);
       }
 
+      [[nodiscard]] HydroCouple::Temporal::TimeKind timeKind() const override
+      {
+        return HydroCouple::Temporal::TimeKind::Instantaneous;
+      }
+
+      [[nodiscard]] double intervalLength() const override { return 0.0; }
+
+      [[nodiscard]] HydroCouple::Temporal::TimeInterpolation timeInterpolation()
+        const override
+      {
+        return HydroCouple::Temporal::TimeInterpolation::None;
+      }
+
+      [[nodiscard]] HydroCouple::Temporal::TimeExtrapolation timeExtrapolation()
+        const override
+      {
+        return HydroCouple::Temporal::TimeExtrapolation::Refuse;
+      }
+
       //! Sets the value of one geometry at one time step.
       void setValue(int step, int index, double value)
       {
@@ -441,7 +478,7 @@ namespace HydroCouple::Composer::Testing
        */
       StubTimeSurfaceItem(std::string_view id,
                           const HydroCouple::SDK::IO::MeshDefinition &mesh,
-                          Spatial::MeshDataObjectType attachedTo,
+                          Spatial::MeshLocation attachedTo,
                           int timeSteps)
         : AbstractComponentDataItem(id, {&m_timeDimension, &m_entityDimension},
                                     nullptr, nullptr),
@@ -470,13 +507,13 @@ namespace HydroCouple::Composer::Testing
       //! How many entities of \a attachedTo the mesh holds.
       [[nodiscard]] static int64_t entityCount(
         const HydroCouple::SDK::IO::MeshDefinition &mesh,
-        Spatial::MeshDataObjectType attachedTo)
+        Spatial::MeshLocation attachedTo)
       {
         switch (attachedTo)
         {
-          case Spatial::MeshDataObjectType::Vertex:
+          case Spatial::MeshLocation::Node:
             return mesh.nodeCount();
-          case Spatial::MeshDataObjectType::Edge:
+          case Spatial::MeshLocation::Edge:
             return mesh.edgeCount();
           default:
             return mesh.faceCount();
@@ -490,8 +527,7 @@ namespace HydroCouple::Composer::Testing
       }
 
       // ── IPolyhedralSurfaceComponentDataItem ──────────────────────────
-      [[nodiscard]] Spatial::MeshDataObjectType meshDataObjectType()
-        const override
+      [[nodiscard]] Spatial::MeshLocation location() const override
       {
         return m_attachedTo;
       }
@@ -501,31 +537,20 @@ namespace HydroCouple::Composer::Testing
         return Spatial::SpatialDataType::Scalar;
       }
 
+      [[nodiscard]] Spatial::VectorBasis vectorBasis() const override
+      {
+        return Spatial::VectorBasis::Unknown;
+      }
+
       [[nodiscard]] Spatial::IPolyhedralSurface *polyhedralSurface()
         const override
       {
         return m_surface.get();
       }
 
-      [[nodiscard]] HydroCouple::IDimension *patchDimension() const override
+      [[nodiscard]] HydroCouple::IDimension *entityDimension() const override
       {
-        return m_attachedTo == Spatial::MeshDataObjectType::Cell
-                 ? const_cast<HydroCouple::SDK::Dimension *>(&m_entityDimension)
-                 : nullptr;
-      }
-
-      [[nodiscard]] HydroCouple::IDimension *edgeDimension() const override
-      {
-        return m_attachedTo == Spatial::MeshDataObjectType::Edge
-                 ? const_cast<HydroCouple::SDK::Dimension *>(&m_entityDimension)
-                 : nullptr;
-      }
-
-      [[nodiscard]] HydroCouple::IDimension *vertexDimension() const override
-      {
-        return m_attachedTo == Spatial::MeshDataObjectType::Vertex
-                 ? const_cast<HydroCouple::SDK::Dimension *>(&m_entityDimension)
-                 : nullptr;
+        return const_cast<HydroCouple::SDK::Dimension *>(&m_entityDimension);
       }
 
       // ── ITimeSeriesComponentDataItem ─────────────────────────────────
@@ -559,6 +584,25 @@ namespace HydroCouple::Composer::Testing
         return const_cast<HydroCouple::SDK::Temporal::TimeSpan *>(&m_span);
       }
 
+      [[nodiscard]] HydroCouple::Temporal::TimeKind timeKind() const override
+      {
+        return HydroCouple::Temporal::TimeKind::Instantaneous;
+      }
+
+      [[nodiscard]] double intervalLength() const override { return 0.0; }
+
+      [[nodiscard]] HydroCouple::Temporal::TimeInterpolation timeInterpolation()
+        const override
+      {
+        return HydroCouple::Temporal::TimeInterpolation::None;
+      }
+
+      [[nodiscard]] HydroCouple::Temporal::TimeExtrapolation timeExtrapolation()
+        const override
+      {
+        return HydroCouple::Temporal::TimeExtrapolation::Refuse;
+      }
+
       // ── IComponentDataItem ───────────────────────────────────────────
       [[nodiscard]] std::vector<int64_t> shape() const override
       {
@@ -590,7 +634,7 @@ namespace HydroCouple::Composer::Testing
       std::unique_ptr<HydroCouple::SDK::Spatial::PolyhedralSurfaceAdapter>
         m_surface;
 
-      Spatial::MeshDataObjectType m_attachedTo;
+      Spatial::MeshLocation m_attachedTo;
 
       HydroCouple::SDK::Dimension m_timeDimension;
       HydroCouple::SDK::Dimension m_entityDimension;
@@ -630,17 +674,17 @@ namespace HydroCouple::Composer::Testing
         return Spatial::RegularGridType::Rectilinear;
       }
 
-      [[nodiscard]] int numXNodes() const override { return m_xNodes; }
-      [[nodiscard]] int numYNodes() const override { return m_yNodes; }
+      [[nodiscard]] int64_t numXNodes() const override { return m_xNodes; }
+      [[nodiscard]] int64_t numYNodes() const override { return m_yNodes; }
 
-      [[nodiscard]] double xNodeLocation(int xNodeIndex, int) const override
+      [[nodiscard]] double xNodeLocation(int64_t xNodeIndex, int64_t) const override
       {
-        return xNodeIndex * m_spacing;
+        return static_cast<double>(xNodeIndex) * m_spacing;
       }
 
-      [[nodiscard]] double yNodeLocation(int, int yNodeIndex) const override
+      [[nodiscard]] double yNodeLocation(int64_t, int64_t yNodeIndex) const override
       {
-        return yNodeIndex * m_spacing;
+        return static_cast<double>(yNodeIndex) * m_spacing;
       }
 
       [[nodiscard]] std::span<const double> nodeXs() const override
@@ -653,10 +697,10 @@ namespace HydroCouple::Composer::Testing
         return {};
       }
 
-      [[nodiscard]] bool isActive(int xCellIndex, int yCellIndex) const override
+      [[nodiscard]] bool isActive(int64_t xCellIndex, int64_t yCellIndex) const override
       {
-        return m_active[static_cast<size_t>(yCellIndex) * (m_xNodes - 1)
-                        + xCellIndex]
+        return m_active[static_cast<size_t>(yCellIndex * (m_xNodes - 1)
+                                            + xCellIndex)]
                != 0;
       }
 
@@ -684,7 +728,7 @@ namespace HydroCouple::Composer::Testing
     public:
       StubGridItem(std::string_view id, StubGrid *grid)
         : AbstractComponentDataItem(id, {&m_cellDimension}, nullptr, nullptr),
-          Store((grid->numXNodes() - 1) * (grid->numYNodes() - 1), 0.0),
+          Store(static_cast<int>((grid->numXNodes() - 1) * (grid->numYNodes() - 1)), 0.0),
           m_grid(grid), m_cellDimension("cells", "Cell dimension"),
           m_xDimension("x", "X"), m_yDimension("y", "Y"),
           m_edgeDimension("edges", "Edges"),
@@ -728,10 +772,9 @@ namespace HydroCouple::Composer::Testing
         return m_grid;
       }
 
-      [[nodiscard]] Spatial::MeshDataObjectType meshDataObjectType()
-        const override
+      [[nodiscard]] Spatial::MeshLocation location() const override
       {
-        return Spatial::MeshDataObjectType::Cell;
+        return Spatial::MeshLocation::Face;
       }
 
       [[nodiscard]] HydroCouple::IDimension *xCellDimension() const override
@@ -785,8 +828,8 @@ namespace HydroCouple::Composer::Testing
       {
       }
 
-      [[nodiscard]] int xSize() const override { return m_width; }
-      [[nodiscard]] int ySize() const override { return m_height; }
+      [[nodiscard]] int64_t xSize() const override { return m_width; }
+      [[nodiscard]] int64_t ySize() const override { return m_height; }
 
       [[nodiscard]] Spatial::IRaster *raster() const override;
 
@@ -795,8 +838,18 @@ namespace HydroCouple::Composer::Testing
         return Spatial::IRaster::RasterDataType::Float64;
       }
 
-      void read(int, int, int, int, void *) const override {}
-      void write(int, int, int, int, const void *) override {}
+      [[nodiscard]] bool read(int64_t, int64_t, int64_t, int64_t,
+                              const HydroCouple::BufferDescriptor &,
+                              std::string *) const override
+      {
+        return true;
+      }
+      [[nodiscard]] bool write(int64_t, int64_t, int64_t, int64_t,
+                               const HydroCouple::BufferDescriptor &,
+                               std::string *) override
+      {
+        return true;
+      }
 
       [[nodiscard]] double noData() const override
       {
@@ -830,12 +883,12 @@ namespace HydroCouple::Composer::Testing
         }
       }
 
-      [[nodiscard]] int xSize() const override { return m_width; }
-      [[nodiscard]] int ySize() const override { return m_height; }
+      [[nodiscard]] int64_t xSize() const override { return m_width; }
+      [[nodiscard]] int64_t ySize() const override { return m_height; }
 
-      [[nodiscard]] int rasterBandCount() const override
+      [[nodiscard]] int64_t rasterBandCount() const override
       {
-        return static_cast<int>(m_bands.size());
+        return static_cast<int64_t>(m_bands.size());
       }
 
       void addRasterBand(RasterDataType) override
@@ -850,15 +903,15 @@ namespace HydroCouple::Composer::Testing
         return m_crs;
       }
 
-      void geoTransformation(double *transformationMatrix) override
+      void geoTransformation(double *transformationMatrix) const override
       {
         std::copy(m_transform.begin(), m_transform.end(), transformationMatrix);
       }
 
       [[nodiscard]] Spatial::IRasterBand *getRasterBand(
-        int bandIndex) const override
+        int64_t bandIndex) const override
       {
-        return bandIndex >= 0 && bandIndex < static_cast<int>(m_bands.size())
+        return bandIndex >= 0 && bandIndex < static_cast<int64_t>(m_bands.size())
                  ? m_bands[static_cast<size_t>(bandIndex)].get()
                  : nullptr;
       }

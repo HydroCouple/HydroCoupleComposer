@@ -71,8 +71,8 @@ namespace HydroCouple::Composer
     std::unique_ptr<RasterDataItemLayer> layer(
       new RasterDataItemLayer(itemName(item), raster));
 
-    layer->m_width = grid->xSize();
-    layer->m_height = grid->ySize();
+    layer->m_width = static_cast<int>(grid->xSize());
+    layer->m_height = static_cast<int>(grid->ySize());
 
     // geoTransformation() is not const on the interface, so the raster is
     // asked here rather than from render(). It does not change under us: a

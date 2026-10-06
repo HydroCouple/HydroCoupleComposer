@@ -91,8 +91,8 @@ namespace HydroCouple::Composer
       MeshDefinition mesh;
       mesh.meshName = "grid";
 
-      const int xNodes = grid.numXNodes();
-      const int yNodes = grid.numYNodes();
+      const int64_t xNodes = grid.numXNodes();
+      const int64_t yNodes = grid.numYNodes();
 
       if (xNodes < 2 || yNodes < 2)
       {
@@ -102,25 +102,25 @@ namespace HydroCouple::Composer
       mesh.nodeX.reserve(static_cast<size_t>(xNodes) * yNodes);
       mesh.nodeY.reserve(static_cast<size_t>(xNodes) * yNodes);
 
-      for (int y = 0; y < yNodes; ++y)
+      for (int64_t y = 0; y < yNodes; ++y)
       {
-        for (int x = 0; x < xNodes; ++x)
+        for (int64_t x = 0; x < xNodes; ++x)
         {
           mesh.nodeX.push_back(grid.xNodeLocation(x, y));
           mesh.nodeY.push_back(grid.yNodeLocation(x, y));
         }
       }
 
-      const auto nodeAt = [xNodes](int x, int y)
-      { return static_cast<int64_t>(y) * xNodes + x; };
+      const auto nodeAt = [xNodes](int64_t x, int64_t y)
+      { return y * xNodes + x; };
 
       mesh.faceNodeOffsets.push_back(0);
 
       // Cells, not nodes: a grid of N by M nodes has N-1 by M-1 cells, and
       // values on a cell-centred grid are indexed that way.
-      for (int y = 0; y + 1 < yNodes; ++y)
+      for (int64_t y = 0; y + 1 < yNodes; ++y)
       {
-        for (int x = 0; x + 1 < xNodes; ++x)
+        for (int64_t x = 0; x + 1 < xNodes; ++x)
         {
           // Inactive cells are holes in the domain; drawing them would show
           // ground the model does not solve on.
@@ -136,7 +136,7 @@ namespace HydroCouple::Composer
           mesh.faceNodeOffsets.push_back(
             static_cast<int64_t>(mesh.faceNodes.size()));
 
-          cellIndex.push_back(static_cast<int64_t>(y) * (xNodes - 1) + x);
+          cellIndex.push_back(y * (xNodes - 1) + x);
         }
       }
 
