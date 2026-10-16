@@ -18,13 +18,75 @@
 
 #include <QDir>
 #include <QFile>
-#include <QTemporaryDir>
 #include <QFileInfo>
 #include <QString>
 
 #include <set>
 
 using namespace HydroCouple::Composer;
+
+namespace
+{
+  QDir artifactDirectory(const QString &name)
+  {
+    return QDir(QDir(QStringLiteral(COMPOSER_LOADER_ARTIFACT_DIR)).filePath(name));
+  }
+
+  class ComponentPathEnvironment
+  {
+    const bool wasSet = qEnvironmentVariableIsSet("HYDROCOUPLE_COMPONENT_PATH");
+    const QByteArray previous = qgetenv("HYDROCOUPLE_COMPONENT_PATH");
+  public:
+    explicit ComponentPathEnvironment(const QString &value)
+    {
+      qputenv("HYDROCOUPLE_COMPONENT_PATH", value.toLocal8Bit());
+    }
+    ~ComponentPathEnvironment()
+    {
+      if (wasSet) qputenv("HYDROCOUPLE_COMPONENT_PATH", previous);
+      else qunsetenv("HYDROCOUPLE_COMPONENT_PATH");
+    }
+  };
+}
+
+TEST(ComponentDeployment, CombinesInstalledEnvironmentAndCallerPathsInOrder)
+{
+  const QDir root = artifactDirectory("search-path-order");
+  const QString executable = root.filePath("bin");
+  const QString adjacent = root.filePath("bin/components");
+  const QString installed = root.filePath("lib/hydrocouple/components");
+  const QString environment = root.filePath("environment with spaces");
+  const QString caller = root.filePath("caller");
+  const QString missing = root.filePath("missing");
+  for (const auto &path : {adjacent, installed, environment, caller})
+    ASSERT_TRUE(QDir().mkpath(path));
+  const QString separator(QDir::listSeparator());
+  ComponentPathEnvironment scope(separator + environment + separator + adjacent + separator);
+
+  EXPECT_EQ(ComponentRegistry::defaultSearchPaths({caller, environment, missing, ""}, executable),
+            (QStringList{QDir(adjacent).canonicalPath(), QDir(installed).canonicalPath(),
+                         QDir(environment).canonicalPath(), QDir(caller).canonicalPath(), missing}));
+}
+
+TEST(ComponentDeployment, DiscoversRelocatedInstalledFoldersWithoutUserPreferences)
+{
+  const QDir directory = artifactDirectory("relocated-install");
+  const auto executableDirectory=directory.filePath("bin");QDir().mkpath(executableDirectory);
+  const auto plugins=directory.filePath("lib/hydrocouple/components");QDir().mkpath(plugins);
+  const auto paths=ComponentRegistry::installedSearchPaths(executableDirectory);
+  EXPECT_TRUE(paths.contains(QDir(plugins).canonicalPath()));
+  EXPECT_FALSE(paths.contains(QDir(executableDirectory).canonicalPath()));
+}
+
+#ifdef Q_OS_MACOS
+TEST(ComponentDeployment, DiscoversBundleComponentsAfterMovingTheApplication)
+{
+  const QDir directory = artifactDirectory("bundle-install");
+  const auto executableDirectory=directory.filePath("Moved.app/Contents/MacOS");QDir().mkpath(executableDirectory);
+  const auto plugins=directory.filePath("Moved.app/Contents/PlugIns/HydroCouple");QDir().mkpath(plugins);
+  EXPECT_EQ(ComponentRegistry::installedSearchPaths(executableDirectory),QStringList{QDir(plugins).canonicalPath()});
+}
+#endif
 
 namespace
 {
@@ -97,6 +159,7 @@ TEST_F(LoaderTest, LoadsRealComponentLibraryAndReportsMetadata)
             fixturePath(QStringLiteral("testcomponent")).toStdString());
 
   EXPECT_EQ(library->abiStamp(), ComponentLibrary::hostAbiStamp());
+  EXPECT_TRUE(library->abiStamp().contains(QStringLiteral(";iface=4;")));
 }
 
 TEST_F(LoaderTest, InstantiatesAndDrivesComponentAcrossLibraryBoundary)
@@ -156,7 +219,7 @@ TEST_F(LoaderTest, RejectsForeignAbiStampWithoutCallingIntoTheLibrary)
   EXPECT_EQ(library, nullptr);
   EXPECT_TRUE(message.contains(QStringLiteral("incompatible toolchain")))
     << message.toStdString();
-  EXPECT_TRUE(message.contains(QStringLiteral("iface=99")))
+  EXPECT_TRUE(message.contains(QStringLiteral("iface=2")))
     << "the diagnostic should quote what the library actually reported";
 }
 
@@ -262,6 +325,83 @@ TEST_F(LoaderTest, LoadingSamePathTwiceYieldsOneEntry)
   ASSERT_NE(first, nullptr) << message.toStdString();
   EXPECT_EQ(first, second) << "the info object is a library-owned singleton";
   EXPECT_EQ(registry.entries().size(), 1u);
+}
+
+TEST_F(LoaderTest, RescanningCountsOnlyNewLibraries)
+{
+  ComponentRegistry registry;
+  EXPECT_EQ(registry.scanDirectory(fixtureDir()), 3);
+  EXPECT_EQ(registry.scanDirectory(fixtureDir()), 0);
+  EXPECT_EQ(registry.entries().size(), 3u);
+}
+
+TEST_F(LoaderTest, RejectsDuplicateIdentityFromAnotherFile)
+{
+  const QDir directory = artifactDirectory("duplicate-identity");
+  ASSERT_TRUE(QDir().mkpath(directory.path()));
+  const QString original = fixturePath(QStringLiteral("testcomponent"));
+  const QString copy = directory.filePath(QFileInfo(original).fileName());
+  if (QFileInfo::exists(copy)) ASSERT_TRUE(QFile::remove(copy));
+  ASSERT_TRUE(QFile::copy(original, copy));
+
+  ComponentRegistry registry;
+  QString message;
+  auto *first = registry.loadLibrary(original, message);
+  ASSERT_NE(first, nullptr) << message.toStdString();
+  EXPECT_EQ(registry.loadLibrary(copy, message), nullptr);
+  EXPECT_TRUE(message.contains("duplicate component id")) << message.toStdString();
+  EXPECT_TRUE(message.contains(QFileInfo(original).canonicalFilePath()));
+  EXPECT_TRUE(message.contains(QFileInfo(copy).canonicalFilePath()));
+  EXPECT_EQ(registry.entries().size(), 1u);
+  EXPECT_EQ(first->libraryFilePath(), QFileInfo(original).canonicalFilePath().toStdString());
+}
+
+#ifndef Q_OS_WIN
+TEST_F(LoaderTest, CanonicalAliasesDoNotLoadTheLibraryTwice)
+{
+  const QDir directory = artifactDirectory("canonical-alias");
+  ASSERT_TRUE(QDir().mkpath(directory.path()));
+  const QString original = fixturePath(QStringLiteral("testcomponent"));
+  const QString alias = directory.filePath("alias" + ComponentLibrary::librarySuffix());
+  if (QFileInfo::exists(alias) || QFileInfo(alias).isSymLink()) ASSERT_TRUE(QFile::remove(alias));
+  ASSERT_TRUE(QFile::link(original, alias));
+  ComponentRegistry registry;
+  QString message;
+  auto *first = registry.loadLibrary(original, message);
+  ASSERT_NE(first, nullptr) << message.toStdString();
+  EXPECT_EQ(registry.loadLibrary(alias, message), first);
+  EXPECT_EQ(registry.entries().size(), 1u);
+  EXPECT_EQ(first->libraryFilePath(), QFileInfo(original).canonicalFilePath().toStdString());
+}
+#endif
+
+TEST_F(LoaderTest, RefreshPreservesALiveInstanceWhenItsPathIsRemoved)
+{
+  ComponentRegistry registry;
+  QString message;
+  ASSERT_NE(registry.loadLibrary(fixturePath(QStringLiteral("testcomponent")), message), nullptr);
+  auto instance = registry.createInstance("composer.test.component", message);
+  ASSERT_NE(instance, nullptr) << message.toStdString();
+  instance->initialize();
+  auto *info = registry.entry("composer.test.component");
+  ASSERT_NE(info, nullptr);
+
+  registry.setSearchPaths({artifactDirectory("missing-refresh-path").path()});
+  EXPECT_EQ(registry.refresh(), 0);
+  // Check the catalogue before calling across the boundary: a failure must
+  // report the lifetime bug rather than dereference unloaded component code.
+  ASSERT_EQ(registry.entry("composer.test.component"), info);
+  EXPECT_EQ(instance->status(), HydroCouple::IModelComponent::ComponentStatus::Initialized);
+  EXPECT_TRUE(instance->validate().empty());
+  EXPECT_EQ(instance->status(), HydroCouple::IModelComponent::ComponentStatus::Valid);
+  EXPECT_EQ(registry.failures().size(), 1u);
+  registry.setSearchPaths({});
+  EXPECT_EQ(registry.refresh(), 0);
+  EXPECT_TRUE(registry.failures().empty());
+  EXPECT_EQ(registry.entry("composer.test.component"), info);
+  instance.reset();
+  registry.clear();
+  EXPECT_TRUE(registry.entries().empty());
 }
 
 // ── Adapter-factory components (CONNECT B1) ─────────────────────────────────
@@ -376,8 +516,8 @@ TEST_F(LoaderTest, AModuleStyleFileNameIsScannedLikeAnyOtherPlugin)
   // SHARED and so are ".dylib". A scan that knew only the SHARED spelling
   // found the fixtures and none of the real plugins, which is exactly why
   // Load Directory came back empty against a real component build.
-  QTemporaryDir directory;
-  ASSERT_TRUE(directory.isValid());
+  const QDir directory = artifactDirectory("module-filename");
+  ASSERT_TRUE(QDir().mkpath(directory.path()));
 
   const QString source =
     QDir(fixtureDir())
@@ -388,6 +528,7 @@ TEST_F(LoaderTest, AModuleStyleFileNameIsScannedLikeAnyOtherPlugin)
   // The same library, named the way a MODULE build names it.
   const QString moduleStyle =
     directory.filePath(QStringLiteral("libhcc_meshgenerator.so"));
+  if (QFileInfo::exists(moduleStyle)) ASSERT_TRUE(QFile::remove(moduleStyle));
   ASSERT_TRUE(QFile::copy(source, moduleStyle));
 
   ComponentRegistry registry;

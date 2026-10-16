@@ -256,7 +256,8 @@ target_compile_definitions(test_hcpimporter PRIVATE
 # where they landed.
 composer_add_gui_test(test_component_loader)
 target_compile_definitions(test_component_loader PRIVATE
-    COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>")
+    COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>"
+    COMPOSER_LOADER_ARTIFACT_DIR="${CMAKE_SOURCE_DIR}/tests/artifacts/component_loader")
 add_dependencies(test_component_loader
     testcomponent testadapterfactory notacomponent badabicomponent
     legacycomponent)
@@ -274,3 +275,45 @@ add_test(NAME test_headless_run
 set_tests_properties(test_headless_run PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 180)
+
+add_test(NAME test_headless_component_environment
+    COMMAND ${CMAKE_COMMAND}
+        -DCOMPOSER_BINARY=$<TARGET_FILE:HydroCoupleComposer>
+        -DFIXTURE_DIR=$<TARGET_FILE_DIR:testcomponent>
+        -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/headless-environment
+        -DUSE_ENVIRONMENT_PATH=ON
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/run_headless.cmake)
+set_tests_properties(test_headless_component_environment PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    TIMEOUT 180)
+
+# Cross-repository CF2 reference components. Set all three paths to exercise
+# real SDK-free OpenSWMM identities and the source/receiver through Composer.
+set(COMPOSER_INTERVAL_SOURCE_LIBRARY "" CACHE FILEPATH "CF2 controllable source library")
+set(COMPOSER_INTERVAL_RECEIVER_LIBRARY "" CACHE FILEPATH "CF2 conservative receiver library")
+set(COMPOSER_OPENSWMM_COMPONENT_LIBRARY "" CACHE FILEPATH "SDK-free OpenSWMM component library")
+set(COMPOSER_OPENSWMM_ENGINE_COMPONENT_LIBRARY "" CACHE FILEPATH "Generic native engine component (optional CF3 integration)")
+set(COMPOSER_ENGINE_COMPONENT_FIXTURE "" CACHE FILEPATH "Native model for CF3 integration")
+if(COMPOSER_INTERVAL_SOURCE_LIBRARY AND COMPOSER_INTERVAL_RECEIVER_LIBRARY AND COMPOSER_OPENSWMM_COMPONENT_LIBRARY)
+    foreach(_library IN ITEMS COMPOSER_INTERVAL_SOURCE_LIBRARY COMPOSER_INTERVAL_RECEIVER_LIBRARY COMPOSER_OPENSWMM_COMPONENT_LIBRARY)
+        if(NOT EXISTS "${${_library}}")
+            message(FATAL_ERROR "${_library} does not exist: ${${_library}}")
+        endif()
+    endforeach()
+    composer_add_gui_test(test_customcomponents)
+    target_compile_definitions(test_customcomponents PRIVATE
+        COMPOSER_INTERVAL_SOURCE_LIBRARY="${COMPOSER_INTERVAL_SOURCE_LIBRARY}"
+        COMPOSER_INTERVAL_RECEIVER_LIBRARY="${COMPOSER_INTERVAL_RECEIVER_LIBRARY}"
+        COMPOSER_OPENSWMM_COMPONENT_LIBRARY="${COMPOSER_OPENSWMM_COMPONENT_LIBRARY}"
+        COMPOSER_CUSTOM_ARTIFACT_DIR="${CMAKE_SOURCE_DIR}/tests/artifacts/customcomponents")
+    if(COMPOSER_OPENSWMM_ENGINE_COMPONENT_LIBRARY AND COMPOSER_ENGINE_COMPONENT_FIXTURE)
+        foreach(_path IN ITEMS COMPOSER_OPENSWMM_ENGINE_COMPONENT_LIBRARY COMPOSER_ENGINE_COMPONENT_FIXTURE)
+            if(NOT EXISTS "${${_path}}")
+                message(FATAL_ERROR "${_path} does not exist: ${${_path}}")
+            endif()
+        endforeach()
+        target_compile_definitions(test_customcomponents PRIVATE
+            COMPOSER_OPENSWMM_ENGINE_COMPONENT_LIBRARY="${COMPOSER_OPENSWMM_ENGINE_COMPONENT_LIBRARY}"
+            COMPOSER_ENGINE_COMPONENT_FIXTURE="${COMPOSER_ENGINE_COMPONENT_FIXTURE}")
+    endif()
+endif()

@@ -41,7 +41,8 @@ namespace
 
     ComponentRegistry registry;
 
-    for (const QString &directory : componentDirectories)
+    const QStringList paths = ComponentRegistry::defaultSearchPaths(componentDirectories);
+    for (const QString &directory : paths)
     {
       const int loaded = registry.scanDirectory(directory);
       out << "loaded " << loaded << " component library(ies) from "

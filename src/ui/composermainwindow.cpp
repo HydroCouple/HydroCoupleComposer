@@ -2439,7 +2439,7 @@ namespace HydroCouple::Composer
   void ComposerMainWindow::applyComponentSearchPaths()
   {
     const PreferencesManager *prefs = PreferencesManager::instance();
-    const QStringList paths = prefs->componentSearchPaths();
+    const QStringList paths = ComponentRegistry::defaultSearchPaths(prefs->componentSearchPaths());
 
     m_registry->setSearchPaths(paths);
 

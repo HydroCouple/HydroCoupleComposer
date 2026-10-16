@@ -8,11 +8,19 @@
  */
 
 #include "plugins/componentabi.h"
+#include <string>
 
 extern "C" HYDROCOUPLE_COMPONENT_EXPORT const char *
 hydrocouple_component_abi_v1(void)
 {
-  return "hc-abi/1;iface=99;cxx=nonesuch-0;stdlib=nonesuch;bits=8";
+  static const std::string oldInterface = [] {
+    std::string stamp = HYDROCOUPLE_COMPONENT_ABI_STAMP;
+    const auto begin = stamp.find(";iface=");
+    const auto end = stamp.find(';', begin + 1);
+    stamp.replace(begin, end - begin, ";iface=2");
+    return stamp;
+  }();
+  return oldInterface.c_str();
 }
 
 extern "C" HYDROCOUPLE_COMPONENT_EXPORT HydroCouple::IComponentInfo *

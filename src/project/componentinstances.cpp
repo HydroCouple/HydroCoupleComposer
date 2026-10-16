@@ -1,6 +1,8 @@
 #include "project/componentinstances.h"
 
 #include "hydrocouplesdk/data/sdkadaptedoutputfactory.h"
+#include "hydrocouplesdk/io/uriresolver.h"
+#include <QFileInfo>
 
 #include <QStringList>
 
@@ -154,6 +156,14 @@ namespace HydroCouple::Composer
     }
 
     HydroCouple::IModelComponent *candidate = created.get();
+    const std::filesystem::path directory = m_document->filePath().isEmpty()
+      ? std::filesystem::path() : std::filesystem::path(QFileInfo(m_document->filePath()).absolutePath().toStdString());
+    if (!ComponentRegistry::assignInstanceIdentity(*candidate, componentId, message))
+    {
+      m_failures.insert(componentId, message);
+      return nullptr;
+    }
+    candidate->setReferenceDirectory(directory.string());
 
     // The document's arguments, applied before initialize() — because what
     // a component's ports ARE depends on them: a time-series provider
@@ -194,7 +204,7 @@ namespace HydroCouple::Composer
           // refused to draw the box would hide the very thing that needs
           // fixing.
           (void)argument->initialize(
-            payload.dump(),
+            HydroCouple::SDK::IO::resolvedArgument(payload, directory).dump(),
             HydroCouple::IArgument::ArgumentInputType::JSON, argumentMessage);
 
           break;

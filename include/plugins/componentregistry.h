@@ -51,6 +51,13 @@ namespace HydroCouple::Composer
     public:
       explicit ComponentRegistry(QObject *parent = nullptr);
 
+      //! Existing component folders relative to the executable, independent of user settings.
+      static QStringList installedSearchPaths(const QString &applicationDirectory = QString());
+
+      //! Installed paths, environment paths, then caller paths, canonicalized and deduplicated.
+      static QStringList defaultSearchPaths(const QStringList &additionalPaths = {},
+                                            const QString &applicationDirectory = QString());
+
       ~ComponentRegistry() override;
 
       /*!
@@ -85,8 +92,12 @@ namespace HydroCouple::Composer
       void setSearchPaths(const QStringList &paths);
 
       /*!
-       * \brief Clears everything loaded and rescans searchPaths().
-       * \returns The number of libraries loaded.
+       * \brief Rescans searchPaths() without unloading libraries or invalidating instances.
+       * \returns The number of newly loaded libraries. Failure diagnostics are refreshed.
+       *
+       * Already-loaded identities remain fixed for this session, even if a path
+       * is removed. Replacing a binary requires clear() after all instances and
+       * factories have been destroyed, or a new registry/session.
        */
       int refresh();
 
@@ -144,6 +155,14 @@ namespace HydroCouple::Composer
        */
       [[nodiscard]] std::unique_ptr<HydroCouple::IModelComponent>
       createInstance(const QString &componentId, QString &message);
+
+      //! Assign a document identity before initialization. SDK-free components
+      //! expose a scalar String configuration argument `hydrocouple.instance_id`
+      //! accepting ArgumentInputType::String and reflecting it in id().
+      //! Existing SDK components retain their setInstanceId() path.
+      [[nodiscard]] static bool assignInstanceIdentity(
+        HydroCouple::IModelComponent &component, const QString &instanceId,
+        QString &message);
 
       /*!
        * \brief Creates an adapted-output factory instance from a loaded

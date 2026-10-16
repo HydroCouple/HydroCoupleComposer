@@ -207,6 +207,19 @@ namespace HydroCouple::Composer
         return false;
       }
 
+      // Factories choose a type's default ID. Composition instances need the
+      // document's ID so multiple reservoirs and recorded results stay distinct.
+      if (!ComponentRegistry::assignInstanceIdentity(
+            *instance, QString::fromStdString(componentSpec.id), message))
+      {
+        d->setState(this, SimulationState::Failed);
+        return false;
+      }
+      // Match edit-time initialization: paths nested in a component's own
+      // configuration are relative to the composition, not the host's cwd.
+      instance->setReferenceDirectory(document.filePath().isEmpty()
+        ? std::string()
+        : QFileInfo(document.filePath()).absolutePath().toStdString());
       byId.emplace(componentSpec.id, instance.get());
       d->components.push_back(std::move(instance));
     }
@@ -218,6 +231,11 @@ namespace HydroCouple::Composer
         const auto it = byId.find(id);
         return it == byId.end() ? nullptr : it->second;
       });
+    if (!document.filePath().isEmpty())
+    {
+      d->initializer->setDocumentDirectory(
+        QFileInfo(document.filePath()).absolutePath().toStdString());
+    }
 
     // Standalone adapter factories: the SDK's own plus one instance per
     // loaded factory library, so a document's adapted_outputs can name
@@ -411,7 +429,7 @@ namespace HydroCouple::Composer
         d->setState(this, SimulationState::Running);
 
         int step = 0;
-        bool failed = false;
+        bool failed = d->workflow->status()==WorkflowStatus::Failed;
 
         try
         {
@@ -514,9 +532,24 @@ namespace HydroCouple::Composer
 
         d->recordErrors();
 
-        if (!failed)
-        {
-          d->workflow->finish();
+        // Every opened component gets a cleanup opportunity, including when
+        // another component fails after exporting an irreversible interval.
+        // Preserve failure independently of the workflow's Finished status.
+        try { d->workflow->finish(); }
+        catch (const std::exception &error) {
+          failed=true;
+          const QMutexLocker locker(&d->mutex);
+          d->errors.append(QString::fromUtf8(error.what()));
+        }
+        for (const auto &component : d->components) {
+          if (component->status()==HydroCouple::IModelComponent::ComponentStatus::Failed) failed=true;
+          for (const auto &entry : component->errors()) {
+            if (entry.severity==HydroCouple::ErrorEntry::Severity::Fatal) {
+              failed=true;
+              const QMutexLocker locker(&d->mutex);
+              d->errors.append(QString::fromStdString(component->id()+": "+entry.message));
+            }
+          }
         }
 
         // Writer catalogs are only valid once the IO thread has finalized,

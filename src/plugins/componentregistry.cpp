@@ -1,7 +1,9 @@
 #include "plugins/componentregistry.h"
+#include "hydrocouplesdk/component/abstractmodelcomponent.h"
 
 #include <QDir>
 #include <QFileInfo>
+#include <QCoreApplication>
 
 namespace HydroCouple::Composer
 {
@@ -13,10 +15,55 @@ namespace HydroCouple::Composer
 
   ComponentRegistry::~ComponentRegistry() = default;
 
+  namespace
+  {
+    QString canonicalPath(const QString &path)
+    {
+      const QFileInfo info(path);
+      const QString canonical = info.canonicalFilePath();
+      return canonical.isEmpty() ? info.absoluteFilePath() : canonical;
+    }
+
+    QStringList uniquePaths(const QStringList &paths)
+    {
+      QStringList result;
+      for (const QString &path : paths)
+      {
+        if (path.isEmpty()) continue;
+        const QString canonical = canonicalPath(path);
+        if (!result.contains(canonical)) result.append(canonical);
+      }
+      return result;
+    }
+  }
+
+  QStringList ComponentRegistry::installedSearchPaths(const QString &applicationDirectory)
+  {
+    const QDir base(applicationDirectory.isEmpty()?QCoreApplication::applicationDirPath():applicationDirectory);
+    QStringList candidates{base.filePath("components"),base.filePath("../lib/hydrocouple/components")};
+#ifdef Q_OS_MACOS
+    candidates.prepend(base.filePath("../PlugIns/HydroCouple"));
+    candidates.append(base.filePath("../../../lib/hydrocouple/components"));
+#endif
+    QStringList paths;
+    for(const auto &candidate:candidates){QDir directory(candidate);if(directory.exists()){const auto canonical=directory.canonicalPath();if(!paths.contains(canonical))paths.append(canonical);}}
+    return paths;
+  }
+
+  QStringList ComponentRegistry::defaultSearchPaths(
+    const QStringList &additionalPaths, const QString &applicationDirectory)
+  {
+    const QStringList environmentPaths = qEnvironmentVariable("HYDROCOUPLE_COMPONENT_PATH")
+                                          .split(QDir::listSeparator(), Qt::SkipEmptyParts);
+    return uniquePaths(installedSearchPaths(applicationDirectory) +
+                       environmentPaths + additionalPaths);
+  }
+
   HydroCouple::IComponentInfo *ComponentRegistry::loadLibrary(
     const QString &filePath, QString &message)
   {
-    const QString absolutePath = QFileInfo(filePath).absoluteFilePath();
+    message.clear();
+    const QString absolutePath = canonicalPath(filePath);
 
     for (const auto &library : m_libraries)
     {
@@ -35,6 +82,18 @@ namespace HydroCouple::Composer
     }
 
     HydroCouple::IComponentInfo *info = library->componentInfo();
+    for (const auto &existing : m_libraries)
+    {
+      if (existing->componentInfo()->id() == info->id())
+      {
+        message = QStringLiteral("refused: duplicate component id '%1' in '%2'; already loaded from '%3'")
+                    .arg(QString::fromStdString(info->id()), absolutePath, existing->filePath());
+        // Some loaders resolve aliases to the same metadata singleton. Keep
+        // its original owning path even if the attempted load updated it.
+        existing->componentInfo()->setLibraryFilePath(existing->filePath().toStdString());
+        return nullptr;
+      }
+    }
     m_libraries.push_back(std::move(library));
 
     Q_EMIT registryChanged();
@@ -50,22 +109,24 @@ namespace HydroCouple::Composer
     {
       m_failures.push_back(
         {directoryPath, QStringLiteral("no such directory")});
+      Q_EMIT registryChanged();
       return 0;
     }
 
     const QFileInfoList candidates =
       directory.entryInfoList(ComponentLibrary::libraryFilters(),
-                              QDir::Files | QDir::NoSymLinks, QDir::Name);
+                              QDir::Files, QDir::Name);
 
     int loaded = 0;
 
     for (const QFileInfo &candidate : candidates)
     {
       QString message;
+      const auto before = m_libraries.size();
 
       if (loadLibrary(candidate.absoluteFilePath(), message))
       {
-        ++loaded;
+        loaded += static_cast<int>(m_libraries.size() - before);
       }
       else
       {
@@ -76,6 +137,9 @@ namespace HydroCouple::Composer
       }
     }
 
+    // Failure-only scans must update the browser too. Neither scanning nor
+    // refreshing unloads a library that may still own live instances.
+    Q_EMIT registryChanged();
     return loaded;
   }
 
@@ -86,12 +150,12 @@ namespace HydroCouple::Composer
 
   void ComponentRegistry::setSearchPaths(const QStringList &paths)
   {
-    m_searchPaths = paths;
+    m_searchPaths = uniquePaths(paths);
   }
 
   int ComponentRegistry::refresh()
   {
-    clear();
+    m_failures.clear();
 
     int loaded = 0;
 
@@ -100,6 +164,7 @@ namespace HydroCouple::Composer
       loaded += scanDirectory(path);
     }
 
+    Q_EMIT registryChanged();
     return loaded;
   }
 
@@ -210,6 +275,57 @@ namespace HydroCouple::Composer
     }
 
     return instance;
+  }
+
+  bool ComponentRegistry::assignInstanceIdentity(
+    HydroCouple::IModelComponent &component, const QString &instanceId,
+    QString &message)
+  {
+    message.clear();
+    if (instanceId.isEmpty() || component.status() !=
+          HydroCouple::IModelComponent::ComponentStatus::Created)
+    {
+      message = QStringLiteral("Assign a nonempty component instance ID before initialization");
+      return false;
+    }
+    try
+    {
+      const std::string id = instanceId.toStdString();
+      for (HydroCouple::IArgument *argument : component.arguments())
+      {
+        if (!argument || argument->id() != "hydrocouple.instance_id") continue;
+        std::string diagnostic;
+        if (argument->dataKind() != HydroCouple::DataKind::String ||
+            argument->shape() != std::vector<int64_t>{1} ||
+            argument->role() != HydroCouple::IArgument::ArgumentRole::Configuration ||
+            !argument->initialize(id, HydroCouple::IArgument::ArgumentInputType::String,
+                                  diagnostic) || component.id() != id)
+        {
+          message = QStringLiteral("Cannot assign instance '%1': %2").arg(
+            instanceId, diagnostic.empty()
+              ? QStringLiteral("hydrocouple.instance_id must accept a scalar String and update id()")
+              : QString::fromStdString(diagnostic));
+          return false;
+        }
+        return true;
+      }
+      if (auto *sdk = dynamic_cast<HydroCouple::SDK::AbstractModelComponent *>(&component))
+      {
+        std::string diagnostic;
+        if (sdk->setInstanceId(id, diagnostic)) return true;
+        message = QString::fromStdString(diagnostic);
+        return false;
+      }
+      if (component.id() == id) return true;
+      message = QStringLiteral("Component '%1' cannot accept instance '%2'; expose "
+                               "the hydrocouple.instance_id configuration argument")
+                  .arg(QString::fromStdString(component.id()), instanceId);
+    }
+    catch (const std::exception &error)
+    {
+      message = QString::fromUtf8(error.what());
+    }
+    return false;
   }
 
   std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent>
