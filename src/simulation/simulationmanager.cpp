@@ -9,15 +9,21 @@
 #include "hydrocouplesdk/io/modelinitializer.h"
 #include "hydrocouplesdk/io/runmanifest.h"
 #include "hydrocouplesdk/io/snapshot.h"
+#include "hydrocouplesdk/io/csvwriter.h"
+#include "hydrocoupletemporal.h"
 
 #include <QFileInfo>
+#include <QJsonArray>
 #include <QMetaObject>
+#include <QMetaMethod>
 #include <QMutex>
 #include <QDir>
 #include <QMutexLocker>
 #include <QThread>
 
 #include <atomic>
+#include <algorithm>
+#include <cmath>
 #include <exception>
 
 namespace HydroCouple::Composer
@@ -64,6 +70,7 @@ namespace HydroCouple::Composer
       std::unique_ptr<HydroCouple::SDK::IO::IOThread> ioThread;
       std::unique_ptr<HydroCouple::SDK::IO::RunRecorder> recorder;
       QString manifestDestination;
+      bool modelTime = false;
 
       QThread *thread = nullptr;
 
@@ -343,6 +350,11 @@ namespace HydroCouple::Composer
         ? QString()
         : QFileInfo(document.filePath()).absolutePath();
 
+    d->modelTime = std::all_of(d->components.begin(), d->components.end(),
+      [](const auto &component)
+      {
+        return dynamic_cast<HydroCouple::Temporal::ITimeModelComponent *>(component.get()) != nullptr;
+      });
     if (!spec.writers.empty() || !spec.runManifest.empty())
     {
       d->ioThread = std::make_unique<HydroCouple::SDK::IO::IOThread>(32);
@@ -351,7 +363,7 @@ namespace HydroCouple::Composer
       if (!document.filePath().isEmpty())
       {
         d->recorder->setComposition(
-          std::filesystem::path(document.filePath().toStdString()));
+          std::filesystem::path(document.filePath().toStdString()),spec.toJson(),true);
       }
 
       for (const HydroCouple::SDK::IO::WriterSpec &writerSpec : spec.writers)
@@ -367,6 +379,10 @@ namespace HydroCouple::Composer
           return false;
         }
 
+        if (auto csv = std::dynamic_pointer_cast<HydroCouple::SDK::IO::CSVWriter>(writer))
+        {
+          csv->setTimeUnits(d->modelTime ? "julian_day" : "step_index");
+        }
         d->ioThread->addWriter(writer);
         d->recorder->addWriter(writer);
       }
@@ -423,8 +439,10 @@ namespace HydroCouple::Composer
     }
 
     // ── Drive it on a worker thread ──────────────────────────────────────
+    const bool publishProgress = isSignalConnected(
+      QMetaMethod::fromSignal(&SimulationManager::progressSnapshot));
     d->thread = QThread::create(
-      [this]
+      [this, publishProgress]
       {
         d->setState(this, SimulationState::Running);
 
@@ -484,8 +502,28 @@ namespace HydroCouple::Composer
             // needed to record a run.
             if (d->ioThread)
             {
-              HydroCouple::SDK::IO::Snapshot snapshot(
-                static_cast<double>(step));
+              double timestamp = static_cast<double>(step);
+              if (d->modelTime)
+              {
+                auto *first = dynamic_cast<HydroCouple::Temporal::ITimeModelComponent *>(
+                  d->components.front().get());
+                timestamp = first->currentDateTime()->julianDay();
+                bool synchronized = std::isfinite(timestamp);
+                for (const auto &component : d->components)
+                {
+                  auto *timed = dynamic_cast<HydroCouple::Temporal::ITimeModelComponent *>(component.get());
+                  const double current = timed->currentDateTime()->julianDay();
+                  synchronized &= std::isfinite(current) && std::abs(current - timestamp) <= 1e-9;
+                }
+                if (!synchronized)
+                {
+                  const QMutexLocker locker(&d->mutex);
+                  d->errors.append(QStringLiteral("components reached different or invalid physical times; cannot record a shared snapshot"));
+                  failed = true;
+                  break;
+                }
+              }
+              HydroCouple::SDK::IO::Snapshot snapshot(timestamp);
 
               std::string captureMessage;
               bool captured = false;
@@ -494,9 +532,15 @@ namespace HydroCouple::Composer
               {
                 for (HydroCouple::IOutput *output : component->outputs())
                 {
-                  if (output && snapshot.capture(*output, captureMessage))
+                  if (output && (output->dataKind()==HydroCouple::DataKind::String || output->dataKind()==HydroCouple::DataKind::Opaque)) continue;
+                  if (output && snapshot.capture(*output, captureMessage) && snapshot.captureGeometry(*output, captureMessage))
                   {
                     captured = true;
+                  }
+                  else if (output) {
+                    failed=true;
+                    const QMutexLocker locker(&d->mutex);
+                    d->errors.append(QStringLiteral("recording output: %1").arg(QString::fromStdString(captureMessage)));
                   }
                 }
               }
@@ -512,13 +556,35 @@ namespace HydroCouple::Composer
             }
 
             const QString statusText = describe(status);
+            QJsonObject snapshot;
+            if (publishProgress)
+            {
+              QJsonArray clocks;
+              for (const auto &component : d->components)
+              {
+                QJsonObject clock{{QStringLiteral("id"), QString::fromStdString(component->id())},
+                                  {QStringLiteral("status_code"), int(component->status())},
+                                  {QStringLiteral("current_julian_day"), QJsonValue::Null}};
+                auto *timed = dynamic_cast<HydroCouple::Temporal::ITimeModelComponent *>(component.get());
+                if (timed && timed->currentDateTime())
+                {
+                  const double current = timed->currentDateTime()->julianDay();
+                  if (std::isfinite(current)) clock[QStringLiteral("current_julian_day")] = current;
+                }
+                clocks.append(clock);
+              }
+              snapshot = {{QStringLiteral("step"), step},
+                  {QStringLiteral("workflow_status"), statusText},
+                  {QStringLiteral("components"), clocks}};
+            }
 
             QMetaObject::invokeMethod(
               this,
-              [this, step, statusText]
+              [this, step, statusText, snapshot, publishProgress]
               {
                 Q_EMIT stepCompleted(step);
                 Q_EMIT statusChanged(statusText, QString());
+                if (publishProgress) Q_EMIT progressSnapshot(snapshot);
               },
               Qt::QueuedConnection);
           }

@@ -20,6 +20,7 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QSignalSpy>
+#include <QJsonArray>
 #include <QTemporaryDir>
 
 #include <nlohmann/json.hpp>
@@ -129,6 +130,7 @@ TEST_F(SimulationTest, RunsACompositionToCompletion)
 
   QSignalSpy finishedSpy(manager.get(), &SimulationManager::finished);
   QSignalSpy stepSpy(manager.get(), &SimulationManager::stepCompleted);
+  QSignalSpy progressSpy(manager.get(), &SimulationManager::progressSnapshot);
 
   ASSERT_TRUE(manager->start(document, message)) << message.toStdString();
 
@@ -143,6 +145,18 @@ TEST_F(SimulationTest, RunsACompositionToCompletion)
 
   EXPECT_EQ(manager->state(), SimulationState::Finished);
   EXPECT_GT(stepSpy.count(), 0) << "no step was ever reported";
+  ASSERT_EQ(progressSpy.count(), stepSpy.count());
+  int previous = 0;
+  for (const auto &event : progressSpy)
+  {
+    const auto snapshot = event.at(0).toJsonObject();
+    EXPECT_EQ(snapshot.value(QStringLiteral("step")).toInt(), ++previous);
+    const auto components = snapshot.value(QStringLiteral("components")).toArray();
+    ASSERT_EQ(components.size(), 2);
+    EXPECT_EQ(components[0].toObject().value(QStringLiteral("id")).toString(), QStringLiteral("upstream"));
+    EXPECT_EQ(components[1].toObject().value(QStringLiteral("id")).toString(), QStringLiteral("downstream"));
+    EXPECT_TRUE(components[0].toObject().contains(QStringLiteral("current_julian_day")));
+  }
   EXPECT_FALSE(manager->isRunning());
 }
 

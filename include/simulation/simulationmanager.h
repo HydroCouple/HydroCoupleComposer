@@ -29,6 +29,7 @@
 #include "project/compositiondocument.h"
 
 #include <QObject>
+#include <QJsonObject>
 #include <QString>
 #include <QStringList>
 
@@ -157,6 +158,10 @@ namespace HydroCouple::Composer
        * \param step The step just completed, counting from one.
        */
       void stepCompleted(int step);
+
+      //! Copied worker-owned component clocks at a completed workflow step.
+      //! Receivers never access the running component objects to render progress.
+      void progressSnapshot(const QJsonObject &snapshot);
 
       /*!
        * \brief Emitted when the run ends, successfully or not.

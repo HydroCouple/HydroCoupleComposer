@@ -21,6 +21,12 @@
 #include <QCommandLineParser>
 #include <QCoreApplication>
 #include <QEventLoop>
+#include <QFile>
+#include <QFileInfo>
+#include <QCryptographicHash>
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QUuid>
 #include <QTextStream>
 
 using namespace HydroCouple::Composer;
@@ -34,10 +40,28 @@ namespace
    * \returns Process exit code: 0 on success.
    */
   int runHeadless(const QString &compositionPath,
-                  const QStringList &componentDirectories)
+                  const QStringList &componentDirectories, bool jsonProgress)
   {
     QTextStream out(stdout);
     QTextStream err(stderr);
+    const QString runId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    qint64 sequence = 0;
+    auto event = [&](const QString &name, QJsonObject payload = {}) {
+      if (!jsonProgress) return;
+      payload.insert(QStringLiteral("schema"), QStringLiteral("hydrocouple.run-events/1"));
+      payload.insert(QStringLiteral("run_id"), runId);
+      payload.insert(QStringLiteral("sequence"), sequence++);
+      payload.insert(QStringLiteral("event"), name);
+      // Foreign libraries may log to stdout; hosts select only this prefix.
+      out << "HYDROCOUPLE_EVENT " << QJsonDocument(payload).toJson(QJsonDocument::Compact) << '\n';
+      out.flush();
+    };
+    QFile compositionFile(compositionPath);
+    const bool readable = jsonProgress && compositionFile.open(QIODevice::ReadOnly);
+    event(QStringLiteral("started"), {{QStringLiteral("composition"), QFileInfo(compositionPath).absoluteFilePath()},
+      {QStringLiteral("composition_sha256"), readable
+          ? QString::fromLatin1(QCryptographicHash::hash(compositionFile.readAll(), QCryptographicHash::Sha256).toHex())
+          : QString()}});
 
     ComponentRegistry registry;
 
@@ -45,7 +69,7 @@ namespace
     for (const QString &directory : paths)
     {
       const int loaded = registry.scanDirectory(directory);
-      out << "loaded " << loaded << " component library(ies) from "
+      if (!jsonProgress) out << "loaded " << loaded << " component library(ies) from "
           << directory << '\n';
     }
 
@@ -62,6 +86,7 @@ namespace
     if (!document.load(compositionPath, message))
     {
       err << "cannot open composition: " << message << '\n';
+      event(QStringLiteral("finished"), {{QStringLiteral("succeeded"), false}, {QStringLiteral("message"), message}});
       return 1;
     }
 
@@ -77,23 +102,39 @@ namespace
                      {
                        succeeded = ok;
                        done = true;
-                       out << (ok ? "run finished: " : "run failed: ")
+                       event(QStringLiteral("finished"), {{QStringLiteral("succeeded"), ok},
+                         {QStringLiteral("message"), summary},
+                         {QStringLiteral("diagnostics"), QJsonArray::fromStringList(simulation.errors())},
+                         {QStringLiteral("manifest"), simulation.runManifestPath()}});
+                       if (!jsonProgress) out << (ok ? "run finished: " : "run failed: ")
                            << summary << '\n';
                        loop.quit();
                      });
 
     QObject::connect(&simulation, &SimulationManager::stepCompleted, &loop,
-                     [&out](int step)
+                     [&out, jsonProgress](int step)
                      {
-                       if (step % 50 == 0)
+                       if (!jsonProgress && step % 50 == 0)
                        {
                          out << "  step " << step << '\n';
                        }
                      });
+    if (jsonProgress)
+    {
+      QObject::connect(&simulation, &SimulationManager::progressSnapshot, &loop,
+                       [&](const QJsonObject &snapshot) { event(QStringLiteral("progress"), snapshot); });
+      QObject::connect(&simulation, &SimulationManager::initializationProgressed, &loop,
+                       [&](int stage, int count, const QString &component, const QString &activity) {
+                         event(QStringLiteral("initializing"), {{QStringLiteral("stage"), stage},
+                           {QStringLiteral("stage_count"), count}, {QStringLiteral("component"), component},
+                           {QStringLiteral("activity"), activity}});
+                       });
+    }
 
     if (!simulation.start(document, message))
     {
       err << "cannot run: " << message << '\n';
+      event(QStringLiteral("finished"), {{QStringLiteral("succeeded"), false}, {QStringLiteral("message"), message}});
       return 1;
     }
 
@@ -104,7 +145,7 @@ namespace
       err << "  " << error << '\n';
     }
 
-    if (!simulation.runManifestPath().isEmpty())
+    if (!jsonProgress && !simulation.runManifestPath().isEmpty())
     {
       out << "run manifest: " << simulation.runManifestPath() << '\n';
     }
@@ -131,6 +172,10 @@ int main(int argc, char *argv[])
                                 "Run <composition> headlessly and exit."),
     QStringLiteral("composition"));
   parser.addOption(runOption);
+  const QCommandLineOption jsonProgressOption(QStringLiteral("json-progress"),
+    QCoreApplication::translate("main", "Emit prefixed versioned JSON-line progress for a headless run."));
+  parser.addOption(jsonProgressOption);
+
 
   const QCommandLineOption componentsOption(
     {QStringLiteral("c"), QStringLiteral("components")},
@@ -151,8 +196,9 @@ int main(int argc, char *argv[])
 
   if (parser.isSet(runOption))
   {
-    return runHeadless(parser.value(runOption), componentDirectories);
+    return runHeadless(parser.value(runOption), componentDirectories, parser.isSet(jsonProgressOption));
   }
+  if (parser.isSet(jsonProgressOption)) parser.showHelp(1);
 
   ComposerMainWindow window;
 
