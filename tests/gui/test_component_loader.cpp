@@ -159,7 +159,7 @@ TEST_F(LoaderTest, LoadsRealComponentLibraryAndReportsMetadata)
             fixturePath(QStringLiteral("testcomponent")).toStdString());
 
   EXPECT_EQ(library->abiStamp(), ComponentLibrary::hostAbiStamp());
-  EXPECT_TRUE(library->abiStamp().contains(QStringLiteral(";iface=4;")));
+  EXPECT_TRUE(library->abiStamp().contains(QStringLiteral(";iface=5;")));
 }
 
 TEST_F(LoaderTest, InstantiatesAndDrivesComponentAcrossLibraryBoundary)
