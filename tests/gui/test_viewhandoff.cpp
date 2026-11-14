@@ -21,6 +21,8 @@
 #include "scene/camera.h"
 #include "scene/sceneview.h"
 #include "ui/composermainwindow.h"
+#include "ui/panels/layertreepanel.h"
+#include "ui/toolbars/ribbonbar.h"
 
 #include "vectorprobe.h"
 
@@ -30,6 +32,7 @@
 #include <QMouseEvent>
 #include <QRubberBand>
 #include <QDoubleSpinBox>
+#include <QLabel>
 
 #include <QApplication>
 #include <QRectF>
@@ -740,4 +743,418 @@ TEST_F(ViewHandoffTest, TheSceneToolButtonsReachTheView)
   ASSERT_NE(select, nullptr);
   EXPECT_TRUE(orbit->isChecked());
   EXPECT_FALSE(select->isChecked());
+}
+
+// ── The zoom shortcuts (V1) ───────────────────────────────────────────────
+//
+// Ctrl+= and Ctrl+- used to target the map unconditionally, so pressing them
+// on the 3D tab zoomed a hidden canvas: the screen did not move, and the map
+// silently lost the framing it had. The shortcut acts on the view in front,
+// the way Zoom to Full Extent always has.
+
+TEST_F(ViewHandoffTest, ZoomInOnTheSceneTabMovesTheCameraNotTheMap)
+{
+  addTerrain();
+
+  showTab(m_window->sceneView());
+
+  const QRectF mapBefore = m_window->mapCanvas()->transform().visibleExtent();
+  const double distanceBefore = m_window->sceneView()->camera().distance();
+
+  auto *zoomIn =
+    m_window->findChild<QAction *>(QStringLiteral("zoomInAction"));
+  ASSERT_NE(zoomIn, nullptr);
+  zoomIn->trigger();
+
+  EXPECT_LT(m_window->sceneView()->camera().distance(), distanceBefore)
+    << "the shortcut did not reach the scene camera";
+  EXPECT_EQ(m_window->mapCanvas()->transform().visibleExtent(), mapBefore)
+    << "the hidden map was zoomed";
+}
+
+TEST_F(ViewHandoffTest, ZoomOutOnTheSceneTabBacksTheCameraAway)
+{
+  addTerrain();
+
+  showTab(m_window->sceneView());
+
+  const double distanceBefore = m_window->sceneView()->camera().distance();
+
+  auto *zoomOut =
+    m_window->findChild<QAction *>(QStringLiteral("zoomOutAction"));
+  ASSERT_NE(zoomOut, nullptr);
+  zoomOut->trigger();
+
+  EXPECT_GT(m_window->sceneView()->camera().distance(), distanceBefore);
+}
+
+TEST_F(ViewHandoffTest, ZoomShortcutsStillDriveTheMapWhenItIsInFront)
+{
+  addTerrain();
+
+  showTab(m_window->mapCanvas());
+
+  const QRectF before = m_window->mapCanvas()->transform().visibleExtent();
+  const double distanceBefore = m_window->sceneView()->camera().distance();
+
+  auto *zoomIn =
+    m_window->findChild<QAction *>(QStringLiteral("zoomInAction"));
+  ASSERT_NE(zoomIn, nullptr);
+  zoomIn->trigger();
+
+  EXPECT_LT(m_window->mapCanvas()->transform().visibleExtent().width(),
+            before.width());
+  EXPECT_EQ(m_window->sceneView()->camera().distance(), distanceBefore)
+    << "the hidden scene camera moved";
+}
+
+// A zoom that lost the target would be a pan wearing a zoom's name.
+TEST_F(ViewHandoffTest, SceneZoomHoldsWhatIsBeingLookedAt)
+{
+  addTerrain();
+
+  showTab(m_window->sceneView());
+
+  const QVector3D targetBefore = m_window->sceneView()->camera().target();
+
+  auto *zoomIn =
+    m_window->findChild<QAction *>(QStringLiteral("zoomInAction"));
+  ASSERT_NE(zoomIn, nullptr);
+  zoomIn->trigger();
+  zoomIn->trigger();
+
+  EXPECT_EQ(m_window->sceneView()->camera().target(), targetBefore);
+}
+
+// ── Ribbon and workspace stay truthful to each other (V2) ─────────────────
+//
+// Two tab strips describe one application. The view-owned ribbon tabs (map,
+// 3D) must never name a view that is not in front; the command palettes
+// (home, mesh, view) are never stolen, because the mesh tools force the Map
+// workspace tab and losing the palette at that moment would take the rest of
+// the tools away from the person using them.
+
+TEST_F(ViewHandoffTest, AViewOwnedRibbonTabFollowsTheWorkspace)
+{
+  auto *ribbon =
+    m_window->findChild<RibbonBar *>(QStringLiteral("ribbonBar"));
+  ASSERT_NE(ribbon, nullptr);
+
+  ribbon->setCurrentTab(QStringLiteral("map"));
+  QApplication::processEvents();
+
+  showTab(m_window->sceneView());
+  EXPECT_EQ(ribbon->currentTab(), QStringLiteral("scene"))
+    << "the ribbon said Map while the 3D view filled the screen";
+
+  showTab(m_window->mapCanvas());
+  EXPECT_EQ(ribbon->currentTab(), QStringLiteral("map"));
+}
+
+TEST_F(ViewHandoffTest, LeavingTheViewsForCompositionParksTheRibbonAtHome)
+{
+  auto *ribbon =
+    m_window->findChild<RibbonBar *>(QStringLiteral("ribbonBar"));
+  ASSERT_NE(ribbon, nullptr);
+
+  showTab(m_window->mapCanvas());
+  ribbon->setCurrentTab(QStringLiteral("map"));
+  QApplication::processEvents();
+
+  showTab(m_window->canvas());
+  EXPECT_EQ(ribbon->currentTab(), QStringLiteral("home"))
+    << "a view-owned ribbon tab kept naming a view that is not in front";
+}
+
+TEST_F(ViewHandoffTest, ActivatingTheSceneRibbonTabRaisesTheSceneView)
+{
+  auto *ribbon =
+    m_window->findChild<RibbonBar *>(QStringLiteral("ribbonBar"));
+  ASSERT_NE(ribbon, nullptr);
+
+  showTab(m_window->mapCanvas());
+
+  int changes = 0;
+  QObject::connect(m_tabs, &QTabWidget::currentChanged, m_tabs,
+                   [&changes](int) { ++changes; });
+
+  ribbon->setCurrentTab(QStringLiteral("scene"));
+  QApplication::processEvents();
+
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->sceneView());
+  EXPECT_EQ(changes, 1) << "the two tab strips chased each other";
+
+  ribbon->setCurrentTab(QStringLiteral("map"));
+  QApplication::processEvents();
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->mapCanvas());
+}
+
+TEST_F(ViewHandoffTest, ACommandPaletteRibbonTabIsNeverStolen)
+{
+  auto *ribbon =
+    m_window->findChild<RibbonBar *>(QStringLiteral("ribbonBar"));
+  ASSERT_NE(ribbon, nullptr);
+
+  ribbon->setCurrentTab(QStringLiteral("mesh"));
+  QApplication::processEvents();
+
+  // The mesh workflow: picking a domain tool forces the Map workspace tab.
+  // The palette holding the rest of the tools must survive that.
+  showTab(m_window->mapCanvas());
+  EXPECT_EQ(ribbon->currentTab(), QStringLiteral("mesh"))
+    << "the palette was stolen out from under the mesh workflow";
+
+  showTab(m_window->sceneView());
+  EXPECT_EQ(ribbon->currentTab(), QStringLiteral("mesh"));
+}
+
+TEST_F(ViewHandoffTest, BrowsingAPaletteRibbonTabLeavesTheWorkspaceAlone)
+{
+  auto *ribbon =
+    m_window->findChild<RibbonBar *>(QStringLiteral("ribbonBar"));
+  ASSERT_NE(ribbon, nullptr);
+
+  showTab(m_window->sceneView());
+
+  ribbon->setCurrentTab(QStringLiteral("view"));
+  QApplication::processEvents();
+
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->sceneView())
+    << "opening a command palette yanked the view away";
+}
+
+// ── One tool at a time, application-wide (V3) ─────────────────────────────
+
+// Two exclusive groups meant a lit Select on the Map tab and a lit Select on
+// the 3D tab at once, told apart only by which strip they sat in.
+TEST_F(ViewHandoffTest, CheckingASceneToolUnchecksTheMapTool)
+{
+  auto *pan = m_window->findChild<QAction *>(QStringLiteral("panToolAction"));
+  auto *sceneSelect = m_window->findChild<QAction *>(
+    QStringLiteral("sceneSelectToolAction"));
+  ASSERT_NE(pan, nullptr);
+  ASSERT_NE(sceneSelect, nullptr);
+
+  pan->trigger();
+  ASSERT_TRUE(pan->isChecked());
+
+  sceneSelect->trigger();
+
+  EXPECT_TRUE(sceneSelect->isChecked());
+  EXPECT_FALSE(pan->isChecked())
+    << "two tools lit at once, one per ribbon tab";
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->sceneView())
+    << "a scene tool was activated without its view coming forward";
+}
+
+TEST_F(ViewHandoffTest, CheckingAMapToolUnchecksTheSceneTool)
+{
+  auto *select =
+    m_window->findChild<QAction *>(QStringLiteral("selectToolAction"));
+  auto *orbit =
+    m_window->findChild<QAction *>(QStringLiteral("orbitToolAction"));
+  ASSERT_NE(select, nullptr);
+  ASSERT_NE(orbit, nullptr);
+
+  orbit->trigger();
+  ASSERT_TRUE(orbit->isChecked());
+
+  select->trigger();
+
+  EXPECT_TRUE(select->isChecked());
+  EXPECT_FALSE(orbit->isChecked());
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->mapCanvas());
+}
+
+// ── Exaggeration behaves like a 3D control (V3) ───────────────────────────
+
+TEST_F(ViewHandoffTest, ExaggerationSpinBringsTheSceneForward)
+{
+  addTerrain();
+
+  showTab(m_window->mapCanvas());
+
+  auto *spin = m_window->findChild<QDoubleSpinBox *>(
+    QStringLiteral("exaggerationSpin"));
+  ASSERT_NE(spin, nullptr);
+
+  spin->setValue(spin->value() + 2.0);
+  QApplication::processEvents();
+
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->sceneView())
+    << "relief was stretched on a view nobody could see";
+}
+
+// Stretching relief must not throw away where the camera is looking -- the
+// old behaviour reframed to full extent on every change, discarding a
+// framing the map had just handed over.
+TEST_F(ViewHandoffTest, ExaggerationChangePreservesTheFraming)
+{
+  addTerrain();
+
+  showTab(m_window->mapCanvas());
+  m_window->mapCanvas()->zoomToFullExtent();
+  m_window->mapCanvas()->zoomBy(4.0);
+  const QRectF framed = m_window->mapCanvas()->transform().visibleExtent();
+
+  showTab(m_window->sceneView());
+
+  const QVector3D target = m_window->sceneView()->camera().target();
+  const double distance = m_window->sceneView()->camera().distance();
+
+  m_window->sceneView()->setVerticalExaggeration(
+    m_window->sceneView()->verticalExaggeration() + 5.0);
+
+  EXPECT_EQ(m_window->sceneView()->camera().target(), target)
+    << "changing exaggeration moved what is being looked at";
+  EXPECT_EQ(m_window->sceneView()->camera().distance(), distance);
+
+  // And the framing it preserves is the one the map handed over.
+  EXPECT_TRUE(containsWithinRounding(m_window->sceneView()->groundExtent(),
+                                     framed));
+}
+
+// ── Zoom to layer works in both views (V6) ────────────────────────────────
+//
+// The layer tree's zoom button always forced the Map tab, so there was no
+// way to frame a layer in 3D at all.
+
+TEST_F(ViewHandoffTest, ZoomToLayerOnTheSceneTabFramesTheLayerThere)
+{
+  addTerrain();
+
+  // A second layer far away, so framing the terrain is distinguishable from
+  // framing everything.
+  {
+    MeshDefinition far = terrain();
+    for (double &x : far.nodeX)
+    {
+      x += 8000.0;
+    }
+
+    QString message;
+    std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+      QStringLiteral("faraway"), far, MeshEntity::Face, message);
+    ASSERT_TRUE(layer) << message.toStdString();
+    ASSERT_GE(m_window->layerStack()->addLayer(layer.release()), 0);
+    QApplication::processEvents();
+  }
+
+  showTab(m_window->sceneView());
+
+  // Somewhere else first, so the framing is observable.
+  Camera camera = m_window->sceneView()->camera();
+  camera.setTarget(QVector3D(5000.0f, 5000.0f, 0.0f));
+  m_window->sceneView()->setCamera(camera);
+
+  MapLayer *layer = nullptr;
+
+  for (int row = 0; row < m_window->layerStack()->rowCount(); ++row)
+  {
+    MapLayer *candidate = m_window->layerStack()->layerAt(row);
+
+    if (candidate && candidate->name() == QStringLiteral("terrain"))
+    {
+      layer = candidate;
+    }
+  }
+
+  ASSERT_NE(layer, nullptr);
+
+  Q_EMIT m_window->layerTree()->zoomToLayerRequested(layer);
+  QApplication::processEvents();
+
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->sceneView())
+    << "framing a layer in 3D yanked the user back to the map";
+
+  const QRectF ground = m_window->sceneView()->groundExtent();
+  ASSERT_FALSE(ground.isEmpty());
+  EXPECT_TRUE(containsWithinRounding(ground, QRectF(0, 0, 400, 300)))
+    << "the scene is not looking at the layer";
+
+  // The layer asked for, not everything: a framing that swallowed the far
+  // layer too is Zoom to Full Extent wearing another button's name.
+  EXPECT_LT(ground.right(), 8000.0)
+    << "zoom-to-layer framed the whole scene";
+}
+
+// Framing nothing must not count as having framed something: the empty
+// framing is refused, so the first geometry to arrive still auto-frames.
+TEST_F(ViewHandoffTest, FramingAnEmptySceneDoesNotSpendTheFirstAutoFrame)
+{
+  showTab(m_window->sceneView());
+
+  // Nothing loaded; this must be a no-op rather than a deliberate framing.
+  m_window->sceneView()->zoomToFullExtent();
+
+  addTerrain();
+
+  const QRectF ground = m_window->sceneView()->groundExtent();
+  ASSERT_FALSE(ground.isEmpty());
+  EXPECT_TRUE(containsWithinRounding(ground, QRectF(0, 0, 400, 300)))
+    << "the auto-frame was spent on an empty scene and the terrain arrived "
+       "to a camera pointing at nothing";
+}
+
+TEST_F(ViewHandoffTest, ZoomToLayerOnTheMapTabStillFramesTheMap)
+{
+  addTerrain();
+
+  showTab(m_window->mapCanvas());
+
+  MapLayer *layer = m_window->layerStack()->layerAt(0);
+  ASSERT_NE(layer, nullptr);
+
+  Q_EMIT m_window->layerTree()->zoomToLayerRequested(layer);
+  QApplication::processEvents();
+
+  EXPECT_EQ(m_tabs->currentWidget(), m_window->mapCanvas());
+
+  const QRectF shown = m_window->mapCanvas()->transform().visibleExtent();
+  EXPECT_TRUE(containsWithinRounding(shown, QRectF(0, 0, 400, 300)));
+}
+
+// ── The dead signals have consumers (V7) ──────────────────────────────────
+
+// cameraChanged was emitted from six places and connected to nothing; its
+// own doc comment promised the map would be kept in step. The status bar is
+// its first consumer: moving the camera updates the readout.
+TEST_F(ViewHandoffTest, MovingTheCameraUpdatesTheStatusReadout)
+{
+  addTerrain();
+
+  showTab(m_window->sceneView());
+
+  auto *coordinate =
+    m_window->findChild<QLabel *>(QStringLiteral("coordinateLabel"));
+  ASSERT_NE(coordinate, nullptr);
+
+  m_window->sceneView()->zoomIn();
+  QApplication::processEvents();
+
+  EXPECT_TRUE(coordinate->text().contains(QStringLiteral("heading")))
+    << "the camera moved and the status bar said nothing: "
+    << coordinate->text().toStdString();
+}
+
+// On the map tab the camera must NOT write over the live 2D coordinate.
+TEST_F(ViewHandoffTest, TheCameraDoesNotWriteOverTheMapsCoordinate)
+{
+  addTerrain();
+
+  showTab(m_window->mapCanvas());
+
+  auto *coordinate =
+    m_window->findChild<QLabel *>(QStringLiteral("coordinateLabel"));
+  ASSERT_NE(coordinate, nullptr);
+
+  const QString before = coordinate->text();
+
+  // The hidden camera moves -- a handoff, a programmatic frame -- and the
+  // map's slot keeps its own reading.
+  m_window->sceneView()->zoomIn();
+  QApplication::processEvents();
+
+  EXPECT_EQ(coordinate->text(), before)
+    << "a hidden camera wrote its reading over the map's coordinate";
 }

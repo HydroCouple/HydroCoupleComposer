@@ -17,11 +17,16 @@
 #include "probelayer.h"
 #include "render/layerstyle.h"
 #include "ui/dialogs/layerpropertiesdialog.h"
+#include "layers/meshlayer.h"
+#include "layers/gdalrasterlayer.h"
 
 #include <gtest/gtest.h>
+#include <gdal_priv.h>
 
 #include <QCheckBox>
 #include <QComboBox>
+#include <QDir>
+#include <QDoubleSpinBox>
 #include <QLabel>
 #include <QLineEdit>
 #include <QSignalSpy>
@@ -29,6 +34,7 @@
 #include <QTabWidget>
 
 using namespace HydroCouple::Composer;
+using HydroCouple::SDK::IO::MeshDefinition;
 namespace Testing = HydroCouple::Composer::Testing;
 
 namespace
@@ -149,8 +155,17 @@ TEST_F(LayerPropertiesTest, OpensForEveryLayerAndOmitsTheTabsItCannotFill)
   auto *tabs =
     plainDialog.findChild<QTabWidget *>(QStringLiteral("layerPropertiesTabs"));
   ASSERT_NE(tabs, nullptr);
-  EXPECT_EQ(tabs->count(), 3)
+
+  // Four now, not three: the 3D tab is deliberately present for every layer
+  // -- for one with no 3D form it holds the explanation, because an absent
+  // tab is the old silence with better manners (V9).
+  EXPECT_EQ(tabs->count(), 4)
     << "a tab was added for a page the layer cannot fill";
+  EXPECT_NE(plainDialog.findChild<QWidget *>(QStringLiteral("sceneTab")),
+            nullptr);
+  EXPECT_NE(plainDialog.findChild<QLabel *>(
+              QStringLiteral("sceneAbsenceLabel")),
+            nullptr);
 }
 
 TEST_F(LayerPropertiesTest, ListsTheLayersOwnAttributesWithUnits)
@@ -355,6 +370,65 @@ TEST_F(LayerPropertiesTest, AppliesIdentityAndRenderingToAStyllessLayer)
     << "the map was never told, so the change would sit invisible";
 }
 
+TEST_F(LayerPropertiesTest, ThePeelRangeCannotBeInvertedIntoOneThatShowsNothing)
+{
+  // The peel range has had no UI since C3b-1 and got one in U3c. Its two
+  // spin boxes are independent, so nothing but the clamp between them
+  // stops a user dragging "from" past "down to" — and a range whose first
+  // layer is below its last selects no layers at all, which draws an
+  // empty water column and reads as a broken mesh rather than a range
+  // typed backwards.
+  //
+  // No case reached these boxes, so the clamp could be deleted in silence.
+  LayeredMesh layered;
+  layered.horizontal.nodeX = {0.0, 10.0, 10.0, 0.0};
+  layered.horizontal.nodeY = {0.0, 0.0, 10.0, 10.0};
+  layered.horizontal.nodeZ = {0.0, 0.0, 0.0, 0.0};
+  layered.horizontal.faceNodeOffsets = {0, 4};
+  layered.horizontal.faceNodes = {0, 1, 2, 3};
+  layered.layerCount = 4;
+  layered.interfaceZ.resize(5);
+
+  for (int k = 0; k <= 4; ++k)
+  {
+    layered.interfaceZ[size_t(k)] = -2.5 * double(k);
+  }
+
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("column"), layered.horizontal, MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+  ASSERT_TRUE(layer->setLayering(layered, message)) << message.toStdString();
+  ASSERT_GT(layer->layering().layerCount, 1);
+
+  LayerPropertiesDialog dialog(layer.get());
+
+  auto *first =
+    dialog.findChild<QSpinBox *>(QStringLiteral("renderingPeelFirstSpin"));
+  auto *last =
+    dialog.findChild<QSpinBox *>(QStringLiteral("renderingPeelLastSpin"));
+
+  ASSERT_NE(first, nullptr) << "a layered mesh has no peel control";
+  ASSERT_NE(last, nullptr);
+
+  // Push the first past the last: the last comes with it.
+  last->setValue(2);
+  first->setValue(3);
+
+  EXPECT_GE(last->value(), first->value())
+    << "the range inverted: first " << first->value() << ", last "
+    << last->value();
+
+  // And the other way round, which is a separate connection and so a
+  // separate thing to forget.
+  first->setValue(3);
+  last->setValue(1);
+
+  EXPECT_LE(first->value(), last->value())
+    << "the range inverted from the other end: first " << first->value()
+    << ", last " << last->value();
+}
+
 TEST_F(LayerPropertiesTest, ReportsWhereTheLayerCameFrom)
 {
   const CreditedProbeLayer credited(QStringLiteral("basemap"),
@@ -431,4 +505,343 @@ TEST_F(LayerPropertiesTest, MetadataAppearsOnlyForALayerThatCreditsSomeone)
   EXPECT_EQ(plainDialog.findChild<QWidget *>(QStringLiteral("metadataTab")),
             nullptr)
     << "an empty Metadata tab on a layer that credits nobody";
+}
+
+// ── The 3D tab (coherence plan V9) ────────────────────────────────────────
+
+// A point layer's user checked "Draw this layer", saw nothing in 3D, and
+// was told nothing. The tab now exists for every layer, and for one with no
+// 3D form the explanation IS the control.
+TEST_F(LayerPropertiesTest, APointLayers3dTabExplainsTheAbsence)
+{
+  const std::unique_ptr<Testing::ProbeFeatureLayer> layer = makeLayer();
+  ASSERT_EQ(layer->sceneSource(), nullptr)
+    << "the fixture stopped being the case under test";
+
+  LayerPropertiesDialog dialog(layer.get());
+
+  auto *why =
+    dialog.findChild<QLabel *>(QStringLiteral("sceneAbsenceLabel"));
+  ASSERT_NE(why, nullptr);
+  EXPECT_TRUE(why->text().contains(QStringLiteral("point layers")))
+    << why->text().toStdString();
+
+  // And no dead controls beside the explanation.
+  EXPECT_EQ(dialog.findChild<QComboBox *>(
+              QStringLiteral("renderingDrapeCombo")),
+            nullptr);
+}
+
+TEST_F(LayerPropertiesTest, SceneControlsLiveOnTheDedicated3dTabAndApply)
+{
+  MeshDefinition mesh;
+  mesh.meshName = "surface";
+  mesh.nodeX = {0.0, 10.0, 10.0, 0.0};
+  mesh.nodeY = {0.0, 0.0, 10.0, 10.0};
+  mesh.nodeZ = {0.0, 0.0, 5.0, 5.0};
+  mesh.faceNodeOffsets = {0, 3, 6};
+  mesh.faceNodes = {0, 1, 2, 0, 2, 3};
+
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("surface"), mesh, MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  LayerPropertiesDialog dialog(layer.get());
+
+  // The controls live on the 3D tab, and the Rendering tab keeps only what
+  // both views read.
+  auto *sceneTab = dialog.findChild<QWidget *>(QStringLiteral("sceneTab"));
+  ASSERT_NE(sceneTab, nullptr);
+
+  auto *drape =
+    dialog.findChild<QComboBox *>(QStringLiteral("renderingDrapeCombo"));
+  ASSERT_NE(drape, nullptr);
+  EXPECT_TRUE(sceneTab->isAncestorOf(drape))
+    << "the drape control is still on the Rendering tab";
+
+  auto *shown =
+    dialog.findChild<QCheckBox *>(QStringLiteral("sceneShownIn3dCheck"));
+  ASSERT_NE(shown, nullptr);
+  ASSERT_TRUE(shown->isChecked());
+
+  shown->setChecked(false);
+  ASSERT_TRUE(dialog.apply());
+
+  EXPECT_FALSE(layer->isShownIn3D())
+    << "the dialog's 3D toggle did not reach the layer";
+  EXPECT_TRUE(layer->isVisible());
+}
+
+// The mesh inherited supportsExtrusion() = true from FeatureLayer and
+// ignored the setting entirely, so the dialog offered "Extruded above the
+// terrain" and a height spin that did nothing.
+TEST_F(LayerPropertiesTest, AMeshIsNotOfferedTheExtrusionItWouldIgnore)
+{
+  MeshDefinition mesh;
+  mesh.meshName = "surface";
+  mesh.nodeX = {0.0, 10.0, 10.0, 0.0};
+  mesh.nodeY = {0.0, 0.0, 10.0, 10.0};
+  mesh.nodeZ = {0.0, 0.0, 5.0, 5.0};
+  mesh.faceNodeOffsets = {0, 3, 6};
+  mesh.faceNodes = {0, 1, 2, 0, 2, 3};
+
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("surface"), mesh, MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  EXPECT_FALSE(layer->supportsExtrusion());
+
+  LayerPropertiesDialog dialog(layer.get());
+
+  auto *drape =
+    dialog.findChild<QComboBox *>(QStringLiteral("renderingDrapeCombo"));
+  ASSERT_NE(drape, nullptr);
+
+  for (int i = 0; i < drape->count(); ++i)
+  {
+    EXPECT_FALSE(drape->itemText(i).contains(QStringLiteral("Extruded")))
+      << "the combo offers a placement the mesh ignores";
+  }
+
+  EXPECT_EQ(dialog.findChild<QDoubleSpinBox *>(
+              QStringLiteral("renderingExtrusionSpin")),
+            nullptr);
+}
+
+// The terrain consent checkbox lives where heights could come from and
+// nowhere else (coherence plan T2).
+TEST_F(LayerPropertiesTest, TheTerrainCheckboxAppearsWhereHeightsCouldComeFrom)
+{
+  MeshDefinition mesh;
+  mesh.meshName = "surface";
+  mesh.nodeX = {0.0, 10.0, 10.0, 0.0};
+  mesh.nodeY = {0.0, 0.0, 10.0, 10.0};
+  mesh.nodeZ = {0.0, 0.0, 5.0, 5.0};
+  mesh.faceNodeOffsets = {0, 3, 6};
+  mesh.faceNodes = {0, 1, 2, 0, 2, 3};
+
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("surface"), mesh, MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  LayerPropertiesDialog dialog(layer.get());
+
+  auto *consent = dialog.findChild<QCheckBox *>(
+    QStringLiteral("sceneTerrainEnabledCheck"));
+  ASSERT_NE(consent, nullptr);
+  EXPECT_TRUE(consent->isChecked()) << "a surveyed mesh consents by default";
+
+  consent->setChecked(false);
+  ASSERT_TRUE(dialog.apply());
+
+  EXPECT_FALSE(layer->terrainEnabled())
+    << "the dialog's consent checkbox did not reach the layer";
+}
+
+// Flat shading is the mesh's opt-out (coherence plan T3).
+TEST_F(LayerPropertiesTest, TheFlatShadingCheckboxReachesTheMesh)
+{
+  MeshDefinition mesh;
+  mesh.meshName = "surface";
+  mesh.nodeX = {0.0, 10.0, 10.0, 0.0};
+  mesh.nodeY = {0.0, 0.0, 10.0, 10.0};
+  mesh.nodeZ = {0.0, 0.0, 5.0, 5.0};
+  mesh.faceNodeOffsets = {0, 3, 6};
+  mesh.faceNodes = {0, 1, 2, 0, 2, 3};
+
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("surface"), mesh, MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  LayerPropertiesDialog dialog(layer.get());
+
+  auto *flat = dialog.findChild<QCheckBox *>(
+    QStringLiteral("sceneFlatShadingCheck"));
+  ASSERT_NE(flat, nullptr);
+  EXPECT_FALSE(flat->isChecked()) << "smooth is the default";
+
+  flat->setChecked(true);
+  ASSERT_TRUE(dialog.apply());
+
+  EXPECT_TRUE(layer->flatShading());
+}
+
+// ── Raster symbology (coherence plan T5) ──────────────────────────────────
+//
+// setRamp() sat on the layer with no UI caller at all, which is why every
+// raster wore Viridis for life.
+
+namespace
+{
+  QString writeSingleBandRaster(const QString &name)
+  {
+    const QString path =
+      QDir(QStringLiteral(COMPOSER_GIS_FIXTURE_DIR)).filePath(name);
+
+    GDALAllRegister();
+    GDALDriver *driver = GetGDALDriverManager()->GetDriverByName("GTiff");
+
+    if (!driver)
+    {
+      return QString();
+    }
+
+    GDALDataset *dataset = driver->Create(path.toUtf8().constData(), 8, 8, 1,
+                                          GDT_Float32, nullptr);
+
+    if (!dataset)
+    {
+      return QString();
+    }
+
+    double geotransform[6] = {0.0, 1.0, 0.0, 8.0, 0.0, -1.0};
+    dataset->SetGeoTransform(geotransform);
+
+    std::vector<float> values(64);
+
+    for (int i = 0; i < 64; ++i)
+    {
+      values[size_t(i)] = float(i);
+    }
+
+    dataset->GetRasterBand(1)->RasterIO(GF_Write, 0, 0, 8, 8, values.data(),
+                                        8, 8, GDT_Float32, 0, 0);
+    GDALClose(dataset);
+
+    return path;
+  }
+}
+
+TEST_F(LayerPropertiesTest, ARasterGetsARampAndAStretchNotSilence)
+{
+  const QString path =
+    writeSingleBandRaster(QStringLiteral("generated-props-band.tif"));
+  ASSERT_FALSE(path.isEmpty());
+
+  QString message;
+  std::unique_ptr<GdalRasterLayer> raster =
+    GdalRasterLayer::open(path, message);
+  ASSERT_TRUE(raster) << message.toStdString();
+
+  LayerPropertiesDialog dialog(raster.get());
+
+  auto *ramp =
+    dialog.findChild<QComboBox *>(QStringLiteral("rasterRampCombo"));
+  auto *minimum =
+    dialog.findChild<QDoubleSpinBox *>(QStringLiteral("rasterMinimumSpin"));
+  auto *maximum =
+    dialog.findChild<QDoubleSpinBox *>(QStringLiteral("rasterMaximumSpin"));
+
+  ASSERT_NE(ramp, nullptr) << "a raster still has no symbology at all";
+  ASSERT_NE(minimum, nullptr);
+  ASSERT_NE(maximum, nullptr);
+
+  // Loaded from the layer, not defaults.
+  EXPECT_EQ(ramp->currentText(), raster->rampName());
+  EXPECT_NEAR(minimum->value(), 0.0, 1e-6);
+  EXPECT_NEAR(maximum->value(), 63.0, 1e-6);
+}
+
+TEST_F(LayerPropertiesTest, ApplyingRampAndStretchReachesTheRaster)
+{
+  const QString path =
+    writeSingleBandRaster(QStringLiteral("generated-props-band2.tif"));
+  ASSERT_FALSE(path.isEmpty());
+
+  QString message;
+  std::unique_ptr<GdalRasterLayer> raster =
+    GdalRasterLayer::open(path, message);
+  ASSERT_TRUE(raster) << message.toStdString();
+
+  QSignalSpy repainted(raster.get(), &MapLayer::appearanceChanged);
+
+  LayerPropertiesDialog dialog(raster.get());
+
+  auto *ramp =
+    dialog.findChild<QComboBox *>(QStringLiteral("rasterRampCombo"));
+  auto *minimum =
+    dialog.findChild<QDoubleSpinBox *>(QStringLiteral("rasterMinimumSpin"));
+  auto *maximum =
+    dialog.findChild<QDoubleSpinBox *>(QStringLiteral("rasterMaximumSpin"));
+  ASSERT_NE(ramp, nullptr);
+
+  const QString before = raster->rampName();
+
+  for (int i = 0; i < ramp->count(); ++i)
+  {
+    if (ramp->itemText(i) != before)
+    {
+      ramp->setCurrentIndex(i);
+      break;
+    }
+  }
+
+  minimum->setValue(10.0);
+  maximum->setValue(50.0);
+
+  ASSERT_TRUE(dialog.apply());
+
+  EXPECT_NE(raster->rampName(), before);
+
+  double low = 0.0;
+  double high = 0.0;
+  raster->valueRange(low, high);
+  EXPECT_NEAR(low, 10.0, 1e-9);
+  EXPECT_NEAR(high, 50.0, 1e-9);
+  EXPECT_GT(repainted.count(), 0) << "restyling never asked for a repaint";
+}
+
+// The stretch announces itself on its own: the previous gate let a ramp
+// change's repaint hide a silent stretch.
+TEST_F(LayerPropertiesTest, AStretchChangeAloneAsksForARepaint)
+{
+  const QString path =
+    writeSingleBandRaster(QStringLiteral("generated-props-band3.tif"));
+  ASSERT_FALSE(path.isEmpty());
+
+  QString message;
+  std::unique_ptr<GdalRasterLayer> raster =
+    GdalRasterLayer::open(path, message);
+  ASSERT_TRUE(raster) << message.toStdString();
+
+  QSignalSpy repainted(raster.get(), &MapLayer::appearanceChanged);
+
+  raster->setValueRange(5.0, 40.0);
+  EXPECT_EQ(repainted.count(), 1)
+    << "the picture is stretched differently and nothing repaints";
+
+  // And what it already has is not an announcement.
+  raster->setValueRange(5.0, 40.0);
+  EXPECT_EQ(repainted.count(), 1);
+}
+
+// "Ignored unless above the minimum", as the setter documents: an
+// upside-down stretch would divide the shading by a non-positive span.
+TEST_F(LayerPropertiesTest, AnUpsideDownStretchIsRefused)
+{
+  const QString path =
+    writeSingleBandRaster(QStringLiteral("generated-props-band4.tif"));
+  ASSERT_FALSE(path.isEmpty());
+
+  QString message;
+  std::unique_ptr<GdalRasterLayer> raster =
+    GdalRasterLayer::open(path, message);
+  ASSERT_TRUE(raster) << message.toStdString();
+
+  double low = 0.0;
+  double high = 0.0;
+  raster->valueRange(low, high);
+
+  raster->setValueRange(50.0, 10.0);
+
+  double lowAfter = 0.0;
+  double highAfter = 0.0;
+  raster->valueRange(lowAfter, highAfter);
+
+  EXPECT_EQ(lowAfter, low);
+  EXPECT_EQ(highAfter, high);
 }

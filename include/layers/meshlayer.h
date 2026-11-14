@@ -169,6 +169,24 @@ namespace HydroCouple::Composer
       [[nodiscard]] const HydroCouple::SDK::IO::MeshDefinition &mesh() const;
 
       /*!
+       * \brief Replaces the node elevations.
+       *
+       * What turns a loaded mesh into a surface. Until it has elevations a
+       * mesh is a sheet at zero, and terrain() declines rather than offering
+       * a ground that is indistinguishable from none -- so this is also what
+       * makes anything able to drape onto it.
+       *
+       * \param elevations One per node, in the mesh's own vertical datum.
+       *                   NaN where there is no reading, which is how a
+       *                   vertex the survey does not cover stays honest.
+       *                   Any other length is refused: a mismatched array
+       *                   would silently pair each vertex with a stranger's
+       *                   height.
+       * \returns Whether they were taken.
+       */
+      bool setNodeElevations(const std::vector<double> &elevations);
+
+      /*!
        * \brief Attaches one value per drawn entity.
        *
        * The count must match the entity count: a mesh coloured by values that
@@ -309,6 +327,15 @@ namespace HydroCouple::Composer
       [[nodiscard]] const ISceneSource *sceneSource() const override;
 
       /*!
+       * \brief Never: a mesh already draws its faces as a surface.
+       *
+       * FeatureLayer offers ring filling for polygon layers, and a face
+       * mesh is one — but its own sceneGeometry() builds the surface, so
+       * the control would be offered and do nothing.
+       */
+      [[nodiscard]] bool supportsRingFill() const override { return false; }
+
+      /*!
        * \brief Surfaces for faces, segments for edges, nothing for nodes.
        *
        * A node mesh is a point cloud, which the map already draws and which
@@ -338,6 +365,69 @@ namespace HydroCouple::Composer
        * declines, and the layer above stays flat for an honest reason.
        */
       [[nodiscard]] const ITerrainSource *terrain() const override;
+
+      /*!
+       * \brief A mesh does not extrude.
+       *
+       * FeatureLayer answers true for its networks, and this class inherited
+       * that answer while its geometry ignored the setting entirely -- so
+       * the properties dialog offered "Extruded above the terrain" and an
+       * extrusion height that did nothing. A surface is already a surface.
+       */
+      [[nodiscard]] bool supportsExtrusion() const override
+      {
+        return false;
+      }
+
+      /*!
+       * \brief The mesh's fields, with Elevation offered beside them.
+       *
+       * A face mesh with node heights always has one attribute worth
+       * theming, whether or not a component ever pushed values in: the
+       * ground itself. Synthetic -- derived from nodeZ on demand, never
+       * stored per feature -- so the ramp machinery and the field combos
+       * work on it unmodified.
+       */
+      [[nodiscard]] QVector<AttributeField> attributeFields() const override;
+
+      /*!
+       * \brief Themes a fresh mesh with relief by its own elevation.
+       *
+       * Called by create(); public so the elevations-arrived path can apply
+       * the same default after Sample Elevations gives a flat mesh its
+       * heights.
+       */
+      void applyDefaultElevationStyle();
+
+      /*!
+       * \brief Whether faces are shaded flat instead of smoothly.
+       *
+       * Smooth is the default: corners carry per-node normals averaged over
+       * the faces that meet there, so a hillside reads as a hillside rather
+       * than as facets. Positions stay duplicated per face either way --
+       * colour is baked per vertex and a shared corner between two classes
+       * would have to pick one -- only the normals change.
+       */
+      [[nodiscard]] bool flatShading() const { return m_flatShading; }
+
+      //! Switches between smooth and faceted shading, and announces it.
+      void setFlatShading(bool flat);
+
+      [[nodiscard]] QVariant attributeValue(int feature,
+                                            const QString &field)
+        const override;
+
+      //! Announces the change, so everything re-drapes on the new ground.
+      void setTerrainEnabled(bool enabled) override
+      {
+        if (enabled == terrainEnabled())
+        {
+          return;
+        }
+
+        ISceneSource::setTerrainEnabled(enabled);
+        notifyAppearanceChanged();
+      }
 
       // ── ITerrainSource ───────────────────────────────────────────────────
 
@@ -439,6 +529,7 @@ namespace HydroCouple::Composer
       //! so the two sequences diverge on exactly the meshes where guessing
       //! would attach the wrong elevations.
       QVector<qint64> m_entityIndex;
+      bool m_flatShading = false;
   };
 
 } // namespace HydroCouple::Composer

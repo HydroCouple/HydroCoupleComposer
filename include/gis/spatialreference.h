@@ -79,6 +79,21 @@ namespace HydroCouple::Composer
       [[nodiscard]] HydroCouple::IUnit::DistanceUnits distanceUnits()
         const override;
 
+      /*!
+       * \brief The vertical datum, when the CRS is a compound one.
+       *
+       * A compound CRS ("NAD83 + NAVD88 height", EPSG:5498 and the like)
+       * carries its vertical component, and that is what these answer. A
+       * horizontal-only CRS answers empty / 0 / Unknown: it declares no
+       * vertical datum, and a consumer comparing elevations across two such
+       * systems is told so rather than left to assume.
+       */
+      [[nodiscard]] const std::string &verticalAuthName() const override;
+      [[nodiscard]] int verticalAuthSRID() const override;
+      [[nodiscard]] const std::string &verticalSrText() const override;
+      [[nodiscard]] HydroCouple::IUnit::DistanceUnits verticalDistanceUnits()
+        const override;
+
       // ── Extras ───────────────────────────────────────────────────────────
 
       /*!
@@ -129,6 +144,11 @@ namespace HydroCouple::Composer
       std::string m_authName;
       std::string m_srText;
       int m_authSRID = 0;
+      std::string m_verticalAuthName;
+      std::string m_verticalSrText;
+      int m_verticalAuthSRID = 0;
+      HydroCouple::IUnit::DistanceUnits m_verticalUnits =
+        HydroCouple::IUnit::DistanceUnits::Unknown;
   };
 
   /*!

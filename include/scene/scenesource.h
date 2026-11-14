@@ -112,25 +112,60 @@ namespace HydroCouple::Composer
    * FeatureLayer until C5d, which is why a draped basemap could not be turned
    * off — the two surface layers had no say in it at all.
    */
-  enum class SceneDrape
+  /*!
+   * \brief How a source that has no third coordinate of its own gets one.
+   *
+   * Placement, and only placement: extrusion is a separate, orthogonal
+   * setting. The old SceneDrape conflated the two -- "Extruded" was a
+   * placement that smuggled a height in -- so a layer could not be lifted
+   * a metre above the terrain, or laid flat at a datum other than zero,
+   * without the two meanings fighting.
+   */
+  enum class ZMode
   {
-    //! At z = 0. What a layer over a stack with no terrain in it gets.
-    Flat,
-
-    //! Laid on the terrain, densified finely enough to follow it.
-    Terrain,
+    //! Everything at one elevation. Constant 0 is the old "Flat".
+    Constant,
 
     /*!
-     * \brief A vertical curtain from the terrain up to a set height.
+     * \brief Each feature at the elevation its own attribute names.
      *
-     * How a buried or a low-relief network stays legible: a line lying on a
-     * hillside is hidden by the first fold of ground in front of it, and a
-     * pipe network that disappears behind terrain is not a view of a network.
-     *
-     * Meaningless for something that is already a surface — see
-     * supportsExtrusion() — where it reads as Terrain.
+     * The feature stays planar at that height -- an invert level, a gauge
+     * datum -- plus the offset. Only meaningful for sources that carry
+     * attributes; see ISceneSource::supportsAttributeZ().
      */
-    Extruded
+    FromAttribute,
+
+    //! Laid on the elected terrain, densified finely enough to follow it.
+    OnTerrain
+  };
+
+  /*!
+   * \brief Where a source's base z comes from.
+   */
+  struct ZPolicy
+  {
+      ZMode mode = ZMode::OnTerrain;
+
+      //! The elevation, when mode is Constant. Ignored otherwise.
+      double constant = 0.0;
+
+      //! The attribute read per feature, when mode is FromAttribute.
+      QString field;
+
+      //! Added to the base for FromAttribute and OnTerrain.
+      double offset = 0.0;
+
+      //! Setting a policy a source already has must not announce a change.
+      friend bool operator==(const ZPolicy &a, const ZPolicy &b)
+      {
+        return a.mode == b.mode && a.constant == b.constant &&
+               a.field == b.field && a.offset == b.offset;
+      }
+
+      friend bool operator!=(const ZPolicy &a, const ZPolicy &b)
+      {
+        return !(a == b);
+      }
   };
 
   /*!
@@ -142,20 +177,53 @@ namespace HydroCouple::Composer
       virtual ~ISceneSource() = default;
 
       /*!
-       * \brief Where this source sits relative to the terrain.
+       * \brief Whether this source may be elected as the scene's terrain.
+       *
+       * Capability and consent are different questions: terrain() says a
+       * source COULD serve heights, this says it is offered. A mesh with
+       * elevations consents by default -- it always has been the terrain.
+       * A raster does not: a single band is not necessarily heights (a
+       * rainfall grid is one band too), and a data raster added above a
+       * mesh must not silently steal the ground out from under the scene.
        */
-      [[nodiscard]] SceneDrape drape() const { return m_drape; }
+      [[nodiscard]] bool terrainEnabled() const { return m_terrainEnabled; }
 
       /*!
-       * \brief Sets where this source sits relative to the terrain.
+       * \brief Offers or withdraws this source as terrain.
+       *
+       * Virtual for the same reason setDrape() is: only the layer knows
+       * what to invalidate and how to ask to be redrawn.
+       *
+       * \param enabled True to let the election consider this source.
+       */
+      virtual void setTerrainEnabled(bool enabled)
+      {
+        m_terrainEnabled = enabled;
+      }
+
+      /*!
+       * \brief Where this source's base z comes from.
+       */
+      [[nodiscard]] const ZPolicy &zPolicy() const { return m_zPolicy; }
+
+      /*!
+       * \brief Sets where this source's base z comes from.
        *
        * Virtual because storing the choice is only half of it: a layer that
        * caches built geometry has to throw that cache away and ask to be
        * redrawn, and only the layer knows what it cached.
        *
-       * \param drape The placement wanted.
+       * \param policy The placement wanted.
        */
-      virtual void setDrape(SceneDrape drape) { m_drape = drape; }
+      virtual void setZPolicy(const ZPolicy &policy) { m_zPolicy = policy; }
+
+      /*!
+       * \brief Whether FromAttribute means anything for this source.
+       *
+       * True only where features carry attributes a height could be read
+       * from; a raster or a basemap has no per-feature anything.
+       */
+      [[nodiscard]] virtual bool supportsAttributeZ() const { return false; }
 
       /*!
        * \brief How far an extruded source stands up, in map units.
@@ -183,6 +251,47 @@ namespace HydroCouple::Composer
        * one that silently behaves as another.
        */
       [[nodiscard]] virtual bool supportsExtrusion() const { return false; }
+
+      /*!
+       * \brief How big a point marker is drawn, in map units; 0 is automatic.
+       *
+       * In map units rather than pixels, and a solid rather than a
+       * camera-facing sprite. A screen-sized billboard is the nicer answer
+       * and needs a third pipeline with its own shader; a solid needs none,
+       * is correct from every angle, and is lit by the material already
+       * there. Automatic sizes it from the layer's own extent, which is the
+       * only scale a layer knows without asking the scene.
+       */
+      [[nodiscard]] double markerSize() const { return m_markerSize; }
+
+      /*!
+       * \brief Sets the marker size.
+       * \param size Size in map units, or 0 to size it from the extent.
+       */
+      virtual void setMarkerSize(double size) { m_markerSize = size; }
+
+      /*!
+       * \brief Whether rings are filled in the scene.
+       *
+       * Off by default: filling an arbitrary ring against terrain is a
+       * constrained triangulation, and an outline that follows the ground
+       * already says what the map cannot. Fans work on a **convex** ring,
+       * which is what a mesh face is — so this is what makes a component's
+       * face-attached output read as a surface rather than as wireframe.
+       * Rings that are not convex are left as outlines rather than
+       * tessellated wrongly.
+       */
+      [[nodiscard]] bool fillsRings() const { return m_fillRings; }
+
+      /*!
+       * \brief Sets whether rings are filled.
+       */
+      virtual void setFillsRings(bool fills) { m_fillRings = fills; }
+
+      /*!
+       * \brief Whether filling rings would do anything for this source.
+       */
+      [[nodiscard]] virtual bool supportsRingFill() const { return false; }
 
       /*!
        * \brief The geometry batches to draw, in draw order.
@@ -226,14 +335,17 @@ namespace HydroCouple::Composer
        * \returns The context's terrain, or nullptr when this source is to
        *          stay flat.
        */
-      [[nodiscard]] const ITerrainSource *drapeTarget(
+      [[nodiscard]] const ITerrainSource *terrainFor(
         const SceneContext &context) const
       {
-        return m_drape == SceneDrape::Flat ? nullptr : context.terrain;
+        return m_zPolicy.mode == ZMode::OnTerrain ? context.terrain : nullptr;
       }
 
-      SceneDrape m_drape = SceneDrape::Terrain;
+      ZPolicy m_zPolicy;
+      bool m_terrainEnabled = true;
       double m_extrusionHeight = 0.0;
+      double m_markerSize = 0.0;
+      bool m_fillRings = false;
   };
 
 } // namespace HydroCouple::Composer

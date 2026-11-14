@@ -16,6 +16,7 @@
 
 #include <QDir>
 #include <QFile>
+#include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QUndoStack>
 
@@ -365,4 +366,346 @@ TEST_F(DocumentTest, SidecarPathSitsBesideTheDocument)
                 .endsWith(QStringLiteral("/flow.composer.json")));
   EXPECT_TRUE(Presentation::sidecarPathFor(QStringLiteral("/tmp/flow.yaml"))
                 .endsWith(QStringLiteral("/flow.composer.json")));
+}
+
+// ── @from bindings and component removal ──────────────────────────────────
+
+TEST(CompositionDocumentBindings, RemovingAProviderTakesItsBindingsAlongUndoably)
+{
+  using HydroCouple::Composer::CompositionDocument;
+
+  CompositionDocument document;
+  QString message;
+  ASSERT_TRUE(document.loadFromJson(R"({
+    "schema_version": "1.1",
+    "components": [
+      { "id": "meshgen" },
+      { "id": "gage" },
+      { "id": "solver",
+        "arguments": {
+          "mesh": { "@from": { "component": "meshgen", "output": "mesh" } },
+          "met": { "@from": { "component": "gage", "output": "flow" } },
+          "dt": { "values": [60.0] } } }
+    ]
+  })", message))
+    << message.toStdString();
+
+  ASSERT_TRUE(document.removeComponent(QStringLiteral("meshgen")));
+
+  // The binding went with its provider — a dangling @from would make the
+  // saved document unparseable — while the unrelated argument stayed.
+  {
+    const auto solver = document.component(QStringLiteral("solver"));
+    ASSERT_TRUE(solver.has_value());
+    EXPECT_FALSE(solver->arguments.contains("mesh"));
+    EXPECT_TRUE(solver->arguments.contains("dt"));
+    // Only the REMOVED provider's bindings go; the gage's stays.
+    EXPECT_TRUE(solver->arguments.contains("met"));
+  }
+
+  // And it comes back together on undo.
+  document.undoStack()->undo();
+  {
+    const auto solver = document.component(QStringLiteral("solver"));
+    ASSERT_TRUE(solver.has_value());
+    ASSERT_TRUE(solver->arguments.contains("mesh"));
+    EXPECT_TRUE(solver->arguments["mesh"].contains("@from"));
+  }
+}
+
+// ── Workflow + execution blocks (the write side S4.3's panel drives) ──────
+
+TEST(CompositionDocumentExecution, TheWorkflowBlockIsEditableAndUndoable)
+{
+  using HydroCouple::Composer::CompositionDocument;
+  namespace IO = HydroCouple::SDK::IO;
+
+  CompositionDocument document;
+  QString message;
+  ASSERT_TRUE(document.loadFromJson(
+    R"({"components": [{"id": "a"}]})", message))
+    << message.toStdString();
+
+  IO::WorkflowSpec workflow;
+  workflow.strategy = IO::WorkflowStrategy::TimeStepped;
+  workflow.iterationsPerGroup = 3;
+  workflow.maxSteps = 50;
+  ASSERT_TRUE(document.setWorkflow(workflow));
+
+  EXPECT_EQ(document.spec().workflow.strategy,
+            IO::WorkflowStrategy::TimeStepped);
+  EXPECT_EQ(document.spec().workflow.iterationsPerGroup, 3);
+
+  document.undoStack()->undo();
+  EXPECT_EQ(document.spec().workflow.strategy, IO::WorkflowStrategy::None);
+}
+
+TEST(CompositionDocumentExecution, OpenModeNeedsAManifestAndRunClearsIt)
+{
+  using HydroCouple::Composer::CompositionDocument;
+  namespace IO = HydroCouple::SDK::IO;
+
+  CompositionDocument document;
+  QString message;
+  ASSERT_TRUE(document.loadFromJson(
+    R"({"components": [{"id": "a"}]})", message))
+    << message.toStdString();
+
+  // Open with nothing to open would save an unloadable document.
+  EXPECT_FALSE(document.setComponentExecution(
+    QStringLiteral("a"), IO::ExecutionMode::Open, QString()));
+
+  ASSERT_TRUE(document.setComponentExecution(
+    QStringLiteral("a"), IO::ExecutionMode::Open,
+    QStringLiteral("prior/run.json")));
+  EXPECT_EQ(document.component(QStringLiteral("a"))->mode,
+            IO::ExecutionMode::Open);
+  EXPECT_EQ(document.component(QStringLiteral("a"))->resultsManifest,
+            "prior/run.json");
+
+  // Back to run: the stale manifest goes with the mode.
+  ASSERT_TRUE(document.setComponentExecution(
+    QStringLiteral("a"), IO::ExecutionMode::Run, QString()));
+  EXPECT_TRUE(document.component(QStringLiteral("a"))
+                ->resultsManifest.empty());
+}
+
+// ── Adapter chains as document content (CONNECT C1) ─────────────────────────
+
+namespace
+{
+  //! A loaded two-component document with its one connection's identity.
+  struct ChainRig
+  {
+    HydroCouple::Composer::CompositionDocument document;
+    ConnectionSpec identity;
+
+    ChainRig()
+    {
+      QString message;
+      EXPECT_TRUE(document.loadFromJson(minimalComposition(), message))
+        << message.toStdString();
+      identity = makeConnection("upstream", "flow", "downstream", "inflow");
+    }
+  };
+
+  HydroCouple::SDK::IO::AdaptedOutputSpec makeStep(const std::string &id)
+  {
+    HydroCouple::SDK::IO::AdaptedOutputSpec step;
+    step.id = id;
+    return step;
+  }
+}
+
+TEST(CompositionDocumentChains, EditingAConnectionsChainIsUndoableAndSignalsConnectionsChanged)
+{
+  ChainRig rig;
+  QSignalSpy connections(&rig.document,
+                         &HydroCouple::Composer::CompositionDocument::connectionsChanged);
+
+  // An in-place chain edit keeps the connection COUNT identical — the old
+  // size-only diff in applySpec would never have redrawn it.
+  ASSERT_TRUE(rig.document.insertConnectionAdapter(rig.identity, 0,
+                                                   makeStep("linear_transform")));
+  ASSERT_EQ(rig.document.spec().connections.size(), 1u);
+  ASSERT_EQ(rig.document.spec().connections[0].adaptedOutputs.size(), 1u);
+  EXPECT_EQ(connections.count(), 1) << "the chain edit did not signal";
+
+  ASSERT_TRUE(rig.document.setConnectionAdapterArgument(
+    rig.identity, 0, QStringLiteral("multiplier"),
+    nlohmann::json{{"values", {2.0}}}));
+  EXPECT_EQ(rig.document.spec()
+              .connections[0]
+              .adaptedOutputs[0]
+              .arguments["multiplier"]["values"][0]
+              .get<double>(),
+            2.0);
+  EXPECT_EQ(connections.count(), 2);
+
+  rig.document.undoStack()->undo();
+  EXPECT_TRUE(rig.document.spec()
+                .connections[0]
+                .adaptedOutputs[0]
+                .arguments.empty());
+  rig.document.undoStack()->undo();
+  EXPECT_TRUE(rig.document.spec().connections[0].adaptedOutputs.empty());
+  EXPECT_EQ(connections.count(), 4);
+}
+
+TEST(CompositionDocumentChains, InsertingAnAdapterStepPreservesEndpointIdentity)
+{
+  ChainRig rig;
+  ASSERT_TRUE(rig.document.insertConnectionAdapter(rig.identity, 0,
+                                                   makeStep("linear_transform")));
+
+  // Identity is endpoints+role, so the adapted connection still answers to
+  // the same identity: no duplicate can be added, and removal by identity
+  // takes the chain with it.
+  EXPECT_FALSE(rig.document.addConnection(rig.identity))
+    << "an adapted connection stopped counting as a duplicate";
+  ASSERT_TRUE(rig.document.removeConnection(rig.identity));
+  EXPECT_TRUE(rig.document.spec().connections.empty());
+
+  // An id-less step is refused outright: the spec parse would reject the
+  // saved document.
+  rig.document.undoStack()->undo();
+  EXPECT_FALSE(rig.document.insertConnectionAdapter(rig.identity, 0,
+                                                    makeStep("")));
+}
+
+TEST(CompositionDocumentChains, RemovingAnAdapterStepRenumbersItsSiblings)
+{
+  ChainRig rig;
+  ASSERT_TRUE(rig.document.insertConnectionAdapter(rig.identity, 0,
+                                                   makeStep("first")));
+  ASSERT_TRUE(rig.document.insertConnectionAdapter(rig.identity, 1,
+                                                   makeStep("second")));
+  ASSERT_TRUE(rig.document.insertConnectionAdapter(rig.identity, 2,
+                                                   makeStep("third")));
+
+  ASSERT_TRUE(rig.document.removeConnectionAdapter(rig.identity, 1));
+
+  const auto &chain = rig.document.spec().connections[0].adaptedOutputs;
+  ASSERT_EQ(chain.size(), 2u);
+  EXPECT_EQ(chain[0].id, "first");
+  EXPECT_EQ(chain[1].id, "third");
+
+  // Out-of-range indexes are refusals, not clamps.
+  EXPECT_FALSE(rig.document.removeConnectionAdapter(rig.identity, 2));
+  EXPECT_FALSE(rig.document.removeConnectionAdapter(rig.identity, -1));
+}
+
+TEST(CompositionDocumentChains, ChangingTheRoleRefusesACollidingIdentity)
+{
+  ChainRig rig;
+
+  // A second link on the same endpoints under a different role is legal —
+  // that is what roles are for.
+  ConnectionSpec roled = rig.identity;
+  roled.role = "secondary";
+  ASSERT_TRUE(rig.document.addConnection(roled));
+
+  // Moving the plain link onto "secondary" would collide two identities.
+  EXPECT_FALSE(rig.document.setConnectionRole(rig.identity,
+                                              QStringLiteral("secondary")));
+
+  ASSERT_TRUE(rig.document.setConnectionRole(rig.identity,
+                                             QStringLiteral("primary")));
+  int primaries = 0;
+  for (const ConnectionSpec &link : rig.document.spec().connections)
+  {
+    if (link.role == "primary")
+    {
+      ++primaries;
+    }
+  }
+  EXPECT_EQ(primaries, 1);
+}
+
+TEST(CompositionDocumentChains, ClearingAnArgumentRemovesItsPayloadUndoably)
+{
+  ChainRig rig;
+  ASSERT_TRUE(rig.document.setArgument(
+    QStringLiteral("downstream"), QStringLiteral("rating"),
+    nlohmann::json{{"@from", {{"component", "upstream"},
+                              {"output", "flow"}}}}));
+
+  ASSERT_TRUE(rig.document.clearArgument(QStringLiteral("downstream"),
+                                         QStringLiteral("rating")));
+  EXPECT_FALSE(rig.document.spec().component("downstream")
+                 ->arguments.contains("rating"));
+
+  // Clearing what is not there is a refusal, not a silent no-op command.
+  EXPECT_FALSE(rig.document.clearArgument(QStringLiteral("downstream"),
+                                          QStringLiteral("rating")));
+
+  rig.document.undoStack()->undo();
+  EXPECT_TRUE(rig.document.spec().component("downstream")
+                ->arguments.contains("rating"));
+}
+
+// ── Adapter positions in the sidecar (CONNECT C2) ───────────────────────────
+
+TEST(PresentationAdapters, TheSidecarRoundTripsAdapterPositionsKeyedByConnection)
+{
+  using HydroCouple::Composer::Presentation;
+
+  Presentation presentation;
+
+  // Two links on the SAME endpoints under different roles keep distinct
+  // chains — the role is part of the identity.
+  const ConnectionSpec plain =
+    makeConnection("source", "signal", "sink", "in");
+  ConnectionSpec roled = plain;
+  roled.role = "secondary";
+
+  presentation.setAdapterChain(plain, {QPointF(10, 20), QPointF(30, 40)});
+  presentation.setAdapterChain(roled, {QPointF(-5, 7)});
+
+  Presentation reloaded;
+  ASSERT_TRUE(reloaded.fromJson(presentation.toJson()));
+
+  EXPECT_EQ(reloaded.adapterChain(plain),
+            (QList<QPointF>{QPointF(10, 20), QPointF(30, 40)}));
+  EXPECT_EQ(reloaded.adapterChain(roled), (QList<QPointF>{QPointF(-5, 7)}));
+
+  // setAdapterPosition grows the list as needed; an empty set removes.
+  reloaded.setAdapterPosition(plain, 3, QPointF(99, 99));
+  EXPECT_EQ(reloaded.adapterChain(plain).size(), 4);
+  EXPECT_EQ(reloaded.adapterChain(plain)[3], QPointF(99, 99));
+
+  reloaded.setAdapterChain(plain, {});
+  EXPECT_TRUE(reloaded.adapterChain(plain).isEmpty());
+  EXPECT_FALSE(reloaded.adapterChain(roled).isEmpty());
+}
+
+TEST(PresentationAdapters, RenamingAComponentRekeysItsAdapterChains)
+{
+  using HydroCouple::Composer::Presentation;
+
+  Presentation presentation;
+  const ConnectionSpec link = makeConnection("a", "out", "b", "in");
+  presentation.setAdapterChain(link, {QPointF(1, 2)});
+
+  presentation.renameComponent(QStringLiteral("a"), QStringLiteral("alpha"));
+
+  const ConnectionSpec renamed = makeConnection("alpha", "out", "b", "in");
+  EXPECT_EQ(presentation.adapterChain(renamed),
+            (QList<QPointF>{QPointF(1, 2)}));
+  EXPECT_TRUE(presentation.adapterChain(link).isEmpty());
+
+  // Removing a component takes the chains that name it.
+  presentation.removeComponent(QStringLiteral("b"));
+  EXPECT_TRUE(presentation.adapterChain(renamed).isEmpty());
+}
+
+TEST(PresentationAdapters, MovingAnAdapterIsUndoableAndMerges)
+{
+  ChainRig rig;
+  ASSERT_TRUE(rig.document.insertConnectionAdapter(rig.identity, 0,
+                                                   makeStep("linear_transform")));
+
+  // A phantom step takes no position.
+  EXPECT_FALSE(rig.document.moveConnectionAdapter(rig.identity, 1,
+                                                  QPointF(5, 5)));
+
+  QSignalSpy moved(&rig.document,
+                   &HydroCouple::Composer::CompositionDocument::adapterPlacementChanged);
+
+  ASSERT_TRUE(rig.document.moveConnectionAdapter(rig.identity, 0,
+                                                 QPointF(120, 40)));
+  ASSERT_TRUE(rig.document.moveConnectionAdapter(rig.identity, 0,
+                                                 QPointF(140, 60)));
+  EXPECT_EQ(moved.count(), 2);
+
+  EXPECT_EQ(rig.document.presentation().adapterChain(rig.identity)[0],
+            QPointF(140, 60));
+
+  // Consecutive moves of one step merged into a single undo step: undoing
+  // once rewinds past both, leaving the insert on top of the stack.
+  rig.document.undoStack()->undo();
+  EXPECT_EQ(rig.document.presentation().adapterChain(rig.identity)[0],
+            QPointF(0, 0));
+  EXPECT_EQ(rig.document.undoStack()->undoText(),
+            QStringLiteral("Insert adapter 'linear_transform'"));
 }

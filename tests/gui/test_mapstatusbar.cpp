@@ -303,3 +303,48 @@ TEST_F(MapStatusBarTest, TheControlsGoDeadWhereTheyMeanNothing)
   bar.setLive(true);
   EXPECT_FALSE(combo->isEnabled());
 }
+
+// ── The bar is honest on the 3D tab (coherence plan V7) ───────────────────
+
+TEST_F(MapStatusBarTest, LeavingTheMapClearsTheStaleCoordinate)
+{
+  MapCanvas canvas;
+  canvas.setCrs(SpatialReference::webMercator());
+  showExactly(canvas, 4000.0);
+
+  MapStatusBar bar;
+  bar.setCanvas(&canvas);
+  bar.setLive(true);
+
+  auto *coordinate =
+    bar.findChild<QLabel *>(QStringLiteral("coordinateLabel"));
+  ASSERT_NE(coordinate, nullptr);
+
+  // A reading, as the pointer would leave one.
+  coordinate->setText(QStringLiteral("1234.5, 6789.0"));
+
+  bar.setLive(false);
+
+  EXPECT_FALSE(coordinate->text().contains(QStringLiteral("1234")))
+    << "the 3D tab shows a 2D coordinate from the last time the mouse was "
+       "over the map: " << coordinate->text().toStdString();
+  EXPECT_TRUE(coordinate->text().contains(QStringLiteral("3D")))
+    << coordinate->text().toStdString();
+}
+
+TEST_F(MapStatusBarTest, TheCameraReadingTakesTheCoordinateSlot)
+{
+  MapStatusBar bar;
+  bar.setLive(false);
+
+  bar.showCameraReading(45.0, 30.0, 1500.0);
+
+  auto *coordinate =
+    bar.findChild<QLabel *>(QStringLiteral("coordinateLabel"));
+  ASSERT_NE(coordinate, nullptr);
+
+  EXPECT_TRUE(coordinate->text().contains(QStringLiteral("45")))
+    << coordinate->text().toStdString();
+  EXPECT_TRUE(coordinate->text().contains(QStringLiteral("30")));
+  EXPECT_TRUE(coordinate->text().contains(QStringLiteral("1500")));
+}

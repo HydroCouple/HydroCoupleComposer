@@ -74,8 +74,41 @@ find_package(HydroCoupleSDK CONFIG REQUIRED HINTS ${_sdk_sibling_hints})
 message(STATUS "HydroCouple    : ${HydroCouple_DIR}")
 message(STATUS "HydroCoupleSDK : ${HydroCoupleSDK_DIR}")
 
+# ── HydroCoupleOgc (OGC web service clients — fetched, not prebuilt) ────────
+# Shared with openswmm.gui, and Qt-only, which is why it cannot live in the
+# SDK: the SDK is deliberately Qt-free.
+#
+# Fetched rather than expected in an install tree, so a fresh checkout builds
+# without first building a sibling by hand. A sibling checkout, when there is
+# one, is used in place of the download -- that is what keeps the two
+# editable together, and it is also why nothing here depends on the remote
+# existing yet. Point FETCHCONTENT_SOURCE_DIR_HYDROCOUPLEOGC elsewhere to
+# override.
+include(FetchContent)
+
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../HydroCoupleOgc/CMakeLists.txt"
+   AND NOT DEFINED FETCHCONTENT_SOURCE_DIR_HYDROCOUPLEOGC)
+    set(FETCHCONTENT_SOURCE_DIR_HYDROCOUPLEOGC
+        "${CMAKE_CURRENT_SOURCE_DIR}/../HydroCoupleOgc"
+        CACHE PATH "Sibling checkout of HydroCoupleOgc")
+endif()
+
+# Its own suites are its own repository's business; this build does not run
+# them, and asking for them here would require gtest of every consumer.
+set(HYDROCOUPLEOGC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+
+FetchContent_Declare(HydroCoupleOgc
+    GIT_REPOSITORY https://github.com/HydroCouple/HydroCoupleOgc.git
+    GIT_TAG main
+    GIT_SHALLOW TRUE)
+
+FetchContent_MakeAvailable(HydroCoupleOgc)
+
+message(STATUS "HydroCoupleOgc : ${hydrocoupleogc_SOURCE_DIR}")
+
 # ── GDAL (GIS/CRS — Phase C) ────────────────────────────────────────────────
 find_package(GDAL REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 # ── nanoflann (header-only KD-tree for spatial picking — Phase C) ───────────
 find_package(nanoflann CONFIG REQUIRED)
@@ -95,6 +128,9 @@ configure_file(
 set(COMPOSER_SOURCES
     include/core/composerapplication.h
     src/core/composerapplication.cpp
+    include/core/preferencesmanager.h
+    src/core/preferencesmanager.cpp
+    src/core/httpuriresolver.cpp
     include/plugins/componentabi.h
     include/plugins/componentlibrary.h
     src/plugins/componentlibrary.cpp
@@ -130,16 +166,22 @@ set(COMPOSER_SOURCES
     src/simulation/runrecording.cpp
     include/simulation/simulationmanager.h
     src/simulation/simulationmanager.cpp
+    include/simulation/executionpanel.h
+    src/simulation/executionpanel.cpp
     include/configurator/argumentdescriptor.h
     src/configurator/argumentdescriptor.cpp
     include/configurator/componentconfigurator.h
     src/configurator/componentconfigurator.cpp
+    include/configurator/adapterinspector.h
+    src/configurator/adapterinspector.cpp
     include/canvas/canvasitems.h
     src/canvas/canvasitems.cpp
     include/canvas/compositionscene.h
     src/canvas/compositionscene.cpp
     include/canvas/compositioncanvas.h
     src/canvas/compositioncanvas.cpp
+    include/canvas/graphlayout.h
+    src/canvas/graphlayout.cpp
     include/canvas/componentpalettemodel.h
     src/canvas/componentpalettemodel.cpp
     include/render/colorramp.h
@@ -159,13 +201,43 @@ set(COMPOSER_SOURCES
     src/layers/tilelayer.cpp
     include/layers/networktilesource.h
     src/layers/networktilesource.cpp
+    include/layers/ogctilesource.h
+    src/layers/ogctilesource.cpp
+    include/layers/serviceconnections.h
+    src/layers/serviceconnections.cpp
     include/layers/featurelayer.h
     src/layers/featurelayer.cpp
+    include/layers/wfsfeaturelayer.h
+    src/layers/wfsfeaturelayer.cpp
+    include/layers/wcscoveragelayer.h
+    src/layers/wcscoveragelayer.cpp
+    include/layers/layerrestorer.h
+    src/layers/layerrestorer.cpp
+    include/layers/ogrfeatureloader.h
+    src/layers/ogrfeatureloader.cpp
     include/layers/ogrgeometryreader.h
     src/layers/ogrgeometryreader.cpp
     include/layers/dataitemlayer.h
     src/layers/dataitemlayer.cpp
     include/layers/timelayer.h
+    include/mesh/meshdomain.h
+    src/mesh/meshdomain.cpp
+    include/mesh/meshdomainmodel.h
+    src/mesh/meshdomainmodel.cpp
+    include/layers/domainlayer.h
+    src/layers/domainlayer.cpp
+    include/mesh/domaindrawtool.h
+    src/mesh/domaindrawtool.cpp
+    include/mesh/domainsnap.h
+    src/mesh/domainsnap.cpp
+    include/mesh/domainedittool.h
+    src/mesh/domainedittool.cpp
+    include/mesh/domainimport.h
+    src/mesh/domainimport.cpp
+    include/mesh/meshgenerator.h
+    src/mesh/meshgenerator.cpp
+    include/mesh/terrainsampler.h
+    src/mesh/terrainsampler.cpp
     include/layers/differencelayer.h
     src/layers/differencelayer.cpp
     include/layers/gdalvectorlayer.h
@@ -176,6 +248,7 @@ set(COMPOSER_SOURCES
     src/layers/meshlayer.cpp
     include/layers/gdalrasterlayer.h
     src/layers/gdalrasterlayer.cpp
+    src/layers/rasterdataitemlayer.cpp
     include/map/maptool.h
     src/map/maptool.cpp
     include/map/maptransform.h
@@ -206,10 +279,31 @@ set(COMPOSER_SOURCES
     src/ui/dialogs/crsselectiondialog.cpp
     include/ui/dialogs/layerpropertiesdialog.h
     src/ui/dialogs/layerpropertiesdialog.cpp
+    include/ui/dialogs/preferencesdialog.h
+    src/ui/dialogs/preferencesdialog.cpp
+    include/ui/dialogs/ogcservicedialog.h
+    src/ui/dialogs/ogcservicedialog.cpp
     include/ui/panels/layertreepanel.h
     src/ui/panels/layertreepanel.cpp
     include/ui/panels/runbrowserpanel.h
     src/ui/panels/runbrowserpanel.cpp
+    include/ui/recentcompositions.h
+    src/ui/recentcompositions.cpp
+    include/ui/selectionhub.h
+    src/ui/selectionhub.cpp
+    include/scene/axisgizmo.h
+    src/scene/axisgizmo.cpp
+    include/scene/navigation.h
+    src/scene/navigation.cpp
+    include/ui/dialogs/argumenteditordialog.h
+    src/ui/dialogs/argumenteditordialog.cpp
+    include/ui/dialogs/rawargumentdialog.h
+    src/ui/dialogs/rawargumentdialog.cpp
+    include/ui/dialogs/argumenteditorfactory.h
+    src/ui/dialogs/argumenteditorfactory.cpp
+    include/layers/componentlayer.h
+    include/ui/welcomepage.h
+    src/ui/welcomepage.cpp
     include/ui/panels/mapstatusbar.h
     src/ui/panels/mapstatusbar.cpp
     include/ui/panels/timecontrolpanel.h
@@ -257,12 +351,23 @@ qt_add_resources(composer_core "composer_icons"
     BASE "resources/icons"
     FILES
         resources/icons/add_component_layers.svg
+        resources/icons/look_at_selection.svg
+        resources/icons/reset_view.svg
+        resources/icons/sync_from_map.svg
+        resources/icons/sync_from_scene.svg
+        resources/icons/top_view.svg
         resources/icons/add_mesh.svg
         resources/icons/add_raster.svg
         resources/icons/add_vector.svg
         resources/icons/composition.svg
         resources/icons/dark.svg
         resources/icons/delete.svg
+        resources/icons/domain_boundary.svg
+        resources/icons/domain_breakline.svg
+        resources/icons/domain_edit.svg
+        resources/icons/domain_hole.svg
+        resources/icons/domain_import.svg
+        resources/icons/domain_point.svg
         resources/icons/dock_layers.svg
         resources/icons/extent.svg
         resources/icons/pan.svg
@@ -279,6 +384,7 @@ qt_add_resources(composer_core "composer_icons"
         resources/icons/pause.svg
         resources/icons/play.svg
         resources/icons/plugins.svg
+        resources/icons/preferences.svg
         resources/icons/redo.svg
         resources/icons/save.svg
         resources/icons/scene_3d.svg
@@ -291,8 +397,20 @@ qt_add_resources(composer_core "composer_icons"
         resources/icons/transect.svg
         resources/icons/system.svg
         resources/icons/undo.svg
+        resources/icons/welcome.svg
         resources/icons/zoomin.svg
         resources/icons/zoomout.svg)
+
+# ── Application mark ────────────────────────────────────────────────────────
+# The full-colour brand raster, for QApplication::setWindowIcon on platforms
+# that do not take the icon from the bundle or the .rc. Same FILES-form
+# rationale as the chrome icons above. Regenerated, together with the .icns
+# and .ico below, by tools/make_icons.sh from
+# resources/branding/hydrocouplecomposer.svg — edit the SVG, not the rasters.
+qt_add_resources(composer_core "composer_branding"
+    PREFIX "/branding"
+    BASE "resources/images"
+    FILES resources/images/hydrocouplecomposer.png)
 
 # ── C3 — scene materials, compiled to .qsb ──────────────────────────────────
 # Loaded from :/shaders at runtime by SceneRenderer. qsb cross-compiles one
@@ -326,7 +444,15 @@ target_link_libraries(composer_core
         Qt6::GuiPrivate
         HydroCouple::HydroCouple
         HydroCoupleSDK::HydroCoupleSDK
+        # The triangulator and the quad mesher live in the SDK's tools
+        # library; the domain header used only its input struct, so nothing
+        # needed it linked until something called into it.
+        HydroCoupleSDK::HydroCoupleTools
+        HydroCoupleOgc::HydroCoupleOgc
         GDAL::GDAL
+        # AES-256-CBC for saved service passwords (O2). Qt supplies the
+        # PBKDF2 half but ships no cipher, and GDAL already brings this.
+        OpenSSL::Crypto
         nanoflann::nanoflann
         nlohmann_json::nlohmann_json)
 
@@ -345,7 +471,20 @@ set_target_properties(composer_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_compile_definitions(composer_core PUBLIC QT_NO_KEYWORDS)
 
 # ── Application ─────────────────────────────────────────────────────────────
-qt_add_executable(HydroCoupleComposer MACOSX_BUNDLE src/app/main.cpp)
+# The bundle icon wiring is what fills CFBundleIconFile; without it the .app
+# ships icon-less (the v1→v2 CMake port dropped it). The Windows .rc carries
+# the .ico the same way the qmake build did.
+set(composer_icon_macos
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/HydroCoupleComposer.icns")
+set_source_files_properties(${composer_icon_macos} PROPERTIES
+    MACOSX_PACKAGE_LOCATION "Resources")
+set(composer_icon_windows
+    "${CMAKE_CURRENT_SOURCE_DIR}/resources/HydroCoupleComposer.rc")
+
+qt_add_executable(HydroCoupleComposer MACOSX_BUNDLE
+    src/app/main.cpp
+    $<$<PLATFORM_ID:Darwin>:${composer_icon_macos}>
+    $<$<PLATFORM_ID:Windows>:${composer_icon_windows}>)
 
 target_link_libraries(HydroCoupleComposer PRIVATE composer_core)
 
@@ -353,7 +492,11 @@ set_target_properties(HydroCoupleComposer PROPERTIES
     MACOSX_BUNDLE_BUNDLE_NAME "HydroCoupleComposer"
     MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
-    MACOSX_BUNDLE_GUI_IDENTIFIER "org.hydrocouple.composer")
+    # The same domain QSettings derives from the organisation domain and the
+    # application name, so Cocoa's window and panel state and the
+    # application's own preferences share one plist.
+    MACOSX_BUNDLE_GUI_IDENTIFIER "org.hydrocouple.HydroCoupleComposer"
+    MACOSX_BUNDLE_ICON_FILE "HydroCoupleComposer.icns")
 
 install(TARGETS HydroCoupleComposer
     BUNDLE  DESTINATION .

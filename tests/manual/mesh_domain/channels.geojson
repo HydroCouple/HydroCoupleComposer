@@ -1,0 +1,31 @@
+{
+  "type": "FeatureCollection",
+  "name": "channels",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Main channel" },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [-111.9340, 40.7280], [-111.9250, 40.7330],
+          [-111.9150, 40.7400], [-111.9060, 40.7520]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Tributaries",
+        "note": "ONE feature holding TWO lines"
+      },
+      "geometry": {
+        "type": "MultiLineString",
+        "coordinates": [
+          [[-111.9330, 40.7500], [-111.9250, 40.7420]],
+          [[-111.9080, 40.7280], [-111.9160, 40.7390]]
+        ]
+      }
+    }
+  ]
+}

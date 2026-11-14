@@ -17,6 +17,7 @@ namespace HydroCouple::Composer
     constexpr qreal kPortSpacing = 20.0;
     constexpr qreal kHeaderHeight = 26.0;
     constexpr qreal kMinimumWidth = 160.0;
+    constexpr qreal kMaximumWidth = 260.0;
     constexpr qreal kHorizontalPadding = 16.0;
   } // namespace
 
@@ -139,7 +140,35 @@ namespace HydroCouple::Composer
     const int rows = std::max(
       {static_cast<int>(m_inputs.size()), static_cast<int>(m_outputs.size()), 1});
 
-    m_size = QSizeF(kMinimumWidth,
+    // Wide enough to read the port names on both sides at once. A port
+    // whose name is clipped — "…_temperature" for "air_temperature" — is
+    // the one thing a user has to be sure of before dragging a connection
+    // to it, so the box grows to fit rather than eliding. Clamped, because
+    // a component with one very long item id must not push every other box
+    // off the canvas.
+    const QFontMetricsF metrics((QFont()));
+
+    qreal widest = 0.0;
+
+    for (int row = 0; row < rows; ++row)
+    {
+      const qreal left =
+        row < m_inputs.size()
+          ? metrics.horizontalAdvance(m_inputs[row]->itemId())
+          : 0.0;
+      const qreal right =
+        row < m_outputs.size()
+          ? metrics.horizontalAdvance(m_outputs[row]->itemId())
+          : 0.0;
+
+      // Both labels share one row, so it is the pair that has to fit.
+      widest = std::max(widest, left + right);
+    }
+
+    widest = std::max(widest, metrics.horizontalAdvance(m_caption));
+
+    m_size = QSizeF(std::clamp(widest + kHorizontalPadding * 2.0,
+                               kMinimumWidth, kMaximumWidth),
                     kHeaderHeight + (rows * kPortSpacing) + kPortSpacing * 0.5);
 
     for (int index = 0; index < m_inputs.size(); ++index)
@@ -196,21 +225,55 @@ namespace HydroCouple::Composer
     // Port labels, drawn inside the body on their respective sides.
     painter->setPen(QColor(70, 70, 80));
 
-    for (PortItem *port : m_inputs)
-    {
-      painter->drawText(
-        QRectF(kHorizontalPadding * 0.5, port->pos().y() - kPortSpacing * 0.5,
-               m_size.width() * 0.5, kPortSpacing),
-        Qt::AlignVCenter | Qt::AlignLeft, port->itemId());
-    }
+    // Drawn a row at a time, because the two labels share the row and the
+    // box was sized for the PAIR: splitting it down the middle instead
+    // would elide a lone long name inside a box already wide enough for
+    // it. Each side takes what it needs; when the pair does not fit — the
+    // width is clamped — they give way in proportion, elided rather than
+    // clipped, because "air_temper…" says a name was shortened where a
+    // hard cut just looks like a different port.
+    const qreal available = m_size.width() - kHorizontalPadding;
+    const int rows =
+      std::max(static_cast<int>(m_inputs.size()),
+               static_cast<int>(m_outputs.size()));
 
-    for (PortItem *port : m_outputs)
+    for (int row = 0; row < rows; ++row)
     {
-      painter->drawText(
-        QRectF(m_size.width() * 0.5 - kHorizontalPadding * 0.5,
-               port->pos().y() - kPortSpacing * 0.5, m_size.width() * 0.5,
-               kPortSpacing),
-        Qt::AlignVCenter | Qt::AlignRight, port->itemId());
+      PortItem *input = row < m_inputs.size() ? m_inputs[row] : nullptr;
+      PortItem *output = row < m_outputs.size() ? m_outputs[row] : nullptr;
+
+      const QString inText = input ? input->itemId() : QString();
+      const QString outText = output ? output->itemId() : QString();
+
+      qreal inWidth = metrics.horizontalAdvance(inText);
+      qreal outWidth = metrics.horizontalAdvance(outText);
+
+      if (inWidth + outWidth > available && inWidth + outWidth > 0.0)
+      {
+        const qreal share = available / (inWidth + outWidth);
+        inWidth *= share;
+        outWidth *= share;
+      }
+
+      const qreal y = (input ? input->pos().y() : output->pos().y())
+                      - kPortSpacing * 0.5;
+
+      if (input)
+      {
+        painter->drawText(
+          QRectF(kHorizontalPadding * 0.5, y, inWidth, kPortSpacing),
+          Qt::AlignVCenter | Qt::AlignLeft,
+          metrics.elidedText(inText, Qt::ElideRight, inWidth));
+      }
+
+      if (output)
+      {
+        painter->drawText(
+          QRectF(m_size.width() - kHorizontalPadding * 0.5 - outWidth, y,
+                 outWidth, kPortSpacing),
+          Qt::AlignVCenter | Qt::AlignRight,
+          metrics.elidedText(outText, Qt::ElideRight, outWidth));
+      }
     }
   }
 
@@ -288,6 +351,12 @@ namespace HydroCouple::Composer
     return Type;
   }
 
+  void ConnectionEdgeItem::setAdapters(const QList<AdapterNodeItem *> &adapters)
+  {
+    m_adapters = adapters;
+    refresh();
+  }
+
   QPainterPath ConnectionEdgeItem::buildPath() const
   {
     QPainterPath path;
@@ -297,14 +366,39 @@ namespace HydroCouple::Composer
       return path;
     }
 
-    const QPointF start = m_from->anchor();
-    const QPointF end = m_to->anchor();
+    // The waypoint list pairs off into legs: port → first adapter's inlet,
+    // each adapter's outlet → the next one's inlet, last outlet → the input
+    // port. The gap across each adapter body is deliberate — the node draws
+    // itself there.
+    QList<QPointF> points;
+    points.append(m_from->anchor());
 
-    // A horizontal-tangent cubic keeps edges readable when boxes are stacked.
-    const qreal reach = std::max(40.0, std::abs(end.x() - start.x()) * 0.5);
+    for (AdapterNodeItem *adapter : m_adapters)
+    {
+      if (!adapter)
+      {
+        continue;
+      }
 
-    path.moveTo(start);
-    path.cubicTo(start + QPointF(reach, 0.0), end - QPointF(reach, 0.0), end);
+      points.append(adapter->anchorIn());
+      points.append(adapter->anchorOut());
+    }
+
+    points.append(m_to->anchor());
+
+    for (int i = 0; i + 1 < points.size(); i += 2)
+    {
+      const QPointF start = points[i];
+      const QPointF end = points[i + 1];
+
+      // A horizontal-tangent cubic keeps legs readable when boxes stack.
+      const qreal reach =
+        std::max(40.0, std::abs(end.x() - start.x()) * 0.5);
+
+      path.moveTo(start);
+      path.cubicTo(start + QPointF(reach, 0.0), end - QPointF(reach, 0.0),
+                   end);
+    }
 
     return path;
   }
@@ -356,6 +450,211 @@ namespace HydroCouple::Composer
   ConnectionEdgeItem::connection() const
   {
     return m_connection;
+  }
+
+
+  // ── AdapterNodeItem ──────────────────────────────────────────────────────
+
+  namespace
+  {
+    constexpr qreal kAdapterWidth = 120.0;
+    constexpr qreal kAdapterHeight = 34.0;
+  }
+
+  AdapterNodeItem::AdapterNodeItem(
+    HydroCouple::SDK::IO::ConnectionSpec connection, int stepIndex,
+    HydroCouple::SDK::IO::AdaptedOutputSpec step)
+    : m_connection(std::move(connection)),
+      m_stepIndex(stepIndex),
+      m_step(std::move(step)),
+      m_size(kAdapterWidth, kAdapterHeight)
+  {
+    setFlag(ItemIsMovable, true);
+    setFlag(ItemIsSelectable, true);
+    setFlag(ItemSendsGeometryChanges, true);
+
+    const QString factory = m_step.factory.empty()
+                              ? QStringLiteral("any factory")
+                              : QString::fromStdString(m_step.factory);
+    setToolTip(QStringLiteral("adapter '%1' (%2) — step %3 of the "
+                              "chain from %4.%5")
+                 .arg(QString::fromStdString(m_step.id), factory)
+                 .arg(m_stepIndex + 1)
+                 .arg(QString::fromStdString(m_connection.fromComponent),
+                      QString::fromStdString(m_connection.output)));
+  }
+
+  int AdapterNodeItem::type() const
+  {
+    return Type;
+  }
+
+  QRectF AdapterNodeItem::boundingRect() const
+  {
+    // Centred on the origin, so pos() is the node's centre — the same point
+    // the sidecar stores and the default along-the-edge placement computes.
+    return {-m_size.width() / 2.0, -m_size.height() / 2.0, m_size.width(),
+            m_size.height()};
+  }
+
+  void AdapterNodeItem::paint(QPainter *painter,
+                              const QStyleOptionGraphicsItem *option,
+                              QWidget *)
+  {
+    const bool selected = option->state & QStyle::State_Selected;
+    const QRectF box = boundingRect();
+
+    painter->setRenderHint(QPainter::Antialiasing, true);
+
+    // Amber, unmistakably not a component box: a connector spliced into
+    // the wire.
+    painter->setBrush(QColor(252, 246, 232));
+    painter->setPen(QPen(selected ? QColor(60, 120, 220)
+                                  : QColor(200, 150, 60),
+                         selected ? 2.0 : 1.4));
+    painter->drawRoundedRect(box, 6.0, 6.0);
+
+    painter->setPen(QColor(90, 70, 30));
+    const QFontMetricsF metrics(painter->font());
+    painter->drawText(box.adjusted(8.0, 0.0, -8.0, 0.0),
+                      Qt::AlignCenter,
+                      metrics.elidedText(QString::fromStdString(m_step.id),
+                                         Qt::ElideMiddle,
+                                         box.width() - 16.0));
+  }
+
+  const HydroCouple::SDK::IO::ConnectionSpec &AdapterNodeItem::connection() const
+  {
+    return m_connection;
+  }
+
+  int AdapterNodeItem::stepIndex() const
+  {
+    return m_stepIndex;
+  }
+
+  const HydroCouple::SDK::IO::AdaptedOutputSpec &AdapterNodeItem::step() const
+  {
+    return m_step;
+  }
+
+  QPointF AdapterNodeItem::anchorIn() const
+  {
+    return mapToScene(QPointF(-m_size.width() / 2.0, 0.0));
+  }
+
+  QPointF AdapterNodeItem::anchorOut() const
+  {
+    return mapToScene(QPointF(m_size.width() / 2.0, 0.0));
+  }
+
+  QVariant AdapterNodeItem::itemChange(GraphicsItemChange change,
+                                       const QVariant &value)
+  {
+    if (change == ItemPositionHasChanged)
+    {
+      m_moving = true;
+    }
+
+    return QGraphicsObject::itemChange(change, value);
+  }
+
+  void AdapterNodeItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
+  {
+    QGraphicsObject::mouseReleaseEvent(event);
+
+    if (m_moving)
+    {
+      m_moving = false;
+      Q_EMIT moved(m_connection, m_stepIndex, pos());
+    }
+  }
+
+  // ── BindingEdgeItem ───────────────────────────────────────────────────────
+
+  BindingEdgeItem::BindingEdgeItem(
+    HydroCouple::SDK::IO::ArgumentBindingSpec binding,
+    ComponentNodeItem *provider, ComponentNodeItem *consumer)
+    : m_binding(std::move(binding)),
+      m_provider(provider),
+      m_consumer(consumer)
+  {
+    setFlag(ItemIsSelectable, true); // Selectable, so Delete can remove it.
+    setZValue(-2.0); // Behind the exchange edges: initialization underlies.
+    setToolTip(QStringLiteral("%1.%2 \u27f5 %3.%4 \u2014 resolves when the "
+                              "composition runs")
+                 .arg(QString::fromStdString(m_binding.component),
+                      QString::fromStdString(m_binding.argument),
+                      QString::fromStdString(m_binding.provider),
+                      QString::fromStdString(m_binding.output)));
+    refresh();
+  }
+
+  int BindingEdgeItem::type() const
+  {
+    return Type;
+  }
+
+  const HydroCouple::SDK::IO::ArgumentBindingSpec &
+  BindingEdgeItem::binding() const
+  {
+    return m_binding;
+  }
+
+  QPainterPath BindingEdgeItem::buildPath() const
+  {
+    QPainterPath path;
+
+    if (!m_provider || !m_consumer)
+    {
+      return path;
+    }
+
+    const QRectF from = m_provider->sceneBoundingRect();
+    const QRectF to = m_consumer->sceneBoundingRect();
+    const QPointF start(from.right(), from.center().y());
+    const QPointF end(to.left(), to.center().y());
+    const qreal reach = std::max(40.0, std::abs(end.x() - start.x()) * 0.5);
+
+    path.moveTo(start);
+    path.cubicTo(start + QPointF(reach, 0.0), end - QPointF(reach, 0.0), end);
+
+    return path;
+  }
+
+  void BindingEdgeItem::refresh()
+  {
+    prepareGeometryChange();
+    m_path = buildPath();
+    update();
+  }
+
+  QRectF BindingEdgeItem::boundingRect() const
+  {
+    return m_path.boundingRect().adjusted(-6.0, -6.0, 6.0, 6.0);
+  }
+
+  QPainterPath BindingEdgeItem::shape() const
+  {
+    QPainterPathStroker stroker;
+    stroker.setWidth(8.0);
+    return stroker.createStroke(m_path);
+  }
+
+  void BindingEdgeItem::paint(QPainter *painter,
+                              const QStyleOptionGraphicsItem *option,
+                              QWidget *)
+  {
+    const bool selected = option->state & QStyle::State_Selected;
+
+    painter->setRenderHint(QPainter::Antialiasing, true);
+    painter->setBrush(Qt::NoBrush);
+
+    QPen pen(selected ? QColor(60, 120, 220) : QColor(140, 110, 200),
+             selected ? 2.5 : 1.6);
+    pen.setDashPattern({5.0, 4.0});
+    painter->setPen(pen);
+    painter->drawPath(m_path);
   }
 
 } // namespace HydroCouple::Composer

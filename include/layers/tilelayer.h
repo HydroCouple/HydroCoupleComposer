@@ -180,7 +180,7 @@ namespace HydroCouple::Composer
        *
        * \param drape The placement wanted.
        */
-      void setDrape(SceneDrape drape) override;
+      void setZPolicy(const ZPolicy &policy) override;
 
       /*!
        * \brief Call when a requested tile has arrived.

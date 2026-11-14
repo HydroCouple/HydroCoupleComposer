@@ -1,9 +1,10 @@
 # Fixture libraries for the component-loader tests.
 #
-# testcomponent    — a real component built on the SDK base classes.
-# legacycomponent  — exports only the legacy CreateComponentInfo factory.
-# notacomponent    — a valid shared library that is not a component at all.
-# badabicomponent  — exports the entry points but reports a foreign ABI stamp.
+# testcomponent      — a real component built on the SDK base classes.
+# testadapterfactory — a loadable adapted-output factory component.
+# legacycomponent    — exports only the legacy CreateComponentInfo factory.
+# notacomponent      — a valid shared library that is not a component at all.
+# badabicomponent    — exports the entry points but reports a foreign ABI stamp.
 
 add_library(testcomponent MODULE testcomponent.cpp)
 target_link_libraries(testcomponent
@@ -11,6 +12,15 @@ target_link_libraries(testcomponent
 target_include_directories(testcomponent
     PRIVATE "${CMAKE_SOURCE_DIR}/include")
 set_target_properties(testcomponent PROPERTIES
+    CXX_VISIBILITY_PRESET hidden
+    SUFFIX "${COMPOSER_MODULE_SUFFIX}")
+
+add_library(testadapterfactory MODULE testadapterfactory.cpp)
+target_link_libraries(testadapterfactory
+    PRIVATE HydroCouple::HydroCouple HydroCoupleSDK::HydroCoupleSDK)
+target_include_directories(testadapterfactory
+    PRIVATE "${CMAKE_SOURCE_DIR}/include")
+set_target_properties(testadapterfactory PROPERTIES
     CXX_VISIBILITY_PRESET hidden
     SUFFIX "${COMPOSER_MODULE_SUFFIX}")
 

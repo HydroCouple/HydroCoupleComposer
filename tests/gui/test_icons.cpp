@@ -1,6 +1,7 @@
 /*!
  * \file   test_icons.cpp
- * \brief  The shared SVG chrome set, and its theming.
+ * \brief  The shared SVG chrome set and its theming, plus the application's
+ *         own brand mark.
  *
  * An icon that fails to resolve renders as empty space, which looks like a
  * layout choice rather than a build that dropped a file — so the gates here
@@ -9,6 +10,7 @@
  * one of the two themes and nothing about the widget tree would say so.
  */
 
+#include "core/composerapplication.h"
 #include "ui/composermainwindow.h"
 #include "ui/panels/layertreepanel.h"
 #include "ui/theme/iconfactory.h"
@@ -96,7 +98,9 @@ namespace
           static int argc = 1;
           static char name[] = "test_icons";
           static char *argv[] = { name, nullptr };
-          m_app = std::make_unique<QApplication>(argc, argv);
+          // The real application class, so what it does at startup — the
+          // window icon among it — is part of what these gates see.
+          m_app = std::make_unique<ComposerApplication>(argc, argv);
         }
       }
 
@@ -106,9 +110,48 @@ namespace
       }
 
     private:
-      std::unique_ptr<QApplication> m_app;
+      std::unique_ptr<ComposerApplication> m_app;
   };
 
+}
+
+// ── The application's own face ──────────────────────────────────────────────
+
+TEST_F(IconTest, TheApplicationShipsItsWindowIcon)
+{
+  // The v1→v2 CMake port shipped the app icon-less: CFBundleIconFile empty,
+  // no setWindowIcon anywhere. The window icon is the one face an offscreen
+  // gate can check on every platform; the bundle and .rc wiring ride the
+  // same tools/make_icons.sh artifacts.
+  const QIcon icon = QApplication::windowIcon();
+
+  ASSERT_FALSE(icon.isNull()) << "no window icon; :/branding did not "
+                                 "initialise or setWindowIcon is gone";
+  EXPECT_GT(inkedPixels(icon), 8) << "the mark rendered blank";
+
+  // And it is the full-colour brand mark, not one of the recolourable
+  // monochrome chrome glyphs: the blue C-and-node must show up saturated.
+  const QImage image = icon.pixmap(QSize(24, 24))
+                         .toImage()
+                         .convertToFormat(QImage::Format_ARGB32);
+
+  int saturated = 0;
+
+  for (int y = 0; y < image.height(); ++y)
+  {
+    for (int x = 0; x < image.width(); ++x)
+    {
+      const QRgb pixel = image.pixel(x, y);
+
+      if (qAlpha(pixel) > 200 && QColor(pixel).saturation() > 40)
+      {
+        ++saturated;
+      }
+    }
+  }
+
+  EXPECT_GT(saturated, 40)
+    << "the window icon does not look like the brand mark";
 }
 
 // ── The set is present ──────────────────────────────────────────────────────

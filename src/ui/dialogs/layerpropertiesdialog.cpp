@@ -1,6 +1,9 @@
 #include "ui/dialogs/layerpropertiesdialog.h"
 
 #include "gis/spatialreference.h"
+#include "layers/gdalrasterlayer.h"
+#include "layers/featurelayer.h"
+#include "layers/meshlayer.h"
 #include "map/maplayer.h"
 #include "ui/dialogs/crsselectiondialog.h"
 #include "render/attributeprovider.h"
@@ -170,8 +173,12 @@ namespace HydroCouple::Composer
       {buildInformationTab(), tr("Information")},
       {buildSourceTab(), tr("Source")},
       {buildSymbologyTab(), tr("Symbology")},
-      {buildLabelsTab(), tr("Labels")},
+
+      // "(2D)" in the title, because labels are drawn only on the map and
+      // nothing else in this dialog says which view a tab speaks for.
+      {buildLabelsTab(), tr("Labels (2D)")},
       {buildRenderingTab(), tr("Rendering")},
+      {buildSceneTab(), tr("3D")},
       {buildMetadataTab(), tr("Metadata")},
     };
 
@@ -362,6 +369,45 @@ namespace HydroCouple::Composer
 
   QWidget *LayerPropertiesDialog::buildSymbologyTab()
   {
+    // A shaded raster has symbology too -- a ramp and the range it is
+    // stretched over -- it just is not a LayerStyle. setRamp() sat on the
+    // layer with no UI caller at all, which is why every raster wore
+    // Viridis for life.
+    if (auto *raster = dynamic_cast<GdalRasterLayer *>(m_layer);
+        raster && !raster->isColorImage())
+    {
+      auto *page = new QWidget(this);
+      page->setObjectName(QStringLiteral("symbologyTab"));
+
+      auto *form = new QFormLayout(page);
+
+      m_rasterRampCombo = new QComboBox(page);
+      m_rasterRampCombo->setObjectName(QStringLiteral("rasterRampCombo"));
+
+      for (const QString &name : ColorRamp::builtinNames())
+      {
+        m_rasterRampCombo->addItem(name);
+      }
+
+      form->addRow(tr("Color ramp"), m_rasterRampCombo);
+
+      m_rasterMinimumSpin = new QDoubleSpinBox(page);
+      m_rasterMinimumSpin->setObjectName(
+        QStringLiteral("rasterMinimumSpin"));
+      m_rasterMinimumSpin->setRange(-1.0e9, 1.0e9);
+      m_rasterMinimumSpin->setDecimals(3);
+      form->addRow(tr("Stretch from"), m_rasterMinimumSpin);
+
+      m_rasterMaximumSpin = new QDoubleSpinBox(page);
+      m_rasterMaximumSpin->setObjectName(
+        QStringLiteral("rasterMaximumSpin"));
+      m_rasterMaximumSpin->setRange(-1.0e9, 1.0e9);
+      m_rasterMaximumSpin->setDecimals(3);
+      form->addRow(tr("Stretch to"), m_rasterMaximumSpin);
+
+      return page;
+    }
+
     if (!hasStyle())
     {
       return nullptr;
@@ -440,7 +486,9 @@ namespace HydroCouple::Composer
     m_sizeSpin->setObjectName(QStringLiteral("styleSizeSpin"));
     m_sizeSpin->setRange(0.5, 64.0);
     m_sizeSpin->setSuffix(tr(" px"));
-    form->addRow(tr("Symbol size"), m_sizeSpin);
+    // "(2D)": the scene has no point or line width, so this is the one
+    // symbology setting that stops at the map.
+    form->addRow(tr("Symbol size (2D)"), m_sizeSpin);
 
     connect(m_modeCombo, &QComboBox::currentIndexChanged, this,
             [this](int) { updateEnabledState(); });
@@ -493,49 +541,210 @@ namespace HydroCouple::Composer
     m_opacitySpin->setSuffix(tr(" %"));
     form->addRow(tr("Opacity"), m_opacitySpin);
 
+    return page;
+  }
+
+  QWidget *LayerPropertiesDialog::buildSceneTab()
+  {
+    auto *page = new QWidget(this);
+    page->setObjectName(QStringLiteral("sceneTab"));
+
+    auto *form = new QFormLayout(page);
+
     ISceneSource *scene = sceneSource();
 
-    // Only for a layer that is actually in the 3D scene: a point layer and a
-    // layer with no geometry have nothing to place against a terrain, and a
-    // drape control on them would be a setting with no effect.
+    // The tab exists either way. A point layer's user checked "Draw this
+    // layer", saw nothing in 3D, and was told nothing; an absent tab is the
+    // same silence with better manners. The explanation is the control.
     if (!scene)
     {
+      auto *why = new QLabel(
+        tr("This layer has no 3D form. The map draws it, but there is "
+           "nothing the scene could place against the terrain — point "
+           "layers, for instance, are not drawn in 3D yet."),
+        page);
+      why->setObjectName(QStringLiteral("sceneAbsenceLabel"));
+      why->setWordWrap(true);
+      form->addRow(why);
+
       return page;
     }
 
+    m_shownIn3dCheck = new QCheckBox(tr("Show this layer in 3D"), page);
+    m_shownIn3dCheck->setObjectName(QStringLiteral("sceneShownIn3dCheck"));
+    form->addRow(m_shownIn3dCheck);
+
+    // Only a mesh shades its faces; everything else drapes a texture.
+    if (auto *mesh = dynamic_cast<MeshLayer *>(m_layer))
+    {
+      Q_UNUSED(mesh);
+      m_flatShadingCheck = new QCheckBox(tr("Flat shading"), page);
+      m_flatShadingCheck->setObjectName(
+        QStringLiteral("sceneFlatShadingCheck"));
+      m_flatShadingCheck->setToolTip(
+        tr("Shades each face on its own instead of smoothing across "
+           "corners, which makes the mesh's facets legible."));
+      form->addRow(m_flatShadingCheck);
+    }
+
+    // Only where heights could come from: consent to the terrain election
+    // is meaningless for a source that cannot serve any.
+    if (scene->terrain())
+    {
+      m_terrainEnabledCheck =
+        new QCheckBox(tr("Use as the scene's terrain"), page);
+      m_terrainEnabledCheck->setObjectName(
+        QStringLiteral("sceneTerrainEnabledCheck"));
+      m_terrainEnabledCheck->setToolTip(
+        tr("Offers this layer's heights for everything else to drape on. "
+           "When several layers offer, the uppermost wins."));
+      form->addRow(m_terrainEnabledCheck);
+    }
+
+    // Placement, then extrusion, as two settings: the old combo's
+    // "Extruded" was a placement that smuggled a height in, so a network
+    // could not be lifted a metre above the terrain or laid at a datum
+    // other than zero.
     m_drapeCombo = new QComboBox(page);
     m_drapeCombo->setObjectName(QStringLiteral("renderingDrapeCombo"));
     m_drapeCombo->addItem(
-      tr("Flat — at zero elevation"),
-      QVariant::fromValue(static_cast<int>(SceneDrape::Flat)));
-    m_drapeCombo->addItem(
-      tr("Draped over the terrain"),
-      QVariant::fromValue(static_cast<int>(SceneDrape::Terrain)));
+      tr("At a constant elevation"),
+      QVariant::fromValue(static_cast<int>(ZMode::Constant)));
 
-    // Offered only where it does something. A surface is already a surface,
-    // so extruding it would silently behave as draping and read as a control
-    // that does not work.
-    if (scene->supportsExtrusion())
+    // Only where a height could be read from anywhere.
+    if (scene->supportsAttributeZ())
     {
       m_drapeCombo->addItem(
-        tr("Extruded above the terrain"),
-        QVariant::fromValue(static_cast<int>(SceneDrape::Extruded)));
+        tr("From an attribute field"),
+        QVariant::fromValue(static_cast<int>(ZMode::FromAttribute)));
     }
 
+    m_drapeCombo->addItem(
+      tr("Draped on the terrain"),
+      QVariant::fromValue(static_cast<int>(ZMode::OnTerrain)));
+
     form->addRow(tr("3D placement"), m_drapeCombo);
+
+    m_zConstantSpin = new QDoubleSpinBox(page);
+    m_zConstantSpin->setObjectName(QStringLiteral("sceneZConstantSpin"));
+
+    // Wide, and in map units: the unit is whatever the map's CRS measures
+    // in, so the same number is metres in one system and degrees in
+    // another and no range narrower than this fits both.
+    m_zConstantSpin->setRange(-100000.0, 100000.0);
+    m_zConstantSpin->setDecimals(3);
+    form->addRow(tr("Elevation"), m_zConstantSpin);
+
+    if (scene->supportsAttributeZ())
+    {
+      m_zFieldCombo = new QComboBox(page);
+      m_zFieldCombo->setObjectName(QStringLiteral("sceneZFieldCombo"));
+
+      if (const IAttributeProvider *provider = providerFor(m_layer))
+      {
+        for (const AttributeField &field : provider->attributeFields())
+        {
+          m_zFieldCombo->addItem(field.displayName.isEmpty()
+                                   ? field.name
+                                   : field.displayName,
+                                 field.name);
+        }
+      }
+
+      form->addRow(tr("Elevation field"), m_zFieldCombo);
+    }
+
+    m_zOffsetSpin = new QDoubleSpinBox(page);
+    m_zOffsetSpin->setObjectName(QStringLiteral("sceneZOffsetSpin"));
+    m_zOffsetSpin->setRange(-100000.0, 100000.0);
+    m_zOffsetSpin->setDecimals(3);
+    m_zOffsetSpin->setToolTip(
+      tr("Added on top of the terrain or the field's value."));
+    form->addRow(tr("Offset"), m_zOffsetSpin);
 
     if (scene->supportsExtrusion())
     {
       m_extrusionSpin = new QDoubleSpinBox(page);
       m_extrusionSpin->setObjectName(
         QStringLiteral("renderingExtrusionSpin"));
-
-      // Wide, and in map units: the unit is whatever the map's CRS measures
-      // in, so the same number is metres in one system and degrees in
-      // another and no range narrower than this fits both.
       m_extrusionSpin->setRange(-100000.0, 100000.0);
       m_extrusionSpin->setDecimals(3);
+      m_extrusionSpin->setToolTip(
+        tr("Raises a curtain from wherever the placement put the base; "
+           "zero extrudes nothing."));
       form->addRow(tr("Extrusion height"), m_extrusionSpin);
+    }
+
+    // ── What this layer looks like in the scene (U3) ────────────────────
+
+    if (auto *features = dynamic_cast<FeatureLayer *>(m_layer);
+        features && features->geometryKind() == GeometryKind::Point)
+    {
+      m_markerSizeSpin = new QDoubleSpinBox(page);
+      m_markerSizeSpin->setObjectName(QStringLiteral("renderingMarkerSpin"));
+      m_markerSizeSpin->setRange(0.0, 100000.0);
+      m_markerSizeSpin->setDecimals(3);
+      m_markerSizeSpin->setSpecialValueText(tr("Automatic"));
+      m_markerSizeSpin->setToolTip(
+        tr("How big each point is drawn in 3D, in map units. Zero sizes it "
+           "from the layer's own extent."));
+      form->addRow(tr("Marker size"), m_markerSizeSpin);
+    }
+
+    if (scene->supportsRingFill())
+    {
+      m_fillRingsCheck =
+        new QCheckBox(tr("Fill rings as faces in 3D"), page);
+      m_fillRingsCheck->setObjectName(QStringLiteral("renderingFillCheck"));
+      m_fillRingsCheck->setToolTip(
+        tr("Draws each ring as a surface rather than an outline. Convex "
+           "rings only — a mesh face is one; a catchment boundary usually "
+           "is not, and is left as an outline."));
+      form->addRow(QString(), m_fillRingsCheck);
+    }
+
+    // The peel. MeshLayer has been able to show a range of layers since
+    // C3b-1, and the range that made a 500k-cell peel interactive was
+    // measured in C3b-3 — but nothing has ever offered it to a user.
+    if (auto *mesh = dynamic_cast<MeshLayer *>(m_layer);
+        mesh && mesh->isLayered())
+    {
+      const int layers = mesh->layering().layerCount;
+
+      m_peelFirstSpin = new QSpinBox(page);
+      m_peelFirstSpin->setObjectName(QStringLiteral("renderingPeelFirstSpin"));
+      m_peelFirstSpin->setRange(0, layers - 1);
+      m_peelLastSpin = new QSpinBox(page);
+      m_peelLastSpin->setObjectName(QStringLiteral("renderingPeelLastSpin"));
+      m_peelLastSpin->setRange(0, layers - 1);
+
+      // Interface 0 is the surface and the count grows downwards, which is
+      // FVQual's convention and the one the layering itself uses (C3b-1).
+      m_peelFirstSpin->setToolTip(
+        tr("The topmost layer shown; 0 is the surface."));
+      m_peelLastSpin->setToolTip(tr("The deepest layer shown."));
+
+      form->addRow(tr("Show layers from"), m_peelFirstSpin);
+      form->addRow(tr("…down to"), m_peelLastSpin);
+
+      // Kept in order as they are moved, so a range cannot be inverted into
+      // one that shows nothing.
+      connect(m_peelFirstSpin, &QSpinBox::valueChanged, this,
+              [this](int value)
+              {
+                if (m_peelLastSpin->value() < value)
+                {
+                  m_peelLastSpin->setValue(value);
+                }
+              });
+      connect(m_peelLastSpin, &QSpinBox::valueChanged, this,
+              [this](int value)
+              {
+                if (m_peelFirstSpin->value() > value)
+                {
+                  m_peelFirstSpin->setValue(value);
+                }
+              });
     }
 
     connect(m_drapeCombo, &QComboBox::currentIndexChanged, this,
@@ -581,20 +790,76 @@ namespace HydroCouple::Composer
     m_visibleCheck->setChecked(m_layer->isVisible());
     m_opacitySpin->setValue(qRound(m_layer->opacity() * 100.0));
 
+    if (m_shownIn3dCheck)
+    {
+      m_shownIn3dCheck->setChecked(m_layer->isShownIn3D());
+    }
+
+    if (const ISceneSource *scene = sceneSource();
+        scene && m_terrainEnabledCheck)
+    {
+      m_terrainEnabledCheck->setChecked(scene->terrainEnabled());
+    }
+
+    if (const auto *mesh = dynamic_cast<const MeshLayer *>(m_layer);
+        mesh && m_flatShadingCheck)
+    {
+      m_flatShadingCheck->setChecked(mesh->flatShading());
+    }
+
+    if (const auto *raster = dynamic_cast<const GdalRasterLayer *>(m_layer);
+        raster && m_rasterRampCombo)
+    {
+      m_rasterRampCombo->setCurrentText(raster->rampName());
+
+      double minimum = 0.0;
+      double maximum = 1.0;
+      raster->valueRange(minimum, maximum);
+      m_rasterMinimumSpin->setValue(minimum);
+      m_rasterMaximumSpin->setValue(maximum);
+    }
+
     if (const ISceneSource *scene = sceneSource(); scene && m_drapeCombo)
     {
+      const ZPolicy &policy = scene->zPolicy();
       const int index =
-        m_drapeCombo->findData(static_cast<int>(scene->drape()));
+        m_drapeCombo->findData(static_cast<int>(policy.mode));
 
-      // A layer left on Extruded whose combo no longer offers it cannot be
-      // shown truthfully, so it falls back rather than showing the first row
-      // as though that were the setting.
       m_drapeCombo->setCurrentIndex(index >= 0 ? index : 0);
+      m_zConstantSpin->setValue(policy.constant);
+      m_zOffsetSpin->setValue(policy.offset);
+
+      if (m_zFieldCombo && !policy.field.isEmpty())
+      {
+        const int field = m_zFieldCombo->findData(policy.field);
+
+        if (field >= 0)
+        {
+          m_zFieldCombo->setCurrentIndex(field);
+        }
+      }
 
       if (m_extrusionSpin)
       {
         m_extrusionSpin->setValue(scene->extrusionHeight());
       }
+
+      if (m_markerSizeSpin)
+      {
+        m_markerSizeSpin->setValue(scene->markerSize());
+      }
+
+      if (m_fillRingsCheck)
+      {
+        m_fillRingsCheck->setChecked(scene->fillsRings());
+      }
+    }
+
+    if (auto *mesh = dynamic_cast<MeshLayer *>(m_layer);
+        mesh && m_peelFirstSpin && m_peelLastSpin)
+    {
+      m_peelFirstSpin->setValue(mesh->firstVisibleLayer());
+      m_peelLastSpin->setValue(mesh->lastVisibleLayer());
     }
 
     const LayerStyle *style = m_layer->style();
@@ -655,13 +920,22 @@ namespace HydroCouple::Composer
 
   void LayerPropertiesDialog::updateEnabledState()
   {
-    if (m_extrusionSpin && m_drapeCombo)
+    if (m_drapeCombo)
     {
-      // A height only means something to a curtain; on a flat or draped
-      // layer it is a number that changes nothing.
-      m_extrusionSpin->setEnabled(
-        static_cast<SceneDrape>(m_drapeCombo->currentData().toInt())
-        == SceneDrape::Extruded);
+      // Only the rows the chosen mode reads: a constant means nothing to a
+      // drape, a field means nothing to a constant, and showing them all
+      // live is how the old combo taught people that settings do nothing.
+      const auto mode =
+        static_cast<ZMode>(m_drapeCombo->currentData().toInt());
+
+      m_zConstantSpin->setEnabled(mode == ZMode::Constant);
+
+      if (m_zFieldCombo)
+      {
+        m_zFieldCombo->setEnabled(mode == ZMode::FromAttribute);
+      }
+
+      m_zOffsetSpin->setEnabled(mode != ZMode::Constant);
     }
 
     if (!hasStyle())
@@ -703,15 +977,65 @@ namespace HydroCouple::Composer
     m_layer->setVisible(m_visibleCheck->isChecked());
     m_layer->setOpacity(m_opacitySpin->value() / 100.0);
 
+    if (m_shownIn3dCheck)
+    {
+      m_layer->setShownIn3D(m_shownIn3dCheck->isChecked());
+    }
+
+    if (ISceneSource *scene = sceneSource(); scene && m_terrainEnabledCheck)
+    {
+      scene->setTerrainEnabled(m_terrainEnabledCheck->isChecked());
+    }
+
+    if (auto *mesh = dynamic_cast<MeshLayer *>(m_layer);
+        mesh && m_flatShadingCheck)
+    {
+      mesh->setFlatShading(m_flatShadingCheck->isChecked());
+    }
+
+    if (auto *raster = dynamic_cast<GdalRasterLayer *>(m_layer);
+        raster && m_rasterRampCombo)
+    {
+      raster->setRampName(m_rasterRampCombo->currentText());
+      raster->setValueRange(m_rasterMinimumSpin->value(),
+                            m_rasterMaximumSpin->value());
+    }
+
     if (ISceneSource *scene = sceneSource(); scene && m_drapeCombo)
     {
-      scene->setDrape(
-        static_cast<SceneDrape>(m_drapeCombo->currentData().toInt()));
+      ZPolicy policy;
+      policy.mode = static_cast<ZMode>(m_drapeCombo->currentData().toInt());
+      policy.constant = m_zConstantSpin->value();
+      policy.offset = m_zOffsetSpin->value();
+
+      if (m_zFieldCombo)
+      {
+        policy.field = m_zFieldCombo->currentData().toString();
+      }
+
+      scene->setZPolicy(policy);
 
       if (m_extrusionSpin)
       {
         scene->setExtrusionHeight(m_extrusionSpin->value());
       }
+
+      if (m_markerSizeSpin)
+      {
+        scene->setMarkerSize(m_markerSizeSpin->value());
+      }
+
+      if (m_fillRingsCheck)
+      {
+        scene->setFillsRings(m_fillRingsCheck->isChecked());
+      }
+    }
+
+    if (auto *mesh = dynamic_cast<MeshLayer *>(m_layer);
+        mesh && m_peelFirstSpin && m_peelLastSpin)
+    {
+      mesh->setVisibleLayers(m_peelFirstSpin->value(),
+                             m_peelLastSpin->value());
     }
 
     LayerStyle *style = m_layer->style();

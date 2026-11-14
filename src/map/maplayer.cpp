@@ -111,6 +111,22 @@ namespace HydroCouple::Composer
     Q_EMIT appearanceChanged();
   }
 
+  bool MapLayer::isShownIn3D() const
+  {
+    return m_shownIn3D;
+  }
+
+  void MapLayer::setShownIn3D(bool shown)
+  {
+    if (m_shownIn3D == shown)
+    {
+      return;
+    }
+
+    m_shownIn3D = shown;
+    Q_EMIT appearanceChanged();
+  }
+
   double MapLayer::opacity() const
   {
     return m_opacity;
@@ -164,6 +180,26 @@ namespace HydroCouple::Composer
   void MapLayer::notifyExtentChanged()
   {
     Q_EMIT extentChanged();
+  }
+
+  QJsonObject MapLayer::persistentState() const
+  {
+    return m_persistentState;
+  }
+
+  void MapLayer::setPersistentState(const QJsonObject &state)
+  {
+    m_persistentState = state;
+  }
+
+  QUrl MapLayer::sourceUri() const
+  {
+    return m_sourceUri;
+  }
+
+  void MapLayer::setSourceUri(const QUrl &uri)
+  {
+    m_sourceUri = uri;
   }
 
 } // namespace HydroCouple::Composer

@@ -1,6 +1,8 @@
 #include "scene/sceneview.h"
 
+#include "core/preferencesmanager.h"
 #include "layers/featurelayer.h"
+#include "map/extentmath.h"
 #include "map/layerstackmodel.h"
 #include "map/maplayer.h"
 #include "pick/terrainray.h"
@@ -21,22 +23,24 @@ namespace HydroCouple::Composer
      * \brief How near a click has to land, in pixels.
      *
      * In pixels rather than world units because it is a property of pointing,
-     * not of the data — the same reasoning, and the same number, as the map's.
+     * not of the data — the same preference the map reads, read on every
+     * pick so a change in the dialog applies to the next click.
      */
-    constexpr double kPickRadiusPixels = 6.0;
+    double pickRadiusPixels()
+    {
+      return PreferencesManager::instance()->pickTolerancePixels();
+    }
 
     /*!
      * \brief How far the mouse may move and still count as a click.
      *
      * Orbiting and picking share the left button, so they are told apart by
-     * whether the scene turned.
+     * whether the scene turned. The same preference as the map's.
      */
-    constexpr int kClickSlopPixels = 3;
-
-    //! Degrees of rotation per pixel dragged. Chosen so a drag across the
-    //! width of a typical view is most of a turn, which is what makes
-    //! orbiting feel like turning an object rather than nudging one.
-    constexpr double kDegreesPerPixel = 0.4;
+    int clickSlopPixels()
+    {
+      return PreferencesManager::instance()->dragThresholdPixels();
+    }
 
     constexpr double kZoomPerNotch = 1.15;
 
@@ -68,6 +72,56 @@ namespace HydroCouple::Composer
 
     // The depth buffer the pipeline's depth test needs comes with
     // QRhiWidget's automatic render target, which is on by default.
+
+    // The background is a preference; the selection colour is baked into the
+    // vertices (C3a), so a change to it means rebuilding the batches, not
+    // only repainting.
+    PreferencesManager *prefs = PreferencesManager::instance();
+    m_background = prefs->sceneBackgroundColor();
+    m_orbitDegreesPerPixel = prefs->orbitDegreesPerPixel();
+    m_invertWheel = prefs->invertWheel();
+    m_panModifier = panModifierFromName(prefs->panModifier());
+    m_showGizmo = prefs->showAxisGizmo();
+    m_gizmoSize = prefs->axisGizmoSizePixels();
+    m_gizmoCorner = gizmoCornerFromName(prefs->axisGizmoCorner());
+
+    connect(prefs, &PreferencesManager::preferenceChanged, this,
+            [this, prefs](const QString &group, const QString &name)
+            {
+              if (group == QLatin1String("3D View")
+                  && name == QLatin1String("backgroundColor"))
+              {
+                setBackgroundColor(prefs->sceneBackgroundColor());
+              }
+              else if (group == QLatin1String("3D View")
+                       && name.startsWith(QLatin1String("axisGizmo")))
+              {
+                m_gizmoSize = prefs->axisGizmoSizePixels();
+                m_gizmoCorner =
+                  gizmoCornerFromName(prefs->axisGizmoCorner());
+                update();
+              }
+              else if (group == QLatin1String("3D View")
+                       && name == QLatin1String("showAxisGizmo"))
+              {
+                m_showGizmo = prefs->showAxisGizmo();
+                update();
+              }
+              else if (group == QLatin1String("3D View"))
+              {
+                // The interaction settings, re-read as a group. They
+                // change no pixels, so no repaint: the next drag or notch
+                // simply uses the new numbers.
+                m_orbitDegreesPerPixel = prefs->orbitDegreesPerPixel();
+                m_invertWheel = prefs->invertWheel();
+                m_panModifier = panModifierFromName(prefs->panModifier());
+              }
+              else if (group == QLatin1String("Selection"))
+              {
+                m_renderer.invalidate();
+                update();
+              }
+            });
   }
 
   SceneView::~SceneView() = default;
@@ -101,10 +155,111 @@ namespace HydroCouple::Composer
     Q_EMIT cameraChanged();
   }
 
+  void SceneView::zoomIn()
+  {
+    // The same step a wheel notch takes, so the shortcut and the wheel move
+    // by amounts a user can predict from one another.
+    m_camera.dolly(1.0 / kZoomPerNotch);
+
+    update();
+    Q_EMIT cameraChanged();
+  }
+
+  void SceneView::showNamedView(NamedView view)
+  {
+    double azimuth = m_camera.azimuth();
+    double elevation = m_camera.elevation();
+
+    namedViewAngles(view, azimuth, elevation);
+
+    m_camera.setAzimuth(azimuth);
+    m_camera.setElevation(elevation);
+
+    update();
+    Q_EMIT cameraChanged();
+  }
+
+  bool SceneView::lookAtSelection()
+  {
+    LayerStackModel *stack = m_renderer.model();
+
+    if (!stack)
+    {
+      return false;
+    }
+
+    QRectF ground;
+    bool valid = false;
+
+    for (MapLayer *layer : stack->layers())
+    {
+      auto *features = dynamic_cast<FeatureLayer *>(layer);
+
+      if (!features || !features->isVisible())
+      {
+        continue;
+      }
+
+      for (int index : features->selection())
+      {
+        if (index < 0 || index >= features->features().size())
+        {
+          continue;
+        }
+
+        // expandTo rather than QRectF::united, for the fifth time in this
+        // program: united() discards a rectangle it calls null and a
+        // zero-area one is null, so a selection of point features would
+        // frame the last one and lose the rest (D26).
+        expandTo(ground, valid, features->features().at(index).bounds);
+      }
+    }
+
+    if (!valid)
+    {
+      return false;
+    }
+
+    // The selection's rectangle is flat — features carry their footprint,
+    // not their relief — and framing a box of zero height would put the
+    // camera down on the ground plane looking along it. The scene's own
+    // Z range gives it depth; without one, a token height, because a
+    // degenerate box is the one thing frameBounds cannot be given.
+    const Bounds3D scene = m_renderer.sceneBounds();
+
+    const float low = scene.isValid() ? scene.minimum().z() : 0.0f;
+    const float high = scene.isValid() ? scene.maximum().z() : 1.0f;
+
+    Bounds3D target;
+    target.expandTo(
+      QVector3D(float(ground.left()), float(ground.top()), low));
+    target.expandTo(
+      QVector3D(float(ground.right()), float(ground.bottom()), high));
+
+    frameBounds(target);
+
+    return true;
+  }
+
+  void SceneView::zoomOut()
+  {
+    m_camera.dolly(kZoomPerNotch);
+
+    update();
+    Q_EMIT cameraChanged();
+  }
+
   void SceneView::zoomToFullExtent()
   {
-    const Bounds3D bounds = m_renderer.sceneBounds();
+    frameBounds(m_renderer.sceneBounds());
+  }
 
+  void SceneView::frameBounds(const Bounds3D &bounds)
+  {
+    // Not for fitTo's sake -- the camera refuses invalid bounds itself --
+    // but for m_framed's: marking an empty framing as deliberate would stop
+    // the first-geometry auto-frame, and a model loaded afterwards would
+    // never be framed at all.
     if (!bounds.isValid())
     {
       return;
@@ -132,6 +287,11 @@ namespace HydroCouple::Composer
     }
 
     return m_camera.groundExtent(double(width()) / double(height()));
+  }
+
+  QRectF SceneView::sceneFootprint() const
+  {
+    return m_renderer.sceneBounds().footprint();
   }
 
   void SceneView::showGroundExtent(const QRectF &extent)
@@ -166,9 +326,14 @@ namespace HydroCouple::Composer
 
     m_camera.setVerticalExaggeration(factor);
 
-    // Reframed, because exaggerating relief by an order of magnitude puts
-    // most of the scene outside a view that was framed without it.
-    zoomToFullExtent();
+    // The framing is kept. This used to reframe on every change, which
+    // sounded protective and threw away whatever framing the map had just
+    // handed over -- and the clip planes are derived from the camera's
+    // distance every frame, so nothing here can clip wrong. Relief stretched
+    // beyond the top of the view is what the spin was asked to do, and the
+    // wheel is right there.
+    update();
+    Q_EMIT cameraChanged();
   }
 
   double SceneView::verticalExaggeration() const
@@ -247,9 +412,65 @@ namespace HydroCouple::Composer
     }
   }
 
+  QRect SceneView::gizmoRect() const
+  {
+    if (!m_showGizmo)
+    {
+      return {};
+    }
+
+    return axisGizmoRect(size(), m_gizmoSize, m_gizmoCorner);
+  }
+
+  bool SceneView::takeGizmoPress(const QPoint &pixel)
+  {
+    const QRect rect = gizmoRect();
+
+    if (!rect.contains(pixel))
+    {
+      return false;
+    }
+
+    const GizmoAxis axis = axisGizmoHit(axisGizmoPoint(pixel, rect),
+                                        m_camera.azimuth(),
+                                        m_camera.elevation());
+
+    double azimuth = m_camera.azimuth();
+    double elevation = m_camera.elevation();
+
+    if (!axisGizmoView(axis, azimuth, elevation))
+    {
+      // A press inside the cue's square but not on an arm is still the
+      // cue's: letting it fall through would start an orbit from a click
+      // the user aimed at a button, which feels like a slipped grip.
+      return true;
+    }
+
+    m_camera.setAzimuth(azimuth);
+    m_camera.setElevation(elevation);
+    update();
+
+    return true;
+  }
+
   void SceneView::render(QRhiCommandBuffer *cb)
   {
     frameOnFirstGeometry();
+
+    // The same rectangle the hit test uses, in device pixels. Scaled from
+    // the one rect rather than recomputed from the device size, because a
+    // corner worked out twice is a corner that will eventually be two
+    // corners — and on a retina display the inset alone would differ.
+    const QRect logical = gizmoRect();
+    const double ratio = devicePixelRatioF();
+
+    m_renderer.setAxisGizmoViewport(
+      logical.isEmpty()
+        ? QRect()
+        : QRect(int(std::lround(logical.x() * ratio)),
+                int(std::lround(logical.y() * ratio)),
+                int(std::lround(logical.width() * ratio)),
+                int(std::lround(logical.height() * ratio))));
 
     m_renderer.render(cb, renderTarget(), m_camera, m_background);
   }
@@ -261,19 +482,38 @@ namespace HydroCouple::Composer
 
   void SceneView::mousePressEvent(QMouseEvent *event)
   {
+    // First: a press on the cue is a press on a control, not the start of
+    // a gesture over the scene.
+    if (event->button() == Qt::LeftButton && takeGizmoPress(event->pos()))
+    {
+      // Said rather than assumed. The release handler reads these, and
+      // returning early without clearing them would leave the view
+      // holding whatever the last gesture left behind — which happens to
+      // be harmless today only because release clears them, and that is
+      // a poor thing for correctness here to rest on.
+      m_orbiting = false;
+      m_panning = false;
+      m_banding = false;
+      m_pressPosition = event->pos();
+      m_lastMousePosition = event->pos();
+
+      event->accept();
+
+      return;
+    }
+
     m_pressPosition = event->pos();
     m_lastMousePosition = event->pos();
 
-    // Middle and right always pan, under every tool — the convention every
-    // GIS 3D view uses, so muscle memory carries over and panning stays
-    // reachable whatever the left button has been given to.
-    m_panning = event->button() == Qt::MiddleButton ||
-                event->button() == Qt::RightButton;
+    m_panning =
+      pressShouldPan(event->button(), event->modifiers(), m_panModifier);
 
-    m_orbiting = event->button() == Qt::LeftButton
+    // Not "else if" by accident: a shift-left press that pans must not
+    // also start an orbit or a band, or one drag would do two things.
+    m_orbiting = !m_panning && event->button() == Qt::LeftButton
                  && m_toolKind == SceneToolKind::Orbit;
 
-    m_banding = event->button() == Qt::LeftButton
+    m_banding = !m_panning && event->button() == Qt::LeftButton
                 && m_toolKind != SceneToolKind::Orbit;
 
     if (m_banding)
@@ -319,10 +559,9 @@ namespace HydroCouple::Composer
 
     if (m_orbiting)
     {
-      // Dragging right turns the scene right, which means turning the camera
-      // the other way.
-      m_camera.orbit(-delta.x() * kDegreesPerPixel,
-                     delta.y() * kDegreesPerPixel);
+      const OrbitStep step = orbitStep(delta, m_orbitDegreesPerPixel);
+
+      m_camera.orbit(step.azimuth, step.elevation);
     }
     else
     {
@@ -351,8 +590,8 @@ namespace HydroCouple::Composer
 
       // Width and height explicitly, not isNull(): a zero-area QRect reports
       // itself null, which would throw away a legitimate thin drag.
-      const bool dragged = rectangle.width() > kClickSlopPixels
-                           && rectangle.height() > kClickSlopPixels;
+      const bool dragged = rectangle.width() > clickSlopPixels()
+                           && rectangle.height() > clickSlopPixels();
 
       applyBand(rectangle, dragged, event->pos());
 
@@ -372,8 +611,8 @@ namespace HydroCouple::Composer
     const QPoint travelled = event->pos() - m_pressPosition;
 
     if (wasOrbiting && event->button() == Qt::LeftButton &&
-        std::abs(travelled.x()) <= kClickSlopPixels &&
-        std::abs(travelled.y()) <= kClickSlopPixels)
+        std::abs(travelled.x()) <= clickSlopPixels() &&
+        std::abs(travelled.y()) <= clickSlopPixels())
     {
       int feature = -1;
       FeatureLayer *layer = pickAt(event->pos(), feature);
@@ -635,7 +874,7 @@ namespace HydroCouple::Composer
     // one screen is easily tenfold.
     QPointF offset;
     const double tolerance =
-      groundUnder(pixel + QPoint(int(kPickRadiusPixels), 0), offset)
+      groundUnder(pixel + QPoint(int(pickRadiusPixels()), 0), offset)
         ? std::hypot(offset.x() - ground.x(), offset.y() - ground.y())
         : 0.0;
 
@@ -669,16 +908,21 @@ namespace HydroCouple::Composer
 
   void SceneView::wheelEvent(QWheelEvent *event)
   {
-    const double notches = event->angleDelta().y() / 120.0;
+    const double factor =
+      wheelDollyFactor(event->angleDelta().y(), kZoomPerNotch, m_invertWheel);
 
-    if (qFuzzyIsNull(notches))
+    // Exactly one means the wheel reported no movement, which a trackpad
+    // does between real scrolls. Compared exactly rather than fuzzily
+    // because that is what the function promises for that case, and a
+    // fuzzy comparison here would also swallow a genuine small scroll.
+    if (factor == 1.0)
     {
       QRhiWidget::wheelEvent(event);
 
       return;
     }
 
-    m_camera.dolly(std::pow(1.0 / kZoomPerNotch, notches));
+    m_camera.dolly(factor);
 
     update();
     Q_EMIT cameraChanged();

@@ -4,8 +4,11 @@
 #include "map/maptransform.h"
 
 #include <QFileInfo>
+#include <QJsonObject>
 #include <QPainter>
+#include <QUrl>
 
+#include <limits>
 #include <gdal_priv.h>
 #include <gdalwarper.h>
 
@@ -15,6 +18,20 @@
 
 namespace HydroCouple::Composer
 {
+
+  namespace
+  {
+    /*!
+     * \brief The terrain cache's longest side.
+     *
+     * Terrain fidelity is capped here so a national DEM does not become a
+     * gigabyte of floats just to drape a basemap; the 2D picture keeps the
+     * full resolution. 2048 cells across a scene is finer than the ground
+     * plane can tessellate anyway.
+     */
+    constexpr int kMaxTerrainCacheSide = 2048;
+  }
+
   namespace
   {
     void ensureDriversRegistered()
@@ -53,6 +70,11 @@ namespace HydroCouple::Composer
     : MapLayer(name), m_filePath(filePath),
       m_ramp(ColorRamp::builtin(QStringLiteral("Viridis")))
   {
+    // Terrain-capable, not terrain-offered: whether this band is heights is
+    // unknowable from here, and a rainfall grid stealing the election from a
+    // surveyed mesh would be worse than one extra click on a real DEM.
+    setTerrainEnabled(false);
+
     setSourceDescription(filePath);
   }
 
@@ -85,46 +107,69 @@ namespace HydroCouple::Composer
       return nullptr;
     }
 
-    if (dataset->GetRasterCount() < 1)
+    std::unique_ptr<GdalRasterLayer> layer(
+      new GdalRasterLayer(QFileInfo(filePath).completeBaseName(), filePath));
+
+    if (!layer->adoptDataset(dataset, message))
     {
-      message =
-        QObject::tr("%1 holds no raster bands.").arg(QFileInfo(filePath).fileName());
       GDALClose(dataset);
 
       return nullptr;
     }
 
-    std::unique_ptr<GdalRasterLayer> layer(
-      new GdalRasterLayer(QFileInfo(filePath).completeBaseName(), filePath));
+    QJsonObject state;
+    state.insert(QStringLiteral("type"), QStringLiteral("gdal-raster"));
+    state.insert(QStringLiteral("path"), filePath);
+    state.insert(QStringLiteral("name"), layer->name());
+    layer->setPersistentState(state);
+    layer->setSourceUri(QUrl::fromLocalFile(filePath));
 
-    layer->m_dataset = dataset;
-    layer->m_bandCount = dataset->GetRasterCount();
-    layer->m_size = QSize(dataset->GetRasterXSize(), dataset->GetRasterYSize());
-    layer->m_extent = extentOf(dataset);
+    return layer;
+  }
+
+  bool GdalRasterLayer::adoptDataset(GDALDataset *dataset, QString &message)
+  {
+    if (!dataset)
+    {
+      message = QObject::tr("There is no raster to read.");
+
+      return false;
+    }
+
+    if (dataset->GetRasterCount() < 1)
+    {
+      message = QObject::tr("%1 holds no raster bands.").arg(name());
+
+      return false;
+    }
+
+    m_dataset = dataset;
+    m_bandCount = dataset->GetRasterCount();
+    m_size = QSize(dataset->GetRasterXSize(), dataset->GetRasterYSize());
+    m_extent = extentOf(dataset);
 
     // Three bands or more of bytes is a picture; anything else is data, and
     // shading data with a ramp says far more than showing its first band as
     // grey would.
-    layer->m_colorImage =
-      layer->m_bandCount >= 3
-      && dataset->GetRasterBand(1)->GetRasterDataType() == GDT_Byte;
+    m_colorImage = m_bandCount >= 3
+                   && dataset->GetRasterBand(1)->GetRasterDataType() == GDT_Byte;
 
     if (const char *wkt = dataset->GetProjectionRef())
     {
       if (wkt[0] != '\0')
       {
         QString crsMessage;
-        layer->setCrs(SpatialReference::fromDefinition(QString::fromUtf8(wkt),
-                                                       crsMessage));
+        setCrs(SpatialReference::fromDefinition(QString::fromUtf8(wkt),
+                                                crsMessage));
       }
     }
 
-    if (!layer->m_colorImage)
+    if (!m_colorImage)
     {
-      layer->computeRange();
+      computeRange();
     }
 
-    return layer;
+    return true;
   }
 
   void GdalRasterLayer::computeRange()
@@ -178,6 +223,32 @@ namespace HydroCouple::Composer
     notifyAppearanceChanged();
   }
 
+  QString GdalRasterLayer::rampName() const
+  {
+    return m_rampName;
+  }
+
+  void GdalRasterLayer::setRampName(const QString &name)
+  {
+    m_rampName = name;
+    setRamp(ColorRamp::builtin(name));
+  }
+
+  void GdalRasterLayer::setValueRange(double minimum, double maximum)
+  {
+    if (!(maximum > minimum)
+        || (qFuzzyCompare(minimum, m_minimum)
+            && qFuzzyCompare(maximum, m_maximum)))
+    {
+      return;
+    }
+
+    m_minimum = minimum;
+    m_maximum = maximum;
+    m_groundValid = false;
+    notifyAppearanceChanged();
+  }
+
   void GdalRasterLayer::valueRange(double &minimum, double &maximum) const
   {
     minimum = m_minimum;
@@ -189,19 +260,162 @@ namespace HydroCouple::Composer
     return m_lastImage;
   }
 
+  bool GdalRasterLayer::sample(const QVector<QPointF> &points,
+                               QVector<double> &values,
+                               QString &message) const
+  {
+    values.assign(points.size(), std::numeric_limits<double>::quiet_NaN());
+
+    if (points.isEmpty())
+    {
+      return true;
+    }
+
+    // The native dataset, not the warped one. The caller's points are in
+    // this raster's own system by contract, and the warp exists to put the
+    // picture on a map rather than to move the measurements.
+    if (!m_dataset)
+    {
+      message = tr("%1 has nothing to read.").arg(name());
+
+      return false;
+    }
+
+    double geotransform[6] = {0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+
+    if (m_dataset->GetGeoTransform(geotransform) != CE_None
+        || qFuzzyIsNull(geotransform[1]) || qFuzzyIsNull(geotransform[5]))
+    {
+      message = tr("%1 does not say where its cells are.").arg(name());
+
+      return false;
+    }
+
+    // Cell coordinates, where a whole number is a cell's edge and the
+    // half-offset below moves to its centre -- which is where its value
+    // actually is, and getting that wrong shifts a whole terrain by half a
+    // cell.
+    const auto columnOf = [&](const QPointF &point) {
+      return (point.x() - geotransform[0]) / geotransform[1] - 0.5;
+    };
+    const auto rowOf = [&](const QPointF &point) {
+      return (point.y() - geotransform[3]) / geotransform[5] - 0.5;
+    };
+
+    double minimumColumn = std::numeric_limits<double>::max();
+    double maximumColumn = std::numeric_limits<double>::lowest();
+    double minimumRow = std::numeric_limits<double>::max();
+    double maximumRow = std::numeric_limits<double>::lowest();
+
+    for (const QPointF &point : points)
+    {
+      minimumColumn = std::min(minimumColumn, columnOf(point));
+      maximumColumn = std::max(maximumColumn, columnOf(point));
+      minimumRow = std::min(minimumRow, rowOf(point));
+      maximumRow = std::max(maximumRow, rowOf(point));
+    }
+
+    // One cell of margin, because bilinear reads the neighbour.
+    int left = static_cast<int>(std::floor(minimumColumn)) - 1;
+    int top = static_cast<int>(std::floor(minimumRow)) - 1;
+    int right = static_cast<int>(std::ceil(maximumColumn)) + 1;
+    int bottom = static_cast<int>(std::ceil(maximumRow)) + 1;
+
+    left = std::max(left, 0);
+    top = std::max(top, 0);
+    right = std::min(right, m_size.width() - 1);
+    bottom = std::min(bottom, m_size.height() - 1);
+
+    if (left > right || top > bottom)
+    {
+      // Every point is off the raster. Not a failure: a mesh may simply
+      // extend past the ground that was fetched, and the caller is told by
+      // the NaNs.
+      return true;
+    }
+
+    const int width = right - left + 1;
+    const int height = bottom - top + 1;
+
+    std::vector<float> block(static_cast<size_t>(width)
+                             * static_cast<size_t>(height));
+
+    GDALRasterBand *band = m_dataset->GetRasterBand(1);
+
+    if (!band
+        || band->RasterIO(GF_Read, left, top, width, height, block.data(),
+                          width, height, GDT_Float32, 0, 0)
+             != CE_None)
+    {
+      message = tr("%1 could not be read.").arg(name());
+
+      return false;
+    }
+
+    int hasNoData = 0;
+    const double noData = band->GetNoDataValue(&hasNoData);
+
+    const auto at = [&](int column, int row) -> double {
+      if (column < left || column > right || row < top || row > bottom)
+      {
+        return std::numeric_limits<double>::quiet_NaN();
+      }
+
+      const double value =
+        block[static_cast<size_t>(row - top) * static_cast<size_t>(width)
+              + static_cast<size_t>(column - left)];
+
+      if (hasNoData && qFuzzyCompare(value, noData))
+      {
+        return std::numeric_limits<double>::quiet_NaN();
+      }
+
+      return value;
+    };
+
+    for (int i = 0; i < points.size(); ++i)
+    {
+      const double column = columnOf(points.at(i));
+      const double row = rowOf(points.at(i));
+
+      const int column0 = static_cast<int>(std::floor(column));
+      const int row0 = static_cast<int>(std::floor(row));
+
+      const double fx = column - column0;
+      const double fy = row - row0;
+
+      const double v00 = at(column0, row0);
+      const double v10 = at(column0 + 1, row0);
+      const double v01 = at(column0, row0 + 1);
+      const double v11 = at(column0 + 1, row0 + 1);
+
+      // A no-data neighbour carries through on its own: at() returns NaN
+      // for one, and NaN survives the arithmetic below whatever weight it
+      // is given, so a vertex that needs a cell the survey does not have
+      // gets nothing rather than a number. An explicit check here would
+      // read as though it were doing that work, and would not be.
+      const double top_ = v00 + (v10 - v00) * fx;
+      const double bottom_ = v01 + (v11 - v01) * fx;
+
+      values[i] = top_ + (bottom_ - top_) * fy;
+    }
+
+    return true;
+  }
+
   QRectF GdalRasterLayer::extent() const
   {
     return m_extent;
   }
 
-  void GdalRasterLayer::setDrape(SceneDrape drape)
+  void GdalRasterLayer::setZPolicy(const ZPolicy &policy)
   {
-    if (this->drape() == drape)
+    if (policy == zPolicy())
     {
       return;
     }
 
-    ISceneSource::setDrape(drape);
+    ISceneSource::setZPolicy(policy);
 
     notifyAppearanceChanged();
   }
@@ -215,6 +429,10 @@ namespace HydroCouple::Composer
     }
 
     m_groundValid = false;
+
+    // The terrain cache was read from the old warp, so its heights sit in
+    // the old CRS.
+    m_terrain.valid = false;
 
     notifyAppearanceChanged();
   }
@@ -390,6 +608,208 @@ namespace HydroCouple::Composer
     painter.drawImage(target, image);
   }
 
+  void GdalRasterLayer::setTerrainEnabled(bool enabled)
+  {
+    if (enabled == terrainEnabled())
+    {
+      return;
+    }
+
+    ISceneSource::setTerrainEnabled(enabled);
+    notifyAppearanceChanged();
+  }
+
+  const ITerrainSource *GdalRasterLayer::terrain() const
+  {
+    // A colour image is a picture of the ground, not the ground.
+    return m_colorImage ? nullptr : this;
+  }
+
+  bool GdalRasterLayer::ensureTerrainCache() const
+  {
+    if (m_terrain.valid)
+    {
+      return true;
+    }
+
+    // The layer reading itself into its own cache; the same reasoning as
+    // the scene texture above.
+    GDALDataset *dataset = const_cast<GdalRasterLayer *>(this)->readable();
+
+    if (!dataset)
+    {
+      return false;
+    }
+
+    double geotransform[6] = {0.0, 1.0, 0.0, 0.0, 0.0, 1.0};
+
+    if (dataset->GetGeoTransform(geotransform) != CE_None
+        || qFuzzyIsNull(geotransform[1]) || qFuzzyIsNull(geotransform[5]))
+    {
+      return false;
+    }
+
+    const int fullWidth = dataset->GetRasterXSize();
+    const int fullHeight = dataset->GetRasterYSize();
+
+    if (fullWidth <= 0 || fullHeight <= 0)
+    {
+      return false;
+    }
+
+    const int longest = std::max(fullWidth, fullHeight);
+    const double scale =
+      longest > kMaxTerrainCacheSide
+        ? double(kMaxTerrainCacheSide) / double(longest)
+        : 1.0;
+
+    const int width =
+      std::max(1, int(std::lround(fullWidth * scale)));
+    const int height =
+      std::max(1, int(std::lround(fullHeight * scale)));
+
+    GDALRasterBand *band = dataset->GetRasterBand(1);
+
+    if (!band)
+    {
+      return false;
+    }
+
+    std::vector<float> heights(static_cast<size_t>(width)
+                               * static_cast<size_t>(height));
+
+    // One decimated read of the whole band -- never per-point RasterIO,
+    // which the sampling header already warns turns a second of work into
+    // minutes.
+    if (band->RasterIO(GF_Read, 0, 0, fullWidth, fullHeight, heights.data(),
+                       width, height, GDT_Float32, 0, 0)
+        != CE_None)
+    {
+      return false;
+    }
+
+    int hasNoData = 0;
+    const double noData = band->GetNoDataValue(&hasNoData);
+
+    if (hasNoData)
+    {
+      for (float &value : heights)
+      {
+        if (qFuzzyCompare(double(value), noData))
+        {
+          value = std::numeric_limits<float>::quiet_NaN();
+        }
+      }
+    }
+
+    // Corners from the dataset that answered -- the warped one when the
+    // map's CRS differs -- so everything below is in the map's CRS, which
+    // is what ITerrainSource promises.
+    const double left = geotransform[0];
+    const double top = geotransform[3];
+    const double right = left + geotransform[1] * fullWidth;
+    const double bottom = top + geotransform[5] * fullHeight;
+
+    m_terrain.heights = std::move(heights);
+    m_terrain.width = width;
+    m_terrain.height = height;
+    m_terrain.originX = left;
+    m_terrain.originY = top;
+    m_terrain.stepX = (right - left) / width;
+    m_terrain.stepY = (bottom - top) / height;
+    m_terrain.extent =
+      QRectF(QPointF(left, top), QPointF(right, bottom)).normalized();
+    m_terrain.valid = true;
+
+    return true;
+  }
+
+  QRectF GdalRasterLayer::terrainExtent() const
+  {
+    return ensureTerrainCache() ? m_terrain.extent : QRectF();
+  }
+
+  double GdalRasterLayer::terrainResolution() const
+  {
+    return ensureTerrainCache() ? std::abs(m_terrain.stepX) : 1.0;
+  }
+
+  bool GdalRasterLayer::elevationAt(const QPointF &point,
+                                    double &elevation) const
+  {
+    if (!ensureTerrainCache() || !m_terrain.extent.contains(point))
+    {
+      return false;
+    }
+
+    // Cell-centre coordinates, the same half-cell convention as sample():
+    // getting it wrong shifts a whole terrain by half a cell.
+    const double column =
+      (point.x() - m_terrain.originX) / m_terrain.stepX - 0.5;
+    const double row =
+      (point.y() - m_terrain.originY) / m_terrain.stepY - 0.5;
+
+    int column0 = int(std::floor(column));
+    double fractionX = column - column0;
+
+    if (column0 < 0)
+    {
+      column0 = 0;
+      fractionX = 0.0;
+    }
+
+    int column1 = column0 + 1;
+
+    if (column1 >= m_terrain.width)
+    {
+      column1 = m_terrain.width - 1;
+      fractionX = 0.0;
+    }
+
+    int row0 = int(std::floor(row));
+    double fractionY = row - row0;
+
+    if (row0 < 0)
+    {
+      row0 = 0;
+      fractionY = 0.0;
+    }
+
+    int row1 = row0 + 1;
+
+    if (row1 >= m_terrain.height)
+    {
+      row1 = m_terrain.height - 1;
+      fractionY = 0.0;
+    }
+
+    const auto sampleAt = [this](int r, int c)
+    {
+      return double(
+        m_terrain.heights[static_cast<size_t>(r) * m_terrain.width + c]);
+    };
+
+    const double v00 = sampleAt(row0, column0);
+    const double v10 = sampleAt(row0, column1);
+    const double v01 = sampleAt(row1, column0);
+    const double v11 = sampleAt(row1, column1);
+
+    // A hole in the survey declines rather than blending into its
+    // neighbours: half a hole is not a height.
+    if (std::isnan(v00) || std::isnan(v10) || std::isnan(v01)
+        || std::isnan(v11))
+    {
+      return false;
+    }
+
+    const double top_ = v00 + (v10 - v00) * fractionX;
+    const double bottom_ = v01 + (v11 - v01) * fractionX;
+
+    elevation = top_ + (bottom_ - top_) * fractionY;
+
+    return true;
+  }
+
   const ISceneSource *GdalRasterLayer::sceneSource() const
   {
     return this;
@@ -435,11 +855,32 @@ namespace HydroCouple::Composer
       m_groundValid = true;
     }
 
-    // drapeTarget(), not the context's terrain outright: a surface set
-    // Flat is asking to lie at z = 0 even though the stack has a terrain
-    // in it, and passing the terrain regardless is what made draping
-    // unconditional before C5d.
-    SceneGeometry ground = buildGroundPlane(m_ground, drapeTarget(context));
+    // terrainFor(), not the context's terrain outright: a surface placed
+    // at a constant is asking to lie at that datum even though the stack
+    // has a terrain in it, and passing the terrain regardless is what made
+    // draping unconditional before C5d.
+    SceneGeometry ground = buildGroundPlane(m_ground, terrainFor(context));
+
+    // Constant places the plane at the datum; OnTerrain lifts the drape by
+    // the offset. One shift covers both.
+    const double lift = zPolicy().mode == ZMode::Constant
+                          ? zPolicy().constant
+                          : zPolicy().offset;
+
+    if (!qFuzzyIsNull(lift))
+    {
+      for (SceneVertex &vertex : ground.vertices)
+      {
+        vertex.z += float(lift);
+      }
+
+      ground.bounds = {};
+
+      for (const SceneVertex &vertex : ground.vertices)
+      {
+        ground.bounds.expandTo(QVector3D(vertex.x, vertex.y, vertex.z));
+      }
+    }
 
     if (!ground.isEmpty())
     {

@@ -15,16 +15,22 @@
 
 #include "canvas/componentpalettemodel.h"
 #include "canvas/compositioncanvas.h"
+#include "configurator/adapterinspector.h"
 #include "configurator/componentconfigurator.h"
 #include "plugins/componentregistry.h"
 #include "project/componentinstances.h"
 #include "project/compositiondocument.h"
+#include "simulation/executionpanel.h"
 #include "simulation/simulationmanager.h"
 #include "results/runbrowsermodel.h"
 #include "ui/panels/mapstatusbar.h"
+#include "ui/recentcompositions.h"
+#include "ui/selectionhub.h"
+#include "ui/welcomepage.h"
 #include "ui/panels/runbrowserpanel.h"
 
 #include <QMainWindow>
+#include <QPointer>
 
 #include <memory>
 
@@ -32,21 +38,26 @@ class QAction;
 class QActionGroup;
 class QDoubleSpinBox;
 class QLabel;
+class QMenu;
 class QListView;
 class QPlainTextEdit;
 class QTabWidget;
+class QToolButton;
 
 namespace HydroCouple::Composer
 {
+  class LayerRestorer;
   class LayerStackModel;
   class AttributeTablePanel;
   class LayerTreePanel;
   class MapCanvas;
   class SceneView;
   class MapLayer;
+  class TileLayer;
   class RibbonBar;
   class ProfilePlotPanel;
   class TransectPanel;
+  class MeshDomainModel;
   class SeriesPlotPanel;
   class TimeController;
   class TimeControlPanel;
@@ -86,6 +97,16 @@ namespace HydroCouple::Composer
        * \brief The argument configurator.
        */
       [[nodiscard]] ComponentConfigurator *configurator() const;
+
+      /*!
+       * \brief The adapter/connection inspector.
+       */
+      [[nodiscard]] AdapterInspector *adapterInspector() const;
+
+      /*!
+       * \brief The workflow/execution panel.
+       */
+      [[nodiscard]] ExecutionPanel *executionPanel() const;
 
       /*!
        * \brief The map view.
@@ -128,6 +149,9 @@ namespace HydroCouple::Composer
 
       //! \returns The section cut by the line drawn on the map.
       [[nodiscard]] TransectPanel *transect() const;
+
+      //! \returns The mesh domain being drawn; never null.
+      [[nodiscard]] MeshDomainModel *meshDomain() const;
 
       /*!
        * \brief Draws one item as its difference between two runs.
@@ -195,6 +219,13 @@ namespace HydroCouple::Composer
       void onSelectionChanged();
       void onLayerProperties(HydroCouple::Composer::MapLayer *layer);
       void onSetMapCrs();
+      void onPreferences();
+
+      //! Puts the welcome page back, or brings it forward if it is there.
+      void showWelcomeTab();
+
+      //! Takes the welcome tab away, keeping the page and its state.
+      void closeWelcomeTab();
       void onOpenRun();
 
       //! Draws the recorded item the run browser asked for.
@@ -204,6 +235,27 @@ namespace HydroCouple::Composer
       //! Asks which other run to compare against, then draws the difference.
       void onCompareRunItem(int runRow, const QString &componentId,
                             const QString &itemId);
+
+      //! Installs the drawing tool for whichever domain action is checked.
+      void onDomainToolChosen();
+
+      /*!
+       * \brief Adds the current layer's selected features to the domain.
+       *
+       * Which part they become is carried on the action that sent this, so
+       * the four menu entries are one handler rather than four.
+       */
+      void onImportSelectionAsDomainPart();
+
+      /*!
+       * \brief Adds the four layers that show the domain, once.
+       *
+       * Called when a domain first has something in it, or when the user
+       * picks up a tool to draw one — not at startup, because four empty
+       * rows in every composition that never meshes anything is clutter,
+       * and empty layers still join the extent every view frames.
+       */
+      void ensureDomainLayers();
       void onMapToolChosen();
       void onProjectionChosen();
       void onSceneToolChosen();
@@ -211,6 +263,9 @@ namespace HydroCouple::Composer
       void onAddRasterLayer();
       void onAddComponentLayers();
       void onAddMeshLayer();
+
+      //! Reads a raster layer's values onto a mesh's vertices.
+      void onSampleTerrain();
       void onRun();
       void onPause();
       void onStop();
@@ -218,16 +273,56 @@ namespace HydroCouple::Composer
 
     private:
       void createActions();
+
+      /*!
+       * \brief Frames the 3D view on what the map is showing.
+       *
+       * The two halves of the tab-switch hand-off, given names so that
+       * the *Sync now* faces and the tab switch itself are the same code
+       * rather than two copies that drift. Each declines when the source
+       * view has nothing to hand over, which is why they answer rather
+       * than simply acting: an empty map's default framing is not a
+       * deliberate one, and adopting it would leave the 3D tab looking
+       * at a couple of units around the origin forever after.
+       *
+       * \returns False when there was nothing to hand over.
+       */
+      bool frameSceneFromMap();
+
+      //! Frames the map on the ground the 3D view is looking at.
+      bool frameMapFromScene();
       void createMenus();
       void createToolBar();
       void createDocks();
       void createMapView();
+
+      //! Hands the remembered library directories to the registry and,
+      //! when the preference says so, scans them.
+      void applyComponentSearchPaths();
+
+      /*!
+       * \brief Puts the close button on the welcome tab at \a index.
+       *
+       * One button, kept across close/restore cycles. QTabBar does not
+       * delete a tab button when its tab is removed — measured — so a fresh
+       * button per restore would leave an orphan on the bar every time.
+       */
+      void installWelcomeCloseButton(int index);
 
       /*!
        * \brief Puts \a layer on the map and frames it.
        * \param layer The layer to add; ownership passes to the stack.
        */
       void addMapLayer(MapLayer *layer);
+
+      //! Records every rebuildable layer into the sidecar, before saving.
+      void captureLayers();
+
+      //! Rebuilds what the sidecar recorded, after opening.
+      void restoreLayers();
+
+      //! Refills File ▸ Open Recent from the remembered documents.
+      void rebuildRecentMenu();
 
       /*!
        * \brief Adds a layer for every spatial data item in the composition.
@@ -240,6 +335,26 @@ namespace HydroCouple::Composer
        * \param providerName Provider name, or empty for none.
        */
       void setBasemap(const QString &providerName);
+
+      /*!
+       * \brief Asks for a web map service and makes a basemap of it.
+       *
+       * The dialog does the asking; this replaces whatever basemap is
+       * there with what came back, exactly as choosing a built-in one
+       * does.
+       */
+      void addServiceBasemap();
+
+      /*!
+       * \brief Puts \a basemap at the bottom of the stack, alone.
+       *
+       * At most one basemap: two backdrops would fight for the same pixels
+       * and the upper one would simply win.
+       *
+       * \param basemap The layer, or nullptr to leave none.
+       */
+      void installBasemap(TileLayer *basemap);
+
       void createStatusBar();
       void refreshTitle();
 
@@ -253,11 +368,15 @@ namespace HydroCouple::Composer
       CompositionScene *m_scene = nullptr;
       CompositionCanvas *m_canvas = nullptr;
       ComponentConfigurator *m_configurator = nullptr;
+      AdapterInspector *m_adapterInspector = nullptr;
+      ExecutionPanel *m_executionPanel = nullptr;
       ComponentPaletteModel *m_paletteModel = nullptr;
       QListView *m_paletteView = nullptr;
       QPlainTextEdit *m_log = nullptr;
 
       LayerStackModel *m_layerStack = nullptr;
+
+      LayerRestorer *m_layerRestorer = nullptr;
       MapCanvas *m_mapCanvas = nullptr;
       SceneView *m_sceneView = nullptr;
       LayerTreePanel *m_layerTree = nullptr;
@@ -270,6 +389,8 @@ namespace HydroCouple::Composer
       SeriesPlotPanel *m_seriesPlot = nullptr;
       ProfilePlotPanel *m_profilePlot = nullptr;
       TransectPanel *m_transect = nullptr;
+      MeshDomainModel *m_meshDomain = nullptr;
+      bool m_domainLayersShown = false;
 
       RibbonBar *m_ribbon = nullptr;
 
@@ -278,16 +399,50 @@ namespace HydroCouple::Composer
       QAction *m_saveAction = nullptr;
       QAction *m_undoAction = nullptr;
       QAction *m_redoAction = nullptr;
+      QAction *m_layoutAction = nullptr;
+      QMenu *m_recentMenu = nullptr;
+      RecentCompositions *m_recent = nullptr;
+      WelcomePage *m_welcome = nullptr;
       QAction *m_loadComponentsAction = nullptr;
       QAction *m_lightAction = nullptr;
       QAction *m_darkAction = nullptr;
       QAction *m_systemAction = nullptr;
+      QAction *m_preferencesAction = nullptr;
+      QAction *m_welcomeAction = nullptr;
+
+      //! Carries selection between the canvas and the layer views.
+      SelectionHub *m_selectionHub = nullptr;
+
+      //! Guarded rather than raw: the tab bar owns it once it is installed.
+      QPointer<QToolButton> m_welcomeCloseButton;
       QAction *m_runAction = nullptr;
       QAction *m_pauseAction = nullptr;
       QAction *m_stopAction = nullptr;
       QAction *m_zoomFullAction = nullptr;
       QAction *m_zoomInAction = nullptr;
       QAction *m_zoomOutAction = nullptr;
+
+      /*!
+       * \brief The 3D tab's own navigation, which acts on the scene alone.
+       *
+       * The menu's Zoom In / Out / Full Extent dispatch to whichever view
+       * is in front, so a shortcut always means "zoom what I see". That
+       * is right for a shortcut and wrong for a ribbon: the 3D tab is a
+       * place, and a button on it that moved the *map* because the map
+       * happened to be in front would be a button that did nothing
+       * visible. These are the 3D tab's, unconditionally, and like every
+       * other control on that strip they bring the 3D view forward.
+       */
+      QAction *m_sceneZoomInAction = nullptr;
+      QAction *m_sceneZoomOutAction = nullptr;
+      QAction *m_sceneZoomFullAction = nullptr;
+      QAction *m_sceneResetViewAction = nullptr;
+      QAction *m_sceneTopViewAction = nullptr;
+      QAction *m_sceneLookAtSelectionAction = nullptr;
+
+      //! Performs the framing hand-off on demand, in either direction.
+      QAction *m_syncFromSceneAction = nullptr;
+      QAction *m_syncFromMapAction = nullptr;
       QAction *m_layerPropertiesAction = nullptr;
       QAction *m_mapCrsAction = nullptr;
       QAction *m_selectToolAction = nullptr;
@@ -295,6 +450,15 @@ namespace HydroCouple::Composer
       QAction *m_zoomInToolAction = nullptr;
       QAction *m_zoomOutToolAction = nullptr;
       QAction *m_transectToolAction = nullptr;
+      QAction *m_drawBoundaryAction = nullptr;
+      QAction *m_drawHoleAction = nullptr;
+      QAction *m_drawBreaklineAction = nullptr;
+      QAction *m_drawPointAction = nullptr;
+      QAction *m_editVerticesAction = nullptr;
+
+      //! Hosts the menu of parts; never triggered itself.
+      QAction *m_importSelectionAction = nullptr;
+      QMenu *m_importSelectionMenu = nullptr;
       QAction *m_orbitToolAction = nullptr;
       QAction *m_sceneSelectToolAction = nullptr;
       QAction *m_sceneZoomInToolAction = nullptr;
@@ -306,6 +470,7 @@ namespace HydroCouple::Composer
       QAction *m_addRasterAction = nullptr;
       QAction *m_addComponentLayersAction = nullptr;
       QAction *m_addMeshAction = nullptr;
+      QAction *m_sampleTerrainAction = nullptr;
       QActionGroup *m_basemapGroup = nullptr;
   };
 

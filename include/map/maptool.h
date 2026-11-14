@@ -24,6 +24,8 @@
 #include <QCursor>
 #include <QPoint>
 
+#include "map/layerstackmodel.h"
+
 #include <memory>
 
 class QMouseEvent;
@@ -178,6 +180,15 @@ namespace HydroCouple::Composer
        * \param pixel Where the click landed.
        */
       virtual void useClick(const QPoint &pixel) = 0;
+
+      /*!
+       * \brief What the modifiers asked for as the gesture ended.
+       *
+       * Recorded at release rather than at press: a user who starts a band
+       * and then reaches for Shift means to add, and asking at the end is
+       * what every GIS answers to.
+       */
+      SelectionMode m_selectionMode = SelectionMode::Replace;
 
     private:
       void endGesture();

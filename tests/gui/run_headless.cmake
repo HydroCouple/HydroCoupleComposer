@@ -19,12 +19,22 @@ file(WRITE "${WORK_DIR}/composition.json" [=[{
   "run": { "manifest": "out/manifest.json" }
 }]=])
 
+if(USE_ENVIRONMENT_PATH)
+    set(ENV{HYDROCOUPLE_COMPONENT_PATH} "${FIXTURE_DIR}")
+    set(component_arguments)
+else()
+    set(component_arguments --components "${FIXTURE_DIR}")
+endif()
+
 execute_process(
     COMMAND "${COMPOSER_BINARY}" --run "${WORK_DIR}/composition.json"
-            --components "${FIXTURE_DIR}"
+            ${component_arguments}
     RESULT_VARIABLE exit_code
     OUTPUT_VARIABLE stdout_text
     ERROR_VARIABLE stderr_text)
+
+file(WRITE "${WORK_DIR}/stdout.log" "${stdout_text}")
+file(WRITE "${WORK_DIR}/stderr.log" "${stderr_text}")
 
 if(NOT exit_code EQUAL 0)
     message(FATAL_ERROR

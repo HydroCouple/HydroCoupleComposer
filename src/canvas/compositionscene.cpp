@@ -1,7 +1,13 @@
 #include "canvas/compositionscene.h"
 
+#include "canvas/graphlayout.h"
+
 #include <QGraphicsPathItem>
+#include <QUndoStack>
+#include <QGraphicsSceneContextMenuEvent>
 #include <QGraphicsSceneMouseEvent>
+#include <QInputDialog>
+#include <QMenu>
 #include <QPen>
 
 namespace HydroCouple::Composer
@@ -25,6 +31,8 @@ namespace HydroCouple::Composer
               &CompositionScene::rebuild);
       connect(m_document, &CompositionDocument::placementChanged, this,
               &CompositionScene::applyPlacement);
+      connect(m_document, &CompositionDocument::adapterPlacementChanged, this,
+              &CompositionScene::applyAdapterPlacements);
     }
 
     if (m_instances)
@@ -49,9 +57,35 @@ namespace HydroCouple::Composer
 
     m_rebuilding = true;
 
+    // Selection survives the teardown by IDENTITY, never by item pointer:
+    // every item below is about to be destroyed, and in-place edits (a
+    // chain argument changed in the inspector) rebuild mid-interaction.
+    QStringList selectedComponents;
+    QList<ConnectionSpec> selectedConnections;
+    QList<QPair<ConnectionSpec, int>> selectedAdapters;
+
+    for (QGraphicsItem *item : selectedItems())
+    {
+      if (auto *node = qgraphicsitem_cast<ComponentNodeItem *>(item))
+      {
+        selectedComponents.append(node->componentId());
+      }
+      else if (auto *edge = qgraphicsitem_cast<ConnectionEdgeItem *>(item))
+      {
+        selectedConnections.append(edge->connection());
+      }
+      else if (auto *adapter = qgraphicsitem_cast<AdapterNodeItem *>(item))
+      {
+        selectedAdapters.append({adapter->connection(),
+                                 adapter->stepIndex()});
+      }
+    }
+
     clear();
     m_nodes.clear();
     m_edges.clear();
+    m_bindingEdges.clear();
+    m_adapterNodes.clear();
     m_dragSource = nullptr;
     m_dragTarget = nullptr;
     m_dragPreview = nullptr;
@@ -121,9 +155,131 @@ namespace HydroCouple::Composer
       auto *edge = new ConnectionEdgeItem(connection, fromPort, toPort);
       addItem(edge);
       m_edges.append(edge);
+
+      // One spliced node per chain step. Saved positions come from the
+      // sidecar; unplaced steps sit at even fractions along the straight
+      // port-to-port line — a missing or short list is never an error.
+      const QList<QPointF> saved =
+        m_document->presentation().adapterChain(connection);
+      const int stepCount = static_cast<int>(connection.adaptedOutputs.size());
+
+      QList<AdapterNodeItem *> adapters;
+
+      for (int index = 0; index < stepCount; ++index)
+      {
+        auto *adapter = new AdapterNodeItem(
+          connection, index, connection.adaptedOutputs[
+                               static_cast<size_t>(index)]);
+
+        connect(adapter, &AdapterNodeItem::moved, this,
+                [this](const ConnectionSpec &identity, int stepIndex,
+                       const QPointF &position)
+                {
+                  // Through the document, so the move joins undo history.
+                  m_document->moveConnectionAdapter(identity, stepIndex,
+                                                    position);
+                });
+
+        addItem(adapter);
+
+        if (index < saved.size() && saved[index] != QPointF())
+        {
+          adapter->setPos(saved[index]);
+        }
+        else
+        {
+          const QPointF start = fromPort->anchor();
+          const QPointF end = toPort->anchor();
+          const qreal fraction =
+            static_cast<qreal>(index + 1) / static_cast<qreal>(stepCount + 1);
+          adapter->setPos(start + (end - start) * fraction);
+        }
+
+        adapters.append(adapter);
+        m_adapterNodes.append(adapter);
+      }
+
+      edge->setAdapters(adapters);
+    }
+
+    // Binding edges, node to node: an argument has no port, and the value
+    // flows once, before the consumer initializes.
+    for (const HydroCouple::SDK::IO::ArgumentBindingSpec &binding :
+         HydroCouple::SDK::IO::argumentBindings(m_document->spec()))
+    {
+      ComponentNodeItem *provider =
+        m_nodes.value(QString::fromStdString(binding.provider));
+      ComponentNodeItem *consumer =
+        m_nodes.value(QString::fromStdString(binding.component));
+
+      if (!provider || !consumer)
+      {
+        continue;
+      }
+
+      auto *edge = new BindingEdgeItem(binding, provider, consumer);
+      addItem(edge);
+      m_bindingEdges.append(edge);
+    }
+
+    // Re-select what was selected, by identity.
+    for (const QString &componentId : selectedComponents)
+    {
+      if (ComponentNodeItem *node = m_nodes.value(componentId))
+      {
+        node->setSelected(true);
+      }
+    }
+
+    const auto sameIdentity = [](const ConnectionSpec &lhs,
+                                 const ConnectionSpec &rhs)
+    {
+      return lhs.fromComponent == rhs.fromComponent &&
+             lhs.output == rhs.output &&
+             lhs.toComponent == rhs.toComponent && lhs.input == rhs.input &&
+             lhs.role == rhs.role;
+    };
+
+    for (const ConnectionSpec &identity : selectedConnections)
+    {
+      for (ConnectionEdgeItem *edge : m_edges)
+      {
+        if (sameIdentity(edge->connection(), identity))
+        {
+          edge->setSelected(true);
+        }
+      }
+    }
+
+    for (const QPair<ConnectionSpec, int> &address : selectedAdapters)
+    {
+      for (AdapterNodeItem *adapter : m_adapterNodes)
+      {
+        if (adapter->stepIndex() == address.second &&
+            sameIdentity(adapter->connection(), address.first))
+        {
+          adapter->setSelected(true);
+        }
+      }
     }
 
     m_rebuilding = false;
+  }
+
+  void CompositionScene::applyAdapterPlacements()
+  {
+    for (AdapterNodeItem *adapter : m_adapterNodes)
+    {
+      const QList<QPointF> saved =
+        m_document->presentation().adapterChain(adapter->connection());
+
+      if (adapter->stepIndex() < saved.size())
+      {
+        adapter->setPos(saved[adapter->stepIndex()]);
+      }
+    }
+
+    refreshEdges();
   }
 
   void CompositionScene::applyPlacement(const QString &componentId)
@@ -152,6 +308,30 @@ namespace HydroCouple::Composer
     {
       edge->refresh();
     }
+
+    for (BindingEdgeItem *edge : m_bindingEdges)
+    {
+      edge->refresh();
+    }
+  }
+
+  bool CompositionScene::selectComponent(const QString &componentId)
+  {
+    ComponentNodeItem *wanted = node(componentId);
+
+    // Cleared first, then one selected: setSelected(true) on a node adds
+    // to whatever was already selected, and a canvas that accumulates one
+    // highlight per click is a canvas that stops meaning anything.
+    clearSelection();
+
+    if (!wanted)
+    {
+      return false;
+    }
+
+    wanted->setSelected(true);
+
+    return true;
   }
 
   ComponentNodeItem *CompositionScene::node(const QString &componentId) const
@@ -162,6 +342,76 @@ namespace HydroCouple::Composer
   QList<ConnectionEdgeItem *> CompositionScene::edges() const
   {
     return m_edges;
+  }
+
+  QList<BindingEdgeItem *> CompositionScene::bindingEdges() const
+  {
+    return m_bindingEdges;
+  }
+
+  QList<AdapterNodeItem *> CompositionScene::adapterNodes() const
+  {
+    return m_adapterNodes;
+  }
+
+  int CompositionScene::applyAutoLayout()
+  {
+    if (!m_document)
+    {
+      return 0;
+    }
+
+    // Measured from the items rather than assumed: a component's box is as
+    // wide as the port names it has to show, so the columns can only be
+    // spaced correctly by asking what is actually drawn.
+    QHash<QString, QSizeF> sizes;
+
+    for (auto it = m_nodes.constBegin(); it != m_nodes.constEnd(); ++it)
+    {
+      if (it.value())
+      {
+        sizes.insert(it.key(), it.value()->boundingRect().size());
+      }
+    }
+
+    const QHash<QString, QPointF> positions =
+      layoutComposition(m_document->spec(), sizes);
+
+    if (positions.isEmpty())
+    {
+      return 0;
+    }
+
+    int moved = 0;
+
+    m_document->undoStack()->beginMacro(tr("Lay out components"));
+
+    for (auto it = positions.constBegin(); it != positions.constEnd(); ++it)
+    {
+      if (m_document->moveComponent(it.key(), it.value()))
+      {
+        ++moved;
+      }
+    }
+
+    // A spliced adapter keeps whatever position it was dragged to, which
+    // after a re-layout is nowhere near the connection it belongs to. The
+    // null point is what rebuild() reads as "unplaced" (see the sidecar
+    // branch above), so writing it back is how a step is returned to
+    // sitting along its edge — undoably, inside this same macro.
+    for (const HydroCouple::SDK::IO::ConnectionSpec &connection :
+         m_document->spec().connections)
+    {
+      for (int index = 0;
+           index < static_cast<int>(connection.adaptedOutputs.size()); ++index)
+      {
+        m_document->moveConnectionAdapter(connection, index, QPointF());
+      }
+    }
+
+    m_document->undoStack()->endMacro();
+
+    return moved;
   }
 
   QString CompositionScene::uniqueComponentId(const QString &desired) const
@@ -187,6 +437,33 @@ namespace HydroCouple::Composer
     if (!m_document)
     {
       return QString();
+    }
+
+    // A KNOWN non-model library is refused here rather than left to die as
+    // a red "unavailable" box; an id the registry has never seen still goes
+    // in — a document may legitimately name components that are not
+    // installed on this machine.
+    if (m_instances && m_instances->registry())
+    {
+      HydroCouple::IComponentInfo *info =
+        m_instances->registry()->entry(componentInfoId);
+
+      const ComponentRegistry::ComponentKind kind =
+        info ? ComponentRegistry::kindOf(info)
+             : ComponentRegistry::ComponentKind::Model;
+
+      if (kind != ComponentRegistry::ComponentKind::Model)
+      {
+        Q_EMIT componentRefused(
+          kind == ComponentRegistry::ComponentKind::AdapterFactory
+            ? QStringLiteral("'%1' is an adapted-output factory; adapters "
+                             "attach to connections, they are not placed "
+                             "as components")
+                .arg(componentInfoId)
+            : QStringLiteral("'%1' is not a model component")
+                .arg(componentInfoId));
+        return QString();
+      }
     }
 
     ComponentSpec spec;
@@ -233,6 +510,8 @@ namespace HydroCouple::Composer
     // and invalidates every item pointer under our feet.
     QStringList components;
     QList<ConnectionSpec> connections;
+    QList<QPair<ConnectionSpec, int>> adapters;
+    QList<QPair<QString, QString>> bindings;
 
     for (QGraphicsItem *item : selectedItems())
     {
@@ -244,15 +523,65 @@ namespace HydroCouple::Composer
       {
         connections.append(static_cast<ConnectionEdgeItem *>(item)->connection());
       }
+      else if (auto *adapter = qgraphicsitem_cast<AdapterNodeItem *>(item))
+      {
+        adapters.append({adapter->connection(), adapter->stepIndex()});
+      }
+      else if (auto *binding = qgraphicsitem_cast<BindingEdgeItem *>(item))
+      {
+        bindings.append(
+          {QString::fromStdString(binding->binding().component),
+           QString::fromStdString(binding->binding().argument)});
+      }
     }
+
+    const auto sameIdentity = [](const ConnectionSpec &lhs,
+                                 const ConnectionSpec &rhs)
+    {
+      return lhs.fromComponent == rhs.fromComponent &&
+             lhs.output == rhs.output &&
+             lhs.toComponent == rhs.toComponent && lhs.input == rhs.input &&
+             lhs.role == rhs.role;
+    };
 
     int removed = 0;
 
-    // Connections first: removing a component already takes its connections,
-    // and doing it the other way round would count them twice.
+    // Adapter steps first, highest index first, so earlier removals never
+    // renumber a later one out from under us; steps whose whole connection
+    // is also selected are skipped — the connection removal takes its
+    // chain, and removing them here too would count them twice.
+    std::sort(adapters.begin(), adapters.end(),
+              [](const QPair<ConnectionSpec, int> &lhs,
+                 const QPair<ConnectionSpec, int> &rhs)
+              { return lhs.second > rhs.second; });
+
+    for (const QPair<ConnectionSpec, int> &address : adapters)
+    {
+      const bool parentSelected =
+        std::any_of(connections.begin(), connections.end(),
+                    [&address, &sameIdentity](const ConnectionSpec &link)
+                    { return sameIdentity(link, address.first); });
+
+      if (!parentSelected &&
+          m_document->removeConnectionAdapter(address.first, address.second))
+      {
+        ++removed;
+      }
+    }
+
+    // Connections before components: removing a component already takes its
+    // connections, and doing it the other way round would count them twice.
     for (const ConnectionSpec &connection : connections)
     {
       if (m_document->removeConnection(connection))
+      {
+        ++removed;
+      }
+    }
+
+    for (const QPair<QString, QString> &binding : bindings)
+    {
+      if (m_document->clearArgument(binding.first, binding.second))
       {
         ++removed;
       }
@@ -282,6 +611,42 @@ namespace HydroCouple::Composer
     }
 
     return nullptr;
+  }
+
+  PortItem *CompositionScene::portNear(const QPointF &scenePosition,
+                                       qreal radius) const
+  {
+    if (PortItem *exact = portAt(scenePosition))
+    {
+      return exact;
+    }
+
+    PortItem *best = nullptr;
+    qreal bestDistance = radius;
+
+    const QList<QGraphicsItem *> hits =
+      items(QRectF(scenePosition - QPointF(radius, radius),
+                   QSizeF(radius * 2.0, radius * 2.0)));
+
+    for (QGraphicsItem *item : hits)
+    {
+      if (item->type() != PortItem::Type)
+      {
+        continue;
+      }
+
+      auto *port = static_cast<PortItem *>(item);
+      const qreal distance =
+        QLineF(scenePosition, port->anchor()).length();
+
+      if (distance <= bestDistance)
+      {
+        best = port;
+        bestDistance = distance;
+      }
+    }
+
+    return best;
   }
 
   void CompositionScene::mousePressEvent(QGraphicsSceneMouseEvent *event)
@@ -318,7 +683,7 @@ namespace HydroCouple::Composer
       path.lineTo(event->scenePos());
       m_dragPreview->setPath(path);
 
-      PortItem *candidate = portAt(event->scenePos());
+      PortItem *candidate = portNear(event->scenePos(), 12.0);
 
       if (candidate && candidate->direction() != PortItem::Direction::Input)
       {
@@ -356,7 +721,7 @@ namespace HydroCouple::Composer
   {
     if (m_dragSource)
     {
-      PortItem *target = portAt(event->scenePos());
+      PortItem *target = portNear(event->scenePos(), 12.0);
 
       if (m_dragTarget)
       {
@@ -387,6 +752,397 @@ namespace HydroCouple::Composer
 
     QGraphicsScene::mouseReleaseEvent(event);
     refreshEdges();
+  }
+
+  // ── Adapter insertion and context menus (C4) ─────────────────────────────
+
+  HydroCouple::IOutput *CompositionScene::liveOutput(
+    const ConnectionSpec &connection) const
+  {
+    if (!m_instances)
+    {
+      return nullptr;
+    }
+
+    HydroCouple::IModelComponent *component = m_instances->instance(
+      QString::fromStdString(connection.fromComponent));
+
+    if (!component)
+    {
+      return nullptr;
+    }
+
+    for (HydroCouple::IOutput *output : component->outputs())
+    {
+      if (output && output->id() == connection.output)
+      {
+        return output;
+      }
+    }
+
+    return nullptr;
+  }
+
+  HydroCouple::IInput *CompositionScene::liveInput(
+    const ConnectionSpec &connection) const
+  {
+    if (!m_instances)
+    {
+      return nullptr;
+    }
+
+    HydroCouple::IModelComponent *component = m_instances->instance(
+      QString::fromStdString(connection.toComponent));
+
+    if (!component)
+    {
+      return nullptr;
+    }
+
+    for (HydroCouple::IInput *input : component->inputs())
+    {
+      if (input && input->id() == connection.input)
+      {
+        return input;
+      }
+    }
+
+    return nullptr;
+  }
+
+  QList<CompositionScene::AdapterOffering> CompositionScene::adapterOfferings(
+    const ConnectionSpec &connection)
+  {
+    QList<AdapterOffering> offerings;
+
+    HydroCouple::IOutput *output = liveOutput(connection);
+
+    if (!output)
+    {
+      return offerings;
+    }
+
+    HydroCouple::IInput *input = liveInput(connection);
+
+    // Component-info factories first — a component may deliberately shadow
+    // a standalone factory id, and the run pipeline searches in this order.
+    std::vector<HydroCouple::IAdaptedOutputFactory *> factories;
+
+    if (output->modelComponent() && output->modelComponent()->componentInfo())
+    {
+      for (HydroCouple::IAdaptedOutputFactory *factory :
+           output->modelComponent()->componentInfo()->adaptedOutputFactories())
+      {
+        if (factory)
+        {
+          factories.push_back(factory);
+        }
+      }
+    }
+
+    if (m_instances)
+    {
+      for (HydroCouple::IAdaptedOutputFactory *factory :
+           m_instances->adapterFactories())
+      {
+        if (factory)
+        {
+          factories.push_back(factory);
+        }
+      }
+    }
+
+    for (HydroCouple::IAdaptedOutputFactory *factory : factories)
+    {
+      for (HydroCouple::IIdentity *offering :
+           factory->getAvailableAdaptedOutputIds(output, input))
+      {
+        if (!offering)
+        {
+          continue;
+        }
+
+        AdapterOffering entry;
+        entry.factoryId = QString::fromStdString(factory->id());
+        entry.adapterId = QString::fromStdString(offering->id());
+        entry.caption = QString::fromStdString(offering->caption());
+        offerings.append(entry);
+      }
+    }
+
+    return offerings;
+  }
+
+  bool CompositionScene::insertAdapter(const ConnectionSpec &connection,
+                                       int index, const QString &factoryId,
+                                       const QString &adapterId)
+  {
+    if (!m_document)
+    {
+      return false;
+    }
+
+    HydroCouple::IOutput *output = liveOutput(connection);
+    HydroCouple::IInput *input = liveInput(connection);
+
+    HydroCouple::SDK::IO::AdaptedOutputSpec step;
+    step.factory = factoryId.toStdString();
+    step.id = adapterId.toStdString();
+
+    // A scratch instance captures the argument keys and their defaults, so
+    // the document carries editable payloads from the start. Transient by
+    // contract: unregistered from the provider (its registry is non-owning)
+    // and destroyed before the edit.
+    if (output)
+    {
+      std::vector<HydroCouple::IAdaptedOutputFactory *> factories;
+
+      if (output->modelComponent() &&
+          output->modelComponent()->componentInfo())
+      {
+        for (HydroCouple::IAdaptedOutputFactory *factory :
+             output->modelComponent()->componentInfo()
+               ->adaptedOutputFactories())
+        {
+          factories.push_back(factory);
+        }
+      }
+      if (m_instances)
+      {
+        for (HydroCouple::IAdaptedOutputFactory *factory :
+             m_instances->adapterFactories())
+        {
+          factories.push_back(factory);
+        }
+      }
+
+      for (HydroCouple::IAdaptedOutputFactory *factory : factories)
+      {
+        if (!factory || factory->id() != step.factory)
+        {
+          continue;
+        }
+
+        for (HydroCouple::IIdentity *offering :
+             factory->getAvailableAdaptedOutputIds(output, input))
+        {
+          if (!offering || offering->id() != step.id)
+          {
+            continue;
+          }
+
+          std::unique_ptr<HydroCouple::IAdaptedOutput> scratch =
+            factory->createAdaptedOutput(offering, output, input);
+
+          if (scratch)
+          {
+            for (HydroCouple::IArgument *argument : scratch->arguments())
+            {
+              if (!argument)
+              {
+                continue;
+              }
+
+              std::string value;
+              std::string message;
+              if (argument->serialize(
+                    HydroCouple::IArgument::ArgumentInputType::JSON, value,
+                    message))
+              {
+                try
+                {
+                  step.arguments[argument->id()] =
+                    nlohmann::json::parse(value);
+                }
+                catch (const nlohmann::json::exception &)
+                {
+                  // An argument that will not serialise cleanly simply
+                  // keeps its default when the run builds the real chain.
+                }
+              }
+            }
+
+            output->removeAdaptedOutput(scratch.get());
+          }
+
+          break;
+        }
+
+        break;
+      }
+    }
+
+    return m_document->insertConnectionAdapter(connection, index, step);
+  }
+
+  void CompositionScene::insertAdapterInteractively(
+    const ConnectionSpec &connection, int index)
+  {
+    const QList<AdapterOffering> offerings = adapterOfferings(connection);
+
+    if (offerings.isEmpty())
+    {
+      Q_EMIT componentRefused(
+        tr("no adapter is available for output '%1' of '%2'%3")
+          .arg(QString::fromStdString(connection.output),
+               QString::fromStdString(connection.fromComponent),
+               m_instances &&
+                   !m_instances
+                      ->failure(QString::fromStdString(
+                        connection.fromComponent))
+                      .isEmpty()
+                 ? tr(" — %1").arg(m_instances->failure(
+                     QString::fromStdString(connection.fromComponent)))
+                 : QString()));
+      return;
+    }
+
+    QStringList labels;
+    for (const AdapterOffering &offering : offerings)
+    {
+      labels.append(offering.caption.isEmpty()
+                      ? QStringLiteral("%1 — %2").arg(offering.adapterId,
+                                                      offering.factoryId)
+                      : QStringLiteral("%1 — %2 (%3)")
+                          .arg(offering.adapterId, offering.factoryId,
+                               offering.caption));
+    }
+
+    bool accepted = false;
+    const QString choice = QInputDialog::getItem(
+      nullptr, tr("Insert adapter"), tr("Adapted output:"), labels, 0,
+      false, &accepted);
+
+    if (!accepted)
+    {
+      return;
+    }
+
+    const int chosen = labels.indexOf(choice);
+
+    if (chosen >= 0)
+    {
+      insertAdapter(connection, index, offerings[chosen].factoryId,
+                    offerings[chosen].adapterId);
+    }
+  }
+
+  void CompositionScene::contextMenuEvent(
+    QGraphicsSceneContextMenuEvent *event)
+  {
+    if (!m_document)
+    {
+      QGraphicsScene::contextMenuEvent(event);
+      return;
+    }
+
+    QGraphicsItem *hit = nullptr;
+
+    for (QGraphicsItem *item : items(event->scenePos()))
+    {
+      const int type = item->type();
+
+      if (type == AdapterNodeItem::Type || type == ComponentNodeItem::Type ||
+          type == ConnectionEdgeItem::Type || type == BindingEdgeItem::Type)
+      {
+        hit = item;
+        break;
+      }
+    }
+
+    if (!hit)
+    {
+      QGraphicsScene::contextMenuEvent(event);
+      return;
+    }
+
+    QMenu menu;
+
+    if (auto *adapter = qgraphicsitem_cast<AdapterNodeItem *>(hit))
+    {
+      const ConnectionSpec identity = adapter->connection();
+      const int index = adapter->stepIndex();
+
+      menu.addAction(tr("Insert adapter before…"), this,
+                     [this, identity, index]
+                     { insertAdapterInteractively(identity, index); });
+      menu.addAction(tr("Insert adapter after…"), this,
+                     [this, identity, index]
+                     { insertAdapterInteractively(identity, index + 1); });
+      menu.addSeparator();
+      menu.addAction(tr("Remove adapter"), this,
+                     [this, identity, index]
+                     { m_document->removeConnectionAdapter(identity, index); });
+    }
+    else if (auto *edge = qgraphicsitem_cast<ConnectionEdgeItem *>(hit))
+    {
+      const ConnectionSpec identity = edge->connection();
+
+      menu.addAction(
+        tr("Insert adapter…"), this,
+        [this, identity]
+        {
+          insertAdapterInteractively(
+            identity, static_cast<int>(identity.adaptedOutputs.size()));
+        });
+
+      // Roles only mean something to a multi-input, and only the live
+      // input knows its labels.
+      if (auto *multi =
+            dynamic_cast<HydroCouple::IMultiInput *>(liveInput(identity)))
+      {
+        const std::vector<HydroCouple::IIdentity *> labels =
+          multi->providerLabels();
+
+        if (!labels.empty())
+        {
+          QMenu *roles = menu.addMenu(tr("Set provider role"));
+
+          for (HydroCouple::IIdentity *label : labels)
+          {
+            if (!label)
+            {
+              continue;
+            }
+
+            const QString role = QString::fromStdString(label->id());
+            QAction *action = roles->addAction(role);
+            action->setCheckable(true);
+            action->setChecked(identity.role == label->id());
+            connect(action, &QAction::triggered, this,
+                    [this, identity, role]
+                    { m_document->setConnectionRole(identity, role); });
+          }
+        }
+      }
+
+      menu.addSeparator();
+      menu.addAction(tr("Disconnect"), this,
+                     [this, identity]
+                     { m_document->removeConnection(identity); });
+    }
+    else if (auto *binding = qgraphicsitem_cast<BindingEdgeItem *>(hit))
+    {
+      const QString component =
+        QString::fromStdString(binding->binding().component);
+      const QString argument =
+        QString::fromStdString(binding->binding().argument);
+
+      menu.addAction(tr("Remove binding"), this,
+                     [this, component, argument]
+                     { m_document->clearArgument(component, argument); });
+    }
+    else if (auto *node = qgraphicsitem_cast<ComponentNodeItem *>(hit))
+    {
+      const QString componentId = node->componentId();
+
+      menu.addAction(tr("Remove '%1'").arg(componentId), this,
+                     [this, componentId]
+                     { m_document->removeComponent(componentId); });
+    }
+
+    menu.exec(event->screenPos());
+    event->accept();
   }
 
 } // namespace HydroCouple::Composer

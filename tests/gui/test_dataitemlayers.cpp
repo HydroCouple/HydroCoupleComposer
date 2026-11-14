@@ -6,6 +6,9 @@
 #include "core/composerapplication.h"
 #include "gis/spatialreference.h"
 #include "layers/dataitemlayer.h"
+#include "layers/rasterdataitemlayer.h"
+#include "scene/scenegeometry.h"
+#include "scene/scenesource.h"
 #include "layers/meshlayer.h"
 #include "map/layerstackmodel.h"
 #include "map/mapcanvas.h"
@@ -543,7 +546,7 @@ namespace
 {
   //! A mesh item of \a steps levels with value = step*100 + entity.
   std::unique_ptr<Testing::StubTimeSurfaceItem> surfaceItem(
-    HydroCouple::Spatial::MeshDataObjectType attachedTo, int steps = 3)
+    HydroCouple::Spatial::MeshLocation attachedTo, int steps = 3)
   {
     auto item = std::make_unique<Testing::StubTimeSurfaceItem>(
       "depth", twoTriangleMesh(), attachedTo, steps);
@@ -567,16 +570,16 @@ TEST_F(DataItemLayerTest, ASurfaceItemIsDrawnOnTheEntityItsValuesBelongTo)
 {
   struct Expectation
   {
-      HydroCouple::Spatial::MeshDataObjectType attachedTo;
+      HydroCouple::Spatial::MeshLocation attachedTo;
       int features;
       GeometryKind kind;
       const char *what;
   };
 
   const Expectation cases[] = {
-    {HydroCouple::Spatial::MeshDataObjectType::Vertex, 4, GeometryKind::Point, "vertex"},
-    {HydroCouple::Spatial::MeshDataObjectType::Edge, 5, GeometryKind::Line, "edge"},
-    {HydroCouple::Spatial::MeshDataObjectType::Cell, 2, GeometryKind::Polygon, "cell"},
+    {HydroCouple::Spatial::MeshLocation::Node, 4, GeometryKind::Point, "vertex"},
+    {HydroCouple::Spatial::MeshLocation::Edge, 5, GeometryKind::Line, "edge"},
+    {HydroCouple::Spatial::MeshLocation::Face, 2, GeometryKind::Polygon, "cell"},
   };
 
   for (const Expectation &expected : cases)
@@ -611,7 +614,7 @@ TEST_F(DataItemLayerTest, ASurfaceItemIsDrawnOnTheEntityItsValuesBelongTo)
 TEST_F(DataItemLayerTest, AnEdgeItemsFeaturesAreTheMeshsEdges)
 {
   const std::unique_ptr<Testing::StubTimeSurfaceItem> item =
-    surfaceItem(HydroCouple::Spatial::MeshDataObjectType::Edge);
+    surfaceItem(HydroCouple::Spatial::MeshLocation::Edge);
 
   QString message;
   const std::unique_ptr<DataItemLayer> layer =
@@ -646,11 +649,15 @@ TEST_F(DataItemLayerTest, AnEdgeItemsFeaturesAreTheMeshsEdges)
 
 TEST_F(DataItemLayerTest, AnEdgeItemOnASurfaceWithNoEdgesIsRefused)
 {
+  // The faces go too: a mesh view derives an edge from every face loop, so
+  // clearing only the declared edges still leaves the triangles' five.
   MeshDefinition faceless = twoTriangleMesh();
   faceless.edgeNodes.clear();
+  faceless.faceNodes.clear();
+  faceless.faceNodeOffsets.clear();
 
   Testing::StubTimeSurfaceItem item("depth", faceless,
-                                    HydroCouple::Spatial::MeshDataObjectType::Edge, 3);
+                                    HydroCouple::Spatial::MeshLocation::Edge, 3);
 
   QString message;
   const std::unique_ptr<DataItemLayer> layer =
@@ -675,7 +682,7 @@ TEST_F(DataItemLayerTest, SkipsEdgesWhoseEndpointsPointOutsideTheMesh)
   malformed.edgeNodes.push_back({0, 99});
 
   Testing::StubTimeSurfaceItem item("depth", malformed,
-                                    HydroCouple::Spatial::MeshDataObjectType::Edge,
+                                    HydroCouple::Spatial::MeshLocation::Edge,
                                     2);
 
   QString message;
@@ -685,4 +692,288 @@ TEST_F(DataItemLayerTest, SkipsEdgesWhoseEndpointsPointOutsideTheMesh)
 
   // The five good edges are drawn and the sixth is not.
   EXPECT_EQ(layer->featureCount(), 5);
+}
+
+// ── Raster data items ───────────────────────────────────────────────────────
+//
+// A raster is neither a feature nor a mesh: millions of cells as polygons is
+// a mesh nobody can draw, so it is shaded into an image the way a GeoTIFF is.
+// This is what lets a coverage be a layer and model data at once.
+
+TEST_F(DataItemLayerTest, ARasterItemIsNotSomethingDataItemLayerClaims)
+{
+  Testing::StubCrs crs(4326);
+  Testing::StubRaster raster(4, 3, 0.0, 30.0, 10.0, &crs);
+  Testing::StubRasterItem item("depths", &raster);
+
+  // DataItemLayer draws what is features once read; saying yes here and then
+  // returning nullptr from create() would be worse than saying no.
+  EXPECT_FALSE(DataItemLayer::isSpatial(&item));
+  EXPECT_TRUE(RasterDataItemLayer::isRaster(&item));
+}
+
+TEST_F(DataItemLayerTest, DrawsARasterItemOverTheGroundItCovers)
+{
+  Testing::StubCrs crs(4326);
+  Testing::StubRaster raster(4, 3, 0.0, 30.0, 10.0, &crs);
+  Testing::StubRasterItem item("depths", &raster);
+
+  for (int row = 0; row < 3; ++row)
+  {
+    for (int column = 0; column < 4; ++column)
+    {
+      item.setValue(0, row, column, row * 4.0 + column);
+    }
+  }
+
+  QString message;
+  const std::unique_ptr<RasterDataItemLayer> layer =
+    RasterDataItemLayer::create(&item, message);
+
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  // Four columns and three rows of ten-unit cells, hung from an upper-left
+  // origin: rows run down, which is what the negative y step means.
+  EXPECT_NEAR(layer->extent().width(), 40.0, 1e-9);
+  EXPECT_NEAR(layer->extent().height(), 30.0, 1e-9);
+  EXPECT_NEAR(layer->extent().left(), 0.0, 1e-9);
+  EXPECT_NEAR(layer->extent().bottom(), 30.0, 1e-9);
+
+  EXPECT_EQ(layer->valueRange().first, 0.0);
+  EXPECT_EQ(layer->valueRange().second, 11.0);
+
+  ASSERT_NE(layer->crs(), nullptr);
+  EXPECT_TRUE(layer->crs()->isGeographic());
+}
+
+TEST_F(DataItemLayerTest, ARasterIsShadedOverItsOwnRangeAndNotSomeFixedOne)
+{
+  Testing::StubCrs crs(4326);
+  Testing::StubRaster raster(2, 1, 0.0, 10.0, 10.0, &crs);
+  Testing::StubRasterItem item("depths", &raster);
+
+  item.setValue(0, 0, 0, 100.0);
+  item.setValue(0, 0, 1, 200.0);
+
+  QString message;
+  const std::unique_ptr<RasterDataItemLayer> layer =
+    RasterDataItemLayer::create(&item, message);
+
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  QImage canvas(64, 64, QImage::Format_ARGB32);
+  canvas.fill(Qt::white);
+
+  {
+    QPainter painter(&canvas);
+    MapTransform transform(layer->extent(), QSize(64, 64));
+    layer->render(painter, transform);
+  }
+
+  ASSERT_EQ(layer->lastImage().size(), QSize(2, 1));
+  EXPECT_NE(layer->lastImage().pixelColor(0, 0),
+            layer->lastImage().pixelColor(1, 0))
+    << "both cells were shaded the same colour";
+}
+
+// No-data is nothing, not a colour at one end of the ramp -- a hole in a
+// survey shaded deep blue reads as a lake.
+TEST_F(DataItemLayerTest, ARastersHolesAreDrawnAsHolesAndLeftOutOfItsRange)
+{
+  Testing::StubCrs crs(4326);
+  Testing::StubRaster raster(2, 1, 0.0, 10.0, 10.0, &crs);
+  Testing::StubRasterItem item("depths", &raster);
+
+  item.setValue(0, 0, 0, 5.0);
+  item.setValue(0, 0, 1, std::numeric_limits<double>::quiet_NaN());
+
+  QString message;
+  const std::unique_ptr<RasterDataItemLayer> layer =
+    RasterDataItemLayer::create(&item, message);
+
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  EXPECT_EQ(layer->valueRange().first, 5.0);
+  EXPECT_EQ(layer->valueRange().second, 5.0)
+    << "a hole was counted as a value";
+
+  QImage canvas(64, 64, QImage::Format_ARGB32);
+
+  {
+    QPainter painter(&canvas);
+    MapTransform transform(layer->extent(), QSize(64, 64));
+    layer->render(painter, transform);
+  }
+
+  EXPECT_EQ(layer->lastImage().pixelColor(1, 0).alpha(), 0)
+    << "a hole in the survey was given a colour";
+  EXPECT_NE(layer->lastImage().pixelColor(0, 0).alpha(), 0);
+}
+
+TEST_F(DataItemLayerTest, ASecondBandIsADifferentPictureOfTheSameGround)
+{
+  Testing::StubCrs crs(4326);
+
+  // Two rows as well as two bands, so reading the band axis as the row axis
+  // is a different answer rather than the same numbers by coincidence.
+  Testing::StubRaster raster(2, 2, 0.0, 20.0, 10.0, &crs, 2);
+  Testing::StubRasterItem item("depths", &raster);
+
+  item.setValue(0, 0, 0, 1.0);
+  item.setValue(0, 0, 1, 2.0);
+  item.setValue(0, 1, 0, 3.0);
+  item.setValue(0, 1, 1, 4.0);
+  item.setValue(1, 0, 0, 30.0);
+  item.setValue(1, 0, 1, 40.0);
+  item.setValue(1, 1, 0, 50.0);
+  item.setValue(1, 1, 1, 60.0);
+
+  QString message;
+  const std::unique_ptr<RasterDataItemLayer> layer =
+    RasterDataItemLayer::create(&item, message);
+
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+  EXPECT_EQ(layer->valueRange().second, 4.0);
+
+  layer->setBand(1);
+
+  EXPECT_EQ(layer->band(), 1);
+  EXPECT_EQ(layer->valueRange().first, 30.0);
+  EXPECT_EQ(layer->valueRange().second, 60.0)
+    << "the second band was read from the first band's rows";
+
+  // The ground did not move.
+  EXPECT_NEAR(layer->extent().width(), 20.0, 1e-9);
+  EXPECT_NEAR(layer->extent().height(), 20.0, 1e-9);
+}
+
+TEST_F(DataItemLayerTest, AnItemThatIsNotARasterIsRefusedWithAReason)
+{
+  Testing::StubCrs crs(4326);
+  const auto point = Testing::makePoint(0.0, 0.0, 0, &crs);
+  Testing::StubGeometryItem item("depths", {point.get()});
+
+  EXPECT_FALSE(RasterDataItemLayer::isRaster(&item));
+  EXPECT_FALSE(RasterDataItemLayer::isRaster(nullptr));
+
+  QString message;
+  EXPECT_EQ(RasterDataItemLayer::create(&item, message), nullptr);
+  EXPECT_FALSE(message.isEmpty());
+}
+
+// The SDK's own RasterComponentDataItem is one band with shape {y, x}. An
+// item shaped that way must be refused and told why, not read as though its
+// rows were its bands.
+TEST_F(DataItemLayerTest, ARasterItemWithNoBandAxisIsRefusedAndToldWhy)
+{
+  Testing::StubCrs crs(4326);
+  Testing::StubRaster raster(2, 2, 0.0, 20.0, 10.0, &crs);
+  Testing::StubRasterItem item("depths", &raster);
+  item.reportShapeWithoutABandAxis();
+
+  QString message;
+  EXPECT_EQ(RasterDataItemLayer::create(&item, message), nullptr);
+  EXPECT_TRUE(message.contains(QStringLiteral("band"))) << message.toStdString();
+}
+
+// Every cell a hole is a drawable, empty raster -- not a range of positive
+// and negative infinity that shades into nonsense.
+TEST_F(DataItemLayerTest, ARasterThatIsAllHolesIsEmptyRatherThanWild)
+{
+  Testing::StubCrs crs(4326);
+  Testing::StubRaster raster(2, 1, 0.0, 10.0, 10.0, &crs);
+  Testing::StubRasterItem item("depths", &raster);
+
+  const double hole = std::numeric_limits<double>::quiet_NaN();
+  item.setValue(0, 0, 0, hole);
+  item.setValue(0, 0, 1, hole);
+
+  QString message;
+  const std::unique_ptr<RasterDataItemLayer> layer =
+    RasterDataItemLayer::create(&item, message);
+
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+  EXPECT_EQ(layer->valueRange().first, 0.0);
+  EXPECT_EQ(layer->valueRange().second, 0.0);
+
+  QImage canvas(64, 64, QImage::Format_ARGB32);
+
+  {
+    QPainter painter(&canvas);
+    MapTransform transform(layer->extent(), QSize(64, 64));
+    layer->render(painter, transform);
+  }
+
+  EXPECT_EQ(layer->lastImage().pixelColor(0, 0).alpha(), 0);
+  EXPECT_EQ(layer->lastImage().pixelColor(1, 0).alpha(), 0);
+}
+
+// ── The raster item joins the 3D scene (coherence plan V8) ────────────────
+//
+// Run results were the one whole class of layer silently absent from 3D:
+// RasterDataItemLayer derived from MapLayer alone, so a simulated depth
+// field could be browsed on the map and never draped over the terrain it
+// was computed on.
+
+TEST_F(DataItemLayerTest, ARasterItemHasA3dFormAndItIsItsShadedBand)
+{
+  Testing::StubCrs crs(4326);
+  Testing::StubRaster raster(2, 2, 0.0, 20.0, 10.0, &crs);
+  Testing::StubRasterItem item("depths", &raster);
+
+  item.setValue(0, 0, 0, 1.0);
+  item.setValue(0, 0, 1, 2.0);
+  item.setValue(0, 1, 0, 3.0);
+  item.setValue(0, 1, 1, 4.0);
+
+  QString message;
+  const std::unique_ptr<RasterDataItemLayer> layer =
+    RasterDataItemLayer::create(&item, message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  ASSERT_NE(layer->sceneSource(), nullptr)
+    << "raster results are still absent from the scene";
+
+  // Flat, no terrain: one textured quad over the raster's footprint.
+  const QVector<SceneGeometry> batches =
+    layer->sceneSource()->sceneGeometry({});
+  ASSERT_EQ(batches.size(), 1);
+  EXPECT_FALSE(batches.first().texture.isNull());
+  EXPECT_EQ(batches.first().textureExtent.normalized(),
+            QRectF(0.0, 0.0, 20.0, 20.0).normalized());
+
+  const Bounds3D bounds = layer->sceneSource()->sceneBounds();
+  ASSERT_TRUE(bounds.isValid());
+  EXPECT_NEAR(bounds.maximum().x(), 20.0, 1e-6);
+}
+
+TEST_F(DataItemLayerTest, ANewBandInvalidatesTheDrapedTexture)
+{
+  Testing::StubCrs crs(4326);
+  Testing::StubRaster raster(2, 1, 0.0, 10.0, 10.0, &crs, 2);
+  Testing::StubRasterItem item("depths", &raster);
+
+  // The second band runs the other way, because each band is shaded over
+  // its own range: two ascending bands would normalise to the same picture
+  // and the gate would compare a texture with itself.
+  item.setValue(0, 0, 0, 1.0);
+  item.setValue(0, 0, 1, 2.0);
+  item.setValue(1, 0, 0, 40.0);
+  item.setValue(1, 0, 1, 30.0);
+
+  QString message;
+  const std::unique_ptr<RasterDataItemLayer> layer =
+    RasterDataItemLayer::create(&item, message);
+  ASSERT_NE(layer, nullptr) << message.toStdString();
+
+  const QImage first =
+    layer->sceneSource()->sceneGeometry({}).first().texture;
+
+  layer->setBand(1);
+
+  const QImage second =
+    layer->sceneSource()->sceneGeometry({}).first().texture;
+
+  EXPECT_NE(first, second)
+    << "the scene kept draping the old band's picture";
 }

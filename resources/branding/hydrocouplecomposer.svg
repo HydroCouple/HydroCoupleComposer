@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  HydroCoupleComposer application icon (flat redesign, 2026).
+
+  Keeps the historical mark's identity - a C-arc coupling a node on a
+  horizontal wire - and makes the connector motif explicit: the wire
+  terminates in the composition canvas's own port colours (input blue
+  rgb(80,130,200) on the left, output orange rgb(210,145,60) on the
+  right), so the icon depicts a coupled component with its ports.
+
+  Master for tools/make_icons.sh; keep all geometry in the 1024 grid.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FBFCFE"/>
+      <stop offset="1" stop-color="#E6EDF7"/>
+    </linearGradient>
+  </defs>
+
+  <!-- macOS squircle plate (824x824 centred, Big Sur grid) -->
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#bg)"/>
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="none"
+        stroke="#C9D4E4" stroke-width="6"/>
+
+  <!-- wire, drawn behind the glyph -->
+  <line x1="232" y1="512" x2="792" y2="512" stroke="#55657E" stroke-width="42"
+        stroke-linecap="round"/>
+
+  <!-- C-arc: centre (460,512) r=200, mouth opening to the right (+/-60 deg) -->
+  <path d="M 560 685.2 A 200 200 0 1 1 560 338.8"
+        fill="none" stroke="#1E6FD9" stroke-width="76" stroke-linecap="round"/>
+
+  <!-- coupled node sitting in the C's mouth -->
+  <circle cx="606" cy="512" r="120" fill="#1E6FD9"/>
+
+  <!-- port terminals in the canvas port colours -->
+  <circle cx="232" cy="512" r="56" fill="rgb(80,130,200)"/>
+  <circle cx="792" cy="512" r="56" fill="rgb(210,145,60)"/>
+</svg>

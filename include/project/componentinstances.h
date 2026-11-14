@@ -67,6 +67,15 @@ namespace HydroCouple::Composer
 
       /*!
        * \brief The instance for \a componentId, creating it on first request.
+       *
+       * \warning Do not hold the pointer across an edit to the document.
+       * Editing a component's block realises it again — that is how its
+       * ports come to reflect its arguments — and the instance behind an
+       * older pointer is retired. It stays alive until control returns to
+       * the event loop, so a caller mid-call is never left with freed
+       * memory, but the value it describes is already out of date: ask
+       * again after an edit rather than reusing what you were given.
+       *
        * \returns nullptr when the component cannot be instantiated; call
        *          failure() for why.
        */
@@ -96,6 +105,23 @@ namespace HydroCouple::Composer
        */
       void clear();
 
+      /*!
+       * \brief The registry these instances are realised from.
+       */
+      [[nodiscard]] ComponentRegistry *registry() const { return m_registry; }
+
+      /*!
+       * \brief Live standalone adapter factories for edit-time availability
+       *        queries: the SDK's own first, then one instance per loaded
+       *        factory library.
+       *
+       * Lazily realised and owned here, introspection only — a run realises
+       * its own set. Invalidated when the registry changes; dropped by
+       * clear(), before the registry goes away.
+       */
+      [[nodiscard]] std::vector<HydroCouple::IAdaptedOutputFactory *>
+      adapterFactories();
+
     Q_SIGNALS:
       /*!
        * \brief Emitted when a component's instance appears or is dropped.
@@ -107,11 +133,45 @@ namespace HydroCouple::Composer
       //! Which component-info id in the registry backs a document component.
       [[nodiscard]] QString registryIdFor(const QString &componentId) const;
 
+      /*!
+       * \brief Drops instances the document has since changed under.
+       *
+       * A component's exchange items are made during initialize(), out of
+       * the arguments it was given — a time-series provider publishes one
+       * output per series in its source file, and a component whose
+       * required argument is missing does not initialize at all. So an
+       * instance realised from one set of arguments describes a component
+       * that no longer exists once those arguments are edited: its ports
+       * are stale, and a failure recorded before the user supplied the
+       * missing argument would otherwise stand for the whole session.
+       */
+      void dropInstancesWhoseSpecChanged();
+
       CompositionDocument *m_document = nullptr;
       ComponentRegistry *m_registry = nullptr;
 
       QHash<QString, std::shared_ptr<HydroCouple::IModelComponent>> m_instances;
       QHash<QString, QString> m_failures;
+
+      //! The component block each cached instance/failure was realised from.
+      QHash<QString, HydroCouple::SDK::IO::ComponentSpec> m_realisedFrom;
+
+      /*!
+       * \brief Instances dropped this turn, held until the event loop runs.
+       *
+       * An edit routinely happens while somebody is holding the pointer
+       * they were just given — a panel applying a value, a test reading a
+       * before-and-after — and destroying it underneath them is a crash
+       * rather than a stale read. Qt's own answer to the same problem is
+       * deleteLater(); this is that, for objects that are not QObjects.
+       */
+      std::vector<std::shared_ptr<HydroCouple::IModelComponent>> m_retired;
+
+      bool m_sweepQueued = false;
+
+      std::vector<std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent>>
+        m_adapterFactories;
+      bool m_adapterFactoriesRealised = false;
   };
 
 } // namespace HydroCouple::Composer

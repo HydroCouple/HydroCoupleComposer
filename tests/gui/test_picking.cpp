@@ -14,8 +14,10 @@
  * nearest centroid's.
  */
 
+#include "core/preferencesmanager.h"
 #include "layers/meshlayer.h"
 #include "map/layerstackmodel.h"
+#include "settingsredirect.h"
 #include "map/mapcanvas.h"
 #include "map/maptransform.h"
 #include "pick/terrainray.h"
@@ -105,6 +107,12 @@ namespace
       {
         if (!QApplication::instance())
         {
+          // Picking reads the application-wide preferences, which a test
+          // must not write into the developer's own configuration.
+          HydroCouple::Composer::Testing::redirectSettingsTo(
+            QStringLiteral(COMPOSER_PREFERENCES_FIXTURE_DIR)
+            + QStringLiteral("/test_picking"));
+
           static int argc = 1;
           static char name[] = "test_picking";
           static char *argv[] = { name, nullptr };
@@ -365,7 +373,72 @@ namespace
       << "the selected feature is not visibly selected";
   }
 
+  TEST_F(PickTest, TheSelectionColourIsAPreferenceReadAsTheLayerPaints)
+  {
+    PreferencesManager *prefs = PreferencesManager::instance();
+    prefs->resetToDefaults();
+
+    VectorProbe probe(QStringLiteral("conduits"));
+    probe.addLine({ { 10.0, 50.0 }, { 90.0, 50.0 } });
+    probe.setSelection({ 0 });
+
+    QImage image(200, 200, QImage::Format_ARGB32);
+    const MapTransform transform(QRectF(0.0, 0.0, 100.0, 100.0),
+                                 QSizeF(image.size()));
+
+    prefs->setSelectionColor(QColor(255, 0, 0));
+    image.fill(Qt::white);
+
+    {
+      QPainter painter(&image);
+      probe.render(painter, transform);
+    }
+
+    // Read as it paints, not captured when the layer was made: the same
+    // probe, with nothing but the preference changed between two renders.
+    EXPECT_GT(countMatching(image, QColor(255, 0, 0), 20), 100)
+      << "the selection is not drawn in the preferred colour";
+    EXPECT_EQ(countMatching(image, QColor(0, 200, 255), 20), 0)
+      << "the old default colour is still being used";
+
+    prefs->resetToDefaults();
+  }
+
   // ── through the canvas ──────────────────────────────────────────────────
+
+  TEST_F(PickTest, ThePickToleranceIsAPreferenceReadOnEveryClick)
+  {
+    PreferencesManager *prefs = PreferencesManager::instance();
+    prefs->resetToDefaults();
+
+    LayerStackModel stack;
+
+    auto *probe = new VectorProbe(QStringLiteral("conduits"));
+    probe->addLine({ { 0.0, 50.0 }, { 100.0, 50.0 } });
+    ASSERT_GE(stack.addLayer(probe), 0);
+
+    MapCanvas canvas;
+    canvas.resize(400, 400);
+    canvas.show();
+    canvas.setModel(&stack);
+    canvas.setVisibleExtent(QRectF(0.0, 0.0, 100.0, 100.0));
+    QApplication::processEvents();
+
+    // Four pixels a unit, so thirty pixels below the line is well outside
+    // the six the default allows and inside a widened forty.
+    int feature = -1;
+    EXPECT_EQ(canvas.pickAt(QPoint(200, 230), feature), nullptr)
+      << "a click thirty pixels off a line hit it at the default tolerance";
+
+    prefs->setPickTolerancePixels(40.0);
+    EXPECT_EQ(canvas.pickAt(QPoint(200, 230), feature), probe)
+      << "widening the tolerance did not reach the next pick";
+    EXPECT_EQ(feature, 0);
+
+    prefs->resetToDefaults();
+    EXPECT_EQ(canvas.pickAt(QPoint(200, 230), feature), nullptr)
+      << "narrowing it back did not either";
+  }
 
   TEST_F(PickTest, TheCanvasPicksTheTopmostLayer)
   {

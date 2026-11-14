@@ -32,6 +32,8 @@ composer_add_gui_test(test_maptransform)
 composer_add_gui_test(test_layerstack)
 composer_add_gui_test(test_mapcanvas)
 composer_add_gui_test(test_maptools)
+target_compile_definitions(test_maptools PRIVATE
+    COMPOSER_PREFERENCES_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/preferences")
 
 # C1c — styling. The ramp and classification suites are value-type maths and
 # need no widgets; the labelling suite renders, because a halo that is not
@@ -46,6 +48,8 @@ target_compile_definitions(test_runbrowser PRIVATE
     COMPOSER_SDK_REOPEN_MANIFEST="${COMPOSER_SDK_REOPEN_MANIFEST}")
 composer_add_gui_test(test_mapstatusbar)
 composer_add_gui_test(test_layerproperties)
+target_compile_definitions(test_layerproperties PRIVATE
+    COMPOSER_GIS_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/gis")
 
 # C1d — basemaps and GDAL import. The tile-grid suite is arithmetic; the
 # layer suites read real datasets. The raster fixture is generated at test
@@ -53,6 +57,66 @@ composer_add_gui_test(test_layerproperties)
 # failure can be inspected rather than guessed at.
 composer_add_gui_test(test_tilegrid)
 composer_add_gui_test(test_tilelayer)
+composer_add_gui_test(test_ogctilesource)
+target_compile_definitions(test_ogctilesource PRIVATE
+    COMPOSER_OGC_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/ogc")
+composer_add_gui_test(test_wfsfeaturelayer)
+composer_add_gui_test(test_wcscoveragelayer)
+composer_add_gui_test(test_layerpersistence)
+composer_add_gui_test(test_terrainsampler)
+target_compile_definitions(test_terrainsampler PRIVATE
+    COMPOSER_OGC_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/ogc")
+target_compile_definitions(test_layerpersistence PRIVATE
+    COMPOSER_OGC_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/ogc")
+target_compile_definitions(test_wcscoveragelayer PRIVATE
+    COMPOSER_OGC_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/ogc")
+composer_add_gui_test(test_ogcservicedialog)
+target_compile_definitions(test_ogcservicedialog PRIVATE
+    COMPOSER_OGC_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/ogc")
+
+# O2 — saved connections. Drives its own settings file and its own machine
+# id, so it never writes where the application reads.
+composer_add_gui_test(test_serviceconnections)
+
+# Automatic placement for the coupling graph — a pure function, so these
+# gates need no scene.
+composer_add_gui_test(test_graphlayout)
+
+# The start page and the documents it remembers. Drives its own settings
+# file, so it never writes where the application reads.
+composer_add_gui_test(test_welcome)
+target_compile_definitions(test_welcome PRIVATE
+    COMPOSER_PREFERENCES_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/preferences")
+
+# U7 — global preferences. The manager suite walks the key table over its
+# own .ini; the dialog suite drives every widget through OK and reopens.
+# U4 — the orientation cue: arithmetic over the camera's angles.
+composer_add_gui_test(test_axisgizmo)
+composer_add_gui_test(test_gizmodraw)
+
+# U5 — how a drag, a wheel notch and a named view move the camera.
+composer_add_gui_test(test_navigation)
+
+# U2a - which editor an argument gets, and in what order that is decided.
+# Pure: no component library, no widgets.
+composer_add_gui_test(test_argumentkinds)
+
+# U2b - the window that edits one argument. Widgets, but no component and
+# no document: the committer is a callback, so these run anywhere.
+composer_add_gui_test(test_argumentdialogs)
+
+# U3 — what a point layer and a filled ring contribute to the 3D view.
+composer_add_gui_test(test_scenemarkers)
+
+# U6 — one selection across the canvas and the layer views.
+composer_add_gui_test(test_selectionhub)
+
+composer_add_gui_test(test_preferences)
+target_compile_definitions(test_preferences PRIVATE
+    COMPOSER_PREFERENCES_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/preferences")
+composer_add_gui_test(test_preferencesdialog)
+target_compile_definitions(test_preferencesdialog PRIVATE
+    COMPOSER_PREFERENCES_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/preferences")
 composer_add_gui_test(test_gdallayers)
 
 # C2 — component data items and meshes. Built on the SDK's own data-item
@@ -63,6 +127,36 @@ composer_add_gui_test(test_timecontrols)
 composer_add_gui_test(test_seriesplot)
 # D4a — one variable, two runs, drawn as the difference between them.
 composer_add_gui_test(test_difference)
+
+# E1a — the ground a mesh will be generated over. Writes its round-tripped
+# sidecar next to the other fixtures, so what it checked can be opened.
+composer_add_gui_test(test_meshdomain)
+
+# E1b-1 — the domain on the map: four homogeneous layers over one model.
+composer_add_gui_test(test_domainlayer)
+
+# E1b-2 — drawing the domain's parts, driven through real mouse events.
+composer_add_gui_test(test_domaindraw)
+
+# E1b-3 — the reach that decides what was clicked, and the drag, insert and
+# remove gestures built on it.
+composer_add_gui_test(test_domainedit)
+target_compile_definitions(test_domainedit PRIVATE
+    COMPOSER_PREFERENCES_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/preferences")
+
+# E1c — features already on the map become part of the domain. Reads the
+# hand-authored GeoJSON beside the other mesh fixtures, so what a gate
+# checked can be opened and looked at.
+composer_add_gui_test(test_domainimport)
+target_compile_definitions(test_domainimport PRIVATE
+    COMPOSER_MESH_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/mesh")
+
+# E2a — meshing the domain. Data in, data out: the gate is that what comes
+# back is the SDK's own mesh, so the suite calls the SDK directly to compare
+# against and needs no widgets.
+composer_add_gui_test(test_meshgenerate)
+target_compile_definitions(test_meshdomain PRIVATE
+    COMPOSER_MESH_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/mesh")
 # D3d — a section line cut through a layered mesh. The slice arithmetic, the
 # layer's answer, the pixels the panel paints and the gesture that draws it.
 composer_add_gui_test(test_transect)
@@ -112,6 +206,8 @@ composer_add_gui_test(test_viewhandoff)
 # C4 — identifying what is under a click. Drives the canvas with real mouse
 # events: telling a click from a pan is not observable from the hit test.
 composer_add_gui_test(test_picking)
+target_compile_definitions(test_picking PRIVATE
+    COMPOSER_PREFERENCES_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/preferences")
 
 # C4c — the attribute table. Driven through its real widgets: what is under
 # test is the wiring, not the model.
@@ -126,17 +222,31 @@ target_compile_definitions(test_compositiondocument PRIVATE
 composer_add_gui_test(test_compositioncanvas)
 target_compile_definitions(test_compositioncanvas PRIVATE
     COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>")
-add_dependencies(test_compositioncanvas testcomponent)
+add_dependencies(test_compositioncanvas testcomponent testadapterfactory)
+
+composer_add_gui_test(test_httpuriresolver)
+target_compile_definitions(test_httpuriresolver PRIVATE
+    COMPOSER_CONFIGURATOR_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/configurator")
 
 composer_add_gui_test(test_configurator)
 target_compile_definitions(test_configurator PRIVATE
-    COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>")
+    COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>"
+    COMPOSER_CONFIGURATOR_FIXTURE_DIR="${CMAKE_SOURCE_DIR}/tests/fixtures/configurator")
 add_dependencies(test_configurator testcomponent)
+
+composer_add_gui_test(test_adapterinspector)
+target_compile_definitions(test_adapterinspector PRIVATE
+    COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>")
+add_dependencies(test_adapterinspector testcomponent)
+
+# S4.3 — document-pure: no component library, the panel must work on
+# documents naming uninstalled components too.
+composer_add_gui_test(test_executionpanel)
 
 composer_add_gui_test(test_simulationmanager)
 target_compile_definitions(test_simulationmanager PRIVATE
     COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>")
-add_dependencies(test_simulationmanager testcomponent)
+add_dependencies(test_simulationmanager testcomponent testadapterfactory)
 
 composer_add_gui_test(test_hcpimporter)
 target_compile_definitions(test_hcpimporter PRIVATE
@@ -146,9 +256,11 @@ target_compile_definitions(test_hcpimporter PRIVATE
 # where they landed.
 composer_add_gui_test(test_component_loader)
 target_compile_definitions(test_component_loader PRIVATE
-    COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>")
+    COMPOSER_FIXTURE_DIR="$<TARGET_FILE_DIR:testcomponent>"
+    COMPOSER_LOADER_ARTIFACT_DIR="${CMAKE_SOURCE_DIR}/tests/artifacts/component_loader")
 add_dependencies(test_component_loader
-    testcomponent notacomponent badabicomponent legacycomponent)
+    testcomponent testadapterfactory notacomponent badabicomponent
+    legacycomponent)
 
 # ── Headless CLI (B4) ───────────────────────────────────────────────────────
 # Drives the shipped binary as a subprocess, because the property under test is
@@ -163,3 +275,45 @@ add_test(NAME test_headless_run
 set_tests_properties(test_headless_run PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     TIMEOUT 180)
+
+add_test(NAME test_headless_component_environment
+    COMMAND ${CMAKE_COMMAND}
+        -DCOMPOSER_BINARY=$<TARGET_FILE:HydroCoupleComposer>
+        -DFIXTURE_DIR=$<TARGET_FILE_DIR:testcomponent>
+        -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/headless-environment
+        -DUSE_ENVIRONMENT_PATH=ON
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/run_headless.cmake)
+set_tests_properties(test_headless_component_environment PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    TIMEOUT 180)
+
+# Cross-repository CF2 reference components. Set all three paths to exercise
+# real SDK-free OpenSWMM identities and the source/receiver through Composer.
+set(COMPOSER_INTERVAL_SOURCE_LIBRARY "" CACHE FILEPATH "CF2 controllable source library")
+set(COMPOSER_INTERVAL_RECEIVER_LIBRARY "" CACHE FILEPATH "CF2 conservative receiver library")
+set(COMPOSER_OPENSWMM_COMPONENT_LIBRARY "" CACHE FILEPATH "SDK-free OpenSWMM component library")
+set(COMPOSER_OPENSWMM_ENGINE_COMPONENT_LIBRARY "" CACHE FILEPATH "Generic native engine component (optional CF3 integration)")
+set(COMPOSER_ENGINE_COMPONENT_FIXTURE "" CACHE FILEPATH "Native model for CF3 integration")
+if(COMPOSER_INTERVAL_SOURCE_LIBRARY AND COMPOSER_INTERVAL_RECEIVER_LIBRARY AND COMPOSER_OPENSWMM_COMPONENT_LIBRARY)
+    foreach(_library IN ITEMS COMPOSER_INTERVAL_SOURCE_LIBRARY COMPOSER_INTERVAL_RECEIVER_LIBRARY COMPOSER_OPENSWMM_COMPONENT_LIBRARY)
+        if(NOT EXISTS "${${_library}}")
+            message(FATAL_ERROR "${_library} does not exist: ${${_library}}")
+        endif()
+    endforeach()
+    composer_add_gui_test(test_customcomponents)
+    target_compile_definitions(test_customcomponents PRIVATE
+        COMPOSER_INTERVAL_SOURCE_LIBRARY="${COMPOSER_INTERVAL_SOURCE_LIBRARY}"
+        COMPOSER_INTERVAL_RECEIVER_LIBRARY="${COMPOSER_INTERVAL_RECEIVER_LIBRARY}"
+        COMPOSER_OPENSWMM_COMPONENT_LIBRARY="${COMPOSER_OPENSWMM_COMPONENT_LIBRARY}"
+        COMPOSER_CUSTOM_ARTIFACT_DIR="${CMAKE_SOURCE_DIR}/tests/artifacts/customcomponents")
+    if(COMPOSER_OPENSWMM_ENGINE_COMPONENT_LIBRARY AND COMPOSER_ENGINE_COMPONENT_FIXTURE)
+        foreach(_path IN ITEMS COMPOSER_OPENSWMM_ENGINE_COMPONENT_LIBRARY COMPOSER_ENGINE_COMPONENT_FIXTURE)
+            if(NOT EXISTS "${${_path}}")
+                message(FATAL_ERROR "${_path} does not exist: ${${_path}}")
+            endif()
+        endforeach()
+        target_compile_definitions(test_customcomponents PRIVATE
+            COMPOSER_OPENSWMM_ENGINE_COMPONENT_LIBRARY="${COMPOSER_OPENSWMM_ENGINE_COMPONENT_LIBRARY}"
+            COMPOSER_ENGINE_COMPONENT_FIXTURE="${COMPOSER_ENGINE_COMPONENT_FIXTURE}")
+    endif()
+endif()

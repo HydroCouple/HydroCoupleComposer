@@ -17,6 +17,7 @@
 #ifndef HYDROCOUPLECOMPOSER_LAYERS_DATAITEMLAYER_H
 #define HYDROCOUPLECOMPOSER_LAYERS_DATAITEMLAYER_H
 
+#include "layers/componentlayer.h"
 #include "layers/featurelayer.h"
 #include "layers/timelayer.h"
 
@@ -33,7 +34,9 @@ namespace HydroCouple::Composer
   /*!
    * \brief A spatial component data item drawn on the map.
    */
-  class DataItemLayer : public FeatureLayer, public ITimeLayer
+  class DataItemLayer : public FeatureLayer,
+                        public ITimeLayer,
+                        public IComponentLayer
   {
     public:
       /*!

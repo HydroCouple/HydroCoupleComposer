@@ -89,6 +89,15 @@ namespace HydroCouple::Composer
       //! \returns The Rendering page — visibility and opacity.
       QWidget *buildRenderingTab();
 
+      /*!
+       * \brief The tab holding everything that only the scene reads.
+       *
+       * Never null: a layer with no 3D form gets the explanation instead of
+       * silently missing controls -- the user checked "Draw this layer",
+       * saw nothing in 3D, and deserved to be told why.
+       */
+      QWidget *buildSceneTab();
+
       //! \returns The Metadata page, or nullptr when there is nothing to show.
       QWidget *buildMetadataTab();
 
@@ -134,7 +143,22 @@ namespace HydroCouple::Composer
       QCheckBox *m_visibleCheck = nullptr;
       QSpinBox *m_opacitySpin = nullptr;
       QComboBox *m_drapeCombo = nullptr;
+      QDoubleSpinBox *m_zConstantSpin = nullptr;
+      QComboBox *m_zFieldCombo = nullptr;
+      QDoubleSpinBox *m_zOffsetSpin = nullptr;
+      QCheckBox *m_shownIn3dCheck = nullptr;
+      QCheckBox *m_terrainEnabledCheck = nullptr;
+      QCheckBox *m_flatShadingCheck = nullptr;
+      QComboBox *m_rasterRampCombo = nullptr;
+      QDoubleSpinBox *m_rasterMinimumSpin = nullptr;
+      QDoubleSpinBox *m_rasterMaximumSpin = nullptr;
       QDoubleSpinBox *m_extrusionSpin = nullptr;
+
+      // U3 — how the layer reads in the 3D view.
+      QDoubleSpinBox *m_markerSizeSpin = nullptr;
+      QCheckBox *m_fillRingsCheck = nullptr;
+      QSpinBox *m_peelFirstSpin = nullptr;
+      QSpinBox *m_peelLastSpin = nullptr;
 
       QComboBox *m_modeCombo = nullptr;
       QComboBox *m_attributeCombo = nullptr;

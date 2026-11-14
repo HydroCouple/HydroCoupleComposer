@@ -14,6 +14,21 @@ Type the following command for more help:
 ./HydroCoupleComposer -h
 ```
 
+For the current JSON composition format, run
+`HydroCoupleComposer --run composition.json --components ./components`.
+Add `--json-progress` for host integration. Lines beginning
+`HYDROCOUPLE_EVENT ` contain `hydrocouple.run-events/1` JSON with a unique run ID,
+monotonic sequence and `started`, `initializing`, `progress` or `finished` event.
+The start event identifies the absolute composition path and SHA-256 of its
+bytes. Progress carries the completed workflow step and copied per-component
+IDs, status codes and Julian-day clocks (null for untimed components). Clocks
+are sampled on the simulation worker; a host never reads running instances.
+They report progress and do not establish a shared coupling timestep.
+The final event reports success, diagnostics and the manifest path when written;
+load/validation failures also produce a failed final event and a nonzero exit.
+Other stdout/stderr lines may come from foreign libraries and are human logs.
+This event stream adds no checkpoint or external run-control capability.
+
 ![HydroCoupleComposer Screenshot](resources/images/hydrocouplecomposerscreenshot.png)
 
 ## Installers

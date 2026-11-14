@@ -13,8 +13,12 @@
 
 #include <QApplication>
 
+#include <memory>
+
 namespace HydroCouple::Composer
 {
+
+  class HttpUriResolver;
 
   /*!
    * \brief The application object for HydroCoupleComposer.
@@ -36,6 +40,18 @@ namespace HydroCouple::Composer
        * \brief The version string this binary was built from.
        */
       [[nodiscard]] static QString versionString();
+
+      /*!
+       * \brief The resolver that lets model arguments read http(s) URIs.
+       *
+       * Installed process-wide for the SDK the moment the application exists,
+       * and taken away again when it does not, because an argument reached
+       * through initialize() has no other way to be handed one.
+       */
+      [[nodiscard]] HttpUriResolver *uriResolver() const;
+
+    private:
+      std::unique_ptr<HttpUriResolver> m_uriResolver;
   };
 
 } // namespace HydroCouple::Composer

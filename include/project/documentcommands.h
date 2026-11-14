@@ -98,6 +98,37 @@ namespace HydroCouple::Composer
    * Consecutive moves of one component merge, so a drag is a single undo step
    * rather than one per mouse-move event.
    */
+  /*!
+   * \brief Moves one spliced adapter node. Presentation only; consecutive
+   *        moves of one step merge, like component moves.
+   */
+  class MoveAdapterCommand : public QUndoCommand
+  {
+    public:
+      enum
+      {
+        Id = 0x43'4d'56'02
+      };
+
+      MoveAdapterCommand(CompositionDocument *document,
+                         HydroCouple::SDK::IO::ConnectionSpec connection,
+                         int index, QPointF before, QPointF after);
+
+      void undo() override;
+      void redo() override;
+
+      [[nodiscard]] int id() const override;
+
+      bool mergeWith(const QUndoCommand *other) override;
+
+    private:
+      CompositionDocument *m_document;
+      HydroCouple::SDK::IO::ConnectionSpec m_connection;
+      int m_index;
+      QPointF m_before;
+      QPointF m_after;
+  };
+
   class MoveComponentCommand : public QUndoCommand
   {
     public:

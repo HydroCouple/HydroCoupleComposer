@@ -20,6 +20,7 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QSignalSpy>
+#include <QJsonArray>
 #include <QTemporaryDir>
 
 #include <nlohmann/json.hpp>
@@ -129,6 +130,7 @@ TEST_F(SimulationTest, RunsACompositionToCompletion)
 
   QSignalSpy finishedSpy(manager.get(), &SimulationManager::finished);
   QSignalSpy stepSpy(manager.get(), &SimulationManager::stepCompleted);
+  QSignalSpy progressSpy(manager.get(), &SimulationManager::progressSnapshot);
 
   ASSERT_TRUE(manager->start(document, message)) << message.toStdString();
 
@@ -143,6 +145,18 @@ TEST_F(SimulationTest, RunsACompositionToCompletion)
 
   EXPECT_EQ(manager->state(), SimulationState::Finished);
   EXPECT_GT(stepSpy.count(), 0) << "no step was ever reported";
+  ASSERT_EQ(progressSpy.count(), stepSpy.count());
+  int previous = 0;
+  for (const auto &event : progressSpy)
+  {
+    const auto snapshot = event.at(0).toJsonObject();
+    EXPECT_EQ(snapshot.value(QStringLiteral("step")).toInt(), ++previous);
+    const auto components = snapshot.value(QStringLiteral("components")).toArray();
+    ASSERT_EQ(components.size(), 2);
+    EXPECT_EQ(components[0].toObject().value(QStringLiteral("id")).toString(), QStringLiteral("upstream"));
+    EXPECT_EQ(components[1].toObject().value(QStringLiteral("id")).toString(), QStringLiteral("downstream"));
+    EXPECT_TRUE(components[0].toObject().contains(QStringLiteral("current_julian_day")));
+  }
   EXPECT_FALSE(manager->isRunning());
 }
 
@@ -448,4 +462,143 @@ TEST_F(SimulationTest, EmitsStateTransitions)
 
   EXPECT_TRUE(seen.contains(SimulationState::Running));
   EXPECT_TRUE(seen.contains(SimulationState::Finished));
+}
+
+// ── Standalone adapter factories in a run (CONNECT B3) ──────────────────────
+
+TEST_F(SimulationTest, ARunBuildsAdapterChainsFromStandaloneFactoryLibraries)
+{
+  QString message;
+  ASSERT_NE(registry.loadLibrary(
+              fixturePath(QStringLiteral("testadapterfactory")), message),
+            nullptr)
+    << message.toStdString();
+
+  const QByteArray adapted = R"({
+  "components": [
+    { "id": "upstream",
+      "info": { "component_info_id": "composer.test.component" } },
+    { "id": "downstream",
+      "info": { "component_info_id": "composer.test.component" } }
+  ],
+  "connections": [
+    { "from": { "component": "upstream", "output": "values",
+                "adapted_outputs": [
+                  { "factory": "composer.test.adapterfactory",
+                    "id": "double_it" } ] },
+      "to": { "component": "downstream", "input": "inflow" } }
+  ]
+})";
+
+  CompositionDocument document;
+  ASSERT_TRUE(document.loadFromJson(adapted, message)) << message.toStdString();
+
+  // With the factory library loaded, the chain resolves through the
+  // registry-backed resolver and the run completes.
+  QSignalSpy finishedSpy(manager.get(), &SimulationManager::finished);
+  ASSERT_TRUE(manager->start(document, message)) << message.toStdString();
+  EXPECT_TRUE(pumpUntil([&] { return finishedSpy.count() > 0; }))
+    << "the adapted run never finished; state="
+    << static_cast<int>(manager->state());
+  ASSERT_EQ(finishedSpy.count(), 1);
+  EXPECT_TRUE(finishedSpy.first().at(0).toBool())
+    << finishedSpy.first().at(1).toString().toStdString();
+
+  // Without it, the same document fails the apply, naming the adapter —
+  // which is what proves the run above resolved through the LIBRARY rather
+  // than something built in.
+  ComponentRegistry bareRegistry;
+  ASSERT_NE(bareRegistry.loadLibrary(
+              fixturePath(QStringLiteral("testcomponent")), message),
+            nullptr);
+  SimulationManager bareManager(&bareRegistry);
+  QString failure;
+  EXPECT_FALSE(bareManager.start(document, failure));
+  EXPECT_TRUE(failure.contains(QStringLiteral("double_it")))
+    << failure.toStdString();
+}
+
+// ── S4.4: the staged apply is observable ──────────────────────────────────
+
+TEST_F(SimulationTest, StartReportsStagedInitializationProgress)
+{
+  // 'calib' feeds downstream's 'rating' argument through @from, so the
+  // staged apply runs it to Finished before downstream initializes — the
+  // providers → consumers progression a host shows the user.
+  const QByteArray bound = R"({
+  "schema_version": "1.1",
+  "components": [
+    { "id": "calib",
+      "info": { "component_info_id": "composer.test.component" } },
+    { "id": "upstream",
+      "info": { "component_info_id": "composer.test.component" } },
+    { "id": "downstream",
+      "info": { "component_info_id": "composer.test.component" },
+      "arguments": {
+        "rating": { "@from": { "component": "calib",
+                               "output": "values" } } } }
+  ],
+  "connections": [
+    { "from": { "component": "upstream", "output": "values" },
+      "to": { "component": "downstream", "input": "inflow" } }
+  ]
+})";
+
+  QString message;
+  CompositionDocument document;
+  ASSERT_TRUE(document.loadFromJson(bound, message)) << message.toStdString();
+
+  QSignalSpy progressSpy(manager.get(),
+                         &SimulationManager::initializationProgressed);
+  QSignalSpy finishedSpy(manager.get(), &SimulationManager::finished);
+
+  ASSERT_TRUE(manager->start(document, message)) << message.toStdString();
+
+  // The staged apply happens inside start(), so the whole progression has
+  // already been reported here: one "initializing" per component, each
+  // provider's stage strictly before its consumer's, and the bound
+  // provider's run named while it happened.
+  ASSERT_GE(progressSpy.count(), 4);
+
+  int upstreamStage = -1;
+  int downstreamStage = -1;
+  bool calibRunReported = false;
+
+  for (const QList<QVariant> &event : progressSpy)
+  {
+    const int stage = event[0].toInt();
+    const QString componentId = event[2].toString();
+    const QString activity = event[3].toString();
+
+    EXPECT_EQ(event[1].toInt(), 2) << "stage count";
+
+    if (activity == QStringLiteral("initializing") &&
+        componentId == QStringLiteral("upstream"))
+    {
+      upstreamStage = stage;
+    }
+    if (activity == QStringLiteral("initializing") &&
+        componentId == QStringLiteral("downstream"))
+    {
+      downstreamStage = stage;
+    }
+    if (activity == QStringLiteral("running provider") &&
+        componentId == QStringLiteral("calib"))
+    {
+      calibRunReported = true;
+    }
+  }
+
+  EXPECT_EQ(upstreamStage, 1) << "stages count from one for people";
+  EXPECT_EQ(downstreamStage, 2)
+    << "the bound consumer must initialize after its provider's stage";
+  EXPECT_TRUE(calibRunReported)
+    << "the bound provider's run went unreported";
+
+  // And the binding did not wreck the run itself.
+  EXPECT_TRUE(pumpUntil([&] { return finishedSpy.count() == 1; }))
+    << "the bound run never finished; state="
+    << static_cast<int>(manager->state());
+  EXPECT_TRUE(finishedSpy.first().at(0).toBool())
+    << finishedSpy.first().at(1).toString().toStdString();
 }

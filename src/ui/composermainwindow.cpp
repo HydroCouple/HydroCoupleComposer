@@ -1,8 +1,16 @@
 #include "ui/composermainwindow.h"
 
 #include "core/composerapplication.h"
+#include "core/preferencesmanager.h"
 #include "layers/dataitemlayer.h"
+#include "layers/rasterdataitemlayer.h"
 #include "layers/differencelayer.h"
+#include "layers/domainlayer.h"
+#include "layers/featurelayer.h"
+#include "mesh/domaindrawtool.h"
+#include "mesh/domainedittool.h"
+#include "mesh/domainimport.h"
+#include "mesh/meshdomainmodel.h"
 #include "layers/gdalrasterlayer.h"
 #include "layers/meshlayer.h"
 #include "layers/gdalvectorlayer.h"
@@ -12,6 +20,8 @@
 #include "map/layerstackmodel.h"
 #include "map/mapcanvas.h"
 #include "scene/camera.h"
+#include "scene/scenesource.h"
+#include "scene/navigation.h"
 #include "scene/sceneview.h"
 #include "map/maplayer.h"
 #include "project/hcpimporter.h"
@@ -20,6 +30,13 @@
 #include "results/timecontroller.h"
 #include "ui/dialogs/crsselectiondialog.h"
 #include "ui/dialogs/layerpropertiesdialog.h"
+#include "mesh/terrainsampler.h"
+#include "layers/layerrestorer.h"
+#include "layers/wcscoveragelayer.h"
+#include "layers/wfsfeaturelayer.h"
+#include "ui/dialogs/ogcservicedialog.h"
+#include "ui/dialogs/preferencesdialog.h"
+#include "ui/selectionhub.h"
 #include "ui/panels/attributetablepanel.h"
 #include "ui/panels/layertreepanel.h"
 #include "ui/panels/runbrowserpanel.h"
@@ -40,15 +57,17 @@
 #include <QInputDialog>
 #include <QLabel>
 #include <QListView>
+#include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPlainTextEdit>
-#include <QSettings>
 #include <QStatusBar>
 #include <QStyle>
+#include <QTabBar>
 #include <QTabWidget>
 #include <QVBoxLayout>
 #include <QToolBar>
+#include <QToolButton>
 #include <QUndoStack>
 
 namespace HydroCouple::Composer
@@ -77,9 +96,40 @@ namespace HydroCouple::Composer
     m_workspace = new QTabWidget(this);
     m_workspace->setObjectName(QStringLiteral("workspaceTabs"));
     m_workspace->setDocumentMode(true);
+    // Somewhere to start, ahead of the canvas: a composition needs
+    // components before it needs anything else, and an empty canvas says
+    // nothing about where those come from.
+    m_recent = new RecentCompositions(nullptr, this);
+    m_welcome = new WelcomePage(m_recent, this);
+
+    m_workspace->addTab(m_welcome,
+                        IconFactory::icon(QStringLiteral("welcome")),
+                        tr("Welcome"));
+
+    // Only this tab closes. setTabsClosable() would put a button on the
+    // composition, the map and the 3D view too, and those are not things a
+    // user can be without.
+    installWelcomeCloseButton(m_workspace->indexOf(m_welcome));
     m_workspace->addTab(m_canvas,
                         IconFactory::icon(QStringLiteral("composition")),
                         tr("Composition"));
+
+    connect(m_welcome, &WelcomePage::newRequested, this,
+            [this] { m_newAction->trigger(); });
+    connect(m_welcome, &WelcomePage::openRequested, this,
+            [this] { m_openAction->trigger(); });
+    connect(m_welcome, &WelcomePage::loadComponentsRequested, this,
+            [this] { m_loadComponentsAction->trigger(); });
+    connect(m_welcome, &WelcomePage::openRecentRequested, this,
+            [this](const QString &path)
+            {
+              QString message;
+
+              if (!openComposition(path, message))
+              {
+                QMessageBox::warning(this, tr("Cannot open"), message);
+              }
+            });
 
     // The transport sits under the views rather than in a dock beside them.
     // The bottom docks are tabbed, and a clock that could be tabbed behind
@@ -100,6 +150,10 @@ namespace HydroCouple::Composer
 
     createMapView();
 
+    // Built after the map view, because the layer stack is made there and
+    // the hub reads it. Owned by the window, like every other view glue.
+    m_selectionHub = new SelectionHub(m_scene, m_layerStack, this);
+
     createActions();
     createMenus();
     createToolBar();
@@ -108,6 +162,8 @@ namespace HydroCouple::Composer
 
     connect(m_scene, &QGraphicsScene::selectionChanged, this,
             &ComposerMainWindow::onSelectionChanged);
+    connect(m_scene, &CompositionScene::componentRefused, this,
+            [this](const QString &reason) { log(reason); });
 
     connect(m_document, &CompositionDocument::modifiedChanged, this,
             [this](bool) { refreshTitle(); });
@@ -138,12 +194,36 @@ namespace HydroCouple::Composer
             {
               statusBar()->showMessage(tr("Step %1").arg(step));
             });
+    connect(m_simulation.get(),
+            &SimulationManager::initializationProgressed, this,
+            [this](int stage, int stageCount, const QString &componentId,
+                   const QString &activity)
+            {
+              const QString line =
+                tr("Stage %1/%2: %3 '%4'")
+                  .arg(stage)
+                  .arg(stageCount)
+                  .arg(activity, componentId);
+              log(line);
+              statusBar()->showMessage(line);
+            });
 
     refreshTitle();
     log(tr("HydroCouple Composer %1 — ready.")
           .arg(ComposerApplication::versionString()));
     log(tr("Load component libraries from Components ▸ Load Directory…, then "
            "drag a component onto the canvas."));
+
+    // The welcome page is the first tab, so it opens on it by default; a
+    // user who has said not to show it starts on the canvas instead.
+    if (!PreferencesManager::instance()->showWelcomeOnStartUp())
+    {
+      m_workspace->setCurrentWidget(m_canvas);
+    }
+
+    // The library directories remembered from earlier sessions, scanned
+    // before any document opens so its components are there to be found.
+    applyComponentSearchPaths();
   }
 
   ComposerMainWindow::~ComposerMainWindow()
@@ -172,6 +252,16 @@ namespace HydroCouple::Composer
   ComponentConfigurator *ComposerMainWindow::configurator() const
   {
     return m_configurator;
+  }
+
+  AdapterInspector *ComposerMainWindow::adapterInspector() const
+  {
+    return m_adapterInspector;
+  }
+
+  ExecutionPanel *ComposerMainWindow::executionPanel() const
+  {
+    return m_executionPanel;
   }
 
   MapCanvas *ComposerMainWindow::mapCanvas() const
@@ -223,14 +313,38 @@ namespace HydroCouple::Composer
   {
     m_layerStack = new LayerStackModel(this);
 
+    m_meshDomain = new MeshDomainModel(this);
+
+    // The layers that show the domain appear when there is a domain to
+    // show, or when the user picks up a tool to draw one. Four permanent
+    // rows in every composition that never meshes anything is clutter, and
+    // it would put four empty layers into the extent every view frames.
+    connect(m_meshDomain, &MeshDomainModel::domainChanged, this,
+            [this]
+            {
+              if (!m_meshDomain->domain().isEmpty())
+              {
+                ensureDomainLayers();
+              }
+            });
+
     m_clock->setModel(m_layerStack);
 
     m_mapCanvas = new MapCanvas(this);
     m_mapCanvas->setModel(m_layerStack);
 
-    // Web Mercator: it is what tiled basemaps are published in, and a map
-    // whose CRS differs from its backdrop's has to resample every tile.
-    m_mapCanvas->setCrs(SpatialReference::webMercator());
+    // Web Mercator unless the preferences say otherwise: it is what tiled
+    // basemaps are published in, and a map whose CRS differs from its
+    // backdrop's has to resample every tile. A preference that names a
+    // system GDAL does not know falls back to it rather than to no CRS.
+    {
+      QString message;
+      std::unique_ptr<SpatialReference> initial =
+        SpatialReference::fromDefinition(
+          PreferencesManager::instance()->defaultMapCrs(), message);
+      m_mapCanvas->setCrs(initial ? std::move(initial)
+                                  : SpatialReference::webMercator());
+    }
 
     m_workspace->addTab(m_mapCanvas,
                         IconFactory::icon(QStringLiteral("globe")),
@@ -241,6 +355,18 @@ namespace HydroCouple::Composer
     // is the single owner of what is drawn.
     m_sceneView = new SceneView(this);
     m_sceneView->setModel(m_layerStack);
+
+    // How a scene opens is a preference; how it is looked at afterwards is
+    // the ribbon's, so these are read once here and not again.
+    {
+      const PreferencesManager *prefs = PreferencesManager::instance();
+      m_sceneView->setProjection(
+        prefs->defaultSceneProjection() == QLatin1String("Orthographic")
+          ? CameraProjection::Orthographic
+          : CameraProjection::Perspective);
+      m_sceneView->setVerticalExaggeration(
+        prefs->defaultVerticalExaggeration());
+    }
 
     m_workspace->addTab(m_sceneView,
                         IconFactory::icon(QStringLiteral("scene_3d")),
@@ -259,34 +385,98 @@ namespace HydroCouple::Composer
     connect(m_workspace, &QTabWidget::currentChanged, this,
             [this](int index)
             {
+              // Linking is a preference now (U5b). Read at the moment of
+              // the switch rather than cached, because the only thing
+              // this saves is one settings lookup per tab change and the
+              // thing it costs is a stale answer after the user changes
+              // their mind in the dialog.
+              if (viewLinkFromName(PreferencesManager::instance()->linkViews())
+                  != ViewLink::OnTabSwitch)
+              {
+                return;
+              }
+
               QWidget *arriving = m_workspace->widget(index);
 
               if (arriving == m_sceneView)
               {
-                // Only when the map is showing data. An empty map shows its
-                // default view around the origin, and handing *that* over
-                // would count as having framed the scene deliberately — so a
-                // model loaded afterwards would never be framed at all, and
-                // the 3D tab would sit looking at nothing near the origin.
-                if (!m_mapCanvas->fullExtent().isEmpty())
-                {
-                  m_sceneView->showGroundExtent(
-                    m_mapCanvas->transform().visibleExtent());
-                }
+                frameSceneFromMap();
               }
               else if (arriving == m_mapCanvas)
               {
-                // Empty before the 3D view has had a size, which is exactly
-                // the case where it has nothing to hand over anyway.
-                const QRectF ground = m_sceneView->groundExtent();
-
-                if (!ground.isEmpty())
-                {
-                  m_mapCanvas->setVisibleExtent(ground);
-                }
+                frameMapFromScene();
               }
             });
 
+  }
+
+  bool ComposerMainWindow::frameSceneFromMap()
+  {
+    // Only when the map is showing data. An empty map shows its default
+    // view around the origin, and handing *that* over would count as
+    // having framed the scene deliberately — so a model loaded afterwards
+    // would never be framed at all, and the 3D tab would sit looking at
+    // nothing near the origin.
+    if (m_mapCanvas->fullExtent().isEmpty())
+    {
+      return false;
+    }
+
+    m_sceneView->showGroundExtent(m_mapCanvas->transform().visibleExtent());
+
+    return true;
+  }
+
+  bool ComposerMainWindow::frameMapFromScene()
+  {
+    // Empty before the 3D view has had a size, which is exactly the case
+    // where it has nothing to hand over anyway.
+    const QRectF ground = m_sceneView->groundExtent();
+
+    if (ground.isEmpty())
+    {
+      return false;
+    }
+
+    // Bounded by where the data is. A tilted camera's ground rectangle is
+    // the bounding box of a trapezoid, and fitted to a 1000 x 700 extent
+    // it measures 3.6 times that at 45 degrees and 7.4 at 30 — with real
+    // relief, not only for a flat stack. Handing that straight over frames
+    // the map on mostly empty ground, and the further the camera is tilted
+    // the worse it gets, which is the opposite of what a user tilting to
+    // see relief expects.
+    //
+    // The intersection says what the 3D view is looking at *and* has
+    // something to show: zoomed into a corner it is that corner, zoomed
+    // out it is the data.
+    const QRectF data = m_sceneView->sceneFootprint();
+
+    QRectF framed = ground;
+
+    if (!data.isNull() || data != QRectF())
+    {
+      // Intersected by hand. QRectF::intersected() returns empty whenever
+      // either rectangle has no area, so a stack whose data is a single
+      // row of gauges — a zero-height footprint — would hand over nothing
+      // through the operator that looks like the obvious one. Sixth time.
+      const double left = std::max(ground.left(), data.left());
+      const double right = std::min(ground.right(), data.right());
+      const double top = std::max(ground.top(), data.top());
+      const double bottom = std::min(ground.bottom(), data.bottom());
+
+      if (left > right || top > bottom)
+      {
+        // The camera is looking somewhere the data is not. Leaving the
+        // map where it is beats framing it on empty ground.
+        return false;
+      }
+
+      framed = QRectF(QPointF(left, top), QPointF(right, bottom));
+    }
+
+    m_mapCanvas->setVisibleExtent(framed);
+
+    return true;
   }
 
   void ComposerMainWindow::createActions()
@@ -313,7 +503,20 @@ namespace HydroCouple::Composer
     m_zoomInAction->setObjectName(QStringLiteral("zoomInAction"));
     m_zoomInAction->setShortcut(QKeySequence::ZoomIn);
     connect(m_zoomInAction, &QAction::triggered, this,
-            [this] { m_mapCanvas->zoomBy(1.25); });
+            [this]
+            {
+              // Like Full Extent above: the shortcut acts on the view in
+              // front. Targeting the map unconditionally meant Ctrl+= on the
+              // 3D tab zoomed a hidden canvas and moved nothing on screen.
+              if (m_workspace->currentWidget() == m_sceneView)
+              {
+                m_sceneView->zoomIn();
+              }
+              else
+              {
+                m_mapCanvas->zoomBy(1.25);
+              }
+            });
 
     m_addVectorAction = new QAction(tr("Add &Vector Data…"), this);
     m_addVectorAction->setObjectName(QStringLiteral("addVectorAction"));
@@ -326,6 +529,12 @@ namespace HydroCouple::Composer
             &ComposerMainWindow::onAddRasterLayer);
 
     m_addMeshAction = new QAction(tr("Add &Mesh…"), this);
+
+    m_sampleTerrainAction = new QAction(tr("Sample &Elevations…"), this);
+    m_sampleTerrainAction->setToolTip(
+      tr("Read a raster layer's values onto a mesh's vertices"));
+    connect(m_sampleTerrainAction, &QAction::triggered, this,
+            &ComposerMainWindow::onSampleTerrain);
     m_addMeshAction->setObjectName(QStringLiteral("addMeshAction"));
 
     // Offered only when the SDK this build links can read UGRID files —
@@ -387,6 +596,75 @@ namespace HydroCouple::Composer
       tr("Drag a line across a layered mesh to cut a section through the "
          "water column."));
 
+    m_drawBoundaryAction = new QAction(tr("&Boundary"), this);
+    m_drawBoundaryAction->setObjectName(QStringLiteral("drawBoundaryAction"));
+    m_drawBoundaryAction->setCheckable(true);
+    m_drawBoundaryAction->setToolTip(
+      tr("Click to place the boundary's corners; right-click to finish."));
+
+    m_drawHoleAction = new QAction(tr("&Hole"), this);
+    m_drawHoleAction->setObjectName(QStringLiteral("drawHoleAction"));
+    m_drawHoleAction->setCheckable(true);
+    m_drawHoleAction->setToolTip(
+      tr("Click to cut a hole out of the domain; right-click to finish."));
+
+    m_drawBreaklineAction = new QAction(tr("Break&line"), this);
+    m_drawBreaklineAction->setObjectName(
+      QStringLiteral("drawBreaklineAction"));
+    m_drawBreaklineAction->setCheckable(true);
+    m_drawBreaklineAction->setToolTip(
+      tr("Click to draw a line the mesh must follow; right-click to "
+         "finish."));
+
+    m_drawPointAction = new QAction(tr("&Point"), this);
+    m_drawPointAction->setObjectName(QStringLiteral("drawPointAction"));
+    m_drawPointAction->setCheckable(true);
+    m_drawPointAction->setToolTip(
+      tr("Click to force a mesh vertex where you click."));
+
+    m_editVerticesAction = new QAction(tr("&Edit Vertices"), this);
+    m_editVerticesAction->setObjectName(QStringLiteral("editVerticesAction"));
+    m_editVerticesAction->setCheckable(true);
+    m_editVerticesAction->setToolTip(
+      tr("Drag a domain vertex to move it, click an edge to add one, "
+         "right-click a vertex to remove it."));
+
+    // A command, not a gesture set: it acts once on what is already
+    // selected and leaves the map under whatever tool it was under, so it
+    // stays out of the exclusive group below and is never checkable.
+    m_importSelectionAction = new QAction(tr("From &Selection"), this);
+    m_importSelectionAction->setObjectName(
+      QStringLiteral("importSelectionAction"));
+    m_importSelectionAction->setToolTip(
+      tr("Add the selected features of the current layer to the domain."));
+
+    m_importSelectionMenu = new QMenu(this);
+
+    // One handler for four entries: which part the features become is
+    // carried on the action rather than written out four times.
+    const struct
+    {
+        const char *name;
+        QString text;
+        DomainPart part;
+    } importParts[] = {
+      {"importAsBoundaryAction", tr("As &Boundary"), DomainPart::Boundary},
+      {"importAsHoleAction", tr("As &Holes"), DomainPart::Holes},
+      {"importAsBreaklineAction", tr("As Break&lines"),
+       DomainPart::Breaklines},
+      {"importAsPointAction", tr("As Forced &Points"),
+       DomainPart::ForcedPoints}};
+
+    for (const auto &entry : importParts)
+    {
+      QAction *action = m_importSelectionMenu->addAction(entry.text);
+      action->setObjectName(QString::fromLatin1(entry.name));
+      action->setData(int(entry.part));
+
+      connect(action, &QAction::triggered, this,
+              &ComposerMainWindow::onImportSelectionAsDomainPart);
+    }
+
     // Exclusive: the map is under one gesture set at a time, and four
     // independent checkboxes would let the UI show a state it cannot be in.
     auto *toolGroup = new QActionGroup(this);
@@ -396,6 +674,22 @@ namespace HydroCouple::Composer
     toolGroup->addAction(m_zoomInToolAction);
     toolGroup->addAction(m_zoomOutToolAction);
     toolGroup->addAction(m_transectToolAction);
+
+    // The domain tools join the same group: they are gesture sets over the
+    // same map, and one of them being on means panning is off.
+    toolGroup->addAction(m_drawBoundaryAction);
+    toolGroup->addAction(m_drawHoleAction);
+    toolGroup->addAction(m_drawBreaklineAction);
+    toolGroup->addAction(m_drawPointAction);
+    toolGroup->addAction(m_editVerticesAction);
+
+    for (QAction *tool : {m_drawBoundaryAction, m_drawHoleAction,
+                          m_drawBreaklineAction, m_drawPointAction,
+                          m_editVerticesAction})
+    {
+      connect(tool, &QAction::triggered, this,
+              &ComposerMainWindow::onDomainToolChosen);
+    }
 
     for (QAction *tool : {m_selectToolAction, m_panToolAction,
                           m_zoomInToolAction, m_zoomOutToolAction,
@@ -433,13 +727,17 @@ namespace HydroCouple::Composer
     m_sceneZoomOutToolAction->setToolTip(
       tr("Drag a box to fit the view into it; click to move away."));
 
-    auto *sceneToolGroup = new QActionGroup(this);
-    sceneToolGroup->setExclusive(true);
-
+    // The scene tools join the map's group rather than getting one of their
+    // own. Two exclusive groups meant two checked tools at once -- a lit
+    // Select on the Map ribbon tab and a lit Select on the 3D one, told
+    // apart only by which strip they sat in. One group means the checked
+    // action is the application's active gesture set, full stop; activating
+    // any tool already brings its view forward, so the lit button always
+    // describes the view that just arrived with it.
     for (QAction *tool : {m_orbitToolAction, m_sceneSelectToolAction,
                           m_sceneZoomInToolAction, m_sceneZoomOutToolAction})
     {
-      sceneToolGroup->addAction(tool);
+      toolGroup->addAction(tool);
 
       connect(tool, &QAction::triggered, this,
               &ComposerMainWindow::onSceneToolChosen);
@@ -472,7 +770,107 @@ namespace HydroCouple::Composer
     m_zoomOutAction->setObjectName(QStringLiteral("zoomOutAction"));
     m_zoomOutAction->setShortcut(QKeySequence::ZoomOut);
     connect(m_zoomOutAction, &QAction::triggered, this,
-            [this] { m_mapCanvas->zoomBy(1.0 / 1.25); });
+            [this]
+            {
+              if (m_workspace->currentWidget() == m_sceneView)
+              {
+                m_sceneView->zoomOut();
+              }
+              else
+              {
+                m_mapCanvas->zoomBy(1.0 / 1.25);
+              }
+            });
+
+    // ── the 3D tab's own navigation (U5a) ─────────────────────────────
+    //
+    // Unconditional, unlike the menu's: a button on the 3D strip that
+    // moved the map because the map was in front would be a button that
+    // did nothing the user could see. Each brings the 3D view forward
+    // first, the same way the exaggeration spin on that strip does.
+    const auto sceneAction = [this](const QString &name, const QString &text,
+                                    auto &&work) -> QAction *
+    {
+      auto *action = new QAction(text, this);
+      action->setObjectName(name);
+
+      connect(action, &QAction::triggered, this,
+              [this, work]
+              {
+                m_workspace->setCurrentWidget(m_sceneView);
+                work();
+              });
+
+      return action;
+    };
+
+    m_sceneZoomInAction =
+      sceneAction(QStringLiteral("sceneZoomInAction"), tr("Zoom In (3D)"),
+                  [this] { m_sceneView->zoomIn(); });
+
+    m_sceneZoomOutAction =
+      sceneAction(QStringLiteral("sceneZoomOutAction"), tr("Zoom Out (3D)"),
+                  [this] { m_sceneView->zoomOut(); });
+
+    m_sceneZoomFullAction = sceneAction(
+      QStringLiteral("sceneZoomFullAction"), tr("Full Extent (3D)"),
+      [this] { m_sceneView->zoomToFullExtent(); });
+
+    m_sceneResetViewAction = sceneAction(
+      QStringLiteral("sceneResetViewAction"), tr("Reset View"),
+      [this] { m_sceneView->showNamedView(NamedView::Reset); });
+    m_sceneResetViewAction->setToolTip(
+      tr("North up, at the tilt a new view starts with."));
+
+    m_sceneTopViewAction = sceneAction(
+      QStringLiteral("sceneTopViewAction"), tr("Top View"),
+      [this] { m_sceneView->showNamedView(NamedView::Top); });
+    m_sceneTopViewAction->setToolTip(
+      tr("Straight down, without turning the map."));
+
+    m_sceneLookAtSelectionAction = sceneAction(
+      QStringLiteral("sceneLookAtSelectionAction"), tr("Look at Selection"),
+      [this]
+      {
+        if (!m_sceneView->lookAtSelection())
+        {
+          // Said, rather than left looking like a dead button. Framing
+          // everything instead would lose the position the user spent a
+          // minute finding, which is worse than doing nothing.
+          statusBar()->showMessage(
+            tr("Nothing is selected to look at."), 4000);
+        }
+      });
+
+    m_syncFromMapAction = sceneAction(
+      QStringLiteral("syncFromMapAction"), tr("Sync from Map"),
+      [this]
+      {
+        if (!frameSceneFromMap())
+        {
+          statusBar()->showMessage(
+            tr("The map has nothing to frame the 3D view on."), 4000);
+        }
+      });
+    m_syncFromMapAction->setToolTip(
+      tr("Frame the 3D view on what the map is showing."));
+
+    m_syncFromSceneAction = new QAction(tr("Sync from 3D"), this);
+    m_syncFromSceneAction->setObjectName(QStringLiteral("syncFromSceneAction"));
+    m_syncFromSceneAction->setToolTip(
+      tr("Frame the map on the ground the 3D view is looking at."));
+    connect(m_syncFromSceneAction, &QAction::triggered, this,
+            [this]
+            {
+              // The mirror image, so it brings the *map* forward.
+              m_workspace->setCurrentWidget(m_mapCanvas);
+
+              if (!frameMapFromScene())
+              {
+                statusBar()->showMessage(
+                  tr("The 3D view has nothing to frame the map on."), 4000);
+              }
+            });
 
     m_runAction = new QAction(tr("&Run"), this);
     m_runAction->setObjectName(QStringLiteral("runAction"));
@@ -532,6 +930,16 @@ namespace HydroCouple::Composer
               }
             });
 
+    // Rebuilt each time it is about to be shown, so it never disagrees with
+    // what has been opened since the window was made.
+    m_recentMenu = fileMenu->addMenu(tr("Open &Recent"));
+    m_recentMenu->setObjectName(QStringLiteral("recentMenu"));
+
+    connect(m_recentMenu, &QMenu::aboutToShow, this,
+            &ComposerMainWindow::rebuildRecentMenu);
+
+    rebuildRecentMenu();
+
     m_saveAction = fileMenu->addAction(tr("&Save"));
     m_saveAction->setObjectName(QStringLiteral("saveAction"));
     m_saveAction->setShortcut(QKeySequence::Save);
@@ -553,6 +961,8 @@ namespace HydroCouple::Composer
               }
 
               QString message;
+
+              captureLayers();
 
               if (m_document->save(path, message))
               {
@@ -630,6 +1040,25 @@ namespace HydroCouple::Composer
     m_redoAction->setShortcut(QKeySequence::Redo);
     editMenu->addAction(m_redoAction);
 
+    editMenu->addSeparator();
+
+    m_layoutAction = editMenu->addAction(tr("&Layout Components"));
+    m_layoutAction->setObjectName(QStringLiteral("layoutComponentsAction"));
+    m_layoutAction->setToolTip(
+      tr("Arrange the composition left to right, providers before what they "
+         "feed."));
+    connect(m_layoutAction, &QAction::triggered, this,
+            [this]
+            {
+              const int moved = m_scene->applyAutoLayout();
+
+              if (moved > 0)
+              {
+                log(tr("Laid out %1 components.").arg(moved));
+                m_canvas->frameComposition();
+              }
+            });
+
     QMenu *componentsMenu = menuBar()->addMenu(tr("&Components"));
     componentsMenu->setObjectName(QStringLiteral("componentsMenu"));
 
@@ -650,6 +1079,18 @@ namespace HydroCouple::Composer
               log(tr("Loaded %1 component library(ies) from %2")
                     .arg(loaded)
                     .arg(directory));
+
+              // Remembered, so the next launch finds the same libraries
+              // without being asked again. The preference is the record;
+              // the registry's search paths follow it.
+              PreferencesManager *prefs = PreferencesManager::instance();
+              QStringList paths = prefs->componentSearchPaths();
+
+              if (!paths.contains(directory))
+              {
+                paths.append(directory);
+                prefs->setComponentSearchPaths(paths);
+              }
             });
 
     QMenu *runMenu = menuBar()->addMenu(tr("&Run"));
@@ -664,6 +1105,7 @@ namespace HydroCouple::Composer
     viewMenu->addAction(m_addVectorAction);
     viewMenu->addAction(m_addRasterAction);
     viewMenu->addAction(m_addMeshAction);
+    viewMenu->addAction(m_sampleTerrainAction);
     viewMenu->addAction(m_addComponentLayersAction);
 
     QMenu *basemapMenu = viewMenu->addMenu(tr("&Basemap"));
@@ -690,6 +1132,13 @@ namespace HydroCouple::Composer
       connect(action, &QAction::triggered, this,
               [this, name = provider.name] { setBasemap(name); });
     }
+
+    basemapMenu->addSeparator();
+
+    QAction *addService = basemapMenu->addAction(tr("Add &Web Service…"));
+    addService->setObjectName(QStringLiteral("basemapAddServiceAction"));
+    connect(addService, &QAction::triggered, this,
+            &ComposerMainWindow::addServiceBasemap);
 
     viewMenu->addAction(m_selectToolAction);
     viewMenu->addAction(m_panToolAction);
@@ -746,23 +1195,64 @@ namespace HydroCouple::Composer
       appearanceGroup->addAction(action);
 
       connect(action, &QAction::triggered, this,
-              [this, theme, mode = appearance.mode]
+              [mode = appearance.mode]
               {
-                theme->setMode(mode);
-                theme->apply();
-
-                // Persisted so the choice survives a restart, matching how
-                // openswmm.gui remembers its appearance preference.
-                QSettings().setValue(QStringLiteral("appearance/mode"),
-                                     ThemeManager::modeToString(mode));
-
-                log(tr("Appearance: %1")
-                      .arg(ThemeManager::modeToString(mode)));
+                // Written to the preference, which is what applies it:
+                // the ribbon, the menu and the dialog all set the same key
+                // and all follow it, so none of them can disagree.
+                PreferencesManager::instance()->setThemeMode(
+                  ThemeManager::modeToString(mode));
               });
     }
 
+    connect(PreferencesManager::instance(),
+            &PreferencesManager::preferenceChanged, this,
+            [this, theme](const QString &group, const QString &name)
+            {
+              if (group == QLatin1String("Appearance")
+                  && name == QLatin1String("themeMode"))
+              {
+                const QString modeName =
+                  PreferencesManager::instance()->themeMode();
+                const ThemeManager::Mode mode =
+                  ThemeManager::modeFromString(modeName);
+                theme->setMode(mode);
+                theme->apply();
+
+                (mode == ThemeManager::Mode::Light  ? m_lightAction
+                 : mode == ThemeManager::Mode::Dark ? m_darkAction
+                                                    : m_systemAction)
+                  ->setChecked(true);
+
+                log(tr("Appearance: %1").arg(modeName));
+              }
+              else if (group == QLatin1String("Components")
+                       && name == QLatin1String("searchPaths"))
+              {
+                applyComponentSearchPaths();
+              }
+            });
+
+    m_preferencesAction = new QAction(tr("&Preferences…"), this);
+    m_preferencesAction->setObjectName(QStringLiteral("preferencesAction"));
+    m_preferencesAction->setMenuRole(QAction::PreferencesRole);
+    m_preferencesAction->setShortcut(QKeySequence::Preferences);
+    connect(m_preferencesAction, &QAction::triggered, this,
+            &ComposerMainWindow::onPreferences);
+    appearanceMenu->addSeparator();
+    appearanceMenu->addAction(m_preferencesAction);
+
     QMenu *helpMenu = menuBar()->addMenu(tr("&Help"));
     helpMenu->setObjectName(QStringLiteral("helpMenu"));
+
+    m_welcomeAction = helpMenu->addAction(tr("&Welcome"));
+    m_welcomeAction->setObjectName(QStringLiteral("welcomeAction"));
+    m_welcomeAction->setToolTip(
+      tr("Show the start page again after closing it."));
+    connect(m_welcomeAction, &QAction::triggered, this,
+            &ComposerMainWindow::showWelcomeTab);
+
+    helpMenu->addSeparator();
 
     QAction *about = helpMenu->addAction(tr("&About"));
     connect(about, &QAction::triggered, this,
@@ -833,6 +1323,7 @@ namespace HydroCouple::Composer
     navigate->addAction(m_zoomFullAction, tr("Full\nExtent"));
     navigate->addAction(m_zoomInAction, tr("Zoom\nIn"));
     navigate->addAction(m_zoomOutAction, tr("Zoom\nOut"));
+    navigate->addAction(m_syncFromSceneAction, tr("Sync from\n3D"));
 
     RibbonGroup *data = m_ribbon->addGroup(QStringLiteral("map"), tr("Data"));
     data->addAction(m_addVectorAction, tr("Add\nVector"));
@@ -848,6 +1339,33 @@ namespace HydroCouple::Composer
       m_ribbon->addGroup(QStringLiteral("map"), tr("Reference"));
     reference->addAction(m_mapCrsAction, tr("Coordinate\nSystem"));
 
+    // Meshing gets a tab rather than a corner of the Map tab: it is its own
+    // workflow, and phase E adds generation, vertical grids, terrain
+    // sampling and boundary conditions to it.
+    m_ribbon->addTab(QStringLiteral("mesh"), tr("Mesh"));
+
+    RibbonGroup *domain =
+      m_ribbon->addGroup(QStringLiteral("mesh"), tr("Domain"));
+    domain->addAction(m_drawBoundaryAction, tr("Boundary"));
+    domain->addAction(m_drawHoleAction, tr("Hole"));
+    domain->addAction(m_drawBreaklineAction, tr("Break\nline"));
+    domain->addAction(m_drawPointAction, tr("Point"));
+    domain->addAction(m_editVerticesAction, tr("Edit"));
+
+    RibbonGroup *elevations =
+      m_ribbon->addGroup(QStringLiteral("mesh"), tr("Elevations"));
+    elevations->addAction(m_sampleTerrainAction, tr("Sample"));
+
+    // A menu on the button rather than four more faces: the Mesh tab has
+    // generation, vertical grids and boundary conditions still to come, and
+    // E1b-2 measured that crowding a tab changes the canvas it sits above.
+    if (QToolButton *button =
+          domain->addAction(m_importSelectionAction, tr("From\nSelection")))
+    {
+      button->setMenu(m_importSelectionMenu);
+      button->setPopupMode(QToolButton::InstantPopup);
+    }
+
     m_ribbon->addTab(QStringLiteral("scene"), tr("3D"));
 
     RibbonGroup *sceneTools =
@@ -856,6 +1374,17 @@ namespace HydroCouple::Composer
     sceneTools->addAction(m_sceneSelectToolAction, tr("Select"));
     sceneTools->addAction(m_sceneZoomInToolAction, tr("Zoom In\nBox"));
     sceneTools->addAction(m_sceneZoomOutToolAction, tr("Zoom Out\nBox"));
+
+    RibbonGroup *sceneNavigate =
+      m_ribbon->addGroup(QStringLiteral("scene"), tr("Navigate"));
+    sceneNavigate->addAction(m_sceneZoomFullAction, tr("Full\nExtent"));
+    sceneNavigate->addAction(m_sceneZoomInAction, tr("Zoom\nIn"));
+    sceneNavigate->addAction(m_sceneZoomOutAction, tr("Zoom\nOut"));
+    sceneNavigate->addAction(m_sceneResetViewAction, tr("Reset\nView"));
+    sceneNavigate->addAction(m_sceneTopViewAction, tr("Top\nView"));
+    sceneNavigate->addAction(m_sceneLookAtSelectionAction,
+                             tr("Look at\nSelection"));
+    sceneNavigate->addAction(m_syncFromMapAction, tr("Sync from\nMap"));
 
     RibbonGroup *projection =
       m_ribbon->addGroup(QStringLiteral("scene"), tr("Projection"));
@@ -878,6 +1407,11 @@ namespace HydroCouple::Composer
             [this](double factor)
             {
               m_sceneView->setVerticalExaggeration(factor);
+
+              // Brought forward like every tool on this strip: stretching
+              // relief nobody can see is the spin equivalent of zooming a
+              // hidden canvas.
+              m_workspace->setCurrentWidget(m_sceneView);
             });
 
     relief->addWidget(m_exaggerationSpin);
@@ -889,6 +1423,14 @@ namespace HydroCouple::Composer
     appearance->addAction(m_lightAction, tr("Light"));
     appearance->addAction(m_darkAction, tr("Dark"));
     appearance->addAction(m_systemAction, tr("System"));
+
+    RibbonGroup *startGroup =
+      m_ribbon->addGroup(QStringLiteral("view"), tr("Start"));
+    startGroup->addAction(m_welcomeAction, tr("Welcome"));
+
+    RibbonGroup *settingsGroup =
+      m_ribbon->addGroup(QStringLiteral("view"), tr("Settings"));
+    settingsGroup->addAction(m_preferencesAction, tr("Preferences"));
 
     ensureIcon(m_newAction, QStringLiteral("new"));
     ensureIcon(m_openAction, QStringLiteral("open"));
@@ -902,6 +1444,8 @@ namespace HydroCouple::Composer
     ensureIcon(m_lightAction, QStringLiteral("sun"));
     ensureIcon(m_darkAction, QStringLiteral("dark"));
     ensureIcon(m_systemAction, QStringLiteral("system"));
+    ensureIcon(m_preferencesAction, QStringLiteral("preferences"));
+    ensureIcon(m_welcomeAction, QStringLiteral("welcome"));
     ensureIcon(m_zoomFullAction, QStringLiteral("extent"));
     ensureIcon(m_zoomInAction, QStringLiteral("zoomin"));
     ensureIcon(m_zoomOutAction, QStringLiteral("zoomout"));
@@ -917,6 +1461,16 @@ namespace HydroCouple::Composer
     ensureIcon(m_zoomOutToolAction, QStringLiteral("zoom_rect_out"));
     ensureIcon(m_transectToolAction, QStringLiteral("transect"));
 
+    // The domain glyphs: the ring, the ring with a bite out of it, the
+    // breakline with its vertices, the crosshair that forces one, and the
+    // ring whose corners are drawn as the handles the editor offers.
+    ensureIcon(m_drawBoundaryAction, QStringLiteral("domain_boundary"));
+    ensureIcon(m_drawHoleAction, QStringLiteral("domain_hole"));
+    ensureIcon(m_drawBreaklineAction, QStringLiteral("domain_breakline"));
+    ensureIcon(m_drawPointAction, QStringLiteral("domain_point"));
+    ensureIcon(m_editVerticesAction, QStringLiteral("domain_edit"));
+    ensureIcon(m_importSelectionAction, QStringLiteral("domain_import"));
+
     // The 3D glyph for the projection a 3D view is normally read in, and the
     // extent rectangle for the parallel one, which is what a plan view is.
     ensureIcon(m_orbitToolAction, QStringLiteral("scene_3d"));
@@ -930,7 +1484,81 @@ namespace HydroCouple::Composer
     ensureIcon(m_addComponentLayersAction, QStringLiteral("add_component_layers"));
     ensureIcon(m_addMeshAction, QStringLiteral("add_mesh"));
 
+    // The 3D tab's Navigate group (U5). Zoom and Full Extent share the
+    // map's glyphs deliberately: the gesture is the same one, and giving
+    // it a second appearance on a second tab would suggest it was not.
+    // The three that have no counterpart on the map get their own.
+    ensureIcon(m_sceneZoomFullAction, QStringLiteral("extent"));
+    ensureIcon(m_sceneZoomInAction, QStringLiteral("zoomin"));
+    ensureIcon(m_sceneZoomOutAction, QStringLiteral("zoomout"));
+    ensureIcon(m_sceneResetViewAction, QStringLiteral("reset_view"));
+    ensureIcon(m_sceneTopViewAction, QStringLiteral("top_view"));
+    ensureIcon(m_sceneLookAtSelectionAction,
+               QStringLiteral("look_at_selection"));
+
+    // The two hand-offs read as one picture each: the view being taken
+    // from, an arrow, and the view being framed. Which is the source is
+    // the whole difference between them, so they are not one glyph
+    // mirrored — a mirrored arrow is a coin toss at ribbon size.
+    ensureIcon(m_syncFromMapAction, QStringLiteral("sync_from_map"));
+    ensureIcon(m_syncFromSceneAction, QStringLiteral("sync_from_scene"));
+
     m_ribbon->setCurrentTab(QStringLiteral("home"));
+
+    // The ribbon and the workspace are two tab strips describing one
+    // application, and until they were tied together they could disagree
+    // indefinitely -- the ribbon on "Map" while the 3D view filled the
+    // screen. Two kinds of ribbon tab, two rules. The view-owned tabs (map,
+    // 3D) describe a view, so one that is showing must never name a view
+    // that is not in front. The rest (home, mesh, view) are command
+    // palettes: the mesh tools force the Map workspace tab when a tool is
+    // picked, and stealing the palette at that moment would take the
+    // remaining tools away from the person using them -- so a palette is
+    // left alone.
+    // No re-entrancy guard, deliberately: both setters are no-ops when the
+    // value is already current, and the two mappings agree with each other,
+    // so every exchange converges in one hop. A guard here survived its own
+    // falsification, which in this program has meant the same thing every
+    // time -- it was defending against nothing.
+    connect(m_workspace, &QTabWidget::currentChanged, this,
+            [this](int index)
+            {
+              const QString current = m_ribbon->currentTab();
+
+              if (current != QLatin1String("map") &&
+                  current != QLatin1String("scene"))
+              {
+                return;
+              }
+
+              QWidget *arriving = m_workspace->widget(index);
+
+              if (arriving == m_mapCanvas)
+              {
+                m_ribbon->setCurrentTab(QStringLiteral("map"));
+              }
+              else if (arriving == m_sceneView)
+              {
+                m_ribbon->setCurrentTab(QStringLiteral("scene"));
+              }
+              else if (arriving == m_canvas)
+              {
+                m_ribbon->setCurrentTab(QStringLiteral("home"));
+              }
+            });
+
+    connect(m_ribbon, &RibbonBar::currentTabChanged, this,
+            [this](const QString &id)
+            {
+              if (id == QLatin1String("map"))
+              {
+                m_workspace->setCurrentWidget(m_mapCanvas);
+              }
+              else if (id == QLatin1String("scene"))
+              {
+                m_workspace->setCurrentWidget(m_sceneView);
+              }
+            });
   }
 
   void ComposerMainWindow::createDocks()
@@ -966,6 +1594,32 @@ namespace HydroCouple::Composer
     connect(m_layerTree, &LayerTreePanel::layerPropertiesRequested, this,
             &ComposerMainWindow::onLayerProperties);
 
+    // ── The two halves of one selection ──────────────────────────────────
+    // A component chosen on the canvas brings its layers forward; a feature
+    // picked on the map or in 3D selects the component that produced it.
+    // Neither view knows about the other: the hub asks, and these two
+    // connections are the only places the answer is acted on.
+    connect(m_selectionHub, &SelectionHub::currentLayerRequested, this,
+            [this](MapLayer *layer)
+            {
+              if (m_layerTree->setCurrentLayer(layer))
+              {
+                // The tree is docked with the palette; a row made current
+                // behind another tab is a selection nobody can see.
+                if (auto *dock =
+                      qobject_cast<QDockWidget *>(m_layerTree->parentWidget()))
+                {
+                  dock->raise();
+                }
+              }
+            });
+
+    connect(m_selectionHub, &SelectionHub::componentSelectionRequested, this,
+            [this](const QString &componentId)
+            {
+              m_scene->selectComponent(componentId);
+            });
+
     connect(m_layerTree, &LayerTreePanel::currentLayerChanged, this,
             [this](MapLayer *layer)
             {
@@ -976,9 +1630,33 @@ namespace HydroCouple::Composer
     connect(m_layerTree, &LayerTreePanel::zoomToLayerRequested, this,
             [this](MapLayer *layer)
             {
-              // Framing a layer is only meaningful on the map, so asking for
-              // it brings the map forward rather than acting invisibly behind
-              // whichever tab happens to be showing.
+              if (!layer)
+              {
+                return;
+              }
+
+              // Framed in the view that is in front, like the zoom
+              // shortcuts. Only when the 3D view cannot say where the layer
+              // is -- a layer that is not a scene source at all -- does the
+              // request fall back to the map, brought forward so it does not
+              // act invisibly.
+              if (m_workspace->currentWidget() == m_sceneView)
+              {
+                const auto *source = layer->sceneSource();
+
+                if (!source)
+                {
+                  source = dynamic_cast<const ISceneSource *>(layer);
+                }
+
+                if (source && source->sceneBounds().isValid())
+                {
+                  m_sceneView->frameBounds(source->sceneBounds());
+
+                  return;
+                }
+              }
+
               m_workspace->setCurrentWidget(m_mapCanvas);
               m_mapCanvas->zoomToLayer(layer);
             });
@@ -991,7 +1669,54 @@ namespace HydroCouple::Composer
                                                configuratorDock);
     configuratorDock->setWidget(m_configurator);
 
+    // Which layers a model argument may be read from. Asked for each time the
+    // button is pressed rather than snapshotted, because the layer stack
+    // changes while the panel is open.
+    m_configurator->setLayerSources(
+      [this]
+      {
+        QVector<ComponentConfigurator::LayerSource> sources;
+
+        for (int row = 0; row < m_layerStack->rowCount(QModelIndex()); ++row)
+        {
+          MapLayer *layer = m_layerStack->layerAt(row);
+
+          if (!layer || layer->sourceUri().isEmpty())
+          {
+            continue;
+          }
+
+          sources.append({layer->name(), layer->sourceUri()});
+        }
+
+        return sources;
+      });
+
     addDockWidget(Qt::RightDockWidgetArea, configuratorDock);
+
+    // ── Adapter inspector ────────────────────────────────────────────────
+    // Beside the Arguments dock: a selected component fills Arguments, a
+    // selected adapter node or connection edge fills this one.
+    auto *adapterDock = new QDockWidget(tr("Adapter"), this);
+    adapterDock->setObjectName(QStringLiteral("adapterInspectorDock"));
+
+    m_adapterInspector = new AdapterInspector(m_document, adapterDock);
+    adapterDock->setWidget(m_adapterInspector);
+    addDockWidget(Qt::RightDockWidgetArea, adapterDock);
+
+    // ── Execution ────────────────────────────────────────────────────────
+    // The document's orchestration block, per-component execution modes,
+    // and the staged initialization preview. Binds to the whole document,
+    // not the selection.
+    auto *executionDock = new QDockWidget(tr("Execution"), this);
+    executionDock->setObjectName(QStringLiteral("executionPanelDock"));
+
+    m_executionPanel = new ExecutionPanel(m_document, executionDock);
+    executionDock->setWidget(m_executionPanel);
+    addDockWidget(Qt::RightDockWidgetArea, executionDock);
+    // Tabbed behind the Adapter dock: a third right-area panel stacked
+    // vertically starves the central canvas of space.
+    tabifyDockWidget(adapterDock, executionDock);
 
     // ── Attributes ───────────────────────────────────────────────────────
     auto *attributeDock = new QDockWidget(tr("Attributes"), this);
@@ -1198,6 +1923,30 @@ namespace HydroCouple::Composer
 
       for (HydroCouple::IComponentDataItem *item : items)
       {
+        // A raster is neither features nor a mesh, so it has its own layer
+        // and its own question. Asked first because the two are exclusive.
+        if (RasterDataItemLayer::isRaster(item))
+        {
+          QString rasterMessage;
+          std::unique_ptr<RasterDataItemLayer> raster =
+            RasterDataItemLayer::create(item, rasterMessage);
+
+          if (raster)
+          {
+            // Where it came from, recorded at the one place both ids are
+            // known: the item carries its own id, never its owner's.
+            raster->setProvenance(componentId,
+                                  QString::fromStdString(item->id()));
+            m_layerStack->addLayer(raster.release());
+          }
+          else
+          {
+            log(rasterMessage);
+          }
+
+          continue;
+        }
+
         if (!DataItemLayer::isSpatial(item))
         {
           continue;
@@ -1214,6 +1963,7 @@ namespace HydroCouple::Composer
         }
 
         layer->setName(tr("%1 — %2").arg(componentId, layer->name()));
+        layer->setProvenance(componentId, QString::fromStdString(item->id()));
 
         m_layerStack->addLayer(layer.release());
         ++added;
@@ -1221,6 +1971,117 @@ namespace HydroCouple::Composer
     }
 
     return added;
+  }
+
+  void ComposerMainWindow::onSampleTerrain()
+  {
+    // Every mesh on the map, and every raster that could supply heights for
+    // one. Both are asked for by name rather than by selection, because the
+    // pair matters and choosing them one at a time in a layer tree makes the
+    // pairing invisible.
+    QList<MeshLayer *> meshes;
+    QList<GdalRasterLayer *> rasters;
+
+    for (int row = 0; row < m_layerStack->rowCount(QModelIndex()); ++row)
+    {
+      MapLayer *layer = m_layerStack->layerAt(row);
+
+      if (auto *mesh = dynamic_cast<MeshLayer *>(layer))
+      {
+        meshes.append(mesh);
+      }
+      else if (auto *raster = dynamic_cast<GdalRasterLayer *>(layer))
+      {
+        rasters.append(raster);
+      }
+    }
+
+    if (meshes.isEmpty() || rasters.isEmpty())
+    {
+      log(tr("Sampling elevations needs a mesh and a raster of heights on "
+             "the map. A coverage fetched from a WCS is one; so is a GeoTIFF "
+             "opened from disk."));
+
+      return;
+    }
+
+    QStringList meshNames;
+
+    for (const MeshLayer *mesh : meshes)
+    {
+      meshNames.append(mesh->name());
+    }
+
+    QStringList rasterNames;
+
+    for (const GdalRasterLayer *raster : rasters)
+    {
+      rasterNames.append(raster->name());
+    }
+
+    bool accepted = false;
+
+    const QString meshName = QInputDialog::getItem(
+      this, tr("Sample Elevations"), tr("Onto which mesh?"), meshNames, 0,
+      false, &accepted);
+
+    if (!accepted)
+    {
+      return;
+    }
+
+    const QString rasterName = QInputDialog::getItem(
+      this, tr("Sample Elevations"), tr("From which heights?"), rasterNames, 0,
+      false, &accepted);
+
+    if (!accepted)
+    {
+      return;
+    }
+
+    MeshLayer *mesh = meshes.at(meshNames.indexOf(meshName));
+    GdalRasterLayer *raster = rasters.at(rasterNames.indexOf(rasterName));
+
+    HydroCouple::SDK::IO::MeshDefinition sampled = mesh->mesh();
+
+    const TerrainSampleResult result =
+      sampleTerrain(*raster, mesh->crs(), sampled);
+
+    if (!result.ok)
+    {
+      log(result.message);
+
+      return;
+    }
+
+    if (!mesh->setNodeElevations(sampled.nodeZ))
+    {
+      log(tr("%1 changed while its elevations were being read.")
+            .arg(mesh->name()));
+
+      return;
+    }
+
+    // A mesh that just became a surface wears its own ground, unless its
+    // style has been touched -- the same default a fresh DEM mesh gets, and
+    // the guard against overwriting someone's classification lives inside.
+    mesh->applyDefaultElevationStyle();
+
+    // The count of misses is the part worth reading. A mesh usually reaches
+    // a little past the ground that was fetched, and a survey usually has
+    // holes in it, so "all of them" is the unusual answer rather than the
+    // expected one.
+    log(result.missed == 0
+          ? tr("%1: all %2 vertices took elevations from %3.")
+              .arg(mesh->name())
+              .arg(result.sampled)
+              .arg(raster->name())
+          : tr("%1: %2 vertices took elevations from %3, %4 found no "
+               "reading.")
+              .arg(mesh->name())
+              .arg(result.sampled)
+              .arg(raster->name())
+              .arg(result.missed));
   }
 
   void ComposerMainWindow::onAddMeshLayer()
@@ -1289,7 +2150,7 @@ namespace HydroCouple::Composer
     log(tr("Added %1 layer(s) from components.").arg(added));
   }
 
-  void ComposerMainWindow::setBasemap(const QString &providerName)
+  void ComposerMainWindow::installBasemap(TileLayer *basemap)
   {
     // At most one basemap, always at the bottom of the stack: two backdrops
     // would fight for the same pixels and the upper one would simply win.
@@ -1302,8 +2163,18 @@ namespace HydroCouple::Composer
       }
     }
 
+    if (basemap)
+    {
+      // The bottom of the stack, so every data layer draws over it.
+      m_layerStack->insertLayer(m_layerStack->rowCount(), basemap);
+    }
+  }
+
+  void ComposerMainWindow::setBasemap(const QString &providerName)
+  {
     if (providerName.isEmpty())
     {
+      installBasemap(nullptr);
       log(tr("Basemap removed."));
       return;
     }
@@ -1316,12 +2187,129 @@ namespace HydroCouple::Composer
 
     auto *basemap = new TileLayer(provider.name, std::move(source));
 
-    // The bottom of the stack, so every data layer draws over it.
-    m_layerStack->insertLayer(m_layerStack->rowCount(), basemap);
+    installBasemap(basemap);
 
     raw->setTileReadyCallback([basemap] { basemap->onTileReady(); });
 
     log(tr("Basemap: %1 — %2").arg(provider.name, provider.attribution));
+  }
+
+  void ComposerMainWindow::addServiceBasemap()
+  {
+    OgcServiceDialog dialog(this);
+
+    // What the map is looking at, in longitude and latitude, so a feature
+    // service is asked about that ground rather than about the whole
+    // country it holds. Left null when the map is in a system that cannot
+    // be converted, in which case the collection is fetched whole up to
+    // its feature limit.
+    if (m_mapCanvas && m_mapCanvas->crs())
+    {
+      QString message;
+      const std::unique_ptr<SpatialReference> wgs84 =
+        SpatialReference::fromAuthority(QStringLiteral("EPSG"), 4326,
+                                        message);
+
+      if (wgs84)
+      {
+        const std::unique_ptr<CoordinateTransform> toGeographic =
+          CoordinateTransform::between(*m_mapCanvas->crs(), *wgs84, message);
+
+        if (toGeographic)
+        {
+          const QRectF visible = m_mapCanvas->transform().visibleExtent();
+          bool ok = true;
+
+          const QPointF lower =
+            toGeographic->transform(visible.topLeft(), &ok);
+          const QPointF upper =
+            toGeographic->transform(visible.bottomRight(), &ok);
+
+          if (ok)
+          {
+            dialog.setPreferredExtent(QRectF(lower, upper).normalized());
+          }
+        }
+      }
+    }
+
+    if (dialog.exec() != QDialog::Accepted)
+    {
+      return;
+    }
+
+    // A feature collection is data, not a backdrop: it joins the stack as
+    // a layer of its own, above whatever basemap is there, and can then be
+    // selected from and imported as a mesh domain.
+    if (std::unique_ptr<WfsFeatureLayer> features = dialog.takeFeatureLayer())
+    {
+      const QString name = features->name();
+      const int count = features->featureCount();
+
+      addMapLayer(features.release());
+
+      log(tr("%1: %2 features from %3")
+            .arg(name)
+            .arg(count)
+            .arg(dialog.serviceTitle()));
+
+      return;
+    }
+
+    // A coverage is data too, and the one kind of it a model can be built
+    // on: elevations rather than a picture of elevations.
+    if (std::unique_ptr<WcsCoverageLayer> coverage = dialog.takeCoverageLayer())
+    {
+      const QString name = coverage->name();
+      const QSize size = coverage->rasterSize();
+
+      double minimum = 0.0;
+      double maximum = 0.0;
+      coverage->valueRange(minimum, maximum);
+
+      addMapLayer(coverage.release());
+
+      log(tr("%1: %2 by %3 cells, %4 to %5, from %6")
+            .arg(name)
+            .arg(size.width())
+            .arg(size.height())
+            .arg(minimum, 0, 'f', 2)
+            .arg(maximum, 0, 'f', 2)
+            .arg(dialog.serviceTitle()));
+
+      return;
+    }
+
+    std::unique_ptr<OgcTileSource> source = dialog.createSource();
+
+    if (!source)
+    {
+      log(tr("No layer was chosen from that service."));
+      return;
+    }
+
+    const QString name = dialog.layerName();
+    OgcTileSource *raw = source.get();
+
+    auto *basemap = new TileLayer(name, std::move(source));
+
+    // The dialog is the only place that knows the address this came from:
+    // a tile source is built from a capabilities document and cannot say
+    // afterwards where that document was fetched.
+    basemap->setPersistentState(dialog.persistentStateForChoice());
+
+    installBasemap(basemap);
+
+    raw->setTileReadyCallback([basemap] { basemap->onTileReady(); });
+
+    // A service basemap is none of the built-in providers, so none of their
+    // menu entries should go on looking chosen.
+    if (QAction *checked = m_basemapGroup->checkedAction())
+    {
+      checked->setChecked(false);
+    }
+
+    log(tr("Basemap: %1 — %2").arg(name, dialog.serviceTitle()));
   }
 
   void ComposerMainWindow::onLayerProperties(MapLayer *layer)
@@ -1338,6 +2326,140 @@ namespace HydroCouple::Composer
     if (dialog.exec() == QDialog::Accepted)
     {
       log(tr("Updated %1.").arg(layer->name()));
+    }
+  }
+
+  void ComposerMainWindow::installWelcomeCloseButton(int index)
+  {
+    if (index < 0)
+    {
+      return;
+    }
+
+    QTabBar *bar = m_workspace->tabBar();
+
+    // Which side the button belongs on is the style's to say, not ours.
+    // Fusion — which this application installs everywhere (D12) — answers
+    // RightSide, but asking keeps the button where the platform puts it
+    // rather than where one platform happened to put it.
+    const auto side = static_cast<QTabBar::ButtonPosition>(bar->style()->styleHint(
+      QStyle::SH_TabBar_CloseButtonPosition, nullptr, bar));
+
+    // Created once and kept. QTabBar does not delete a tab button when its
+    // tab is removed, so building a fresh one on every restore would leave
+    // a dead button parented to the bar each time.
+    if (!m_welcomeCloseButton)
+    {
+      m_welcomeCloseButton = new QToolButton(bar);
+      m_welcomeCloseButton->setObjectName(
+        QStringLiteral("welcomeTabCloseButton"));
+      m_welcomeCloseButton->setAutoRaise(true);
+      m_welcomeCloseButton->setToolTip(tr("Close the start page"));
+      m_welcomeCloseButton->setIcon(
+        style()->standardIcon(QStyle::SP_TitleBarCloseButton));
+      m_welcomeCloseButton->setIconSize(QSize(12, 12));
+
+      connect(m_welcomeCloseButton, &QToolButton::clicked, this,
+              &ComposerMainWindow::closeWelcomeTab);
+    }
+
+    bar->setTabButton(index, side, m_welcomeCloseButton);
+  }
+
+  void ComposerMainWindow::closeWelcomeTab()
+  {
+    const int index = m_workspace->indexOf(m_welcome);
+
+    if (index < 0)
+    {
+      return;
+    }
+
+    // Removed, not deleted: the page keeps its recent list and its start-up
+    // box, so bringing it back is the same page rather than a new one that
+    // has to be rebuilt. Qt leaves it parented to the stack, so there is no
+    // stray top-level window to guard against — measured, not assumed.
+    //
+    // Where to go next is left to Qt, and that is not laziness: measured,
+    // it moves to the composition when the start page was the tab being
+    // looked at, and stays put when it was not. Sending the user to the
+    // composition unconditionally would have pulled them off the map they
+    // were reading because they tidied away a tab they were not on.
+    m_workspace->removeTab(index);
+
+    // Closing the start page is a thing done to this session, not a change
+    // of mind about start-up: that is the preference on the page itself,
+    // and it is deliberately left alone here.
+    log(tr("Start page closed — Help ▸ Welcome brings it back."));
+  }
+
+  void ComposerMainWindow::showWelcomeTab()
+  {
+    int index = m_workspace->indexOf(m_welcome);
+
+    if (index < 0)
+    {
+      // Back where it was, ahead of the canvas.
+      index = m_workspace->insertTab(0, m_welcome,
+                                     IconFactory::icon(QStringLiteral("welcome")),
+                                     tr("Welcome"));
+      installWelcomeCloseButton(index);
+    }
+
+    m_workspace->setCurrentWidget(m_welcome);
+  }
+
+  void ComposerMainWindow::onPreferences()
+  {
+    // Shown from an action's triggered() — a release, never a press: a modal
+    // opened from a mouse press wedges input on macOS.
+    PreferencesDialog dialog(PreferencesManager::instance(), this);
+
+    // The dialog cannot pick a CRS by itself; the catalogue is the GIS
+    // layer's, so the window lends it the same chooser the map uses.
+    dialog.setCrsChooser(
+      [this](const QString &current) -> QString
+      {
+        CrsSelectionDialog chooser(this);
+        QString message;
+
+        if (std::unique_ptr<SpatialReference> crs =
+              SpatialReference::fromDefinition(current, message))
+        {
+          chooser.setCurrentCrs(crs.get());
+        }
+
+        return chooser.exec() == QDialog::Accepted ? chooser.selectedAuthCode()
+                                                   : QString();
+      });
+
+    dialog.exec();
+  }
+
+  void ComposerMainWindow::applyComponentSearchPaths()
+  {
+    const PreferencesManager *prefs = PreferencesManager::instance();
+    const QStringList paths = ComponentRegistry::defaultSearchPaths(prefs->componentSearchPaths());
+
+    m_registry->setSearchPaths(paths);
+
+    if (!prefs->rescanComponentsOnStartUp())
+    {
+      return;
+    }
+
+    // Scanned one directory at a time through the same path Load Directory
+    // uses, so a library that fails to load is reported the same way.
+    for (const QString &directory : paths)
+    {
+      const int loaded = loadComponentDirectory(directory);
+
+      if (loaded > 0)
+      {
+        log(tr("Loaded %1 component library(ies) from %2")
+              .arg(loaded)
+              .arg(directory));
+      }
     }
   }
 
@@ -1373,6 +2495,112 @@ namespace HydroCouple::Composer
     m_mapCanvas->setCrs(std::move(chosen));
 
     log(tr("Map coordinate system: %1").arg(described));
+  }
+
+  MeshDomainModel *ComposerMainWindow::meshDomain() const
+  {
+    return m_meshDomain;
+  }
+
+  void ComposerMainWindow::ensureDomainLayers()
+  {
+    if (m_domainLayersShown)
+    {
+      return;
+    }
+
+    m_domainLayersShown = true;
+
+    for (const DomainPart part :
+         {DomainPart::Boundary, DomainPart::Holes, DomainPart::Breaklines,
+          DomainPart::ForcedPoints})
+    {
+      m_layerStack->addLayer(DomainLayer::create(m_meshDomain, part).release());
+    }
+  }
+
+  void ComposerMainWindow::onDomainToolChosen()
+  {
+    // Picking up a drawing tool is the moment the user has said they want a
+    // domain, so the rows to toggle appear then rather than after the first
+    // shape lands.
+    ensureDomainLayers();
+
+    if (m_editVerticesAction->isChecked())
+    {
+      m_mapCanvas->setTool(
+        std::make_unique<DomainEditTool>(m_mapCanvas, m_meshDomain));
+      m_workspace->setCurrentWidget(m_mapCanvas);
+
+      return;
+    }
+
+    DomainPart part = DomainPart::Boundary;
+
+    if (m_drawHoleAction->isChecked())
+    {
+      part = DomainPart::Holes;
+    }
+    else if (m_drawBreaklineAction->isChecked())
+    {
+      part = DomainPart::Breaklines;
+    }
+    else if (m_drawPointAction->isChecked())
+    {
+      part = DomainPart::ForcedPoints;
+    }
+
+    m_mapCanvas->setTool(std::make_unique<DomainDrawTool>(
+      m_mapCanvas, m_meshDomain, part));
+
+    // Brought forward, because a gesture set is a property of a view nobody
+    // can use from another tab.
+    m_workspace->setCurrentWidget(m_mapCanvas);
+  }
+
+  void ComposerMainWindow::onImportSelectionAsDomainPart()
+  {
+    QAction *action = qobject_cast<QAction *>(sender());
+
+    if (!action)
+    {
+      return;
+    }
+
+    // The layer the user is pointing at in the tree, which is the one whose
+    // selection they can see. A raster or a mesh has no features to take.
+    auto *layer = dynamic_cast<FeatureLayer *>(m_layerTree->currentLayer());
+
+    if (!layer)
+    {
+      const QString message =
+        tr("Choose a vector layer in the Layers panel, and select the "
+           "features to import on the map.");
+
+      log(message);
+      QMessageBox::information(this, tr("Nothing to import"), message);
+
+      return;
+    }
+
+    // Created before the import rather than after it: the layers are made on
+    // first use, and a domain that arrives with nothing drawing it looks
+    // like an import that did nothing.
+    ensureDomainLayers();
+
+    const DomainImportResult result = importSelectionAsDomainPart(
+      *layer, DomainPart(action->data().toInt()), *m_meshDomain);
+
+    log(result.message);
+
+    if (!result.ok)
+    {
+      QMessageBox::information(this, tr("Nothing to import"), result.message);
+
+      return;
+    }
+
+    m_workspace->setCurrentWidget(m_mapCanvas);
   }
 
   void ComposerMainWindow::onMapToolChosen()
@@ -1500,6 +2728,39 @@ namespace HydroCouple::Composer
       return false;
     }
 
+    if (RasterDataItemLayer::isRaster(item))
+    {
+      std::unique_ptr<RasterDataItemLayer> raster =
+        RasterDataItemLayer::create(item, message);
+
+      if (!raster)
+      {
+        return false;
+      }
+
+      raster->setName(tr("%1 — %2 — %3")
+                        .arg(session->title(), componentId, raster->name()));
+
+      // A recorded run's component id is the one the run recorded under,
+      // which is the same id the composition used — so a layer opened from
+      // a run still points at the component on the canvas, when one is
+      // loaded. When none is, the hub simply finds nothing to select.
+      raster->setProvenance(componentId, itemId);
+
+      RasterDataItemLayer *addedRaster = raster.release();
+      m_layerStack->addLayer(addedRaster);
+
+      log(tr("Added %1 (a raster of %2 by %3 cells).")
+            .arg(addedRaster->name())
+            .arg(addedRaster->extent().width())
+            .arg(addedRaster->extent().height()));
+
+      m_workspace->setCurrentWidget(m_mapCanvas);
+      m_mapCanvas->zoomToLayer(addedRaster);
+
+      return true;
+    }
+
     if (!DataItemLayer::isSpatial(item))
     {
       // Said plainly rather than as a failure to draw. A recorded run may
@@ -1523,6 +2784,7 @@ namespace HydroCouple::Composer
     // point of holding two runs open.
     layer->setName(tr("%1 — %2 — %3")
                      .arg(session->title(), componentId, layer->name()));
+    layer->setProvenance(componentId, itemId);
 
     DataItemLayer *added = layer.release();
     m_layerStack->addLayer(added);
@@ -1536,6 +2798,10 @@ namespace HydroCouple::Composer
     // window is otherwise drawn behind whichever tab happens to be showing.
     m_workspace->setCurrentWidget(m_mapCanvas);
     m_mapCanvas->zoomToLayer(added);
+
+    // A recorded item names the component that produced it, so opening one
+    // points the canvas at that component when the composition is loaded.
+    m_selectionHub->runItemShown(added);
 
     return true;
   }
@@ -1715,6 +2981,43 @@ namespace HydroCouple::Composer
             [followTab](int) { followTab(); });
 
     followTab();
+
+    // The camera readout takes the coordinate slot on the 3D tab. Connected
+    // here because this is where the bar learns which tab is front -- and
+    // it makes cameraChanged's own doc comment true at last: the signal was
+    // emitted from six places and listened to by nobody.
+    connect(m_sceneView, &SceneView::cameraChanged, this,
+            [this]
+            {
+              if (m_workspace->currentWidget() != m_sceneView)
+              {
+                return;
+              }
+
+              const Camera &camera = m_sceneView->camera();
+              m_mapStatus->showCameraReading(camera.azimuth(),
+                                             camera.elevation(),
+                                             camera.distance());
+            });
+
+    // What a click identified, named where the eye already is. Both views'
+    // pick signals were emitted into the void; one handler serves both,
+    // because the message should not depend on which view was clicked.
+    const auto announcePick = [this](MapLayer *layer, int feature)
+    {
+      if (layer)
+      {
+        statusBar()->showMessage(
+          tr("%1 — feature %2").arg(layer->name()).arg(feature), 5000);
+      }
+
+      // The one place both views' picks arrive, which is why the hub is
+      // told from here rather than subscribing to each view itself.
+      m_selectionHub->featurePicked(layer);
+    };
+
+    connect(m_mapCanvas, &MapCanvas::featurePicked, this, announcePick);
+    connect(m_sceneView, &SceneView::featurePicked, this, announcePick);
   }
 
   void ComposerMainWindow::refreshTitle()
@@ -1746,12 +3049,173 @@ namespace HydroCouple::Composer
   {
     if (!m_document->load(filePath, message))
     {
+      // Only a document that actually opened is worth offering again.
       return false;
     }
 
     log(tr("Opened %1").arg(filePath));
 
+    if (m_recent)
+    {
+      m_recent->remember(filePath);
+    }
+
+    restoreLayers();
+
+    // The canvas is what was asked for; the welcome page has done its job.
+    if (m_workspace && m_canvas)
+    {
+      m_workspace->setCurrentWidget(m_canvas);
+    }
+
     return true;
+  }
+
+  void ComposerMainWindow::captureLayers()
+  {
+    QJsonArray layers;
+
+    for (int row = 0; row < m_layerStack->rowCount(QModelIndex()); ++row)
+    {
+      const MapLayer *layer = m_layerStack->layerAt(row);
+
+      if (!layer)
+      {
+        continue;
+      }
+
+      QJsonObject state = layer->persistentState();
+
+      // An empty recipe means the layer is not one a reopened composition
+      // rebuilds -- a mesh domain, a component's data item. Those have
+      // their own homes in the sidecar or come back with the components.
+      if (state.isEmpty())
+      {
+        continue;
+      }
+
+      // Recorded at save rather than at creation, because both can be
+      // changed after the layer is added.
+      state.insert(QStringLiteral("name"), layer->name());
+      state.insert(QStringLiteral("visible"), layer->isVisible());
+      state.insert(QStringLiteral("opacity"), layer->opacity());
+
+      // The scene's settings, under one key. Before this, drape, placement,
+      // extrusion and the 3D toggle were all lost on save: a composition
+      // arranged in 3D reopened flat.
+      if (const ISceneSource *scene = layer->sceneSource())
+      {
+        QJsonObject sceneState;
+        sceneState.insert(QStringLiteral("shownIn3D"), layer->isShownIn3D());
+        sceneState.insert(QStringLiteral("terrainEnabled"),
+                          scene->terrainEnabled());
+
+        const ZPolicy &policy = scene->zPolicy();
+        sceneState.insert(QStringLiteral("zMode"),
+                          static_cast<int>(policy.mode));
+        sceneState.insert(QStringLiteral("constant"), policy.constant);
+        sceneState.insert(QStringLiteral("field"), policy.field);
+        sceneState.insert(QStringLiteral("offset"), policy.offset);
+        sceneState.insert(QStringLiteral("extrusion"),
+                          scene->extrusionHeight());
+
+        if (const auto *mesh = dynamic_cast<const MeshLayer *>(layer))
+        {
+          sceneState.insert(QStringLiteral("flatShading"),
+                            mesh->flatShading());
+        }
+
+        state.insert(QStringLiteral("scene"), sceneState);
+      }
+
+      if (const auto *raster = dynamic_cast<const GdalRasterLayer *>(layer))
+      {
+        QJsonObject shading;
+        shading.insert(QStringLiteral("ramp"), raster->rampName());
+
+        double minimum = 0.0;
+        double maximum = 1.0;
+        raster->valueRange(minimum, maximum);
+        shading.insert(QStringLiteral("stretchFrom"), minimum);
+        shading.insert(QStringLiteral("stretchTo"), maximum);
+
+        state.insert(QStringLiteral("shading"), shading);
+      }
+
+      layers.append(state);
+    }
+
+    m_document->presentation().setLayers(layers);
+  }
+
+  void ComposerMainWindow::rebuildRecentMenu()
+  {
+    if (!m_recentMenu || !m_recent)
+    {
+      return;
+    }
+
+    m_recentMenu->clear();
+
+    const QStringList paths = m_recent->paths();
+
+    if (paths.isEmpty())
+    {
+      QAction *empty = m_recentMenu->addAction(tr("Nothing opened yet"));
+      empty->setEnabled(false);
+
+      return;
+    }
+
+    for (const QString &path : paths)
+    {
+      QAction *entry = m_recentMenu->addAction(QFileInfo(path).fileName());
+      entry->setToolTip(path);
+
+      connect(entry, &QAction::triggered, this,
+              [this, path]
+              {
+                QString message;
+
+                if (!openComposition(path, message))
+                {
+                  // A document that has moved stays on the list — the user
+                  // is the one who knows whether it is coming back — but
+                  // they are told which one, and why.
+                  QMessageBox::warning(this, tr("Cannot open"), message);
+                }
+              });
+    }
+
+    m_recentMenu->addSeparator();
+
+    QAction *clear = m_recentMenu->addAction(tr("Clear"));
+    clear->setObjectName(QStringLiteral("clearRecentAction"));
+    connect(clear, &QAction::triggered, this, [this] { m_recent->clear(); });
+  }
+
+  void ComposerMainWindow::restoreLayers()
+  {
+    const QJsonArray layers = m_document->presentation().layers();
+
+    if (layers.isEmpty())
+    {
+      return;
+    }
+
+    if (!m_layerRestorer)
+    {
+      m_layerRestorer = new LayerRestorer(this);
+    }
+
+    m_layerRestorer->restore(
+      layers, [this](MapLayer *layer) { m_layerStack->addLayer(layer); },
+      [this](const QString &message) {
+        // Reported rather than fatal. A composition whose basemap service is
+        // down is still the composition, and refusing to open it would cost
+        // far more than the basemap did.
+        log(message);
+      });
   }
 
   void ComposerMainWindow::log(const QString &text)
@@ -1761,16 +3225,36 @@ namespace HydroCouple::Composer
 
   void ComposerMainWindow::onSelectionChanged()
   {
+    // One panel per selection kind: a component fills Arguments, an adapter
+    // node or a connection edge fills the inspector, and whichever is not
+    // addressed empties rather than going stale.
     for (QGraphicsItem *item : m_scene->selectedItems())
     {
+      if (auto *adapter = qgraphicsitem_cast<AdapterNodeItem *>(item))
+      {
+        m_adapterInspector->setChainStep(adapter->connection(),
+                                         adapter->stepIndex());
+        m_configurator->setComponent(QString());
+        return;
+      }
+
+      if (auto *edge = qgraphicsitem_cast<ConnectionEdgeItem *>(item))
+      {
+        m_adapterInspector->showConnection(edge->connection());
+        m_configurator->setComponent(QString());
+        return;
+      }
+
       if (auto *node = qgraphicsitem_cast<ComponentNodeItem *>(item))
       {
         m_configurator->setComponent(node->componentId());
+        m_adapterInspector->clearSelection();
         return;
       }
     }
 
     m_configurator->setComponent(QString());
+    m_adapterInspector->clearSelection();
   }
 
   void ComposerMainWindow::onRun()
