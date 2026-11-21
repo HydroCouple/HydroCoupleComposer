@@ -180,7 +180,7 @@ namespace
 
 TEST_F(DomainEditTest, TheReachIsMeasuredInPixelsAndSpentInWorldUnits)
 {
-  // Ten pixels is what a hand can aim at. Ten metres is unusable at one zoom
+  // Ten pixels is what a hand can aim at. Ten meters is unusable at one zoom
   // and grabs half the map at another, so the conversion is the whole point.
   EXPECT_DOUBLE_EQ(worldTolerance(10.0, 1.0), 10.0);
   EXPECT_DOUBLE_EQ(worldTolerance(10.0, 4.0), 2.5);
@@ -294,7 +294,7 @@ TEST_F(DomainEditTest, ARingIsSearchedRoundItsClosingEdgeAndALineIsNot)
 TEST_F(DomainEditTest, AnEdgeHitAddressesTheCornerItWouldBecome)
 {
   // Between vertices 1 and 2, so the new corner is vertex 2 and the old one
-  // moves along. An off-by-one here inserts the corner on the neighbouring
+  // moves along. An off-by-one here inserts the corner on the neighboring
   // edge, which is a shape nobody drew.
   const DomainSnap hit =
     nearestEdge(m_model->domain(), QPointF(-98.0, 0.0), 10.0);
@@ -328,7 +328,7 @@ TEST_F(DomainEditTest, MovingAVertexMovesItAndSaysSoOnce)
   EXPECT_EQ(m_model->domain().holes.first().at(2), QPointF(-210.0, 60.0));
   EXPECT_EQ(spy.count(), 1);
 
-  // The neighbours are where they were: a move that rewrote the ring would
+  // The neighbors are where they were: a move that rewrote the ring would
   // still put the dragged corner right.
   EXPECT_EQ(m_model->domain().holes.first().at(0), QPointF(-250.0, -50.0));
   EXPECT_EQ(m_model->domain().holes.first().size(), 3);

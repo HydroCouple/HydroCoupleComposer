@@ -116,9 +116,9 @@ namespace HydroCouple::Composer
       }
 
       // Two opposite world corners; which of them lands where on screen is
-      // settled by normalising, and the tile image is north-up either way.
+      // settled by normalizing, and the tile image is north-up either way.
       // Rounded to whole pixels: a tile boundary at a fractional position
-      // leaves a partly-transparent seam column between neighbours.
+      // leaves a partly-transparent seam column between neighbors.
       const QPointF cornerA =
         transform.toScreen(placement.extent.topLeft());
       const QPointF cornerB =

@@ -78,7 +78,7 @@ namespace HydroCouple::Composer
    * \param options What to do after triangulating.
    * \param progress Where to report to, and what may stop the run; empty
    *        for an unwatched one. Returning false from it abandons the
-   *        generation, which then reports itself cancelled and carries no
+   *        generation, which then reports itself canceled and carries no
    *        mesh — see HydroCouple::SDK::Tools::MeshProgress for what can
    *        and cannot be interrupted, since a dialog must not offer a
    *        cancel that lands sooner than it does.

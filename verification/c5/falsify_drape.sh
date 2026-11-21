@@ -104,7 +104,7 @@ m_never_drape() {
   perl -0pi -e 's/    return m_drape == SceneDrape::Flat \? nullptr : context\.terrain;/    return nullptr;/' include/scene/scenesource.h
 }
 
-# 3. A raster ignores its own setting while a basemap honours its.
+# 3. A raster ignores its own setting while a basemap honors its.
 m_raster_ignores() {
   perl -0pi -e 's/    SceneGeometry ground = buildGroundPlane\(m_ground, drapeTarget\(context\)\);/    SceneGeometry ground = buildGroundPlane(m_ground, context.terrain);/' src/layers/gdalrasterlayer.cpp
 }

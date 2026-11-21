@@ -92,7 +92,7 @@ m_transposed_cell_index() {
   perl -0pi -e 's/        static_cast<int>\(m_layering\.cell\(column, layer\)\)\)\);/        static_cast<int>(layer * m_layering.columnCount() + column)));/' src/layers/meshlayer.cpp
 }
 
-# 3. Values are plotted at an interface rather than at the layer's centre, so
+# 3. Values are plotted at an interface rather than at the layer's center, so
 #    each one sits on a boundary it shares with the cell above.
 m_elevation_at_interface() {
   perl -0pi -e 's/      elevations\.append\(\n        \(m_layering\.z\(column, layer\) \+ m_layering\.z\(column, layer \+ 1\)\) \/ 2\.0\);/      elevations.append(m_layering.z(column, layer));/' src/layers/meshlayer.cpp
@@ -137,7 +137,7 @@ m_stale_profile() {
   perl -0pi -e 's/    m_chart->removeAllSeries\(\);\n    m_profiles\.clear\(\);//' src/ui/panels/profileplotpanel.cpp
 }
 
-# 11. The value axis is labelled generically, throwing away the name the
+# 11. The value axis is labeled generically, throwing away the name the
 #     values were attached under.
 m_generic_value_axis() {
   perl -0pi -e 's/      m_valueAxis->setTitleText\(source->valueAttribute\(\)\);/      m_valueAxis->setTitleText(QStringLiteral("Value"));/' src/ui/panels/profileplotpanel.cpp

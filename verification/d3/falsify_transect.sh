@@ -2,9 +2,9 @@
 # D3d falsification: a section line cut through a layered mesh.
 #
 # Every mutation below still produces a section -- cells of the right count,
-# over a plausible range, drawn in plausible colours. The gates compare
+# over a plausible range, drawn in plausible colors. The gates compare
 # against the fixture's arithmetic: which column the line met first, how far
-# along it that was, which end of the column is the surface, and what colour
+# along it that was, which end of the column is the surface, and what color
 # the map would have given the cell.
 
 set -u
@@ -177,7 +177,7 @@ m_cleared_line_kept() {
   perl -0pi -e 's/    if \(m_line\.size\(\) < 2\)\n    \{\n      showMessage\(tr\("Draw a section line across ..%1.. to cut through it\."\)\n                    \.arg\(source->name\(\)\)\);\n      return;\n    \}/    if (m_line.size() < 2) { return; }/' src/ui/panels/transectpanel.cpp
 }
 
-# 14. Cells are filled from a colour of the panel's own rather than from the
+# 14. Cells are filled from a color of the panel's own rather than from the
 #     layer's classification, so the section and the map disagree while both
 #     look authoritative.
 m_section_has_its_own_ramp() {

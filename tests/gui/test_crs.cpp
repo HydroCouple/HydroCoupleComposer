@@ -1,10 +1,10 @@
 /*!
  * \file   test_crs.cpp
- * \brief  Phase C5b verification — the CRS catalogue, chooser and assignment.
+ * \brief  Phase C5b verification — the CRS catalog, chooser and assignment.
  *
  * Three claims are under test, and the third is the one that matters:
- *   - the catalogue lists the systems a map can be drawn in, and finds them;
- *   - the chooser returns the system that was picked, not a neighbouring row;
+ *   - the catalog lists the systems a map can be drawn in, and finds them;
+ *   - the chooser returns the system that was picked, not a neighboring row;
  *   - assigning a CRS changes what a layer's coordinates *mean*, and the map
  *     redraws it accordingly.
  *
@@ -34,7 +34,7 @@ namespace Testing = HydroCouple::Composer::Testing;
 
 namespace
 {
-  //! Web Mercator's easting/northing for 10°E, 50°N, to within a metre.
+  //! Web Mercator's easting/northing for 10°E, 50°N, to within a meter.
   constexpr double kTenEastInMercator = 1113194.9;
   constexpr double kFiftyNorthInMercator = 6446275.8;
 
@@ -222,7 +222,7 @@ TEST_F(CrsTest, AssigningASystemMovesWhereTheLayerIsDrawn)
   layer.setMapCrs(mercator);
   layer.setCrs(SpatialReference::wgs84());
 
-  // Degrees on a Web Mercator map: the point is drawn a million metres east
+  // Degrees on a Web Mercator map: the point is drawn a million meters east
   // and six million north, and can be picked there.
   EXPECT_GE(layer.pickAt(QPointF(kTenEastInMercator, kFiftyNorthInMercator),
                          1.0),
@@ -231,9 +231,9 @@ TEST_F(CrsTest, AssigningASystemMovesWhereTheLayerIsDrawn)
 
   EXPECT_LT(layer.pickAt(QPointF(10.0, 50.0), 1.0), 0);
 
-  // Now declare that those same numbers were metres all along. Nothing moves
+  // Now declare that those same numbers were meters all along. Nothing moves
   // in the file; what changes is what the numbers mean, so the point lands at
-  // ten metres east of the origin.
+  // ten meters east of the origin.
   layer.setCrs(mercator);
 
   EXPECT_GE(layer.pickAt(QPointF(10.0, 50.0), 1.0), 0)

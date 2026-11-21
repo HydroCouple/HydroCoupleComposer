@@ -73,7 +73,7 @@ m_no_divide() {
   perl -0pi -e 's/      return qFuzzyIsNull\(clip\.w\(\)\) \? clip\.toVector3D\(\)\n                                    : clip\.toVector3D\(\) \/ clip\.w\(\);/      return clip.toVector3D();/' src/scene/camera.cpp
 }
 
-# 2. Normalised device y is not flipped against widget y.
+# 2. Normalized device y is not flipped against widget y.
 m_no_y_flip() {
   perl -0pi -e 's/    const float ndcY =\n      float\(1\.0 - 2\.0 \* pixel\.y\(\) \/ double\(viewport\.height\(\)\)\);/    const float ndcY =\n      float(2.0 * pixel.y() \/ double(viewport.height()) - 1.0);/' src/scene/camera.cpp
 }

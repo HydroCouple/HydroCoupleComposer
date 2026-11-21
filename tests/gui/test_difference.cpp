@@ -4,7 +4,7 @@
  *
  * The gates are on signed numbers per feature per instant, because every way
  * this can be wrong still draws a map: subtracting the wrong way round gives
- * a plausible picture with every colour inverted, pairing by level index
+ * a plausible picture with every color inverted, pairing by level index
  * instead of by instant gives a plausible picture of the wrong hours, and
  * differencing two meshes that merely have the same number of cells gives a
  * plausible picture of nothing at all.
@@ -262,7 +262,7 @@ TEST_F(DifferenceTest, ARunComparedAgainstItselfIsZeroEverywhere)
 TEST_F(DifferenceTest, TheDifferenceIsTheBaseMinusTheOtherAndNotTheReverse)
 {
   // The base is 7 higher everywhere, so every difference is +7. Reversed, it
-  // would be -7 — the same map with every colour on the other side of the
+  // would be -7 — the same map with every color on the other side of the
   // ramp, which is exactly as readable and exactly wrong.
   const std::unique_ptr<Testing::StubTimeGeometryItem> base =
     makeItem("base", 3, kEpoch, 1.0, 7.0);
@@ -459,7 +459,7 @@ TEST_F(DifferenceTest, TheBreaksAreTakenFromEveryInstantNotTheOneOnScreen)
 {
   // The base grows away from the other as the run goes on, so the range of
   // differences is wider than any single instant's. A comparison classified
-  // from the level on screen recomputes its colours every step, and the one
+  // from the level on screen recomputes its colors every step, and the one
   // thing a difference map is read for is which step disagreed most.
   const std::unique_ptr<Testing::StubTimeGeometryItem> base =
     makeItem("base", 3, kEpoch, 1.0, 0.0);

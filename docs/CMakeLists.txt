@@ -2,7 +2,7 @@
 #
 # Mirrors HydroCoupleSDK's docs target so the three repositories render with
 # one identical doxygen-awesome theme: same stylesheet, same header, same
-# colour style, same interactive SVG graphs.
+# color style, same interactive SVG graphs.
 
 set(DOXYGEN_IN  ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile.in)
 set(DOXYGEN_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)

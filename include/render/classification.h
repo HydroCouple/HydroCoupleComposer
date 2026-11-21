@@ -29,7 +29,7 @@ namespace HydroCouple::Composer
   {
     EqualInterval,  //!< Equal-width classes across the range.
     Quantile,       //!< Equal feature counts per class.
-    NaturalBreaks,  //!< Jenks: minimises variance within classes.
+    NaturalBreaks,  //!< Jenks: minimizes variance within classes.
     Manual          //!< Boundaries set by the user; never recomputed.
   };
 
@@ -80,12 +80,12 @@ namespace HydroCouple::Composer
       void setClassCount(int count);
 
       /*!
-       * \brief The ramp colours are drawn from.
+       * \brief The ramp colors are drawn from.
        */
       [[nodiscard]] const ColorRamp &ramp() const;
 
       /*!
-       * \brief Sets the ramp and recolours the existing classes.
+       * \brief Sets the ramp and recolors the existing classes.
        * \param ramp The ramp to use.
        */
       void setRamp(const ColorRamp &ramp);
@@ -139,9 +139,9 @@ namespace HydroCouple::Composer
       void setClassVisible(int index, bool visible);
 
       /*!
-       * \brief Overrides one class's colour.
+       * \brief Overrides one class's color.
        * \param index Class index.
-       * \param color The colour to use.
+       * \param color The color to use.
        */
       void setClassColor(int index, const QColor &color);
 

@@ -6,7 +6,7 @@
  * The first layer here whose data is the point rather than the backdrop. A
  * WMS answers with a picture of a catchment; a WFS answers with the
  * catchment, so what arrives can be selected, imported as a mesh domain,
- * and used to parameterise a model.
+ * and used to parameterize a model.
  *
  * Built from bytes already in hand rather than fetching for itself: the
  * dialog that asked the service what it holds is the thing that knows

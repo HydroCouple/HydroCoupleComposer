@@ -1,5 +1,5 @@
 #!/bin/bash
-# C5b falsification run: the CRS catalogue, the chooser, and assignment.
+# C5b falsification run: the CRS catalog, the chooser, and assignment.
 #
 # Mutation 1 is the defect this slice found and fixed rather than one invented
 # for the harness: setCrs() did not invalidate the projection cache, so a layer

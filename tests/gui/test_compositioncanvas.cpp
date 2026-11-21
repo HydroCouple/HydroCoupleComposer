@@ -843,7 +843,7 @@ TEST_F(CanvasTest, TheDocumentsArgumentsReachTheLiveComponent)
 {
   // What a component's PORTS are depends on its arguments — a provider
   // publishes one output per series in its source file — so an instance
-  // realised without them describes a default component rather than the one
+  // realized without them describes a default component rather than the one
   // the document asks for.
   const QByteArray configured = R"({
     "schema_version": "1.1",

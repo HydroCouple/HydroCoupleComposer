@@ -249,7 +249,7 @@ namespace HydroCouple::Composer::Testing
    * Dimensions are {time, geometries} — **time first**, exactly as
    * TimeGeometryComponentDataItem declares them. A viewer that assumed the
    * entity axis was dimension 0 would read one value per time step here and
-   * colour every feature by a time index.
+   * color every feature by a time index.
    */
   class StubTimeGeometryItem
     : public HydroCouple::SDK::AbstractComponentDataItem,

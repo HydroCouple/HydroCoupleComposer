@@ -68,7 +68,7 @@ namespace HydroCouple::Composer
        *
        * A regular grid is a mesh whose faces happen to be quads, so it is
        * converted rather than given a rendering path of its own — which also
-       * means it inherits classification, the legend and labelling unchanged.
+       * means it inherits classification, the legend and labeling unchanged.
        * Inactive cells are left out: they are holes in the domain, and
        * drawing them would show ground the model does not solve on.
        *
@@ -189,8 +189,8 @@ namespace HydroCouple::Composer
       /*!
        * \brief Attaches one value per drawn entity.
        *
-       * The count must match the entity count: a mesh coloured by values that
-       * belong to a different entity is worse than an uncoloured one, because
+       * The count must match the entity count: a mesh colored by values that
+       * belong to a different entity is worse than an uncolored one, because
        * it looks like an answer.
        *
        * \param name Attribute name to offer the values under.
@@ -205,7 +205,7 @@ namespace HydroCouple::Composer
       [[nodiscard]] QString valueAttribute() const;
 
       /*!
-       * \brief Gives the layer a vertical discretisation.
+       * \brief Gives the layer a vertical discretization.
        *
        * The map is unaffected — in plan view a layered mesh is its own
        * horizontal mesh — but the 3D scene switches from drawing a surface
@@ -219,12 +219,12 @@ namespace HydroCouple::Composer
       bool setLayering(LayeredMesh mesh, QString &message);
 
       /*!
-       * \brief Whether the layer has a vertical discretisation.
+       * \brief Whether the layer has a vertical discretization.
        */
       [[nodiscard]] bool isLayered() const;
 
       /*!
-       * \brief The vertical discretisation; layerCount is zero without one.
+       * \brief The vertical discretization; layerCount is zero without one.
        */
       [[nodiscard]] const LayeredMesh &layering() const;
 
@@ -247,13 +247,13 @@ namespace HydroCouple::Composer
        *
        * The water column under a picked face, surface first. Values are the
        * layered field attached by setLayeredValues(); elevations are the
-       * centre of each layer, because a cell value belongs to the whole
+       * center of each layer, because a cell value belongs to the whole
        * layer rather than to either of the interfaces bounding it.
        *
        * \param column Column index — a face of the horizontal mesh, which
        *        is what a selection on a face-drawn layer holds.
        * \param[out] values One value per layer, surface first.
-       * \param[out] elevations The centre elevation of each layer.
+       * \param[out] elevations The center elevation of each layer.
        * \param[out] message Diagnostic on failure.
        * \returns True when a profile was read.
        */
@@ -308,15 +308,15 @@ namespace HydroCouple::Composer
       [[nodiscard]] int lastVisibleLayer() const;
 
       /*!
-       * \brief The colour a cell value carries, from the layer's own style.
+       * \brief The color a cell value carries, from the layer's own style.
        *
        * Public because three views draw cell values now — the scene's
-       * prisms, the peeled faces, and the section — and a section coloured
+       * prisms, the peeled faces, and the section — and a section colored
        * from its own ramp would disagree with the map beside it while
        * looking equally authoritative.
        *
        * \param value The layered field's value in a cell.
-       * \returns The classified colour, or an invalid colour when the value
+       * \returns The classified color, or an invalid color when the value
        *          falls outside the classification and should not be drawn.
        */
       [[nodiscard]] QColor colorForCellValue(double value) const;
@@ -342,7 +342,7 @@ namespace HydroCouple::Composer
        * the plan's 3D work does not cover; it answers with no geometry rather
        * than with an invented representation of itself.
        *
-       * Colours come from the layer's own style, so a mesh classified in the
+       * Colors come from the layer's own style, so a mesh classified in the
        * map and the same mesh in the scene cannot disagree.
        *
        * \param context Unused: a mesh carries its own elevations and is the
@@ -405,7 +405,7 @@ namespace HydroCouple::Composer
        * Smooth is the default: corners carry per-node normals averaged over
        * the faces that meet there, so a hillside reads as a hillside rather
        * than as facets. Positions stay duplicated per face either way --
-       * colour is baked per vertex and a shared corner between two classes
+       * color is baked per vertex and a shared corner between two classes
        * would have to pick one -- only the normals change.
        */
       [[nodiscard]] bool flatShading() const { return m_flatShading; }

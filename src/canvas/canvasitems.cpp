@@ -491,7 +491,7 @@ namespace HydroCouple::Composer
 
   QRectF AdapterNodeItem::boundingRect() const
   {
-    // Centred on the origin, so pos() is the node's centre — the same point
+    // Centered on the origin, so pos() is the node's center — the same point
     // the sidecar stores and the default along-the-edge placement computes.
     return {-m_size.width() / 2.0, -m_size.height() / 2.0, m_size.width(),
             m_size.height()};

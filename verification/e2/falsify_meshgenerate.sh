@@ -150,7 +150,7 @@ m_progress_not_forwarded_to_merge() {
 }
 
 # 16. A merge the user stopped keeps the triangulation that preceded it, so
-#     a cancelled run still hands back a mesh.
+#     a canceled run still hands back a mesh.
 m_cancelled_merge_keeps_triangles() {
   perl -0pi -e 's/        if \(message == "cancelled"\)\n        \{\n          result\.cancelled = true;\n          result\.message = QObject::tr\("Meshing was cancelled\."\);\n          result\.mesh = \{\};/        if (message == "cancelled")\n        {\n          result.cancelled = true;\n          result.message = QObject::tr("Meshing was cancelled.");/' src/mesh/meshgenerator.cpp
 }

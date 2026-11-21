@@ -73,7 +73,7 @@ m_level_is_the_zoom_number() {
 }
 
 # 4. A basemap is asked for with a transparent background, so a service
-#    that honours it draws the map over nothing.
+#    that honors it draws the map over nothing.
 m_transparent_basemap() {
   perl -0pi -e 's/    request\.transparent = false;/    request.transparent = true;/' src/layers/ogctilesource.cpp
 }

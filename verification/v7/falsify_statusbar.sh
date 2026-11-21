@@ -48,7 +48,7 @@ run_mutation() {
   fi
 }
 
-# 1. Keep the stale coordinate on the 3D tab -- the pre-slice behaviour.
+# 1. Keep the stale coordinate on the 3D tab -- the pre-slice behavior.
 m_keep_stale_coordinate() {
   perl -0pi -e 's/    if \(!live\)\n    \{\n      m_coordinateLabel->setText\(tr\("3D view"\)\);\n    \}//' src/ui/panels/mapstatusbar.cpp
 }

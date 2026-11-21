@@ -214,7 +214,7 @@ TEST(WmsTileSourceTest, TheServersOwnSpellingOfWebMercatorIsWhatIsAskedFor)
   EXPECT_EQ(parameter(source.urlFor(TileId{1, 0, 0}), QStringLiteral("CRS")),
             QStringLiteral("urn:ogc:def:crs:EPSG::3857"));
 
-  // The names the same projection has gone by are all recognised.
+  // The names the same projection has gone by are all recognized.
   WmsLayerInfo google;
   google.crsIdentifiers = QStringList{QStringLiteral("EPSG:900913")};
   EXPECT_EQ(WmsTileSource::webMercatorSpelling(google),

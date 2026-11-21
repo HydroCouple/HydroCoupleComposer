@@ -305,7 +305,7 @@ namespace HydroCouple::Composer
     // A string argument that also reads files is text that happens to live
     // in one — FVQual's kinetics block is the case. It gets the text pane
     // rather than a path box, and that pane keeps a file chooser, so this
-    // judgement costs nothing if it is wrong in either direction.
+    // judgment costs nothing if it is wrong in either direction.
     if (facts.hasFileFilters
         && facts.dataKind == HydroCouple::DataKind::String
         && facts.isScalar)

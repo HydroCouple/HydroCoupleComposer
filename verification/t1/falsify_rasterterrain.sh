@@ -49,13 +49,13 @@ run_mutation() {
   fi
 }
 
-# 1. Drop the half-cell centre offset, shifting the whole terrain by half a
+# 1. Drop the half-cell center offset, shifting the whole terrain by half a
 #    cell.
 m_no_cell_centre() {
   perl -0pi -e 's/    const double column =\n      \(point\.x\(\) - m_terrain\.originX\) \/ m_terrain\.stepX - 0\.5;/    const double column =\n      (point.x() - m_terrain.originX) \/ m_terrain.stepX;/' src/layers/gdalrasterlayer.cpp
 }
 
-# 2. Nearest neighbour instead of bilinear: a continuous surface in
+# 2. Nearest neighbor instead of bilinear: a continuous surface in
 #    half-cell terraces.
 m_nearest_not_bilinear() {
   perl -0pi -e 's/    const double top_ = v00 \+ \(v10 - v00\) \* fractionX;\n    const double bottom_ = v01 \+ \(v11 - v01\) \* fractionX;\n\n    elevation = top_ \+ \(bottom_ - top_\) \* fractionY;/    elevation = v00;/' src/layers/gdalrasterlayer.cpp
@@ -66,7 +66,7 @@ m_hole_is_sea_level() {
   perl -0pi -e 's/    if \(std::isnan\(v00\) \|\| std::isnan\(v10\) \|\| std::isnan\(v01\)\n        \|\| std::isnan\(v11\)\)\n    \{\n      return false;\n    \}/    if (std::isnan(v00) || std::isnan(v10) || std::isnan(v01)\n        || std::isnan(v11))\n    \{\n      elevation = 0.0;\n      return true;\n    \}/' src/layers/gdalrasterlayer.cpp
 }
 
-# 4. Every raster is terrain, colour images included.
+# 4. Every raster is terrain, color images included.
 m_photos_are_ground() {
   perl -0pi -e 's/    \/\/ A colour image is a picture of the ground, not the ground\.\n    return m_colorImage \? nullptr : this;/    return this;/' src/layers/gdalrasterlayer.cpp
 }

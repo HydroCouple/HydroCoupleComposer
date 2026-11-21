@@ -40,7 +40,7 @@ namespace
 
 TEST(ArgumentKindTest, TheFallbackChainStillDecidesWhatItAlwaysDid)
 {
-  // The pre-U2a behaviour, unchanged. An argument that answers no typed
+  // The pre-U2a behavior, unchanged. An argument that answers no typed
   // interface must land exactly where it used to, or this phase is a
   // regression wearing a feature's clothes.
   EXPECT_EQ(chooseEditorKind(number()), ArgumentEditorKind::Number);
@@ -212,7 +212,7 @@ TEST(ArgumentKindTest, TextReadFromAFileIsTextRatherThanAPath)
 {
   // FVQual's kinetics block: the component takes a .rxn file, but what
   // the user edits is its contents. The text pane keeps a file chooser,
-  // so this judgement costs nothing if it is wrong in either direction.
+  // so this judgment costs nothing if it is wrong in either direction.
   ArgumentFacts kinetics = number();
   kinetics.dataKind = DataKind::String;
   kinetics.hasFileFilters = true;
@@ -336,7 +336,7 @@ TEST(ArgumentKindTest, NoArgumentLosesTheEditorItUsedToHave)
 
 TEST(ArgumentKindTest, TheFallbackIsExactlyTheOldChain)
 {
-  // genericEditorKind is the pre-U2a behaviour, preserved. For every
+  // genericEditorKind is the pre-U2a behavior, preserved. For every
   // argument that answers no typed interface and carries no unit, it and
   // the new chain must still agree — otherwise this phase changed what
   // untyped arguments look like, which it has no business doing.

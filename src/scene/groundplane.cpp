@@ -18,7 +18,7 @@ namespace HydroCouple::Composer
      * \brief Rows or columns the ground plane may be cut into.
      *
      * A bound, not a budget. A basemap covering a continent against a
-     * metre-scale terrain would otherwise ask for a grid of billions, and it
+     * meter-scale terrain would otherwise ask for a grid of billions, and it
      * would be spent on relief nobody can see from that distance anyway.
      */
     constexpr int kMaxDivisions = 128;
@@ -111,7 +111,7 @@ namespace HydroCouple::Composer
     const double spacingY = box.height() / double(rows);
 
     // Sampled first, in full, because a vertex's normal is decided by its
-    // neighbours' heights and not by its own.
+    // neighbors' heights and not by its own.
     std::vector<double> heights(size_t(across) * size_t(up), 0.0);
 
     if (terrain)
@@ -214,7 +214,7 @@ namespace HydroCouple::Composer
       }
     }
 
-    // Colour is white and opaque: the texture is the colour here, and a tint
+    // Color is white and opaque: the texture is the color here, and a tint
     // multiplied into it would be a second place the ground's appearance is
     // decided.
     const QColor white(Qt::white);

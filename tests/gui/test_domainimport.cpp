@@ -14,7 +14,7 @@
  * repeated closing point looks right and hands the mesher a zero-length
  * edge; a MultiPolygon read as one polygon with holes looks right and cuts
  * away the ground it should have meshed; and geometry taken unprojected
- * lands a boundary a hundred kilometres from the map it was drawn on.
+ * lands a boundary a hundred kilometers from the map it was drawn on.
  */
 
 #include "core/composerapplication.h"
@@ -504,8 +504,8 @@ TEST_F(DomainImportTest, TheImportedDomainIsInTheMapsCrsNotTheFilesDegrees)
     importSelectionAsDomainPart(*raw, DomainPart::Boundary, *m_model).ok);
 
   // The file says the boundary reaches longitude 1, which in the map's CRS
-  // is 111 km from the origin. Taken unprojected it would be one metre out,
-  // and a domain drawn a hundred kilometres from the map it belongs to
+  // is 111 km from the origin. Taken unprojected it would be one meter out,
+  // and a domain drawn a hundred kilometers from the map it belongs to
   // looks empty rather than wrong.
   EXPECT_NEAR(m_model->domain().boundary.boundingRect().right(), 111319.49,
               1.0);

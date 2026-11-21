@@ -49,7 +49,7 @@ run_mutation() {
   fi
 }
 
-# 1. The old behaviour: zoom-to-layer always forces the Map tab.
+# 1. The old behavior: zoom-to-layer always forces the Map tab.
 m_always_map() {
   perl -0pi -e 's/              if \(m_workspace->currentWidget\(\) == m_sceneView\)\n              \{\n                const auto \*source = layer->sceneSource\(\);\n\n                if \(!source\)\n                \{\n                  source = dynamic_cast<const ISceneSource \*>\(layer\);\n                \}\n\n                if \(source && source->sceneBounds\(\)\.isValid\(\)\)\n                \{\n                  m_sceneView->frameBounds\(source->sceneBounds\(\)\);\n\n                  return;\n                \}\n              \}\n\n//' src/ui/composermainwindow.cpp
 }

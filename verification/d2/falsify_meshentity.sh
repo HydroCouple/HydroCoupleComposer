@@ -100,7 +100,7 @@ m_no_bounds_check() {
 }
 
 # 4. A surface with no edges is drawn as faces instead of being refused, so a
-#    map appears that is confidently wrong about what its colours mean.
+#    map appears that is confidently wrong about what its colors mean.
 m_no_edges_falls_back() {
   perl -0pi -e 's/        if \(!appendMeshEdges\(collected, surface->meshView\(\)\)\)/        if (false)/' src/layers/dataitemlayer.cpp
 }

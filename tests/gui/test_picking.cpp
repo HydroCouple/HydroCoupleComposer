@@ -207,7 +207,7 @@ namespace
       probe.addLine({ { 40.0, y }, { 60.0, y } });
     }
 
-    // Three sides of a large square: its bounding box is centred exactly on
+    // Three sides of a large square: its bounding box is centered exactly on
     // the click and every part of it is fifty units away.
     probe.addLine({ { 0.0, 0.0 }, { 100.0, 0.0 }, { 100.0, 100.0 },
                     { 0.0, 100.0 } });
@@ -993,7 +993,7 @@ namespace
 
   TEST_F(PickTest, TheSceneAndTheMapShareOneSelection)
   {
-    // Selection lives on the layer, so this is not a synchronisation to get
+    // Selection lives on the layer, so this is not a synchronization to get
     // right — it is the absence of one. The test is here because that is
     // exactly the kind of claim that stops being true quietly.
     LayerStackModel stack;

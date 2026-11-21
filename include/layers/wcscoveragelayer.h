@@ -10,7 +10,7 @@
  *
  * It derives from GdalRasterLayer rather than from MapLayer because, once
  * the bytes are decoded, a coverage IS a raster — and everything a raster
- * layer already has is exactly what a coverage needs: a colour ramp over its
+ * layer already has is exactly what a coverage needs: a color ramp over its
  * value range, warping into the map's CRS, and a ground texture for the 3D
  * scene. The only difference is where the dataset came from, and GDAL cannot
  * tell: it is built without curl in this project, so it can decode bytes it
@@ -66,7 +66,7 @@ namespace HydroCouple::Composer
        * \brief What the service said this coverage is.
        *
        * Kept because it holds what the picture cannot: the band names and
-       * their units. A terrain sampler asking for heights in metres wants
+       * their units. A terrain sampler asking for heights in meters wants
        * the field called "hoogte", and only this says so.
        */
       [[nodiscard]] const HydroCouple::Ogc::WcsCoverageDescription &

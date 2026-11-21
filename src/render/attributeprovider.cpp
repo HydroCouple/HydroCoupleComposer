@@ -41,7 +41,7 @@ namespace HydroCouple::Composer
       }
 
       // Linear search rather than a hash: QVariant has no qHash for every
-      // type it can hold, and a categorised layer with enough distinct values
+      // type it can hold, and a categorized layer with enough distinct values
       // for this to matter is one nobody can read anyway.
       if (!distinct.contains(value))
       {

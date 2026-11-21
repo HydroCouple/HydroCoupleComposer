@@ -229,7 +229,7 @@ TEST_F(MapToolsTest, DraggingARectangleFramesExactlyThatRectangle)
   // The width is what was dragged. The height follows the viewport's aspect
   // ratio rather than the drag's, since the view cannot show a rectangle of
   // a different shape than itself — so it is the wider of the two that is
-  // honoured, and nothing dragged is ever cropped out.
+  // honored, and nothing dragged is ever cropped out.
   EXPECT_NEAR(shown.center().x(), 200.0, 1.0)
     << "the framed rectangle is not centred on what was dragged";
   EXPECT_NEAR(shown.center().y(), -100.0, 1.0);
@@ -248,7 +248,7 @@ TEST_F(MapToolsTest, ADragTooSmallToBeARectangleZoomsAboutThePoint)
   const QRectF before = canvas.transform().visibleExtent();
 
   // Two pixels: inside the click slop, and a rectangle with area. Framing it
-  // would zoom to a two-metre view; the tool must read it as a click.
+  // would zoom to a two-meter view; the tool must read it as a click.
   drag(canvas, QPoint(400, 200), QPoint(402, 202));
 
   const QRectF after = canvas.transform().visibleExtent();

@@ -73,7 +73,7 @@ TEST(CameraTest, GroundExtentContainsTheRequestedRectAtAnyTilt)
 
       // Shrunk by a hair before asking: Qt's vector maths is single
       // precision, so containment is exact only to about a part in 10^5.
-      // The failure this guards against — framing by the rectangle's centre,
+      // The failure this guards against — framing by the rectangle's center,
       // which loses a tilted frustum's near strip — misses by whole world
       // units, three orders of magnitude clear of that.
       const double epsilon =
@@ -158,7 +158,7 @@ TEST(CameraTest, SwitchingProjectionKeepsTheSameGroundVisible)
   const QRectF after = camera.groundExtent(kAspect);
 
   // Not identical — the two projections see a different shape of ground —
-  // but the view must not jump, so the centres agree and the areas are close.
+  // but the view must not jump, so the centers agree and the areas are close.
   EXPECT_NEAR(after.center().x(), before.center().x(), before.width() * 0.05);
   EXPECT_NEAR(after.center().y(), before.center().y(), before.height() * 0.05);
   EXPECT_GT(after.width(), before.width() * 0.5);

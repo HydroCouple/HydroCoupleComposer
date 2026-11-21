@@ -58,7 +58,7 @@ namespace HydroCouple::Composer
   struct TilePlacement
   {
       TileId id;
-      QRectF extent;  //!< Where to draw it, in EPSG:3857 metres.
+      QRectF extent;  //!< Where to draw it, in EPSG:3857 meters.
   };
 
   /*!
@@ -67,7 +67,7 @@ namespace HydroCouple::Composer
   class TileGrid
   {
     public:
-      //! Half the width of the Web Mercator world square, in metres.
+      //! Half the width of the Web Mercator world square, in meters.
       static constexpr double kWorldHalfSpan = 20037508.342789244;
 
       //! Side of one tile image, in pixels. Universal across providers.
@@ -77,7 +77,7 @@ namespace HydroCouple::Composer
       static constexpr int kMaxZoom = 22;
 
       /*!
-       * \brief The whole world, in EPSG:3857 metres.
+       * \brief The whole world, in EPSG:3857 meters.
        */
       [[nodiscard]] static QRectF worldExtent();
 
@@ -88,7 +88,7 @@ namespace HydroCouple::Composer
       [[nodiscard]] static int tilesAcross(int zoom);
 
       /*!
-       * \brief The extent one tile covers, in EPSG:3857 metres.
+       * \brief The extent one tile covers, in EPSG:3857 meters.
        * \param tile The tile to measure.
        */
       [[nodiscard]] static QRectF tileExtent(const TileId &tile);
@@ -99,7 +99,7 @@ namespace HydroCouple::Composer
        * Chosen so one tile pixel is about one screen pixel: coarser wastes
        * the display, finer wastes bandwidth drawing detail nobody can see.
        *
-       * \param scale Pixels per metre, from the map transform.
+       * \param scale Pixels per meter, from the map transform.
        */
       [[nodiscard]] static int zoomForScale(double scale);
 
@@ -110,14 +110,14 @@ namespace HydroCouple::Composer
        * panning past the date line shows the map continuing, not a void.
        * Tiles outside it in Y are dropped: there is no world above the pole.
        *
-       * \param extent World rectangle in EPSG:3857 metres.
+       * \param extent World rectangle in EPSG:3857 meters.
        * \param zoom Zoom level.
        */
       [[nodiscard]] static QVector<TilePlacement> tilesForExtent(
         const QRectF &extent, int zoom);
 
       /*!
-       * \brief Converts longitude and latitude to EPSG:3857 metres.
+       * \brief Converts longitude and latitude to EPSG:3857 meters.
        *
        * Provided so callers need no CRS object for the one conversion the
        * tile scheme is defined by.

@@ -7,7 +7,7 @@
  * and the openswmm.gui button row: Reset to defaults | Apply / Cancel / OK.
  * The dialog owns no preference: it reads the manager into its widgets on
  * open and writes them back on Apply and OK, so Cancel after any amount of
- * editing changes nothing. Behaviour follows openswmm.gui's dialog; the
+ * editing changes nothing. Behavior follows openswmm.gui's dialog; the
  * code does not (that program is GPL-3.0).
  */
 
@@ -65,8 +65,8 @@ namespace HydroCouple::Composer
        * \brief Installs how "Choose…" beside the default CRS picks one.
        *
        * Given the current "AUTHORITY:CODE", returns the chosen one, or an
-       * empty string when the user cancelled. The dialog does not know how
-       * a CRS is chosen — that needs the GIS catalogue — so the window
+       * empty string when the user canceled. The dialog does not know how
+       * a CRS is chosen — that needs the GIS catalog — so the window
        * supplies it; without a chooser the button is hidden.
        */
       void setCrsChooser(std::function<QString(const QString &)> chooser);

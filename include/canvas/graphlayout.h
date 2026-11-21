@@ -15,10 +15,10 @@
  *     Peeled a layer at a time, so rank N holds exactly the components
  *     whose deepest chain of providers is N.
  *  2. **Order within a rank.** Each component is placed near the average
- *     position of what feeds it (the barycentre heuristic), swept twice.
+ *     position of what feeds it (the barycenter heuristic), swept twice.
  *     This is what stops connections crossing more than they must.
  *  3. **Place.** Ranks become columns; order within a rank becomes rows,
- *     centred so a wide rank does not drag a narrow one to the top.
+ *     centered so a wide rank does not drag a narrow one to the top.
  *
  * It is a pure function of the composition and the node sizes, which is
  * what makes it gateable without a scene, a window, or a mouse.

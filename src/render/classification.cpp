@@ -80,7 +80,7 @@ namespace HydroCouple::Composer
     /*!
      * \brief Fisher-Jenks natural breaks over a sorted sample.
      *
-     * Minimises the sum of squared deviations within classes, which is what
+     * Minimizes the sum of squared deviations within classes, which is what
      * "the gaps the data already has" means numerically.
      */
     QVector<double> naturalBreaksEdges(const QVector<double> &sorted,
@@ -201,8 +201,8 @@ namespace HydroCouple::Composer
 
   void Classification::setClassCount(int count)
   {
-    // Above two dozen classes no reader can tell one colour from its
-    // neighbour, and the legend is longer than the map.
+    // Above two dozen classes no reader can tell one color from its
+    // neighbor, and the legend is longer than the map.
     m_classCount = std::clamp(count, 1, 24);
   }
 

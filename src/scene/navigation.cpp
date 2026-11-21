@@ -35,7 +35,7 @@ namespace HydroCouple::Composer
     }
 
     // Anything else, including a settings file hand-edited into nonsense,
-    // is the behaviour the application had before this was a preference.
+    // is the behavior the application had before this was a preference.
     return ViewLink::OnTabSwitch;
   }
 

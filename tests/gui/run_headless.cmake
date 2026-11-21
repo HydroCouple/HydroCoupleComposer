@@ -1,5 +1,5 @@
 # Drives HydroCoupleComposer --run over a small composition and checks that it
-# produced the artefacts the composition asked for.
+# produced the artifacts the composition asked for.
 
 file(REMOVE_RECURSE "${WORK_DIR}")
 file(MAKE_DIRECTORY "${WORK_DIR}")
@@ -49,7 +49,7 @@ if(NOT EXISTS "${WORK_DIR}/out/manifest.json")
     message(FATAL_ERROR "no run manifest was written\n${stdout_text}")
 endif()
 
-# The artefacts must hold content, not merely exist.
+# The artifacts must hold content, not merely exist.
 file(SIZE "${WORK_DIR}/out/values.csv" csv_size)
 if(csv_size LESS 128)
     message(FATAL_ERROR "the CSV holds no data (${csv_size} bytes)")

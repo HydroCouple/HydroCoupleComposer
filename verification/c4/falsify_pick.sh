@@ -93,7 +93,7 @@ m_unsorted() {
   perl -0pi -e 's/                                   nanoflann::SearchParameters\(0\.0f, true\)\);/                                   nanoflann::SearchParameters(0.0f, false));/' include/pick/centroidindex.h
 }
 
-# 3. A feature's reach is measured from a corner rather than the centre, so
+# 3. A feature's reach is measured from a corner rather than the center, so
 #    the widened search is not wide enough.
 m_half_reach() {
   perl -0pi -e 's/        0\.5 \* std::hypot\(maximumX - minimumX, maximumY - minimumY\), feature\);/        0.1 * std::hypot(maximumX - minimumX, maximumY - minimumY), feature);/' src/layers/featurelayer.cpp

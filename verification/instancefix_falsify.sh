@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Edit-time instance falsifiers: the live component must describe the
-# DOCUMENT's component, and must be realised again when that block changes.
+# DOCUMENT's component, and must be realized again when that block changes.
 set -u
 cd "$(dirname "$0")/.."
 
@@ -37,7 +37,7 @@ gate_ok 'CanvasTest.TheDocumentsArgumentsReachTheLiveComponent'
 check "M1 document arguments never applied" red $?
 restore
 
-# M2: the instance is never realised again, so configuring a component
+# M2: the instance is never realized again, so configuring a component
 # leaves the canvas describing the old one for the session.
 cp "$INSTANCES" "$INSTANCES.bak"
 perl -0pi -e 's/      connect\(m_document, &CompositionDocument::compositionChanged, this,\n              \[this\] \{ dropInstancesWhoseSpecChanged\(\); \}\);/      ;/s' "$INSTANCES"

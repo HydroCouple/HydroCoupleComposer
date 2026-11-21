@@ -93,7 +93,7 @@ namespace HydroCouple::Composer
       /*!
        * \brief Every distinct value of \a field, in first-seen order.
        *
-       * First-seen rather than sorted, so a categorised legend keeps the
+       * First-seen rather than sorted, so a categorized legend keeps the
        * order the data arrived in when the values have no natural ordering.
        *
        * \param field Field to read.

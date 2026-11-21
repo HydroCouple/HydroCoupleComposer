@@ -5,13 +5,13 @@
  *
  * Asked of every layer in the stack, exactly as LayerStyle is: the scene puts
  * one question to the whole stack and builds nothing for the layers that
- * answer nullptr. That is what lets a basemap, a tile layer and a labelled
+ * answer nullptr. That is what lets a basemap, a tile layer and a labeled
  * point layer sit in the same stack as a terrain mesh without any of them
  * knowing a 3D view exists.
  *
  * It is a separate interface rather than a method on MapLayer because most
  * layers have no 3D form and would carry an empty override forever — the same
- * reasoning that kept labelling and masks off MapLayer's base.
+ * reasoning that kept labeling and masks off MapLayer's base.
  *
  * Geometry is built against a SceneContext rather than from the layer alone,
  * because draping is not a layer-local property: where a network line sits in
@@ -45,7 +45,7 @@ namespace HydroCouple::Composer
    * Coordinates are the map's CRS, not the layer's own. A terrain answering
    * in its own projection would be sampled with points from another one, and
    * the drape would be wrong by however far the two disagree — which on a
-   * small extent is small enough to look like a modelling artefact.
+   * small extent is small enough to look like a modeling artifact.
    */
   class ITerrainSource
   {
@@ -118,7 +118,7 @@ namespace HydroCouple::Composer
    * Placement, and only placement: extrusion is a separate, orthogonal
    * setting. The old SceneDrape conflated the two -- "Extruded" was a
    * placement that smuggled a height in -- so a layer could not be lifted
-   * a metre above the terrain, or laid flat at a datum other than zero,
+   * a meter above the terrain, or laid flat at a datum other than zero,
    * without the two meanings fighting.
    */
   enum class ZMode
@@ -329,7 +329,7 @@ namespace HydroCouple::Composer
 
     protected:
       /*!
-       * \brief The terrain to compose against, honouring the drape choice.
+       * \brief The terrain to compose against, honoring the drape choice.
        *
        * \param context What the layer is being composed with.
        * \returns The context's terrain, or nullptr when this source is to

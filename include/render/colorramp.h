@@ -1,7 +1,7 @@
 /*!
  * \file   colorramp.h
  * \author Caleb Buahin
- * \brief  ColorRamp — a gradient from a normalised value to a colour.
+ * \brief  ColorRamp — a gradient from a normalized value to a color.
  *
  * One ramp type serves classification, continuous fills and legend swatches
  * alike, so a palette chosen once looks the same everywhere it appears.
@@ -24,16 +24,16 @@ namespace HydroCouple::Composer
 {
 
   /*!
-   * \brief One colour stop along a ramp.
+   * \brief One color stop along a ramp.
    */
   struct ColorRampStop
   {
       double position = 0.0;  //!< Where the stop sits, in [0, 1].
-      QColor color;           //!< The colour at that position.
+      QColor color;           //!< The color at that position.
   };
 
   /*!
-   * \brief Colour space used between adjacent stops.
+   * \brief Color space used between adjacent stops.
    */
   enum class RampInterpolation
   {
@@ -42,7 +42,7 @@ namespace HydroCouple::Composer
   };
 
   /*!
-   * \brief A gradient mapping [0, 1] to a colour.
+   * \brief A gradient mapping [0, 1] to a color.
    */
   class ColorRamp
   {
@@ -52,27 +52,27 @@ namespace HydroCouple::Composer
       /*!
        * \brief Builds a ramp from ordered stops.
        * \param stops Stops, sorted on construction.
-       * \param interpolation Colour space to interpolate in.
+       * \param interpolation Color space to interpolate in.
        */
       explicit ColorRamp(QVector<ColorRampStop> stops,
                          RampInterpolation interpolation =
                            RampInterpolation::Rgb);
 
       /*!
-       * \brief The colour at \a position.
-       * \param position Normalised position; clamped to [0, 1].
-       * \returns The interpolated colour, or an invalid colour when empty.
+       * \brief The color at \a position.
+       * \param position Normalized position; clamped to [0, 1].
+       * \returns The interpolated color, or an invalid color when empty.
        */
       [[nodiscard]] QColor colorAt(double position) const;
 
       /*!
-       * \brief \a count colours spread evenly across the ramp.
+       * \brief \a count colors spread evenly across the ramp.
        *
-       * Samples class *centres*, not edges: sampling edges gives the first
-       * and last class the extreme colours and squeezes everything between
+       * Samples class *centers*, not edges: sampling edges gives the first
+       * and last class the extreme colors and squeezes everything between
        * them, so a five-class map looks like a three-class one.
        *
-       * \param count How many colours to take.
+       * \param count How many colors to take.
        */
       [[nodiscard]] QVector<QColor> sample(int count) const;
 

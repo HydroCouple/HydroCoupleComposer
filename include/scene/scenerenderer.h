@@ -147,13 +147,13 @@ namespace HydroCouple::Composer
        * \brief Draws one frame into \a target.
        *
        * Begins and ends the render pass itself, because the depth buffer must
-       * be cleared with the colour and a caller that forgot would get a scene
+       * be cleared with the color and a caller that forgot would get a scene
        * whose first frame is correct and whose second is not.
        *
        * \param cb Command buffer of the frame in progress.
        * \param target Where to draw.
        * \param camera The view.
-       * \param background Colour to clear to.
+       * \param background Color to clear to.
        */
       void render(QRhiCommandBuffer *cb, QRhiRenderTarget *target,
                   const Camera &camera, const QColor &background);

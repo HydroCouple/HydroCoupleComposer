@@ -6,7 +6,7 @@
  * data inside one.
  *
  * The fixture is a real GetCoverage response from PDOK's Actueel
- * Hoogtebestand Nederland: 64 by 64 cells at half-metre resolution, in the
+ * Hoogtebestand Nederland: 64 by 64 cells at half-meter resolution, in the
  * Dutch national grid, covering x 120000–120032 and y 486000–486032. Every
  * expectation below is anchored to that ground rather than to a raster
  * written to suit the test.
@@ -57,8 +57,8 @@ namespace
    * DTM -- a terrain model -- so buildings and open water are removed at the
    * source, and roughly two thirds of these 64 by 64 cells carry no value at
    * all. The block below is a patch of continuously surveyed ground on the
-   * eastern edge, found by reading the fixture at its own half-metre
-   * resolution rather than by assuming: sampled every two metres it looks
+   * eastern edge, found by reading the fixture at its own half-meter
+   * resolution rather than by assuming: sampled every two meters it looks
    * solid over a far larger area than it is.
    */
   MeshDefinition gridOverData(int n)
@@ -94,7 +94,7 @@ TEST(TerrainSampler, everyVertexOverSurveyedGroundGetsAnElevation)
   EXPECT_EQ(result.missed, 0);
   ASSERT_EQ(mesh.nodeZ.size(), vertices);
 
-  // Metres above NAP. The service bounds this coverage at -8 to 322, and
+  // Meters above NAP. The service bounds this coverage at -8 to 322, and
   // this is one Dutch field, so anything outside that envelope means the
   // band was read as something it is not.
   for (double z : mesh.nodeZ)
@@ -135,7 +135,7 @@ TEST(TerrainSampler, aVertexBetweenCellsIsInterpolatedNotSnapped)
   ASSERT_NE(raster, nullptr);
 
   // Three points INSIDE one cell -- it spans x [120028.75, 120029.25) --
-  // so a nearest-neighbour sampler returns the same value three times and a
+  // so a nearest-neighbor sampler returns the same value three times and a
   // bilinear one returns three different ones. Straddling the boundary
   // instead, as this first did, lets nearest pass: the points then sit in
   // different cells and differ for the wrong reason.
@@ -184,7 +184,7 @@ TEST(TerrainSampler, aMeshInDegreesIsBroughtIntoTheCoveragesOwnSystem)
   const TerrainSampleResult result = sampleTerrain(*raster, wgs84.get(), mesh);
 
   // Without the reprojection this does not fail loudly: the degrees land
-  // far outside a raster measured in metres, every vertex misses, and the
+  // far outside a raster measured in meters, every vertex misses, and the
   // result is a mesh with no elevations and nothing said about why.
   ASSERT_TRUE(result.ok) << result.message.toStdString();
   EXPECT_EQ(result.sampled, 1);
@@ -288,7 +288,7 @@ TEST(TerrainSampler, aVertexBesideAHoleIsNotPulledTowardsIt)
 
   // No-data is the largest float there is, so interpolating across one
   // would not give a slightly wrong elevation -- it would give 1e38. Every
-  // reading here is a Dutch polder height, within a couple of metres of
+  // reading here is a Dutch polder height, within a couple of meters of
   // NAP.
   for (double z : mesh.nodeZ)
   {
@@ -304,14 +304,14 @@ TEST(TerrainSampler, aVertexReadsTheCellsItActuallySitsBetween)
   std::unique_ptr<WcsCoverageLayer> raster = terrain();
   ASSERT_NE(raster, nullptr);
 
-  // x = 120026.6 sits between the cell centred on 120026.25 and the one
-  // centred on 120026.75. At this latitude the first of those is a hole and
+  // x = 120026.6 sits between the cell centered on 120026.25 and the one
+  // centered on 120026.75. At this latitude the first of those is a hole and
   // the second is surveyed, so the answer turns on which pair is read --
   // which is what the half-cell offset from GDAL's pixel corners to its
-  // pixel centres decides.
+  // pixel centers decides.
   //
   // Read correctly, the hole is one of the two and the vertex gets nothing.
-  // Read half a cell across, both neighbours are surveyed and the vertex
+  // Read half a cell across, both neighbors are surveyed and the vertex
   // gets a plausible elevation from the wrong ground. Interpolating across
   // the hole instead gives 1e38, which is no-data pretending to be terrain.
   MeshDefinition mesh;

@@ -45,7 +45,7 @@ namespace HydroCouple::Composer
       ~CrsSelectionDialog() override;
 
       /*!
-       * \brief Selects \a current when it is in the catalogue.
+       * \brief Selects \a current when it is in the catalog.
        *
        * So that opening the chooser shows what is already in use rather than
        * an arbitrary first row.

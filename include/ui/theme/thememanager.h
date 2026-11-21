@@ -25,7 +25,7 @@ namespace HydroCouple::Composer
 {
 
   /*!
-   * \brief The colour tokens one appearance mode is built from.
+   * \brief The color tokens one appearance mode is built from.
    */
   struct ThemeColors
   {

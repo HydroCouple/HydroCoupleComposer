@@ -11,7 +11,7 @@
  *
  * It refuses to hand back text that is not JSON. That refusal is its own,
  * not the component's: sending malformed text on to be rejected there
- * would report a parse error as a modelling error.
+ * would report a parse error as a modeling error.
  */
 
 #ifndef HYDROCOUPLECOMPOSER_UI_RAWARGUMENTDIALOG_H

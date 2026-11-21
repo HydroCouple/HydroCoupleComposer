@@ -130,7 +130,7 @@ run "K16 a grid of text from a file becomes one long string" \
   's/    if \(facts\.hasFileFilters\n        && facts\.dataKind == HydroCouple::DataKind::String\n        && facts\.isScalar\)/    if (facts.hasFileFilters\n        \&\& facts.dataKind == HydroCouple::DataKind::String)/s' \
   'ArgumentKindTest.TextReadFromAFileIsTextRatherThanAPath'
 
-# ── the pre-existing behaviour ───────────────────────────────────────────
+# ── the pre-existing behavior ───────────────────────────────────────────
 run "K17 a grid is no longer a table" \
   's/    if \(!facts\.isScalar\)\n    \{\n      return ArgumentEditorKind::Table;\n    \}\n\n//s' \
   'ArgumentKindTest.TheFallbackChainStillDecidesWhatItAlwaysDid'

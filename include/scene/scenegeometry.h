@@ -10,10 +10,10 @@
  * times from many camera positions. Layers that supply the scene therefore
  * build a SceneGeometry and the renderer decides when it reaches the GPU.
  *
- * Colour is baked per vertex rather than resolved by a material. Everything
+ * Color is baked per vertex rather than resolved by a material. Everything
  * needed to choose it — classification, ramps, categories — already exists on
- * the CPU from C1c, and reusing it means a mesh coloured in the 3D view and
- * the same mesh coloured in the map cannot disagree. A per-vertex RGBA costs
+ * the CPU from C1c, and reusing it means a mesh colored in the 3D view and
+ * the same mesh colored in the map cannot disagree. A per-vertex RGBA costs
  * four bytes, which at the phase's 500k-cell budget is under 6 MB.
  */
 
@@ -66,7 +66,7 @@ namespace HydroCouple::Composer
       [[nodiscard]] QVector3D maximum() const;
 
       /*!
-       * \brief The box centre, or the origin when empty.
+       * \brief The box center, or the origin when empty.
        */
       [[nodiscard]] QVector3D center() const;
 
@@ -128,10 +128,10 @@ namespace HydroCouple::Composer
       /*!
        * \brief An image draped over the batch, or a null image.
        *
-       * The one thing per-vertex colour cannot express. Classification is
+       * The one thing per-vertex color cannot express. Classification is
        * resolved on the CPU and baked per vertex precisely so the map and the
        * scene cannot disagree about it — but a basemap or a photograph
-       * carries its own resolution, and sampling it down to one colour per
+       * carries its own resolution, and sampling it down to one color per
        * vertex would throw away the very thing it is being shown for.
        */
       QImage texture;
@@ -162,7 +162,7 @@ namespace HydroCouple::Composer
        * \brief Appends a vertex, growing the bounds with it.
        * \param position World coordinate.
        * \param normal Surface normal; need not be unit length.
-       * \param color Vertex colour.
+       * \param color Vertex color.
        * \returns The new vertex's index.
        */
       quint32 addVertex(const QVector3D &position, const QVector3D &normal,

@@ -368,7 +368,7 @@ TEST_F(SimulationTest, RecordsOutputsAndWritesAValidRunManifest)
   const QByteArray csvText = csv.readAll();
   EXPECT_GT(csvText.count('\n'), 1) << "the CSV has no data rows";
 
-  // The manifest exists, is valid JSON, and catalogues the run.
+  // The manifest exists, is valid JSON, and catalogs the run.
   const QString manifestPath =
     QDir(workspace.path()).filePath("out/manifest.json");
   ASSERT_TRUE(QFile::exists(manifestPath)) << "no run manifest was written";
@@ -382,7 +382,7 @@ TEST_F(SimulationTest, RecordsOutputsAndWritesAValidRunManifest)
 
   ASSERT_FALSE(parsed.is_discarded()) << "the manifest is not valid JSON";
 
-  // The catalogue must actually name what was recorded — a manifest that
+  // The catalog must actually name what was recorded — a manifest that
   // merely exists is no use to a results viewer that has to find the values.
   const std::string manifestText = parsed.dump();
   EXPECT_NE(manifestText.find("values"), std::string::npos)

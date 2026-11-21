@@ -54,7 +54,7 @@ run_mutation() {
 
 # ── is it the ground under the vertex ───────────────────────────────────────
 
-# 1. Sample nearest-neighbour, so a continuous surface comes back in
+# 1. Sample nearest-neighbor, so a continuous surface comes back in
 #    half-cell terraces.
 m_nearest_not_bilinear() {
   perl -0pi -e 's/      const double top_ = v00 \+ \(v10 - v00\) \* fx;\n      const double bottom_ = v01 \+ \(v11 - v01\) \* fx;\n\n      values\[i\] = top_ \+ \(bottom_ - top_\) \* fy;/      values[i] = v00;/' src/layers/gdalrasterlayer.cpp
@@ -68,7 +68,7 @@ m_no_cell_centre() {
 }
 
 # 3. Do not reproject, so a mesh in degrees lands nowhere near a raster in
-#    metres and quietly misses every vertex.
+#    meters and quietly misses every vertex.
 m_no_reprojection() {
   perl -0pi -e 's/    if \(meshCrs && raster\.crs\(\) && !meshCrs->isSameAs\(\*raster\.crs\(\)\)\)/    if (false)/' src/mesh/terrainsampler.cpp
 }
@@ -115,7 +115,7 @@ m_empty_mesh_ok() {
 
 # 10. Read only the cell block that happens to be first, ignoring the
 #     margin bilinear needs, so vertices near the block edge lose their
-#     neighbours.
+#     neighbors.
 m_no_margin() {
   perl -0pi -e 's/    int left = static_cast<int>\(std::floor\(minimumColumn\)\) - 1;/    int left = static_cast<int>(std::floor(minimumColumn)) + 1;/' src/layers/gdalrasterlayer.cpp
 }

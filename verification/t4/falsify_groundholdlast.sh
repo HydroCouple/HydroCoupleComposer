@@ -49,7 +49,7 @@ run_mutation() {
   fi
 }
 
-# 1. The old behaviour: declined samples stay at zero, nothing holds.
+# 1. The old behavior: declined samples stay at zero, nothing holds.
 m_declined_stay_zero() {
   perl -0pi -e 's/          answered\[at\] = terrain->elevationAt\(/          answered[at] = 0; (void)terrain->elevationAt(/' src/scene/groundplane.cpp
 }
@@ -60,13 +60,13 @@ m_no_leading_hold() {
 }
 
 # 3. Unanswered rows stay at zero instead of copying their nearest
-#    answered neighbour.
+#    answered neighbor.
 m_rows_stay_zero() {
   perl -0pi -e 's/        if \(source >= 0\)\n        \{\n          std::copy_n\(heights\.begin\(\) \+ long\(source\) \* across, across,\n                      heights\.begin\(\) \+ long\(row\) \* across\);\n        \}//' src/scene/groundplane.cpp
 }
 
 # 4 (retired). "A world with no answers chases held garbage" has no
-#    independent mutation: held initialises to zero per row, so every way of
+#    independent mutation: held initializes to zero per row, so every way of
 #    mis-holding an all-declined grid writes the zeros that were already
 #    there. The AWorldWithNoAnswers gate stays as a tripwire for future
 #    edits that seed held from somewhere else.

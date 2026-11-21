@@ -81,7 +81,7 @@ run_mutation() {
 }
 
 # 1. The left button always bands, so Orbit stops turning the scene.
-#    (Setting m_orbiting unconditionally is *not* a behavioural change:
+#    (Setting m_orbiting unconditionally is *not* a behavioral change:
 #    m_banding is read first and short-circuits, so that mutation was inert
 #    and this replaced it.)
 m_always_band() {

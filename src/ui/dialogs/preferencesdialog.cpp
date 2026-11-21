@@ -47,7 +47,7 @@ namespace HydroCouple::Composer
       return button->property(kColorProperty).value<QColor>();
     }
 
-    //! A button that shows a colour and asks for another when clicked.
+    //! A button that shows a color and asks for another when clicked.
     QToolButton *makeColorButton(const QString &objectName, QWidget *parent)
     {
       auto *button = new QToolButton(parent);
@@ -490,7 +490,7 @@ namespace HydroCouple::Composer
     m_showGizmo->setChecked(prefs.showAxisGizmo());
     m_gizmoSize->setValue(prefs.axisGizmoSizePixels());
 
-    // Through the enum and back, so that a stored name nobody recognises
+    // Through the enum and back, so that a stored name nobody recognizes
     // shows the corner it will actually be drawn in rather than leaving
     // the box on whatever happened to be there.
     m_gizmoCorner->setCurrentIndex(m_gizmoCorner->findData(
@@ -499,8 +499,8 @@ namespace HydroCouple::Composer
     m_gizmoSize->setEnabled(m_showGizmo->isChecked());
     m_gizmoCorner->setEnabled(m_showGizmo->isChecked());
 
-    // Each through its enum and back, so a stored name nobody recognises
-    // shows the behaviour that will actually be used rather than leaving
+    // Each through its enum and back, so a stored name nobody recognizes
+    // shows the behavior that will actually be used rather than leaving
     // the box on whatever happened to be there.
     m_linkViews->setCurrentIndex(m_linkViews->findData(
       viewLinkName(viewLinkFromName(prefs.linkViews()))));

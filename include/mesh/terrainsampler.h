@@ -10,7 +10,7 @@
  * Deliberately a free function over a GdalRasterLayer rather than something
  * that knows about coverages. A WcsCoverageLayer IS one of those, and so is
  * a GeoTIFF opened from disk — where the elevations came from is not this
- * step's business, and a modeller with a local survey should not be made to
+ * step's business, and a modeler with a local survey should not be made to
  * publish it to a service first.
  */
 
@@ -60,7 +60,7 @@ namespace HydroCouple::Composer
    * \param meshCrs  The system \a mesh's coordinates are in. Null means it
    *                 is already in the raster's, which is asserted rather
    *                 than assumed: sampling a mesh in degrees against a
-   *                 raster in metres silently misses every vertex.
+   *                 raster in meters silently misses every vertex.
    * \param mesh     Modified in place; nodeZ is filled.
    * \returns What happened, per vertex.
    */

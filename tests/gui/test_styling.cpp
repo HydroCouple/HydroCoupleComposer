@@ -87,7 +87,7 @@ namespace
   }
 }
 
-// ── Colour ramps ────────────────────────────────────────────────────────────
+// ── Color ramps ────────────────────────────────────────────────────────────
 
 TEST(ColorRampTest, InterpolatesBetweenStops)
 {
@@ -113,7 +113,7 @@ TEST(ColorRampTest, ClampsBeyondTheEnds)
 
 TEST(ColorRampTest, SortsStopsGivenOutOfOrder)
 {
-  // A ramp authored back to front would otherwise read colours from the
+  // A ramp authored back to front would otherwise read colors from the
   // wrong segment for every lookup.
   const ColorRamp ramp({{1.0, QColor(Qt::white)}, {0.0, QColor(Qt::black)}});
 
@@ -129,7 +129,7 @@ TEST(ColorRampTest, SamplesClassCentresNotEdges)
 
   ASSERT_EQ(colors.size(), 4);
 
-  // Centres of four classes are at 1/8, 3/8, 5/8, 7/8 — so neither end is
+  // Centers of four classes are at 1/8, 3/8, 5/8, 7/8 — so neither end is
   // pure black or pure white, which is the point.
   EXPECT_NEAR(colors.first().redF(), 0.125, 0.01);
   EXPECT_NEAR(colors.last().redF(), 0.875, 0.01);
@@ -346,10 +346,10 @@ TEST(ClassificationTest, ColoursComeFromTheRampAndFollowIt)
 
   // Copied, not referenced: breaks() hands back a reference into the object
   // about to be restyled, so comparing against it afterwards would compare
-  // the new colours with themselves.
+  // the new colors with themselves.
   const QColor beforeRamp = breaks.at(0).color;
 
-  // Switching ramps must recolour what is already classified, or the legend
+  // Switching ramps must recolor what is already classified, or the legend
   // shows one palette and the map another.
   classification.setRamp(ColorRamp::builtin(QStringLiteral("Reds")));
   EXPECT_NE(classification.breaks().at(0).color, beforeRamp);
@@ -430,8 +430,8 @@ TEST(LayerStyleTest, CategorizedModeColoursByValue)
   ASSERT_EQ(style.categories().size(), 2)
     << "distinct values were not de-duplicated";
 
-  // Two features of the same kind must share a colour; that is the whole
-  // claim a categorised map makes.
+  // Two features of the same kind must share a color; that is the whole
+  // claim a categorized map makes.
   EXPECT_EQ(style.colorFor(provider, 0), style.colorFor(provider, 2));
   EXPECT_NE(style.colorFor(provider, 0), style.colorFor(provider, 1));
 
@@ -453,7 +453,7 @@ TEST(LayerStyleTest, HidingALegendRowStopsThoseFeaturesBeingDrawn)
 
   style.setLegendItemVisible(0, false);
 
-  // An invalid colour is how the style says "do not draw this one"; giving
+  // An invalid color is how the style says "do not draw this one"; giving
   // it the base symbol instead would leave the feature on the map.
   EXPECT_FALSE(style.colorFor(provider, 0).isValid());
   EXPECT_TRUE(style.colorFor(provider, 1).isValid());
@@ -529,7 +529,7 @@ TEST(LayerStyleTest, RefusesToThemeByAFieldTheLayerDoesNotHave)
   style.setMode(StyleMode::Graduated);
   style.setAttribute(QStringLiteral("depth_that_does_not_exist"));
 
-  // Saying no is the point: colouring everything one colour would look like
+  // Saying no is the point: coloring everything one color would look like
   // a working map themed by a column that is not there.
   EXPECT_FALSE(style.rebuild(provider));
   EXPECT_TRUE(style.legendItems().isEmpty());

@@ -2,7 +2,7 @@
 # D2b falsification run: class breaks that hold still while the map animates.
 #
 # The claim is that a graduated theme on a recorded layer means the same thing
-# at every step. Every mutation below still produces a coloured map -- which is
+# at every step. Every mutation below still produces a colored map -- which is
 # exactly the problem: a theme recomputed per frame looks right in any single
 # screenshot and is wrong the moment two frames are compared.
 
@@ -129,7 +129,7 @@ m_legend_not_structural() {
   perl -0pi -e 's/    if \(current != previous\)/    if (false)/' src/map/layerstackmodel.cpp
 }
 
-# 9. A legend row is labelled with the layer rather than with the class it
+# 9. A legend row is labeled with the layer rather than with the class it
 #    stands for -- a legend that names everything and explains nothing.
 m_legend_labels_the_layer() {
   perl -0pi -e 's/        case Qt::DisplayRole:\n          return item\.label;/        case Qt::DisplayRole:\n          return owner->name();/' src/map/layerstackmodel.cpp

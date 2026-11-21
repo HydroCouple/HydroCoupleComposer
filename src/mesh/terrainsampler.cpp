@@ -40,7 +40,7 @@ namespace HydroCouple::Composer
 
     // Into the raster's own system, because that is the only place its cells
     // mean anything. A mesh in degrees sampled against a raster in national
-    // grid metres does not fail -- every vertex simply lands outside it, and
+    // grid meters does not fail -- every vertex simply lands outside it, and
     // the answer is a mesh with no elevations and no explanation.
     if (meshCrs && raster.crs() && !meshCrs->isSameAs(*raster.crs()))
     {

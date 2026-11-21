@@ -199,10 +199,10 @@ namespace
   /*!
    * \brief Pixels the red network line reached.
    *
-   * By dominance rather than by an exact colour: the scene's headlight shades
+   * By dominance rather than by an exact color: the scene's headlight shades
    * every surface by its angle to the eye, so the same red line comes back at
    * full strength from straight above and at 107 from a grazing view. Matching
-   * the literal colour would make a test about occlusion fail for the camera
+   * the literal color would make a test about occlusion fail for the camera
    * angle instead.
    */
   int countRed(const QImage &image)
@@ -310,7 +310,7 @@ namespace
     const std::unique_ptr<MeshLayer> layer =
       terrainLayer(QStringLiteral("terrain"), grid(8, plane));
 
-    // Interior, cell centres, cell corners and an edge midpoint: a point on a
+    // Interior, cell centers, cell corners and an edge midpoint: a point on a
     // shared edge belongs to two faces and must be answered by one of them,
     // not fall between them.
     const QVector<QPointF> probes = { { 3.0, 7.0 },   { 50.0, 50.0 },
@@ -332,7 +332,7 @@ namespace
   TEST_F(DrapeTest, SamplesTheFanTheRendererActuallyDraws)
   {
     // One quad whose four corners are not coplanar. Its elevation at the
-    // centre depends entirely on how it is cut into triangles: the fan from
+    // center depends entirely on how it is cut into triangles: the fan from
     // corner 0 gives the mean of the diagonal it uses, and any other
     // tessellation gives a different number. The scene draws the fan from
     // corner 0, so that is the only answer that puts a drape on the surface
@@ -456,7 +456,7 @@ namespace
 
     ASSERT_FALSE(vertices.isEmpty());
 
-    // Each marker is centred on its own point, so both survive: a single
+    // Each marker is centered on its own point, so both survive: a single
     // marker at the midpoint would be an invention of exactly the kind
     // the old comment warned about.
     bool nearFirst = false;
@@ -968,7 +968,7 @@ namespace
   //
   // SceneDrape conflated placement with extrusion -- "Extruded" was a
   // placement that smuggled a height in -- so a network could not be lifted
-  // a metre above the terrain, or laid at a datum other than zero. ZPolicy
+  // a meter above the terrain, or laid at a datum other than zero. ZPolicy
   // splits them: Constant / FromAttribute / OnTerrain place the base, and
   // extrusion raises a curtain from wherever that put it.
 

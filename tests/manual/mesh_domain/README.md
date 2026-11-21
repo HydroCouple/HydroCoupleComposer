@@ -29,7 +29,7 @@ Launch: `build/darwin/HydroCoupleComposer.app/Contents/MacOS/HydroCoupleComposer
 **Expect:** three layers in the Layers panel, drawn over Salt Lake City. The
 view frames each layer as it is added.
 
-**The point:** the files are in degrees and the map is in metres. If the
+**The point:** the files are in degrees and the map is in meters. If the
 catchment lands somewhere plausible rather than a pixel from the origin, the
 reprojection is working.
 
@@ -113,7 +113,7 @@ invisible and is a hole the triangulator would mesh straight through.
 17. Drag a vertex a very short distance — two or three pixels.
 
 **Expect:** it moves. If it snapped back to where it started, the dragged
-vertex is being treated as its own neighbour.
+vertex is being treated as its own neighbor.
 
 18. Click on an **edge** between two vertices and keep dragging.
 

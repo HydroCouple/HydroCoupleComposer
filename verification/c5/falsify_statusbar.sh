@@ -81,7 +81,7 @@ run_mutation() {
   fi
 }
 
-# 1. The units of the map's CRS are ignored: a world unit is taken as a metre
+# 1. The units of the map's CRS are ignored: a world unit is taken as a meter
 #    whatever the system says, so a foot-based state plane reads like a
 #    metric one over the same ground.
 m_ignore_units() {

@@ -134,7 +134,7 @@ m_unsorted_series() {
   perl -0pi -e 's/  std::sort\(features\.begin\(\), features\.end\(\)\);//' src/ui/panels/seriesplotpanel.cpp
 }
 
-# 10. The value axis is labelled "Value", throwing away the only label the
+# 10. The value axis is labeled "Value", throwing away the only label the
 #     component supplied.
 m_generic_axis_label() {
   perl -0pi -e 's/        m_valueAxis->setTitleText\(field\.displayName\);/        m_valueAxis->setTitleText(QStringLiteral("Value"));/' src/ui/panels/seriesplotpanel.cpp

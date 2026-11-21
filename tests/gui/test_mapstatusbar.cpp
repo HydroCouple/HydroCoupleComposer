@@ -3,9 +3,9 @@
  * \brief  Phase C5e verification — scale, coordinates and CRS on the bar.
  *
  * The gates here are known answers rather than "a number appeared", because
- * every way this breaks still produces a number. One metre per pixel at 96
+ * every way this breaks still produces a number. One meter per pixel at 96
  * DPI is 1:3779.5 and nothing else; a foot-based system reads 3.28 times a
- * metre-based one over the same ground; and a scale that ignored units
+ * meter-based one over the same ground; and a scale that ignored units
  * entirely would print the identical figure for both, which is the vacuous
  * pass to rule out.
  */
@@ -36,7 +36,7 @@ namespace
   constexpr int kWidth = 800;
   constexpr int kHeight = 400;
 
-  //! Physical metres per screen pixel at 96 DPI.
+  //! Physical meters per screen pixel at 96 DPI.
   constexpr double kMetresPerPixelAt96Dpi = 0.0254 / 96.0;
 
   class MapStatusBarTest : public ::testing::Test
@@ -93,8 +93,8 @@ TEST_F(MapStatusBarTest, OneMetrePerPixelIsOneToThreeThousandSevenHundred)
 {
   MapCanvas canvas;
 
-  // Web Mercator: a projected system whose linear unit is the metre, so a
-  // world unit is a metre and the arithmetic is direct.
+  // Web Mercator: a projected system whose linear unit is the meter, so a
+  // world unit is a meter and the arithmetic is direct.
   canvas.setCrs(SpatialReference::webMercator());
   showExactly(canvas, double(kWidth));
 
@@ -110,7 +110,7 @@ TEST_F(MapStatusBarTest, OneMetrePerPixelIsOneToThreeThousandSevenHundred)
 TEST_F(MapStatusBarTest, TheScaleKnowsWhatAWorldUnitIsWorth)
 {
   // The gate that proves unit-awareness. EPSG:2249 is Massachusetts
-  // mainland in US survey feet; EPSG:26986 is the same ground in metres.
+  // mainland in US survey feet; EPSG:26986 is the same ground in meters.
   // The same extent of world units is 3.28 times less ground in feet, so
   // the two must not read alike — and a scale that ignored units would
   // print the identical number for both.
@@ -131,7 +131,7 @@ TEST_F(MapStatusBarTest, TheScaleKnowsWhatAWorldUnitIsWorth)
   const double ratio =
     imperial.scaleDenominator() / metric.scaleDenominator();
 
-  // 0.3048006… metres per US survey foot.
+  // 0.3048006… meters per US survey foot.
   EXPECT_NEAR(ratio, 0.3048, 1.0e-3)
     << "a foot-based system read the same as a metre-based one, so the "
        "scale is ignoring the CRS entirely";
@@ -172,7 +172,7 @@ TEST_F(MapStatusBarTest, SettingAScaleIsTheInverseOfReadingOne)
 
   const QPointF centreAfter = canvas.transform().visibleExtent().center();
 
-  // The centre is held: zooming to a scale is a change of magnification,
+  // The center is held: zooming to a scale is a change of magnification,
   // not a navigation command.
   EXPECT_NEAR(centreAfter.x(), centreBefore.x(), 1.0e-6);
   EXPECT_NEAR(centreAfter.y(), centreBefore.y(), 1.0e-6);

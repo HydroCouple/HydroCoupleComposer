@@ -117,7 +117,7 @@ m_always_prefixed() {
 }
 
 # 7. The chart keeps the selected run's title while carrying two, so a plot
-#    of two runs is labelled with the name of one of them.
+#    of two runs is labeled with the name of one of them.
 m_title_of_one_run() {
   perl -0pi -e 's/    m_chart->setTitle\(m_layers\.size\(\) == 1 \? m_layers\.first\(\)->name\(\)\n                                           : QString\(\)\);/    m_chart->setTitle(m_layers.isEmpty() ? QString() : m_layers.first()->name());/' src/ui/panels/seriesplotpanel.cpp
 }

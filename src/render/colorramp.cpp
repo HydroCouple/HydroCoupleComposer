@@ -22,8 +22,8 @@ namespace HydroCouple::Composer
 
     QColor mixHsvShort(const QColor &from, const QColor &to, double t)
     {
-      // A grey has no meaningful hue, and interpolating towards its reported
-      // hue of -1 would swing the colour through the whole wheel.
+      // A gray has no meaningful hue, and interpolating towards its reported
+      // hue of -1 would swing the color through the whole wheel.
       const double fromHue = from.hueF() < 0.0 ? to.hueF() : from.hueF();
       const double toHue = to.hueF() < 0.0 ? fromHue : to.hueF();
 
@@ -80,7 +80,7 @@ namespace HydroCouple::Composer
     : m_stops(std::move(stops)), m_interpolation(interpolation)
   {
     // Sorted once here so every lookup can assume order; an unsorted ramp
-    // would otherwise return colours from the wrong segment.
+    // would otherwise return colors from the wrong segment.
     std::sort(m_stops.begin(), m_stops.end(),
               [](const ColorRampStop &a, const ColorRampStop &b)
               { return a.position < b.position; });
@@ -117,7 +117,7 @@ namespace HydroCouple::Composer
       const ColorRampStop &lower = m_stops.at(i - 1);
       const double span = upper.position - lower.position;
 
-      // Coincident stops are a hard colour break, which is a legitimate way
+      // Coincident stops are a hard color break, which is a legitimate way
       // to author a ramp; dividing by the zero span is not.
       if (span <= 0.0)
       {
@@ -153,8 +153,8 @@ namespace HydroCouple::Composer
 
     for (int i = 0; i < count; ++i)
     {
-      // Class centres: (i + 0.5) / count spreads the samples across the ramp
-      // without pinning the outer classes to the extreme colours.
+      // Class centers: (i + 0.5) / count spreads the samples across the ramp
+      // without pinning the outer classes to the extreme colors.
       colors.append(colorAt((i + 0.5) / count));
     }
 
@@ -228,7 +228,7 @@ namespace HydroCouple::Composer
     }
 
     // Viridis is the default because it is the safe answer: monotonic in
-    // lightness, and legible in greyscale and to colour-blind readers.
+    // lightness, and legible in grayscale and to color-blind readers.
     return fromHexStops({QStringLiteral("#440154"), QStringLiteral("#414487"),
                          QStringLiteral("#2a788e"), QStringLiteral("#22a884"),
                          QStringLiteral("#7ad151"), QStringLiteral("#fde725")});

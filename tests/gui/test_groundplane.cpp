@@ -222,7 +222,7 @@ namespace
     return layer;
   }
 
-  //! A tile source that hands back one solid colour for every tile.
+  //! A tile source that hands back one solid color for every tile.
   class SolidTiles : public ITileSource
   {
     public:
@@ -252,7 +252,7 @@ namespace
   };
 
   /*!
-   * \brief Mean brightness over a normalised window of \a image.
+   * \brief Mean brightness over a normalized window of \a image.
    *
    * u runs west to east, v north to south — the image's own axes, and the
    * world's, since every picture here spans the raster's extent exactly.
@@ -513,7 +513,7 @@ namespace
 
     const QVector3D slope(float(rasterExtent().width()), 0.0f, 20.0f);
 
-    // The interior, where a central difference has neighbours on both sides.
+    // The interior, where a central difference has neighbors on both sides.
     const SceneVertex &vertex =
       geometry.vertices.at(geometry.vertices.size() / 2);
     const QVector3D normal(vertex.nx, vertex.ny, vertex.nz);
@@ -859,7 +859,7 @@ namespace
 // ── A DEM raster can BE the terrain (coherence plan T1+T2) ────────────────
 //
 // Only a face-mesh with elevations could serve heights before; a DEM
-// GeoTIFF in the stack showed as a flat coloured sheet at z = 0 unless a
+// GeoTIFF in the stack showed as a flat colored sheet at z = 0 unless a
 // mesh was generated and sampled first. And capability is not consent: a
 // single band is not necessarily heights -- a rainfall grid is one band too
 // -- so a raster must be OFFERED as terrain before the election considers
@@ -942,7 +942,7 @@ TEST_F(GroundPlaneTest, ADemRasterServesElevationsInTheMapsCrs)
   EXPECT_EQ(dem->terrainExtent(),
             QRectF(QPointF(100.0, 168.0), QPointF(132.0, 200.0)));
 
-  // Cell centres, where the value actually is: cell (r, c)'s centre lies at
+  // Cell centers, where the value actually is: cell (r, c)'s center lies at
   // (100 + 2c + 1, 200 - 2r - 1) and its height is exactly 2c + 3r.
   double elevation = 0.0;
 
@@ -955,7 +955,7 @@ TEST_F(GroundPlaneTest, ADemRasterServesElevationsInTheMapsCrs)
   ASSERT_TRUE(dem->elevationAt(QPointF(101.0, 193.0), elevation));
   EXPECT_NEAR(elevation, 9.0, 1e-4) << "rows are worth 3";
 
-  // Between two centres the ramp interpolates, not steps.
+  // Between two centers the ramp interpolates, not steps.
   ASSERT_TRUE(dem->elevationAt(QPointF(102.0, 199.0), elevation));
   EXPECT_NEAR(elevation, 1.0, 1e-4) << "nearest-neighbour, not bilinear";
 }
@@ -970,7 +970,7 @@ TEST_F(GroundPlaneTest, AHoleInTheDemDeclinesInsteadOfAnsweringSeaLevel)
     GdalRasterLayer::open(path, message);
   ASSERT_TRUE(dem) << message.toStdString();
 
-  // Cell (5, 5) is no-data; its centre is (111, 189).
+  // Cell (5, 5) is no-data; its center is (111, 189).
   double elevation = 123.0;
   EXPECT_FALSE(dem->elevationAt(QPointF(111.0, 189.0), elevation));
 
@@ -1049,7 +1049,7 @@ TEST_F(GroundPlaneTest, AColourImageIsAPictureOfTheGroundNotTheGround)
 
 TEST_F(GroundPlaneTest, BeyondTheTerrainThePlaneHoldsTheEdgeHeight)
 {
-  // A flat patch at 30 in the plane's north-centre, so the margins need all
+  // A flat patch at 30 in the plane's north-center, so the margins need all
   // three fills: columns west of it (the leading run), columns east of it
   // (the trailing run), and whole southern rows the survey never answers.
   MeshDefinition patch;

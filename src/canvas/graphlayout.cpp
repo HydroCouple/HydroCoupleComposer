@@ -106,7 +106,7 @@ namespace HydroCouple::Composer
 
     const int rankCount = rank;
 
-    // ── 2. Order within each rank, by barycentre ─────────────────────────
+    // ── 2. Order within each rank, by barycenter ─────────────────────────
     QList<QStringList> columns(rankCount);
 
     for (const QString &id : ids)
@@ -199,7 +199,7 @@ namespace HydroCouple::Composer
 
     for (int column = 0; column < rankCount; ++column)
     {
-      // Centred against the tallest column, so a rank holding one component
+      // Centered against the tallest column, so a rank holding one component
       // sits beside the middle of the rank it feeds rather than above it.
       qreal y = options.origin.y() + (tallest - columnHeight[column]) * 0.5;
 

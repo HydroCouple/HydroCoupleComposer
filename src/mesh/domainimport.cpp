@@ -294,7 +294,7 @@ namespace HydroCouple::Composer
         }
 
         // The largest outer ring is the one the others sit inside — the
-        // shape a catchment-and-its-neighbours file already describes.
+        // shape a catchment-and-its-neighbors file already describes.
         // Absolute area, because a ring wound clockwise is the same ground
         // walked the other way.
         const auto widest = std::max_element(

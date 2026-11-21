@@ -170,7 +170,7 @@ TEST_F(DocumentTest, SurvivesMutationRoundTrip)
   EXPECT_EQ(reloaded.connectionCount(), 2);
   EXPECT_EQ(document.toJson(), reloaded.toJson());
 
-  // The sidecar travelled alongside, and kept the placement.
+  // The sidecar traveled alongside, and kept the placement.
   EXPECT_TRUE(QFile::exists(Presentation::sidecarPathFor(path)));
   EXPECT_TRUE(reloaded.presentation().hasComponent(QStringLiteral("gauge")));
   EXPECT_EQ(reloaded.presentation().component(QStringLiteral("gauge")).position,

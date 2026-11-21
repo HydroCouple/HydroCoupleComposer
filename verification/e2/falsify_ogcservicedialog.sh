@@ -144,7 +144,7 @@ m_whole_coverage() {
   perl -0pi -e 's/            wanted = wanted\.intersected\(view\);//' src/ui/dialogs/ogcservicedialog.cpp
 }
 
-# D. Ask at native resolution, which for half-metre cells over a country is
+# D. Ask at native resolution, which for half-meter cells over a country is
 #    millions of them.
 m_unbounded_size() {
   perl -0pi -e 's/    request\.size =\n      QSize\(width, qBound\(1, static_cast<int>\(width \* aspect\), 4096\)\);//' src/ui/dialogs/ogcservicedialog.cpp

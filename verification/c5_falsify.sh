@@ -41,7 +41,7 @@ check "M2 edit lands on the wrong step" red $?
 restore
 
 # M3: a dangling address leaves the panel stale. (Pattern anchors on the
-# code lines only: the neighbouring comment carries an em-dash, which
+# code lines only: the neighboring comment carries an em-dash, which
 # byte-wise patterns miss.)
 cp "$INSPECTOR" "$INSPECTOR.bak"
 perl -0pi -e 's/      m_hasAddress = false;\n      m_title->setText\(tr\("Nothing selected\."\)\);\n      return;/      return;/s' "$INSPECTOR"

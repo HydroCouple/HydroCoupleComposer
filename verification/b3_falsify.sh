@@ -30,7 +30,7 @@ rebuild
 gate_ok; check "M1 resolver never installed" red $?
 restore
 
-# M2: factory libraries are never realised (only the SDK factory rides).
+# M2: factory libraries are never realized (only the SDK factory rides).
 cp "$SRC" "$SRC.bak"
 perl -0pi -e 's/    for \(HydroCouple::IComponentInfo \*info : d->registry->entries\(\n           ComponentRegistry::ComponentKind::AdapterFactory\)\)/    for (HydroCouple::IComponentInfo *info :\n         std::vector<HydroCouple::IComponentInfo *>{})/s' "$SRC"
 rebuild

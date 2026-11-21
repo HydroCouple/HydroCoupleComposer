@@ -153,7 +153,7 @@ TEST_F(MapCanvasTest, AppliesPerLayerOpacityToThePainter)
   EXPECT_NEAR(layer->lastOpacity, 0.25, 1e-9);
 
   // And the opacity reached the output, not just the painter: a quarter-alpha
-  // black over white is a light grey, nowhere near black.
+  // black over white is a light gray, nowhere near black.
   const QColor pixel = image.pixelColor(kWidth / 2, kHeight / 2);
   EXPECT_GT(pixel.red(), 150);
   EXPECT_LT(pixel.red(), 220);

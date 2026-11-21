@@ -5,7 +5,7 @@
  *
  * A CRS picker needs a list to pick from, and PROJ's database is the list —
  * some fourteen thousand entries, read once and kept. Reading it per keystroke
- * would make the search box unusable, so the catalogue is built on first use
+ * would make the search box unusable, so the catalog is built on first use
  * and the search runs over what is already in memory.
  *
  * Only the fields a chooser shows are kept. The full definition arrives later,
@@ -27,11 +27,11 @@ namespace HydroCouple::Composer
   {
     Any,          //!< No filtering.
     Geographic,   //!< Angular — longitude and latitude.
-    Projected,    //!< Linear — metres, feet, and the like.
+    Projected,    //!< Linear — meters, feet, and the like.
   };
 
   /*!
-   * \brief One entry in the catalogue.
+   * \brief One entry in the catalog.
    */
   struct CrsEntry
   {

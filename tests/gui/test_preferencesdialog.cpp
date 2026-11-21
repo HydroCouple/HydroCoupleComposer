@@ -267,7 +267,7 @@ TEST_F(PreferencesDialogTest, TheCrsChooserIsOfferedOnlyWhenTheWindowSuppliesOne
   EXPECT_EQ(asked, QStringLiteral("EPSG:3857")) << "the chooser is told the current";
   EXPECT_EQ(line->text(), QStringLiteral("EPSG:26912"));
 
-  // A cancelled chooser answers empty and the field keeps what it had.
+  // A canceled chooser answers empty and the field keeps what it had.
   dialog->setCrsChooser([](const QString &) { return QString(); });
   choose->click();
   EXPECT_EQ(line->text(), QStringLiteral("EPSG:26912"));

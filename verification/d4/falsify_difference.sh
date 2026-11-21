@@ -2,7 +2,7 @@
 # D4a falsification: one variable, two runs, drawn as the difference.
 #
 # Every mutation below still draws a difference map -- one value per feature,
-# over a plausible range, in plausible colours. The gates are on signed
+# over a plausible range, in plausible colors. The gates are on signed
 # numbers: which way round the subtraction went, which instant of the other
 # run was used, which entity was subtracted from which, and whether the two
 # runs were on the same ground at all.
@@ -105,7 +105,7 @@ run_mutation() {
 
 # ── the subtraction ─────────────────────────────────────────────────────────
 
-# 1. Subtracted the other way round, so every colour lands on the far side of
+# 1. Subtracted the other way round, so every color lands on the far side of
 #    the ramp -- as readable a map as the right one, and the wrong sign.
 m_reversed() {
   perl -0pi -e 's/      values\.append\(mine\.at\(entity\) - theirs\.at\(entity\)\);/      values.append(theirs.at(entity) - mine.at(entity));/' src/layers/differencelayer.cpp
@@ -138,7 +138,7 @@ m_only_counts_checked() {
 }
 
 # 6. The vertex tolerance is a fixed number rather than one taken from the
-#    extent, so a mesh in degrees compares as though it were in metres.
+#    extent, so a mesh in degrees compares as though it were in meters.
 m_absolute_tolerance() {
   perl -0pi -e 's/    const double tolerance =\n      diagonal > 0\.0 \? diagonal \* 1e-9 : 1e-9;/    const double tolerance = 1e6;/' src/layers/differencelayer.cpp
 }
@@ -152,7 +152,7 @@ m_mismatched_sizes_allowed() {
 # ── the difference as a layer ───────────────────────────────────────────────
 
 # 8. Breaks come from the level on screen, so a comparison recomputes its
-#    colours every step and the step that disagreed most cannot be seen.
+#    colors every step and the step that disagreed most cannot be seen.
 m_breaks_from_one_level() {
   perl -0pi -e 's/    if \(field != m_valueAttribute \|\| levels < 1\)/    if (true)/' src/layers/differencelayer.cpp
 }

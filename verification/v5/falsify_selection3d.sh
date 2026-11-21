@@ -49,7 +49,7 @@ run_mutation() {
   fi
 }
 
-# 1. The scene ignores the selection -- the pre-slice behaviour.
+# 1. The scene ignores the selection -- the pre-slice behavior.
 m_scene_ignores_selection() {
   perl -0pi -e 's/    return m_selection\.contains\(feature\) \? kSelectionColor : color;/    return color;/' src/layers/featurelayer.cpp
 }
@@ -60,7 +60,7 @@ m_selection_resurrects() {
   perl -0pi -e 's/    const QColor color =\n      style \? style->colorFor\(\*this, feature\) : QColor\(Qt::gray\);\n\n    if \(!color\.isValid\(\)\)\n    \{\n      return color;\n    \}\n\n    return m_selection\.contains\(feature\) \? kSelectionColor : color;/    if (m_selection.contains(feature))\n    \{\n      return kSelectionColor;\n    \}\n\n    return style ? style->colorFor(*this, feature) : QColor(Qt::gray);/' src/layers/featurelayer.cpp
 }
 
-# 3. The mesh surface bypasses the shared helper and keeps its own colour,
+# 3. The mesh surface bypasses the shared helper and keeps its own color,
 #    so a selected catchment highlights as lines but never as a surface.
 m_mesh_bypasses_helper() {
   perl -0pi -e 's/      const QColor color = sceneColorFor\(layerStyle, feature\);/      const QColor color =\n        layerStyle ? layerStyle->colorFor(*this, feature) : QColor(Qt::gray);/' src/layers/meshlayer.cpp

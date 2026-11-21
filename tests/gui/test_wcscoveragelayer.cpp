@@ -4,7 +4,7 @@
  *
  * The fixture is a real GetCoverage response from PDOK's Actueel
  * Hoogtebestand Nederland — 64 by 64 cells of the Dutch national elevation
- * model at half-metre resolution, in the national grid, saved verbatim. It
+ * model at half-meter resolution, in the national grid, saved verbatim. It
  * is what the service actually returns, not a GeoTIFF written to look like
  * one, which matters because the point of this layer is that GDAL can decode
  * bytes it could never have fetched.
@@ -118,7 +118,7 @@ TEST(WcsCoverageLayer, theValuesAreElevationsNotColours)
   double maximum = 0.0;
   layer->valueRange(minimum, maximum);
 
-  // Metres above NAP. The service's own description bounds this coverage at
+  // Meters above NAP. The service's own description bounds this coverage at
   // -8 to 322; this is 64 cells of one Dutch field, so anything outside that
   // envelope means the band was read as something it is not.
   EXPECT_LT(minimum, maximum);

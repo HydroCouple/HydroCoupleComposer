@@ -4,7 +4,7 @@
  * \brief  The three-cone axis marker, and what clicking it means.
  *
  * The orientation cue every 3D view has: three arrows from a common
- * origin, coloured by the convention nobody has to be taught — red east,
+ * origin, colored by the convention nobody has to be taught — red east,
  * green north, blue up. Drawn in a small square at a corner of the view,
  * under a projection that takes the camera's *rotation* only, so it never
  * slides or scales with the scene and is untouched by vertical
@@ -73,7 +73,7 @@ namespace HydroCouple::Composer
    * preferences manager, which every layer reads and which therefore has
    * no business knowing what a gizmo is.
    *
-   * An unrecognised name is a corner rather than an error: a settings
+   * An unrecognized name is a corner rather than an error: a settings
    * file hand-edited into nonsense should put the gizmo somewhere, not
    * make the view undrawable.
    */
@@ -118,12 +118,12 @@ namespace HydroCouple::Composer
   /*!
    * \brief The arm under \a point, or None.
    *
-   * \param point Position inside the gizmo's square, normalised to
+   * \param point Position inside the gizmo's square, normalized to
    *        -1…+1 with +y up — the same space the matrix projects into.
    * \param azimuthDegrees Camera azimuth.
    * \param elevationDegrees Camera elevation.
    * \param tolerance How near an arrowhead counts as on it, in the same
-   *        normalised units.
+   *        normalized units.
    * \returns The arm whose head is nearest \a point within \a tolerance,
    *          preferring the one closest to the viewer when two overlap.
    */

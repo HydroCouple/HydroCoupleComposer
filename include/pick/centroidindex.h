@@ -13,7 +13,7 @@
  * The answer is to try the nearest first, because on any set of items that
  * are convex and comparable in size it is right and costs one descent of the
  * tree, and to widen to a radius search when it is not. Widening to the
- * largest item's own reach is *exact*, unlike guessing at a neighbour count:
+ * largest item's own reach is *exact*, unlike guessing at a neighbor count:
  * an item whose centroid lies farther than that cannot contain the point.
  *
  * A KD-tree rather than a bin grid, because items that vary by three orders

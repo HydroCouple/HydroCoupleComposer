@@ -161,7 +161,7 @@ namespace
     return different;
   }
 
-  //! Pixels that are not the clear colour: what the scene actually drew.
+  //! Pixels that are not the clear color: what the scene actually drew.
   int countDrawn(const QImage &image, const QColor &background)
   {
     const QImage rgb = image.convertToFormat(QImage::Format_ARGB32);
@@ -237,7 +237,7 @@ namespace
       }
 
       /*!
-       * \brief An oblique camera aimed at the standard footprint's centre.
+       * \brief An oblique camera aimed at the standard footprint's center.
        *
        * Placed directly rather than through setGroundExtent(), because a
        * shallow camera asked to *contain* a rectangle must reach far enough
@@ -557,7 +557,7 @@ TEST_F(Scene3DTest, LayerOpacityReachesTheScene)
     renderScene(renderer, topDown(), QStringLiteral("opacity-quarter"));
   ASSERT_FALSE(faded.isNull());
 
-  // Still drawn, but no longer its own colour: blended against black.
+  // Still drawn, but no longer its own color: blended against black.
   EXPECT_GT(countDrawn(faded, kBackground), 0);
   EXPECT_EQ(countMatching(faded, red, 12), 0)
     << "opacity never reached the material";
@@ -616,7 +616,7 @@ TEST_F(Scene3DTest, AClassSwitchedOffInTheLegendIsNotDrawnInTheScene)
   EXPECT_GT(remaining, 0) << "hiding one class removed both";
 
   // And the hidden cell is left out of the geometry, not merely made
-  // invisible. An unclassified feature's colour is invalid, whose alpha is
+  // invisible. An unclassified feature's color is invalid, whose alpha is
   // zero, so uploading it anyway would look identical here — and would still
   // put every hidden cell on the bus, which at this phase's cell counts is
   // the difference the check is for.
@@ -781,7 +781,7 @@ TEST_F(Scene3DTest, ASurfaceSeenFromBelowIsLit)
   // underside of a floodplain or a pipe soffit. The light travels with the
   // eye, so from below it arrives from below, and a one-sided material would
   // return black for every face. This is what the material's two-sided term
-  // is for, and it is the reason the geometry does not normalise winding.
+  // is for, and it is the reason the geometry does not normalize winding.
   LayerStackModel stack;
   SceneRenderer renderer;
   renderer.setModel(&stack);
@@ -796,7 +796,7 @@ TEST_F(Scene3DTest, ASurfaceSeenFromBelowIsLit)
   const QImage image = renderScene(renderer, below, QStringLiteral("below"));
   ASSERT_FALSE(image.isNull());
 
-  // Its own colour, not merely "not the background": a one-sided material
+  // Its own color, not merely "not the background": a one-sided material
   // still leaves the ambient term, which is dim but visible, and asking only
   // whether something was drawn would accept that.
   EXPECT_GT(countMatching(image, red, 12), kSize.height() * kSize.height() / 2)
@@ -924,7 +924,7 @@ TEST_F(Scene3DTest, ATerrainKeptOutOf3dStopsBeingTheTerrain)
 // ── Selection is visible in the scene (coherence plan V5) ─────────────────
 //
 // The 3D view could always SET the selection -- band select, click identify
-// -- and never displayed it: the highlight colour was consulted only in the
+// -- and never displayed it: the highlight color was consulted only in the
 // 2D paint path, so selecting in 3D changed the attribute table and left the
 // scene looking exactly as before.
 
@@ -942,7 +942,7 @@ TEST_F(Scene3DTest, ASelectedFeatureWearsTheSelectionColourInTheScene)
     renderScene(renderer, topDown(), QStringLiteral("unselected"));
   ASSERT_FALSE(before.isNull());
 
-  // Cyan, the one colour the layer is not: nothing in the unselected render
+  // Cyan, the one color the layer is not: nothing in the unselected render
   // may already look selected, or the gate proves nothing.
   const auto selectionish = [](QRgb pixel)
   {
@@ -1150,7 +1150,7 @@ TEST_F(Scene3DTest, FlatShadingOptOutRestoresTheFacets)
   }
 }
 
-// A terrain's faces wind however the file wound them; two neighbours wound
+// A terrain's faces wind however the file wound them; two neighbors wound
 // opposite ways must not cancel to a null normal.
 TEST_F(Scene3DTest, OppositeWindingsDoNotCancelTheAverage)
 {

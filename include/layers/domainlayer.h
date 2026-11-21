@@ -71,7 +71,7 @@ namespace HydroCouple::Composer
       //! Re-reads the domain and replaces every feature.
       void rebuild();
 
-      //! The colours and widths a part is drawn in.
+      //! The colors and widths a part is drawn in.
       void applyDefaultStyle();
 
       MeshDomainModel *m_model = nullptr;

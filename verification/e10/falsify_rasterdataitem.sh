@@ -3,7 +3,7 @@
 #
 # Every mutation still draws something. What they break is whether it is over
 # the right ground, whether the shading says anything about the values, and
-# whether a hole in a survey is admitted or coloured in.
+# whether a hole in a survey is admitted or colored in.
 
 set -u
 cd "$(dirname "$0")/../.." || exit 1
@@ -75,12 +75,12 @@ m_rows_run_up() {
 }
 
 # 3. Take the cell size as one, so the raster covers its own pixel count in
-#    world units -- a metre grid drawn as a four-by-three-metre square.
+#    world units -- a meter grid drawn as a four-by-three-meter square.
 m_unit_cells() {
   perl -0pi -e 's/    const double right = left \+ m_geoTransform\[1\] \* m_width;/    const double right = left + m_width;/' src/layers/rasterdataitemlayer.cpp
 }
 
-# 4. Drop the item's CRS, so a raster in metres is drawn as though it were
+# 4. Drop the item's CRS, so a raster in meters is drawn as though it were
 #    in degrees and lands off the coast of Africa.
 m_no_crs() {
   perl -0pi -e 's/      if \(!reference->srText\(\)\.empty\(\)\)/      if (false)/' src/layers/rasterdataitemlayer.cpp
@@ -89,7 +89,7 @@ m_no_crs() {
 # ── does the shading say anything ───────────────────────────────────────────
 
 # 5. Shade over a fixed nought-to-one range, so any raster of real values is
-#    one flat colour at the top of the ramp.
+#    one flat color at the top of the ramp.
 m_fixed_range() {
   perl -0pi -e 's/        const double position =\n          qFuzzyIsNull\(span\) \? 0\.5 : \(value - m_minimum\) \/ span;/        const double position = value;/' src/layers/rasterdataitemlayer.cpp
 }
@@ -113,7 +113,7 @@ m_nodata_in_range() {
   perl -0pi -e 's/    if \(m_minimum > m_maximum\)\n    \{/    if (false)\n    \{/' src/layers/rasterdataitemlayer.cpp
 }
 
-# 9. Give a hole a colour -- the bottom of the ramp, which over a survey
+# 9. Give a hole a color -- the bottom of the ramp, which over a survey
 #    reads as a lake.
 m_nodata_is_a_colour() {
   perl -0pi -e 's/          image\.setPixelColor\(column, row, QColor\(0, 0, 0, 0\)\);\n          continue;/          image.setPixelColor(column, row, m_ramp.colorAt(0.0));\n          continue;/' src/layers/rasterdataitemlayer.cpp

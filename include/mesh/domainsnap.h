@@ -9,7 +9,7 @@
  *
  * The reach is a **screen** distance converted to ground, never a ground
  * distance chosen up front: ten pixels is what a hand can aim at, and a
- * tolerance fixed in metres is unusable at one zoom and grabs half the map at
+ * tolerance fixed in meters is unusable at one zoom and grabs half the map at
  * another.
  */
 

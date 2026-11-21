@@ -62,7 +62,7 @@ namespace HydroCouple::Composer
         return swatch(style->symbol().fill);
       }
 
-      // A striped swatch summarising the classes, so a collapsed layer still
+      // A striped swatch summarizing the classes, so a collapsed layer still
       // shows which palette it is drawn with.
       QPixmap pixmap(kSwatchSize, kSwatchSize);
       pixmap.fill(Qt::transparent);
@@ -666,7 +666,7 @@ namespace HydroCouple::Composer
     // at a time (selectOnly clears the rest), so when another layer holds
     // one this layer's own is empty — and a union with empty is exactly
     // the replacement the guard was going to perform. It could not change
-    // an outcome, so it was code with nothing to say. The behaviour it was
+    // an outcome, so it was code with nothing to say. The behavior it was
     // protecting is still gated, by
     // AddingAcrossLayersReplacesRatherThanSplitting; what enforces it is
     // selectOnly below.

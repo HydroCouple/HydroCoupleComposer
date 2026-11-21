@@ -85,7 +85,7 @@ m_drop_the_crs() {
 }
 
 # 6. The attributes are dropped, so a fetched layer can be seen but not
-#    classified, queried or labelled.
+#    classified, queried or labeled.
 m_drop_the_fields() {
   perl -0pi -e 's/      contents\.fields\.append\(entry\);//' src/layers/ogrfeatureloader.cpp
 }

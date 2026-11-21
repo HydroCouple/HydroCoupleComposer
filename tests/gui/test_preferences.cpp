@@ -208,7 +208,7 @@ TEST_F(PreferencesTest, TheThemeModeKeepsTheStorageNameItHadBefore)
   settings->sync();
 
   // The application persisted "appearance/mode" before this manager
-  // existed; a choice made then is still honoured now.
+  // existed; a choice made then is still honored now.
   EXPECT_EQ(QSettings(path, QSettings::IniFormat)
               .value(QStringLiteral("appearance/mode")).toString(),
             QStringLiteral("Dark"));

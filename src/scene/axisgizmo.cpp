@@ -26,7 +26,7 @@ namespace HydroCouple::Composer
     constexpr float kConeRadius = 0.11f;
 
     /*!
-     * \brief The three arms: direction and colour.
+     * \brief The three arms: direction and color.
      *
      * Red east, green north, blue up — the convention every 3D tool uses,
      * so it needs no legend. North is +Y because the camera's azimuth is

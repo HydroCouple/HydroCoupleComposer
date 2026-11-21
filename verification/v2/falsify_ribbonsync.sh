@@ -49,7 +49,7 @@ run_mutation() {
   fi
 }
 
-# 1. Never move the ribbon -- the pre-slice behaviour.
+# 1. Never move the ribbon -- the pre-slice behavior.
 m_ribbon_never_follows() {
   perl -0pi -e 's/              if \(arriving == m_mapCanvas\)\n              \{\n                m_ribbon->setCurrentTab\(QStringLiteral\("map"\)\);\n              \}\n              else if \(arriving == m_sceneView\)\n              \{\n                m_ribbon->setCurrentTab\(QStringLiteral\("scene"\)\);\n              \}\n              else if \(arriving == m_canvas\)\n              \{\n                m_ribbon->setCurrentTab\(QStringLiteral\("home"\)\);\n              \}/              (void)arriving;/' src/ui/composermainwindow.cpp
 }
@@ -75,7 +75,7 @@ m_palettes_raise_views() {
 #    original mutation here removed a re-entrancy guard and SURVIVED; tracing
 #    it showed both setters are no-ops when already current and the mappings
 #    agree, so no exchange can ping-pong. The guard was removed from the code
-#    (fifth unfalsifiable defence this program); what CAN go wrong is the
+#    (fifth unfalsifiable defense this program); what CAN go wrong is the
 #    mapping itself, so that is what gets mutated.
 m_crossed_mapping() {
   perl -0pi -e 's/              else if \(arriving == m_sceneView\)\n              \{\n                m_ribbon->setCurrentTab\(QStringLiteral\("scene"\)\);\n              \}/              else if (arriving == m_sceneView)\n              \{\n                m_ribbon->setCurrentTab(QStringLiteral("map"));\n              \}/' src/ui/composermainwindow.cpp

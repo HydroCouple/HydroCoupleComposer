@@ -49,12 +49,12 @@ run_mutation() {
   fi
 }
 
-# 1. The old behaviour: zoom in always targets the map.
+# 1. The old behavior: zoom in always targets the map.
 m_zoom_in_always_map() {
   perl -0pi -e 's/              if \(m_workspace->currentWidget\(\) == m_sceneView\)\n              \{\n                m_sceneView->zoomIn\(\);\n              \}\n              else\n              \{\n                m_mapCanvas->zoomBy\(1\.25\);\n              \}/              m_mapCanvas->zoomBy(1.25);/' src/ui/composermainwindow.cpp
 }
 
-# 2. The old behaviour, mirrored for zoom out.
+# 2. The old behavior, mirrored for zoom out.
 m_zoom_out_always_map() {
   perl -0pi -e 's/              if \(m_workspace->currentWidget\(\) == m_sceneView\)\n              \{\n                m_sceneView->zoomOut\(\);\n              \}\n              else\n              \{\n                m_mapCanvas->zoomBy\(1\.0 \/ 1\.25\);\n              \}/              m_mapCanvas->zoomBy(1.0 \/ 1.25);/' src/ui/composermainwindow.cpp
 }

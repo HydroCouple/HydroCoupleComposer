@@ -120,7 +120,7 @@ namespace HydroCouple::Composer
 
     // The dialog's own objection first. Handing text that is not JSON to
     // the component so that *it* can refuse would report a typing
-    // mistake as a modelling one.
+    // mistake as a modeling one.
     if (!validate(message))
     {
       showRefusal(message.isEmpty() ? tr("This value is not usable.")

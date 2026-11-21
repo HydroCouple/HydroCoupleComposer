@@ -84,10 +84,10 @@ namespace
   /*!
    * \brief Pixels inside \a region where the two images differ.
    *
-   * Against a reference *render*, never against a nominal colour. The
+   * Against a reference *render*, never against a nominal color. The
    * first version of this compared each pixel to the sheet's fill of
    * (90,90,90) and every pixel differed — the sheet is lit, so it is
-   * never drawn in the colour it was given. That gate failed in all four
+   * never drawn in the color it was given. That gate failed in all four
    * corners at once and in the empty-viewport case too, and accused the
    * viewport of being upside down while the renderer was correct.
    *
@@ -195,7 +195,7 @@ TEST_F(GizmoDrawTest, AnEmptyViewportDrawsNoCueAtAll)
 {
   // Switching the cue off has to leave the corner alone, not draw it
   // somewhere harmless. Measured as a difference between two renders of
-  // the same scene, so nothing here depends on knowing what colour a lit
+  // the same scene, so nothing here depends on knowing what color a lit
   // sheet comes out.
   const QRect rect =
     axisGizmoRect(QSize(kSide, kSide), 96, GizmoCorner::BottomLeft);

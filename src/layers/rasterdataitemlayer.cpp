@@ -351,7 +351,7 @@ namespace HydroCouple::Composer
 
         if (std::isnan(value))
         {
-          // No-data is nothing, not a colour at one end of the ramp.
+          // No-data is nothing, not a color at one end of the ramp.
           image.setPixelColor(column, row, QColor(0, 0, 0, 0));
           continue;
         }

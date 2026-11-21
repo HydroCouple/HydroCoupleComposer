@@ -146,7 +146,7 @@ namespace HydroCouple::Composer
     auto *reference = new OGRSpatialReference;
 
     // Traditional axis order keeps coordinates as (x, y) / (longitude,
-    // latitude) throughout. Without it, PROJ honours each CRS's declared axis
+    // latitude) throughout. Without it, PROJ honors each CRS's declared axis
     // order and EPSG:4326 arrives as (latitude, longitude) — which silently
     // transposes every map.
     reference->SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);

@@ -60,13 +60,13 @@ m_no_geotransform() {
   perl -0pi -e 's/    m_extent = extentOf\(dataset\);/    m_extent = QRectF(0, 0, dataset->GetRasterXSize(), dataset->GetRasterYSize());/' src/layers/gdalrasterlayer.cpp
 }
 
-# 2. Ignore the projection the coverage declares, so national-grid metres are
+# 2. Ignore the projection the coverage declares, so national-grid meters are
 #    read as degrees.
 m_no_crs() {
   perl -0pi -e 's/        setCrs\(SpatialReference::fromDefinition\(QString::fromUtf8\(wkt\),\n                                                crsMessage\)\);//' src/layers/gdalrasterlayer.cpp
 }
 
-# 3. Treat a single float band as a picture, so elevations are shown as grey
+# 3. Treat a single float band as a picture, so elevations are shown as gray
 #    levels and never stretched over their own range.
 m_data_is_a_picture() {
   perl -0pi -e 's/    m_colorImage = m_bandCount >= 3\n                   && dataset->GetRasterBand\(1\)->GetRasterDataType\(\) == GDT_Byte;/    m_colorImage = true;/' src/layers/gdalrasterlayer.cpp

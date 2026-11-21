@@ -123,7 +123,7 @@ namespace
           {
             // A real band of no-data, not merely a declared value nothing
             // uses: a test whose fixture holds none cannot tell whether
-            // no-data is honoured.
+            // no-data is honored.
             values[static_cast<size_t>(y) * kRasterWidth + x] =
               y < kNoDataRows ? static_cast<float>(kNoData)
                               : static_cast<float>(x);
@@ -256,7 +256,7 @@ TEST_F(GdalLayerTest, StylesItselfFromItsOwnAttributes)
 
   ASSERT_TRUE(layer->restyle());
 
-  // Two kinds in the fixture, so two legend rows and two colours.
+  // Two kinds in the fixture, so two legend rows and two colors.
   ASSERT_EQ(layer->style()->legendItems().size(), 2);
   EXPECT_NE(layer->style()->colorFor(*layer, 0),
             layer->style()->colorFor(*layer, 2));
@@ -310,8 +310,8 @@ TEST_F(GdalLayerTest, KeepsPolygonsTranslucentWhenTheyAreClassified)
   transform.fit(QRectF(-2.0, -2.0, 4.0, 4.0), QSizeF(400.0, 400.0), 0.0);
 
   // Drawn twice over different backgrounds. A translucent fill blends with
-  // whatever is beneath and lands on two different colours; an opaque one
-  // gives the same colour both times, whatever its brightness happens to be
+  // whatever is beneath and lands on two different colors; an opaque one
+  // gives the same color both times, whatever its brightness happens to be
   // — which is why this does not test the pixel's lightness.
   const auto drawOver = [&](const QColor &background)
   {
@@ -359,7 +359,7 @@ TEST_F(GdalLayerTest, ReprojectsItsGeometryIntoTheMapsCrs)
 
   // And the geometry itself follows. Node O1 sits at longitude and latitude
   // 1, which in Web Mercator is 111 km from the origin — a third of the way
-  // to the edge of this view. Unreprojected it would be one metre from the
+  // to the edge of this view. Unreprojected it would be one meter from the
   // origin, which at this scale is the same pixel, so asserting only that
   // *something* is drawn at the origin would pass either way.
   canvas.zoomToFullExtent();
@@ -393,7 +393,7 @@ TEST_F(GdalLayerTest, ReprojectsItsGeometryIntoTheMapsCrs)
   EXPECT_TRUE(drawnNear(outfall))
     << "the feature at 1°E 1°N was not drawn where Web Mercator puts it";
 
-  // Its neighbour at the CRS origin is drawn too, and they are far apart —
+  // Its neighbor at the CRS origin is drawn too, and they are far apart —
   // unreprojected, all four features would pile onto one pixel.
   const QPointF origin = canvas.transform().toScreen(QPointF(0.0, 0.0));
 
@@ -427,7 +427,7 @@ TEST_F(GdalLayerTest, ChangingTheMapCrsMovesLayersAlreadyLoaded)
   // The canvas reprojects layer *extents* itself, so the extent alone cannot
   // tell whether the layer was told anything. The geometry can: a layer that
   // never heard about the new CRS still holds degrees, and drawn into a view
-  // framed on metres its four features collapse onto a single pixel.
+  // framed on meters its four features collapse onto a single pixel.
   QImage image(400, 400, QImage::Format_ARGB32);
   image.fill(Qt::white);
   canvas.render(&image);
@@ -531,7 +531,7 @@ TEST_F(GdalLayerTest, LeavesNoDataUnpaintedRatherThanShadingIt)
   painter.end();
 
   // The top quarter of the fixture holds no data. Shaded with the ramp's
-  // lowest colour it would look like ground; it must stay transparent.
+  // lowest color it would look like ground; it must stay transparent.
   const int noDataRow =
     static_cast<int>(128.0 * kNoDataRows / kRasterHeight / 2.0);
 

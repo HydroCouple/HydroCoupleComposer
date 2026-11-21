@@ -48,8 +48,8 @@ TEST(AxisGizmoTest, ItIsThreeArmsOfSolidGeometry)
   // Indices divide into whole triangles, or the renderer draws rubbish.
   EXPECT_EQ(gizmo.indices.size() % 3, 0);
 
-  // Every arm is one of the three convention colours, and all three are
-  // present: a gizmo drawn in one colour says nothing.
+  // Every arm is one of the three convention colors, and all three are
+  // present: a gizmo drawn in one color says nothing.
   QSet<QRgb> colours;
 
   for (const SceneVertex &vertex : gizmo.vertices)
@@ -76,8 +76,8 @@ TEST(AxisGizmoTest, EveryArmIsASolidRatherThanACollapsedStick)
 {
   // Each arm's ring is built on two vectors perpendicular to it, and the
   // obvious way to find them — cross with Z — returns a zero vector for
-  // the Z arm itself. Qt normalises that to (0,0,0) rather than to NaN,
-  // so a collapsed arm keeps its vertex count and its colour and every
+  // the Z arm itself. Qt normalizes that to (0,0,0) rather than to NaN,
+  // so a collapsed arm keeps its vertex count and its color and every
   // other gate here stays green while one third of the gizmo is a line.
   // This is the gate that notices: each arm must have real thickness
   // across its own axis.
@@ -165,7 +165,7 @@ TEST(AxisGizmoTest, TheGreenArmIsTheOnePointingNorth)
       }
     }
 
-    // The point of the arrow, and it must lie along the axis the colour
+    // The point of the arrow, and it must lie along the axis the color
     // claims: a dot product of one, not merely a positive one.
     ASSERT_GT(reach, 0.0f) << arm.name << ": no such arm";
     EXPECT_NEAR(QVector3D::dotProduct(farthest.normalized(), arm.direction),
@@ -473,7 +473,7 @@ TEST(AxisGizmoTest, AClickInTheCornerBecomesAPointInTheGizmosSquare)
 {
   const QRect rect(20, 480, 96, 96);
 
-  // The centre of the square is the origin of the gizmo.
+  // The center of the square is the origin of the gizmo.
   const QPointF centre =
     axisGizmoPoint(QPoint(rect.x() + 48, rect.y() + 48), rect);
 

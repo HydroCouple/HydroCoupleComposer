@@ -3,7 +3,7 @@
  * \author Caleb Buahin
  * \brief  LayeredMesh — a sigma-layered water column mesh, for the 3D scene.
  *
- * A horizontal mesh plus a vertical discretisation: every 2-D face becomes a
+ * A horizontal mesh plus a vertical discretization: every 2-D face becomes a
  * column of prismatic cells, stacked between the bed and the water surface.
  * This is what FVQual solves on and what its layered UGRID files describe, so
  * the conventions here are deliberately FVQual's rather than convenient ones:
@@ -16,7 +16,7 @@
  *     fastest, matching `FVQual::Mesh::LayeredMesh::interfaceSlot()` and
  *     `cell()`. Reading a field written by FVQual with the other order
  *     transposes the water column silently.
- *   - Elevations are metres, positive up.
+ *   - Elevations are meters, positive up.
  *
  * Interfaces are per *column*, not per node, because the cells are finite
  * volumes: a cell's top and bottom are flat and its sides are vertical.

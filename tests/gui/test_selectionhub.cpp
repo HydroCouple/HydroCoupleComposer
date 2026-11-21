@@ -248,7 +248,7 @@ TEST_F(SelectionHubTest, TheTwoDirectionsDoNotChaseEachOther)
   // It used to read EXPECT_LE(..., 1), which the guard's removal walked
   // straight through: selectComponent() clears before it selects, and the
   // clearing pass finds nothing selected and so emits nothing, leaving a
-  // count of exactly one either way. A bound that both behaviours satisfy
+  // count of exactly one either way. A bound that both behaviors satisfy
   // is not a gate.
   EXPECT_EQ(layerAsked.count(), 0)
     << "the pick bounced back as a layer request";

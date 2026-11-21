@@ -49,7 +49,7 @@ run_mutation() {
   fi
 }
 
-# 1. Decline the scene again -- the pre-slice behaviour.
+# 1. Decline the scene again -- the pre-slice behavior.
 m_no_scene_source() {
   perl -0pi -e 's/  const ISceneSource \*RasterDataItemLayer::sceneSource\(\) const\n  \{\n    return this;\n  \}/  const ISceneSource *RasterDataItemLayer::sceneSource() const\n  \{\n    return nullptr;\n  \}/' src/layers/rasterdataitemlayer.cpp
 }

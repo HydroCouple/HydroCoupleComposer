@@ -4,14 +4,14 @@
  * \brief  MapTool — what a press, drag and release do on the map.
  *
  * The canvas hard-coded its interactions: left drag panned, release picked,
- * wheel zoomed. Adding a fourth behaviour to that chain is where it stops
+ * wheel zoomed. Adding a fourth behavior to that chain is where it stops
  * scaling, so the gestures move out into small objects the canvas switches
  * between.
  *
  * Two tools, not the three the plan named. Pan already picks on a click that
  * did not move the view, so a separate Identify tool would duplicate it
  * exactly — and FeatureLayer holds one selection at a time, so there is no
- * box-select for it to offer instead. A mode that does nothing its neighbour
+ * box-select for it to offer instead. A mode that does nothing its neighbor
  * does not is a control that teaches the user nothing.
  *
  * Wheel zoom stays on the canvas: it works under every tool, and moving it

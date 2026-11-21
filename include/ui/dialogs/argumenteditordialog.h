@@ -108,7 +108,7 @@ namespace HydroCouple::Composer
        * \brief Whether what the editor holds can be offered at all.
        *
        * The dialog's own check, run before the component's. A parse
-       * error is not a modelling error, and reporting one as the other
+       * error is not a modeling error, and reporting one as the other
        * sends the user looking in the wrong place — at their model,
        * rather than at the brace they left open.
        *

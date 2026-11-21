@@ -2,7 +2,7 @@
 
 **HydroCoupleComposer** is the graphical host for
 [HydroCouple 2.0](https://www.hydrocouple.org/HydroCouple/) model components:
-it composes them, configures them, runs them, and visualises what they
+it composes them, configures them, runs them, and visualizes what they
 produced.
 
 Composer is deliberately *model-agnostic*. It knows the interfaces and the

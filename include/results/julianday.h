@@ -24,7 +24,7 @@ namespace HydroCouple::Composer
   /*!
    * \brief \a julianDay as a UTC calendar instant.
    *
-   * UTC, not local: a run records instants, and re-labelling them in
+   * UTC, not local: a run records instants, and re-labeling them in
    * whatever zone the viewer happens to sit in would move a model's output
    * by hours depending on who opened it.
    *

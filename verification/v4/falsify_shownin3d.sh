@@ -84,7 +84,7 @@ m_silent_flag() {
 }
 
 # 6. The model reports every layer as having a 3D form, so the tree offers a
-#    live toggle on a point layer that nothing can honour.
+#    live toggle on a point layer that nothing can honor.
 m_everything_has_form() {
   perl -0pi -e 's/      case HasSceneFormRole:\n        return layer->sceneSource\(\) != nullptr;/      case HasSceneFormRole:\n        return true;/' src/map/layerstackmodel.cpp
 }

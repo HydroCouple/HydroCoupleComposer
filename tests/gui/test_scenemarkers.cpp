@@ -167,7 +167,7 @@ TEST_F(MarkerTest, ASinglePointHasNoExtentToSizeFromAndDrawsNothing)
   Testing::VectorProbe one(QStringLiteral("gauge"));
   one.addPoint({ 5.0, 5.0 });
 
-  // Guessing a size in map units would be guessing between metres and
+  // Guessing a size in map units would be guessing between meters and
   // degrees — a factor of a hundred thousand. Nothing is drawn until a
   // size is given, and then it is.
   EXPECT_DOUBLE_EQ(one.resolvedMarkerSize(), 0.0);
@@ -197,7 +197,7 @@ TEST_F(MarkerTest, AMarkerSitsOnTheTerrainWhenItIsDrapedAndFlatWhenNot)
 
   const SceneGeometry on = points.sceneGeometry(context).first();
 
-  // Centred on the sampled height: half the solid stands above the ground,
+  // Centered on the sampled height: half the solid stands above the ground,
   // which is why a marker needs no coplanar nudge to be seen on one.
   double sum = 0.0;
 

@@ -280,9 +280,9 @@ namespace HydroCouple::Composer
     const double width = extent.width() > 0.0 ? extent.width() : 1.0;
     const double height = extent.height() > 0.0 ? extent.height() : 1.0;
 
-    // Solved, not approximated. Simply looking at the rectangle's centre
+    // Solved, not approximated. Simply looking at the rectangle's center
     // loses its near strip at every tilt: a tilted frustum's ground footprint
-    // is a trapezoid whose centre lies beyond the point being looked at, and
+    // is a trapezoid whose center lies beyond the point being looked at, and
     // the error grows as the camera drops toward the horizon.
     //
     // With the target on the ground plane the whole configuration — eye
@@ -419,7 +419,7 @@ namespace HydroCouple::Composer
       return false;
     }
 
-    // Widget y grows downward and normalised device y grows upward, hence
+    // Widget y grows downward and normalized device y grows upward, hence
     // the subtraction rather than a second scale.
     const float ndcX =
       float(2.0 * pixel.x() / double(viewport.width()) - 1.0);
@@ -438,7 +438,7 @@ namespace HydroCouple::Composer
     };
 
     // Qt's projection matrices are OpenGL-style, so the near plane is at
-    // z = -1 and the far plane at z = +1 in normalised device coordinates.
+    // z = -1 and the far plane at z = +1 in normalized device coordinates.
     const QVector3D nearPoint = unproject(-1.0f);
     const QVector3D farPoint = unproject(1.0f);
     const QVector3D along = farPoint - nearPoint;

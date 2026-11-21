@@ -147,7 +147,7 @@ namespace HydroCouple::Composer
       [[nodiscard]] HydroCouple::SDK::Tools::TriangulationInput
       toTriangulationInput() const;
 
-      //! Serialises to the sidecar's mesh-domain object.
+      //! Serializes to the sidecar's mesh-domain object.
       [[nodiscard]] QJsonObject toJson() const;
 
       /*!
