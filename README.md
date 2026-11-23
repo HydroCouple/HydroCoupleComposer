@@ -31,6 +31,21 @@ This event stream adds no checkpoint or external run-control capability.
 
 ![HydroCoupleComposer Screenshot](resources/images/hydrocouplecomposerscreenshot.png)
 
+## Documentation
+
+- [Composer user guide (Doxygen)](https://www.hydrocouple.org/HydroCoupleComposer/guide/)
+- [C++ API reference (Doxygen)](https://www.hydrocouple.org/HydroCoupleComposer/)
+- [HydroCoupleSDK documentation](https://www.hydrocouple.org/HydroCoupleSDK/)
+
+The guide and API share the OpenSWMM Engine Doxygen theme and navigation. From the repository root, build them with CMake, Doxygen and Graphviz.
+
+```sh
+cmake -S . -B build/manual -DHYDROCOUPLE_DOCS_ONLY=ON
+cmake --build build/manual --target docs
+```
+
+Open `build/manual/docs/doxygen/html/index.html` for the API and `guide/index.html` alongside it for the manual.
+
 ## Installers
 
 * [Windows 64 bit](https://github.com/HydroCouple/HydroCoupleComposer/releases/download/v1.2.1/HydroCoupleComposer.msi)

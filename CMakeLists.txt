@@ -18,6 +18,13 @@ project(
     HOMEPAGE_URL "https://www.hydrocouple.org"
     LANGUAGES C CXX)
 
+option(HYDROCOUPLE_DOCS_ONLY "Configure documentation without model or GUI dependencies" OFF)
+if(HYDROCOUPLE_DOCS_ONLY)
+    find_package(Doxygen REQUIRED OPTIONAL_COMPONENTS dot)
+    add_subdirectory(docs)
+    return()
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)

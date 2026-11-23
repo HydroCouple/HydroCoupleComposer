@@ -23,41 +23,12 @@ INHERIT_DOCS           = YES
 SORT_MEMBER_DOCS       = YES
 
 # ── Input ─────────────────────────────────────────────────────────────────
-INPUT                  = @CMAKE_SOURCE_DIR@/include/core \
-                         @CMAKE_SOURCE_DIR@/include/canvas \
-                         @CMAKE_SOURCE_DIR@/include/gis \
-                         @CMAKE_SOURCE_DIR@/include/configurator \
-                         @CMAKE_SOURCE_DIR@/include/simulation \
-                         @CMAKE_SOURCE_DIR@/include/plugins \
-                         @CMAKE_SOURCE_DIR@/include/project \
-                         @CMAKE_SOURCE_DIR@/include/qtbridge \
-                         @CMAKE_SOURCE_DIR@/include/layers \
-                         @CMAKE_SOURCE_DIR@/include/map \
-                         @CMAKE_SOURCE_DIR@/include/render \
-                         @CMAKE_SOURCE_DIR@/include/ui \
-                         @CMAKE_SOURCE_DIR@/include/ui/theme \
-                         @CMAKE_SOURCE_DIR@/include/ui/toolbars \
-                         @CMAKE_SOURCE_DIR@/include/ui/panels \
-                         @CMAKE_SOURCE_DIR@/include/ui/dialogs \
-                         @CMAKE_SOURCE_DIR@/src/core \
-                         @CMAKE_SOURCE_DIR@/src/canvas \
-                         @CMAKE_SOURCE_DIR@/src/gis \
-                         @CMAKE_SOURCE_DIR@/src/configurator \
-                         @CMAKE_SOURCE_DIR@/src/simulation \
-                         @CMAKE_SOURCE_DIR@/src/plugins \
-                         @CMAKE_SOURCE_DIR@/src/project \
-                         @CMAKE_SOURCE_DIR@/src/qtbridge \
-                         @CMAKE_SOURCE_DIR@/src/layers \
-                         @CMAKE_SOURCE_DIR@/src/map \
-                         @CMAKE_SOURCE_DIR@/src/render \
-                         @CMAKE_SOURCE_DIR@/src/ui \
-                         @CMAKE_SOURCE_DIR@/src/ui/theme \
-                         @CMAKE_SOURCE_DIR@/src/ui/toolbars \
-                         @CMAKE_SOURCE_DIR@/src/ui/panels \
-                         @CMAKE_SOURCE_DIR@/src/ui/dialogs \
-                         @CMAKE_SOURCE_DIR@/src/app \
+INPUT                  = @CMAKE_SOURCE_DIR@/include \
+                         @CMAKE_SOURCE_DIR@/src \
                          @CMAKE_SOURCE_DIR@/docs/mainpage.md \
-                         @CMAKE_SOURCE_DIR@/docs/BUILDING_V2.md
+                         @CMAKE_SOURCE_DIR@/docs/BUILDING_V2.md \
+                         @CMAKE_SOURCE_DIR@/docs/CUSTOM_COMPONENTS.md
+INPUT                 += @CMAKE_SOURCE_DIR@/docs/guide
 RECURSIVE              = YES
 USE_MDFILE_AS_MAINPAGE = @CMAKE_SOURCE_DIR@/docs/mainpage.md
 FILE_PATTERNS          = *.h *.cpp *.c *.md
@@ -74,9 +45,14 @@ GENERATE_HTML          = YES
 HTML_OUTPUT            = html
 
 # ── doxygen-awesome theme (mirrors the HydroCouple interface repo) ────────
+LAYOUT_FILE            = @CMAKE_CURRENT_SOURCE_DIR@/DoxygenLayout.xml
+TOC_INCLUDE_HEADINGS   = 5
+HTML_COLORSTYLE        = LIGHT
+DOT_IMAGE_FORMAT       = svg
+INTERACTIVE_SVG        = YES
 GENERATE_TREEVIEW      = YES
 DISABLE_INDEX          = NO
-HTML_HEADER            = @CMAKE_CURRENT_SOURCE_DIR@/custom/html/header.html
+HTML_HEADER            = @CMAKE_CURRENT_BINARY_DIR@/header.html
 HTML_EXTRA_STYLESHEET  = @CMAKE_CURRENT_SOURCE_DIR@/custom/css/doxygen-awesome.css \
                          @CMAKE_CURRENT_SOURCE_DIR@/custom/hydrocouple/hc-fonts.css \
                          @CMAKE_CURRENT_SOURCE_DIR@/custom/hydrocouple/hc-tokens.css \
