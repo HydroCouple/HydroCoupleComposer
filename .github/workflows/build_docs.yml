@@ -4,7 +4,7 @@ name: Documentation
 
 on:
   push:
-    branches: [ "v2" ]
+    branches: [ "dev", "main", "v2" ]
     tags: [ "v*.*.*" ]
     paths:
       - 'docs/**'
@@ -14,7 +14,7 @@ on:
       - 'CMakeLists.txt'
       - '.github/workflows/build_docs.yml'
   pull_request:
-    branches: [ "v2" ]
+    branches: [ "dev", "main", "v2" ]
     paths:
       - 'docs/**'
       - 'include/**'
@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: pages
+  group: docs-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -69,10 +69,17 @@ jobs:
 
   deploy:
     name: Deploy to GitHub Pages
+    concurrency:
+      group: pages
+      cancel-in-progress: false
     needs: build_docs
-    if: |
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-      && github.ref == 'refs/heads/v2'
+    # The Pages environment also restricts which PR merge refs may publish.
+    if: >-
+      ((github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+       && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'))
+      || (github.event_name == 'pull_request' && github.base_ref == 'dev'
+          && github.head_ref == 'v2'
+          && github.event.pull_request.head.repo.full_name == github.repository)
     permissions:
       contents: read
       id-token: write
