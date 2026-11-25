@@ -83,7 +83,7 @@ namespace HydroCouple::Composer
       void setRamp(const ColorRamp &ramp);
 
       /*!
-       * \brief The builtin preset the ramp came from, e.g. "Viridis".
+       * \brief The builtin preset the ramp came from, for example "Viridis".
        *
        * Kept beside the ramp because a ColorRamp cannot name itself, and
        * both the dialog's combo and a saved composition need the name, not

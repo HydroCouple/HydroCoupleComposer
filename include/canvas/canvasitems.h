@@ -117,7 +117,7 @@ namespace HydroCouple::Composer
                                    PortItem::Direction direction) const;
 
       /*!
-       * \brief Marks the component as unavailable, e.g. its library is missing.
+       * \brief Marks the component as unavailable, for example its library is missing.
        * \param reason Explanation shown on the box; empty clears the mark.
        */
       void setUnavailable(const QString &reason);

@@ -29,7 +29,7 @@ namespace HydroCouple::Composer
   {
       QString name;         //!< Canonical key, as the style stores it.
       QString displayName;  //!< Label shown to the user; falls back to name.
-      QString unit;         //!< Free-form unit, e.g. "m³/s"; may be empty.
+      QString unit;         //!< Free-form unit, for example "m³/s"; may be empty.
 
       //! Storage type. Drives whether graduated classification is offered.
       QMetaType::Type type = QMetaType::Double;

@@ -45,7 +45,7 @@ namespace HydroCouple::Composer
       SpatialReference &operator=(const SpatialReference &) = delete;
 
       /*!
-       * \brief Builds a CRS from an authority code, e.g. EPSG:4326.
+       * \brief Builds a CRS from an authority code, for example EPSG:4326.
        * \param authName Authority name, typically "EPSG".
        * \param code Code within that authority.
        * \param[out] message Diagnostic on failure.
@@ -97,7 +97,7 @@ namespace HydroCouple::Composer
       // ── Extras ───────────────────────────────────────────────────────────
 
       /*!
-       * \brief Human-readable name, e.g. "WGS 84 / Pseudo-Mercator".
+       * \brief Human-readable name, for example "WGS 84 / Pseudo-Mercator".
        */
       [[nodiscard]] QString description() const;
 

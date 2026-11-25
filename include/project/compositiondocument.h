@@ -196,7 +196,7 @@ namespace HydroCouple::Composer
                              const QString &role);
 
       /*!
-       * \brief Deletes one argument payload entirely (e.g. an \@from
+       * \brief Deletes one argument payload entirely (for example an \@from
        *        binding), restoring the component's own default.
        */
       bool clearArgument(const QString &componentId,

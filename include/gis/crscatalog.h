@@ -35,10 +35,10 @@ namespace HydroCouple::Composer
    */
   struct CrsEntry
   {
-      QString authName;     //!< Authority, e.g. "EPSG".
-      QString code;         //!< Code within that authority, e.g. "3857".
-      QString name;         //!< e.g. "WGS 84 / Pseudo-Mercator".
-      QString areaName;     //!< Where it applies, e.g. "World".
+      QString authName;     //!< Authority, for example "EPSG".
+      QString code;         //!< Code within that authority, for example "3857".
+      QString name;         //!< For example "WGS 84 / Pseudo-Mercator".
+      QString areaName;     //!< Where it applies, for example "World".
       CrsKind kind = CrsKind::Any;
       bool deprecated = false;
 

@@ -55,7 +55,7 @@ namespace HydroCouple::Composer
       void setCurrentCrs(const SpatialReference *current);
 
       /*!
-       * \brief The authority and code chosen, e.g. "EPSG:3857", or empty.
+       * \brief The authority and code chosen, for example "EPSG:3857", or empty.
        */
       [[nodiscard]] QString selectedAuthCode() const;
 
