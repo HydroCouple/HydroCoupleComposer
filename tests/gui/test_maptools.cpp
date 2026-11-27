@@ -13,7 +13,9 @@
  */
 
 #include "core/composerapplication.h"
+#include "core/preferencesmanager.h"
 #include "gis/spatialreference.h"
+#include "settingsredirect.h"
 #include "map/layerstackmodel.h"
 #include "map/mapcanvas.h"
 #include "map/maptool.h"
@@ -43,6 +45,12 @@ namespace
       {
         if (!qApp)
         {
+          // The tools read the application-wide preferences, which a test
+          // must not write into the developer's own configuration.
+          Testing::redirectSettingsTo(
+            QStringLiteral(COMPOSER_PREFERENCES_FIXTURE_DIR)
+            + QStringLiteral("/test_maptools"));
+
           static int argc = 1;
           static char arg0[] = "test_maptools";
           static char *argv[] = {arg0, nullptr};
@@ -72,11 +80,22 @@ namespace
         release(canvas, to);
       }
 
-      static void press(MapCanvas &canvas, const QPoint &at)
+      /*!
+       * \brief A press, with whatever the user was holding.
+       *
+       * The modifiers used to be hard-coded to none here, and every
+       * gesture in this file went through it — so nothing in the suite
+       * ever reached the tool's modifier handling, and a mutation that
+       * dropped the modifiers on the way to the canvas survived against
+       * a green suite. A default argument keeps every existing caller
+       * unchanged while making the other half reachable.
+       */
+      static void press(MapCanvas &canvas, const QPoint &at,
+                        Qt::KeyboardModifiers modifiers = Qt::NoModifier)
       {
         QMouseEvent event(QEvent::MouseButtonPress, QPointF(at),
                           canvas.mapToGlobal(QPointF(at)), Qt::LeftButton,
-                          Qt::LeftButton, Qt::NoModifier);
+                          Qt::LeftButton, modifiers);
         QApplication::sendEvent(&canvas, &event);
       }
 
@@ -88,11 +107,12 @@ namespace
         QApplication::sendEvent(&canvas, &event);
       }
 
-      static void release(MapCanvas &canvas, const QPoint &at)
+      static void release(MapCanvas &canvas, const QPoint &at,
+                          Qt::KeyboardModifiers modifiers = Qt::NoModifier)
       {
         QMouseEvent event(QEvent::MouseButtonRelease, QPointF(at),
                           canvas.mapToGlobal(QPointF(at)), Qt::LeftButton,
-                          Qt::LeftButton, Qt::NoModifier);
+                          Qt::LeftButton, modifiers);
         QApplication::sendEvent(&canvas, &event);
       }
 
@@ -158,6 +178,41 @@ TEST_F(MapToolsTest, AClickUnderThePanToolIdentifiesWhatIsUnderIt)
     << "panning selected whatever the drag happened to end on";
 }
 
+TEST_F(MapToolsTest, TheDragThresholdIsAPreferenceReadOnEveryGesture)
+{
+  PreferencesManager *prefs = PreferencesManager::instance();
+  prefs->resetToDefaults();
+
+  LayerStackModel stack;
+  MapCanvas canvas;
+  canvas.setModel(&stack);
+  showFixture(canvas);
+
+  auto *layer = new Testing::ProbeLayer(QStringLiteral("probe"),
+                                        QRectF(-10.0, -10.0, 20.0, 20.0));
+  ASSERT_GE(stack.addLayer(layer), 0);
+
+  QSignalSpy spy(&canvas, &MapCanvas::featurePicked);
+
+  // Two pixels of travel is inside the default slop, so it is a click.
+  drag(canvas, QPoint(400, 200), QPoint(402, 202));
+  ASSERT_EQ(spy.count(), 1) << "the default slop no longer reads as a click";
+
+  // With no slop at all the same two pixels are a pan — read on this
+  // gesture, not at the tool's construction, or the change would wait for
+  // the next tool.
+  prefs->setDragThresholdPixels(0);
+  drag(canvas, QPoint(400, 200), QPoint(402, 202));
+  EXPECT_EQ(spy.count(), 1) << "a zero threshold still let a drag pick";
+
+  // And with a generous one, eight pixels are a click.
+  prefs->setDragThresholdPixels(10);
+  drag(canvas, QPoint(400, 200), QPoint(408, 200));
+  EXPECT_EQ(spy.count(), 2) << "a wide threshold did not make a short drag a click";
+
+  prefs->resetToDefaults();
+}
+
 TEST_F(MapToolsTest, DraggingARectangleFramesExactlyThatRectangle)
 {
   MapCanvas canvas;
@@ -174,7 +229,7 @@ TEST_F(MapToolsTest, DraggingARectangleFramesExactlyThatRectangle)
   // The width is what was dragged. The height follows the viewport's aspect
   // ratio rather than the drag's, since the view cannot show a rectangle of
   // a different shape than itself — so it is the wider of the two that is
-  // honoured, and nothing dragged is ever cropped out.
+  // honored, and nothing dragged is ever cropped out.
   EXPECT_NEAR(shown.center().x(), 200.0, 1.0)
     << "the framed rectangle is not centred on what was dragged";
   EXPECT_NEAR(shown.center().y(), -100.0, 1.0);
@@ -193,7 +248,7 @@ TEST_F(MapToolsTest, ADragTooSmallToBeARectangleZoomsAboutThePoint)
   const QRectF before = canvas.transform().visibleExtent();
 
   // Two pixels: inside the click slop, and a rectangle with area. Framing it
-  // would zoom to a two-metre view; the tool must read it as a click.
+  // would zoom to a two-meter view; the tool must read it as a click.
   drag(canvas, QPoint(400, 200), QPoint(402, 202));
 
   const QRectF after = canvas.transform().visibleExtent();
@@ -340,6 +395,55 @@ TEST_F(MapToolsTest, TheSelectToolTakesEveryFeatureTheBandCrosses)
   drag(canvas, QPoint(700, 320), QPoint(780, 380));
 
   EXPECT_TRUE(layer->selection().isEmpty());
+}
+
+TEST_F(MapToolsTest, TheModifiersReachTheCanvasFromAClick)
+{
+  // U6 gave the map Shift-adds and Cmd-toggles, and nothing here ever
+  // pressed either — so a mutation that dropped the modifiers on the way
+  // from the tool to the canvas survived against a suite that was
+  // otherwise green. The rule itself (selectionModeFor) has its own gates
+  // in test_layerstack; what was missing is that a *click* carries them
+  // that far.
+  LayerStackModel stack;
+  MapCanvas canvas;
+  canvas.setModel(&stack);
+  showFixture(canvas);
+
+  auto *layer = new Testing::VectorProbe(QStringLiteral("network"));
+
+  layer->addLine({QPointF(-200.0, -20.0), QPointF(-200.0, 20.0)},
+                 QStringLiteral("west"));
+  layer->addLine({QPointF(0.0, -20.0), QPointF(0.0, 20.0)},
+                 QStringLiteral("middle"));
+
+  ASSERT_GE(stack.addLayer(layer), 0);
+
+  canvas.setToolKind(MapToolKind::Select);
+
+  press(canvas, QPoint(200, 200));
+  release(canvas, QPoint(200, 200));
+
+  ASSERT_EQ(layer->selection().size(), 1);
+  ASSERT_TRUE(layer->selection().contains(0));
+
+  // Shift adds. Without the modifiers reaching the canvas this replaces,
+  // and the count stays at one.
+  press(canvas, QPoint(400, 200), Qt::ShiftModifier);
+  release(canvas, QPoint(400, 200), Qt::ShiftModifier);
+
+  EXPECT_EQ(layer->selection().size(), 2)
+    << "Shift-clicking replaced the selection instead of adding to it";
+  EXPECT_TRUE(layer->selection().contains(0));
+  EXPECT_TRUE(layer->selection().contains(1));
+
+  // And the control, without which the above would also pass for a tool
+  // that simply never replaced anything: no modifier still replaces.
+  press(canvas, QPoint(200, 200));
+  release(canvas, QPoint(200, 200));
+
+  EXPECT_EQ(layer->selection().size(), 1);
+  EXPECT_TRUE(layer->selection().contains(0));
 }
 
 TEST_F(MapToolsTest, ABandTakesALineThatMerelyCrossesIt)

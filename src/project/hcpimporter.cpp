@@ -25,7 +25,7 @@ namespace HydroCouple::Composer
         QString library;
         bool isTrigger = false;
         QPointF position;
-        QString assignedId;  //!< Synthesised v2 instance id.
+        QString assignedId;  //!< Synthesized v2 instance id.
     };
 
     //! One connection, still referring to components by v1 index.
@@ -42,7 +42,7 @@ namespace HydroCouple::Composer
      * \brief Turns a caption into an identifier usable as a component id.
      *
      * v1 identified components by their position in the file, not by name, so
-     * v2 instance ids have to be synthesised. Deriving them from the caption
+     * v2 instance ids have to be synthesized. Deriving them from the caption
      * keeps the imported document readable instead of full of "component_0".
      */
     QString slugify(const QString &text)

@@ -68,7 +68,7 @@ namespace HydroCouple::Composer
        *
        * A regular grid is a mesh whose faces happen to be quads, so it is
        * converted rather than given a rendering path of its own — which also
-       * means it inherits classification, the legend and labelling unchanged.
+       * means it inherits classification, the legend and labeling unchanged.
        * Inactive cells are left out: they are holes in the domain, and
        * drawing them would show ground the model does not solve on.
        *
@@ -169,10 +169,28 @@ namespace HydroCouple::Composer
       [[nodiscard]] const HydroCouple::SDK::IO::MeshDefinition &mesh() const;
 
       /*!
+       * \brief Replaces the node elevations.
+       *
+       * What turns a loaded mesh into a surface. Until it has elevations a
+       * mesh is a sheet at zero, and terrain() declines rather than offering
+       * a ground that is indistinguishable from none -- so this is also what
+       * makes anything able to drape onto it.
+       *
+       * \param elevations One per node, in the mesh's own vertical datum.
+       *                   NaN where there is no reading, which is how a
+       *                   vertex the survey does not cover stays honest.
+       *                   Any other length is refused: a mismatched array
+       *                   would silently pair each vertex with a stranger's
+       *                   height.
+       * \returns Whether they were taken.
+       */
+      bool setNodeElevations(const std::vector<double> &elevations);
+
+      /*!
        * \brief Attaches one value per drawn entity.
        *
-       * The count must match the entity count: a mesh coloured by values that
-       * belong to a different entity is worse than an uncoloured one, because
+       * The count must match the entity count: a mesh colored by values that
+       * belong to a different entity is worse than an uncolored one, because
        * it looks like an answer.
        *
        * \param name Attribute name to offer the values under.
@@ -187,7 +205,7 @@ namespace HydroCouple::Composer
       [[nodiscard]] QString valueAttribute() const;
 
       /*!
-       * \brief Gives the layer a vertical discretisation.
+       * \brief Gives the layer a vertical discretization.
        *
        * The map is unaffected — in plan view a layered mesh is its own
        * horizontal mesh — but the 3D scene switches from drawing a surface
@@ -201,12 +219,12 @@ namespace HydroCouple::Composer
       bool setLayering(LayeredMesh mesh, QString &message);
 
       /*!
-       * \brief Whether the layer has a vertical discretisation.
+       * \brief Whether the layer has a vertical discretization.
        */
       [[nodiscard]] bool isLayered() const;
 
       /*!
-       * \brief The vertical discretisation; layerCount is zero without one.
+       * \brief The vertical discretization; layerCount is zero without one.
        */
       [[nodiscard]] const LayeredMesh &layering() const;
 
@@ -229,13 +247,13 @@ namespace HydroCouple::Composer
        *
        * The water column under a picked face, surface first. Values are the
        * layered field attached by setLayeredValues(); elevations are the
-       * centre of each layer, because a cell value belongs to the whole
+       * center of each layer, because a cell value belongs to the whole
        * layer rather than to either of the interfaces bounding it.
        *
        * \param column Column index — a face of the horizontal mesh, which
        *        is what a selection on a face-drawn layer holds.
        * \param[out] values One value per layer, surface first.
-       * \param[out] elevations The centre elevation of each layer.
+       * \param[out] elevations The center elevation of each layer.
        * \param[out] message Diagnostic on failure.
        * \returns True when a profile was read.
        */
@@ -290,15 +308,15 @@ namespace HydroCouple::Composer
       [[nodiscard]] int lastVisibleLayer() const;
 
       /*!
-       * \brief The colour a cell value carries, from the layer's own style.
+       * \brief The color a cell value carries, from the layer's own style.
        *
        * Public because three views draw cell values now — the scene's
-       * prisms, the peeled faces, and the section — and a section coloured
+       * prisms, the peeled faces, and the section — and a section colored
        * from its own ramp would disagree with the map beside it while
        * looking equally authoritative.
        *
        * \param value The layered field's value in a cell.
-       * \returns The classified colour, or an invalid colour when the value
+       * \returns The classified color, or an invalid color when the value
        *          falls outside the classification and should not be drawn.
        */
       [[nodiscard]] QColor colorForCellValue(double value) const;
@@ -309,13 +327,22 @@ namespace HydroCouple::Composer
       [[nodiscard]] const ISceneSource *sceneSource() const override;
 
       /*!
+       * \brief Never: a mesh already draws its faces as a surface.
+       *
+       * FeatureLayer offers ring filling for polygon layers, and a face
+       * mesh is one — but its own sceneGeometry() builds the surface, so
+       * the control would be offered and do nothing.
+       */
+      [[nodiscard]] bool supportsRingFill() const override { return false; }
+
+      /*!
        * \brief Surfaces for faces, segments for edges, nothing for nodes.
        *
        * A node mesh is a point cloud, which the map already draws and which
        * the plan's 3D work does not cover; it answers with no geometry rather
        * than with an invented representation of itself.
        *
-       * Colours come from the layer's own style, so a mesh classified in the
+       * Colors come from the layer's own style, so a mesh classified in the
        * map and the same mesh in the scene cannot disagree.
        *
        * \param context Unused: a mesh carries its own elevations and is the
@@ -338,6 +365,69 @@ namespace HydroCouple::Composer
        * declines, and the layer above stays flat for an honest reason.
        */
       [[nodiscard]] const ITerrainSource *terrain() const override;
+
+      /*!
+       * \brief A mesh does not extrude.
+       *
+       * FeatureLayer answers true for its networks, and this class inherited
+       * that answer while its geometry ignored the setting entirely -- so
+       * the properties dialog offered "Extruded above the terrain" and an
+       * extrusion height that did nothing. A surface is already a surface.
+       */
+      [[nodiscard]] bool supportsExtrusion() const override
+      {
+        return false;
+      }
+
+      /*!
+       * \brief The mesh's fields, with Elevation offered beside them.
+       *
+       * A face mesh with node heights always has one attribute worth
+       * theming, whether or not a component ever pushed values in: the
+       * ground itself. Synthetic -- derived from nodeZ on demand, never
+       * stored per feature -- so the ramp machinery and the field combos
+       * work on it unmodified.
+       */
+      [[nodiscard]] QVector<AttributeField> attributeFields() const override;
+
+      /*!
+       * \brief Themes a fresh mesh with relief by its own elevation.
+       *
+       * Called by create(); public so the elevations-arrived path can apply
+       * the same default after Sample Elevations gives a flat mesh its
+       * heights.
+       */
+      void applyDefaultElevationStyle();
+
+      /*!
+       * \brief Whether faces are shaded flat instead of smoothly.
+       *
+       * Smooth is the default: corners carry per-node normals averaged over
+       * the faces that meet there, so a hillside reads as a hillside rather
+       * than as facets. Positions stay duplicated per face either way --
+       * color is baked per vertex and a shared corner between two classes
+       * would have to pick one -- only the normals change.
+       */
+      [[nodiscard]] bool flatShading() const { return m_flatShading; }
+
+      //! Switches between smooth and faceted shading, and announces it.
+      void setFlatShading(bool flat);
+
+      [[nodiscard]] QVariant attributeValue(int feature,
+                                            const QString &field)
+        const override;
+
+      //! Announces the change, so everything re-drapes on the new ground.
+      void setTerrainEnabled(bool enabled) override
+      {
+        if (enabled == terrainEnabled())
+        {
+          return;
+        }
+
+        ISceneSource::setTerrainEnabled(enabled);
+        notifyAppearanceChanged();
+      }
 
       // ── ITerrainSource ───────────────────────────────────────────────────
 
@@ -439,6 +529,7 @@ namespace HydroCouple::Composer
       //! so the two sequences diverge on exactly the meshes where guessing
       //! would attach the wrong elevations.
       QVector<qint64> m_entityIndex;
+      bool m_flatShading = false;
   };
 
 } // namespace HydroCouple::Composer

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wcs:CoverageDescriptions xmlns:wcs="http://www.opengis.net/wcs/2.0" xmlns:ows="http://www.opengis.net/ows/2.0" xmlns:ogc="http://www.opengis.net/ogc" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:gmlcov="http://www.opengis.net/gmlcov/1.0" xmlns:swe="http://www.opengis.net/swe/2.0" xsi:schemaLocation="http://www.opengis.net/wcs/2.0 http://schemas.opengis.net/wcs/2.0/wcsAll.xsd ">
+  <wcs:CoverageDescription gml:id="dtm_05m">
+    <gml:boundedBy>
+      <gml:Envelope srsName="http://www.opengis.net/def/crs/EPSG/0/28992" axisLabels="x y" uomLabels="m m" srsDimension="2">
+        <gml:lowerCorner>10000 306250</gml:lowerCorner>
+        <gml:upperCorner>280000 618750</gml:upperCorner>
+      </gml:Envelope>
+    </gml:boundedBy>
+    <wcs:CoverageId>dtm_05m</wcs:CoverageId>
+    <gml:domainSet>
+      <gml:RectifiedGrid dimension="2" gml:id="grid_dtm_05m">
+        <gml:limits>
+          <gml:GridEnvelope>
+            <gml:low>0 0</gml:low>
+            <gml:high>539999 624999</gml:high>
+          </gml:GridEnvelope>
+        </gml:limits>
+        <gml:axisLabels>x y</gml:axisLabels>
+        <gml:origin>
+          <gml:Point gml:id="grid_origin_dtm_05m" srsName="http://www.opengis.net/def/crs/EPSG/0/28992">
+            <gml:pos>10000.250000 618749.750000</gml:pos>
+          </gml:Point>
+        </gml:origin>
+        <gml:offsetVector srsName="http://www.opengis.net/def/crs/EPSG/0/28992">0.500000 0</gml:offsetVector>
+        <gml:offsetVector srsName="http://www.opengis.net/def/crs/EPSG/0/28992">0 -0.500000</gml:offsetVector>
+      </gml:RectifiedGrid>
+    </gml:domainSet>
+    <gmlcov:rangeType>
+      <swe:DataRecord>
+        <swe:field name="hoogte">
+          <swe:Quantity definition="https://www.rijkswaterstaat.nl/zakelijk/open-data/normaal-amsterdams-peil">
+            <swe:description>hoogte t.o.v Normaal Amsterdams Peil (NAP) in meter</swe:description>
+            <swe:nilValues/>
+            <swe:uom code="m"/>
+            <swe:constraint>
+              <swe:AllowedValues>
+                <swe:interval>-8 322</swe:interval>
+                <swe:significantFigures>1</swe:significantFigures>
+              </swe:AllowedValues>
+            </swe:constraint>
+          </swe:Quantity>
+        </swe:field>
+      </swe:DataRecord>
+    </gmlcov:rangeType>
+    <wcs:ServiceParameters>
+      <wcs:CoverageSubtype>RectifiedGridCoverage</wcs:CoverageSubtype>
+      <wcs:nativeFormat/>
+    </wcs:ServiceParameters>
+  </wcs:CoverageDescription>
+</wcs:CoverageDescriptions>

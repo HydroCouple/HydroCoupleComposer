@@ -81,7 +81,7 @@ namespace HydroCouple::Composer
       [[nodiscard]] QSizeF viewport() const;
 
       /*!
-       * \brief Keeps the same centre and scale for a resized viewport.
+       * \brief Keeps the same center and scale for a resized viewport.
        * \param viewport New widget size in pixels.
        */
       void setViewport(const QSizeF &viewport);
@@ -96,7 +96,7 @@ namespace HydroCouple::Composer
        * \brief Zooms about a fixed pixel, which stays put.
        *
        * Anchoring at the cursor is what makes wheel-zoom feel right: zooming
-       * about the centre slides whatever the user is pointing at off-screen.
+       * about the center slides whatever the user is pointing at off-screen.
        *
        * \param factor Values above 1 zoom in.
        * \param anchor Pixel that must not move.
@@ -109,7 +109,7 @@ namespace HydroCouple::Composer
       [[nodiscard]] bool isValid() const;
 
     private:
-      QPointF m_center;      //!< World coordinate at the viewport's centre.
+      QPointF m_center;      //!< World coordinate at the viewport's center.
       double m_scale = 1.0;  //!< Pixels per world unit.
       QSizeF m_viewport;
   };

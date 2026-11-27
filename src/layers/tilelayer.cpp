@@ -38,14 +38,14 @@ namespace HydroCouple::Composer
     return attribution();
   }
 
-  void TileLayer::setDrape(SceneDrape drape)
+  void TileLayer::setZPolicy(const ZPolicy &policy)
   {
-    if (this->drape() == drape)
+    if (policy == zPolicy())
     {
       return;
     }
 
-    ISceneSource::setDrape(drape);
+    ISceneSource::setZPolicy(policy);
 
     notifyAppearanceChanged();
   }
@@ -116,9 +116,9 @@ namespace HydroCouple::Composer
       }
 
       // Two opposite world corners; which of them lands where on screen is
-      // settled by normalising, and the tile image is north-up either way.
+      // settled by normalizing, and the tile image is north-up either way.
       // Rounded to whole pixels: a tile boundary at a fractional position
-      // leaves a partly-transparent seam column between neighbours.
+      // leaves a partly-transparent seam column between neighbors.
       const QPointF cornerA =
         transform.toScreen(placement.extent.topLeft());
       const QPointF cornerB =
@@ -166,11 +166,32 @@ namespace HydroCouple::Composer
       m_groundFocus = focus;
     }
 
-    // drapeTarget(), not the context's terrain outright: a surface set
-    // Flat is asking to lie at z = 0 even though the stack has a terrain
-    // in it, and passing the terrain regardless is what made draping
-    // unconditional before C5d.
-    SceneGeometry ground = buildGroundPlane(m_ground, drapeTarget(context));
+    // terrainFor(), not the context's terrain outright: a surface placed
+    // at a constant is asking to lie at that datum even though the stack
+    // has a terrain in it, and passing the terrain regardless is what made
+    // draping unconditional before C5d.
+    SceneGeometry ground = buildGroundPlane(m_ground, terrainFor(context));
+
+    // Constant places the plane at the datum; OnTerrain lifts the drape by
+    // the offset. One shift covers both.
+    const double lift = zPolicy().mode == ZMode::Constant
+                          ? zPolicy().constant
+                          : zPolicy().offset;
+
+    if (!qFuzzyIsNull(lift))
+    {
+      for (SceneVertex &vertex : ground.vertices)
+      {
+        vertex.z += float(lift);
+      }
+
+      ground.bounds = {};
+
+      for (const SceneVertex &vertex : ground.vertices)
+      {
+        ground.bounds.expandTo(QVector3D(vertex.x, vertex.y, vertex.z));
+      }
+    }
 
     if (!ground.isEmpty())
     {

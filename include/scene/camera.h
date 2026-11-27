@@ -207,7 +207,7 @@ namespace HydroCouple::Composer
        * already matches the viewport comes back unchanged.
        *
        * Containment holds at any tilt, which takes solving rather than simply
-       * looking at the rectangle's centre. The target is left on the ground
+       * looking at the rectangle's center. The target is left on the ground
        * plane, since framing ground is what was asked for. Qt's vector maths
        * is single precision, so it holds to about a part in 10^5 rather than
        * to the last bit.

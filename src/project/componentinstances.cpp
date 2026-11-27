@@ -1,5 +1,9 @@
 #include "project/componentinstances.h"
 
+#include "hydrocouplesdk/data/sdkadaptedoutputfactory.h"
+#include "hydrocouplesdk/io/uriresolver.h"
+#include <QFileInfo>
+
 #include <QStringList>
 
 #include <exception>
@@ -37,20 +41,21 @@ namespace HydroCouple::Composer
     // and one re-added must be realised afresh.
     if (m_document)
     {
-      connect(m_document, &CompositionDocument::componentsChanged, this,
+      // Any edit to a component's own block — its arguments above all —
+      // makes the instance realised from the old one a description of a
+      // component that is no longer being asked for.
+      connect(m_document, &CompositionDocument::compositionChanged, this,
+              [this] { dropInstancesWhoseSpecChanged(); });
+    }
+
+    // Edit-time adapter factories go stale when libraries come and go.
+    if (m_registry)
+    {
+      connect(m_registry, &ComponentRegistry::registryChanged, this,
               [this]
               {
-                const QStringList live = m_document->componentIds();
-
-                for (const QString &id : m_instances.keys())
-                {
-                  if (!live.contains(id))
-                  {
-                    m_instances.remove(id);
-                    m_failures.remove(id);
-                    Q_EMIT instanceChanged(id);
-                  }
-                }
+                m_adapterFactories.clear();
+                m_adapterFactoriesRealised = false;
               });
     }
   }
@@ -58,6 +63,40 @@ namespace HydroCouple::Composer
   ComponentInstances::~ComponentInstances()
   {
     clear();
+  }
+
+  std::vector<HydroCouple::IAdaptedOutputFactory *>
+  ComponentInstances::adapterFactories()
+  {
+    if (!m_adapterFactoriesRealised && m_registry)
+    {
+      m_adapterFactoriesRealised = true;
+
+      for (HydroCouple::IComponentInfo *info : m_registry->entries(
+             ComponentRegistry::ComponentKind::AdapterFactory))
+      {
+        QString failure;
+        std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent> factory =
+          m_registry->createAdaptedOutputFactory(
+            QString::fromStdString(info->id()), failure);
+
+        if (factory)
+        {
+          m_adapterFactories.push_back(std::move(factory));
+        }
+      }
+    }
+
+    std::vector<HydroCouple::IAdaptedOutputFactory *> factories;
+    factories.push_back(HydroCouple::SDK::SdkAdaptedOutputFactory::instance());
+
+    for (const std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent>
+           &factory : m_adapterFactories)
+    {
+      factories.push_back(factory.get());
+    }
+
+    return factories;
   }
 
   QString ComponentInstances::registryIdFor(const QString &componentId) const
@@ -116,12 +155,67 @@ namespace HydroCouple::Composer
       return nullptr;
     }
 
+    HydroCouple::IModelComponent *candidate = created.get();
+    const std::filesystem::path directory = m_document->filePath().isEmpty()
+      ? std::filesystem::path() : std::filesystem::path(QFileInfo(m_document->filePath()).absolutePath().toStdString());
+    if (!ComponentRegistry::assignInstanceIdentity(*candidate, componentId, message))
+    {
+      m_failures.insert(componentId, message);
+      return nullptr;
+    }
+    candidate->setReferenceDirectory(directory.string());
+
+    // The document's arguments, applied before initialize() — because what
+    // a component's ports ARE depends on them: a time-series provider
+    // publishes one output per series in its source file, and a component
+    // whose required argument is missing does not initialize at all.
+    // Without this the canvas draws a default component rather than the one
+    // the document describes.
+    //
+    // Bindings are deliberately skipped. Resolving an \@from means running
+    // its provider to completion, and opening a composition must never
+    // execute anything (Q9): a bound argument keeps the component's own
+    // default until the run resolves it. Every argument type that ships
+    // would refuse the reference anyway, so this is not the only thing
+    // standing between a component and a payload it cannot use — but
+    // refusing is the ARGUMENT's promise, and not handing over an
+    // unresolved reference in the first place is the host's.
+    if (const std::optional<HydroCouple::SDK::IO::ComponentSpec> block =
+          m_document->component(componentId))
+    {
+      for (const auto &[argumentId, payload] : block->arguments.items())
+      {
+        if (HydroCouple::SDK::IO::isArgumentBinding(payload))
+        {
+          continue;
+        }
+
+        for (HydroCouple::IArgument *argument : candidate->arguments())
+        {
+          if (!argument || argument->id() != argumentId)
+          {
+            continue;
+          }
+
+          std::string argumentMessage;
+
+          // Refusals are not fatal here: a payload the component rejects
+          // is the configurator's problem to show, and a canvas that
+          // refused to draw the box would hide the very thing that needs
+          // fixing.
+          (void)argument->initialize(
+            HydroCouple::SDK::IO::resolvedArgument(payload, directory).dump(),
+            HydroCouple::IArgument::ArgumentInputType::JSON, argumentMessage);
+
+          break;
+        }
+      }
+    }
+
     // A freshly created component has no exchange items yet: the interface is
     // explicit that Inputs and Outputs are only set once initialize() has
     // completed, and that arguments() is the sole property valid before then.
     // The canvas cannot draw a single port without this step.
-    HydroCouple::IModelComponent *candidate = created.get();
-
     try
     {
       candidate->initialize();
@@ -159,9 +253,80 @@ namespace HydroCouple::Composer
     m_instances.insert(componentId, std::shared_ptr<HydroCouple::IModelComponent>(
                                       std::move(created)));
 
+    if (const std::optional<HydroCouple::SDK::IO::ComponentSpec> block =
+          m_document->component(componentId))
+    {
+      m_realisedFrom.insert(componentId, *block);
+    }
+
     Q_EMIT instanceChanged(componentId);
 
     return raw;
+  }
+
+  void ComponentInstances::dropInstancesWhoseSpecChanged()
+  {
+    if (!m_document)
+    {
+      return;
+    }
+
+    // Both maps are walked: a component that FAILED to initialize has no
+    // instance but does have a recorded reason, and supplying the argument
+    // it complained about is exactly when that reason must be retried.
+    QStringList addressed = m_instances.keys();
+
+    for (const QString &id : m_failures.keys())
+    {
+      if (!addressed.contains(id))
+      {
+        addressed.append(id);
+      }
+    }
+
+    for (const QString &id : addressed)
+    {
+      const std::optional<HydroCouple::SDK::IO::ComponentSpec> now =
+        m_document->component(id);
+
+      // Gone entirely, or realised from a block that no longer matches the
+      // document's. Value comparison, so an edit that changed nothing —
+      // a connection elsewhere, a component moved — costs no rebuild.
+      const bool stale =
+        !now.has_value() || !m_realisedFrom.contains(id)
+        || !(m_realisedFrom.value(id) == *now);
+
+      if (!stale)
+      {
+        continue;
+      }
+
+      if (const auto it = m_instances.constFind(id);
+          it != m_instances.constEnd())
+      {
+        m_retired.push_back(it.value());
+      }
+
+      m_instances.remove(id);
+      m_failures.remove(id);
+      m_realisedFrom.remove(id);
+
+      Q_EMIT instanceChanged(id);
+    }
+
+    if (!m_retired.empty() && !m_sweepQueued)
+    {
+      m_sweepQueued = true;
+
+      QMetaObject::invokeMethod(
+        this,
+        [this]
+        {
+          m_sweepQueued = false;
+          m_retired.clear();
+        },
+        Qt::QueuedConnection);
+    }
   }
 
   QString ComponentInstances::failure(const QString &componentId) const
@@ -224,6 +389,15 @@ namespace HydroCouple::Composer
 
     m_instances.clear();
     m_failures.clear();
+    m_realisedFrom.clear();
+
+    // Retired instances go now too: clear() runs before the registry
+    // unloads the libraries these were made from, and a queued sweep would
+    // arrive after their code had gone.
+    m_retired.clear();
+
+    m_adapterFactories.clear();
+    m_adapterFactoriesRealised = false;
 
     for (const QString &id : ids)
     {

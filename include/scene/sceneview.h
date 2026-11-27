@@ -19,7 +19,10 @@
 #define HYDROCOUPLECOMPOSER_SCENE_SCENEVIEW_H
 
 #include "map/maplayer.h"
+#include "scene/axisgizmo.h"
 #include "scene/camera.h"
+#include "scene/navigation.h"
+#include "scene/scenegeometry.h"
 #include "scene/scenerenderer.h"
 
 #include <QColor>
@@ -106,6 +109,51 @@ namespace HydroCouple::Composer
       void zoomToFullExtent();
 
       /*!
+       * \brief Looks at \a bounds, keeping the camera's orientation.
+       *
+       * The framing zoomToFullExtent() applies to everything, offered for
+       * one thing -- a layer, a selection. Invalid bounds frame nothing.
+       */
+      void frameBounds(const Bounds3D &bounds);
+
+      /*!
+       * \brief Moves the camera one step closer, as one wheel notch does.
+       *
+       * The step zoom the shortcut actions need: the target is held, so
+       * zooming never loses what is being looked at.
+       */
+      void zoomIn();
+
+      /*!
+       * \brief Moves the camera one step further out.
+       */
+      void zoomOut();
+
+      /*!
+       * \brief Points the camera at a view the user named.
+       *
+       * The framing is left alone: "look down" is a question about
+       * orientation, and answering it by also re-framing would undo a
+       * zoom the user chose. What moves is the camera's angles, which is
+       * all the names describe.
+       */
+      void showNamedView(NamedView view);
+
+      /*!
+       * \brief Frames what is selected, or does nothing if nothing is.
+       *
+       * Deliberately not "frame everything when nothing is selected".
+       * Pressing this with an empty selection and having the view leap
+       * to the whole model is the kind of helpfulness that loses someone
+       * the position they spent a minute finding.
+       *
+       * \returns False when there was no selection to look at, so a
+       *          caller can say so rather than leaving the press looking
+       *          like it failed.
+       */
+      bool lookAtSelection();
+
+      /*!
        * \brief The ground the view is looking at.
        *
        * The scene's half of the hand-off with the map. A tilted camera sees a
@@ -120,6 +168,18 @@ namespace HydroCouple::Composer
        * around the origin.
        */
       [[nodiscard]] QRectF groundExtent() const;
+
+      /*!
+       * \brief The ground the scene's data covers, or empty when there is
+       *        none.
+       *
+       * What groundExtent() should be read against. A tilted camera's
+       * ground rectangle is the bounding box of a trapezoid and is
+       * several times the data it was fitted to — measured, between two
+       * and seven times, depending on the tilt — so handing it straight
+       * to the map frames the map on mostly empty ground.
+       */
+      [[nodiscard]] QRectF sceneFootprint() const;
 
       /*!
        * \brief Looks at \a extent on the ground.
@@ -309,7 +369,26 @@ namespace HydroCouple::Composer
       [[nodiscard]] bool groundOrPlaneUnder(const QPoint &pixel,
                                             QPointF &ground) const;
 
+      /*!
+       * \brief The orientation cue's square, in widget coordinates.
+       *
+       * Empty when the cue is switched off or the view has no room for
+       * one. This is the single place the corner is worked out: the
+       * renderer is handed the same rectangle scaled to device pixels,
+       * so a click can never land on a cue drawn somewhere else.
+       */
+      [[nodiscard]] QRect gizmoRect() const;
+
+      /*!
+       * \brief Answers a press on the cue, if that is what it was.
+       *
+       * \returns True when the press was consumed, so the caller knows
+       *          not to start an orbit with it as well.
+       */
+      [[nodiscard]] bool takeGizmoPress(const QPoint &pixel);
+
       SceneRenderer m_renderer;
+
       Camera m_camera;
       QColor m_background = QColor(0x1a, 0x1d, 0x21);
 
@@ -324,6 +403,16 @@ namespace HydroCouple::Composer
       //! Built on first use, because a view nobody drags never needs one.
       std::unique_ptr<QRubberBand> m_band;
       bool m_framed = false;
+
+      //! How the view is driven, as preferences last described it.
+      double m_orbitDegreesPerPixel = 0.4;
+      bool m_invertWheel = false;
+      PanModifier m_panModifier = PanModifier::MiddleDrag;
+
+      //! The orientation cue, as preferences last described it.
+      bool m_showGizmo = true;
+      int m_gizmoSize = 96;
+      GizmoCorner m_gizmoCorner = GizmoCorner::BottomLeft;
   };
 
 } // namespace HydroCouple::Composer

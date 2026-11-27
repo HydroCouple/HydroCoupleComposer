@@ -25,7 +25,7 @@ void main()
     float shade   = ubuf.params.y + (1.0 - ubuf.params.y) * lambert;
 
     // The image arrives premultiplied, which is what the target's blend state
-    // expects, so its own alpha is already folded into its colour. A raster
+    // expects, so its own alpha is already folded into its color. A raster
     // is transparent wherever it has no data, and that transparency has to
     // survive: painting no-data as black would invent ground.
     vec4 texel = texture(groundTexture, vTexCoord);

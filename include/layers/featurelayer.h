@@ -141,20 +141,15 @@ namespace HydroCouple::Composer
        * kept because they read better at a feature layer's call sites and
        * because renaming them would churn every one of them.
        */
-      [[nodiscard]] SceneDrape sceneDrape() const;
-
-      /*!
-       * \brief Sets how the layer places itself in the 3D scene.
-       *
-       * Terrain is the default, and degrades to Flat by itself when the
-       * stack holds no terrain — so a network opened beside a mesh drapes
-       * without being told to, and one opened alone still appears.
-       *
-       * \param drape The placement to use.
+/*!
+       * \brief Announces the placement change so both views repaint.
        */
-      void setSceneDrape(SceneDrape drape);
+      void setZPolicy(const ZPolicy &policy) override;
 
-      void setDrape(SceneDrape drape) override;
+      //! Features carry attributes, so a height can be read from one.
+      [[nodiscard]] bool supportsAttributeZ() const override;
+
+      [[nodiscard]] bool supportsRingFill() const override;
 
       void setExtrusionHeight(double height) override;
 
@@ -208,6 +203,17 @@ namespace HydroCouple::Composer
        *
        * \param context The terrain to drape on, when the stack has one.
        */
+      /*!
+       * \brief The size a marker is drawn at, resolved.
+       *
+       * markerSize() when it was set, and otherwise a fiftieth of the
+       * layer's extent diagonal — small enough to read as a symbol, and
+       * derived from the only scale a layer knows without asking the scene
+       * what else is in it. Zero when the extent is empty, which draws
+       * nothing rather than a marker of unknowable size.
+       */
+      [[nodiscard]] double resolvedMarkerSize() const;
+
       [[nodiscard]] QVector<SceneGeometry> sceneGeometry(
         const SceneContext &context) const override;
 
@@ -234,6 +240,27 @@ namespace HydroCouple::Composer
         const;
 
     protected:
+      /*!
+       * \brief One solid marker per point feature.
+       *
+       * \param terrain The surface to sit them on, or nullptr for flat.
+       * \param layerStyle The style their colours come from.
+       */
+      [[nodiscard]] SceneGeometry markerGeometry(
+        const ITerrainSource *terrain, const LayerStyle *layerStyle) const;
+
+      /*!
+       * \brief The colour a feature takes in the scene.
+       *
+       * The style's answer with the selection laid over it, in that order:
+       * an invalid colour means the class was switched off in the legend,
+       * and selection does not resurrect it -- the 2D paint path skips the
+       * whole feature in that case, halo included, and the two views must
+       * tell one story about what a legend checkbox means.
+       */
+      [[nodiscard]] QColor sceneColorFor(const LayerStyle *style,
+                                         int feature) const;
+
       void onProjectionChanged() override;
 
       /*!

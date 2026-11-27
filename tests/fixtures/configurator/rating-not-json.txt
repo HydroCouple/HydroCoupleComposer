@@ -1,0 +1,3 @@
+stage,discharge
+0.0,0.0
+1.0,12.4

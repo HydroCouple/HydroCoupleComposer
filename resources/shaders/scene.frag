@@ -21,7 +21,7 @@ void main()
     float shade   = ubuf.params.y + (1.0 - ubuf.params.y) * lambert;
 
     // Premultiplied, because that is what the render target's blend state
-    // expects; a straight-alpha colour would fringe wherever it is blended.
+    // expects; a straight-alpha color would fringe wherever it is blended.
     float alpha = vColor.a * ubuf.params.x;
     fragColor   = vec4(vColor.rgb * shade * alpha, alpha);
 }

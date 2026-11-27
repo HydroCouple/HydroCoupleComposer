@@ -51,6 +51,13 @@ namespace HydroCouple::Composer
     public:
       explicit ComponentRegistry(QObject *parent = nullptr);
 
+      //! Existing component folders relative to the executable, independent of user settings.
+      static QStringList installedSearchPaths(const QString &applicationDirectory = QString());
+
+      //! Installed paths, environment paths, then caller paths, canonicalized and deduplicated.
+      static QStringList defaultSearchPaths(const QStringList &additionalPaths = {},
+                                            const QString &applicationDirectory = QString());
+
       ~ComponentRegistry() override;
 
       /*!
@@ -85,15 +92,47 @@ namespace HydroCouple::Composer
       void setSearchPaths(const QStringList &paths);
 
       /*!
-       * \brief Clears everything loaded and rescans searchPaths().
-       * \returns The number of libraries loaded.
+       * \brief Rescans searchPaths() without unloading libraries or invalidating instances.
+       * \returns The number of newly loaded libraries. Failure diagnostics are refreshed.
+       *
+       * Already-loaded identities remain fixed for this session, even if a path
+       * is removed. Replacing a binary requires clear() after all instances and
+       * factories have been destroyed, or a new registry/session.
        */
       int refresh();
+
+      /*!
+       * \brief What a loaded library's info answers to.
+       */
+      enum class ComponentKind
+      {
+        Model,          //!< IModelComponentInfo — placeable on the canvas.
+        AdapterFactory, //!< IAdaptedOutputFactoryComponentInfo — attaches
+                        //!< to connections, never placed as a component.
+        Other           //!< Loads, but answers neither interface (e.g. a
+                        //!< future workflow component).
+      };
+
+      /*!
+       * \brief Classifies an info by the interface it answers.
+       *
+       * A cross-image dynamic_cast — safe under the interface headers'
+       * default-visibility push, the same guarantee createInstance()
+       * already leans on.
+       */
+      [[nodiscard]] static ComponentKind kindOf(
+        HydroCouple::IComponentInfo *info);
 
       /*!
        * \brief Metadata for every loaded component library.
        */
       [[nodiscard]] std::vector<HydroCouple::IComponentInfo *> entries() const;
+
+      /*!
+       * \brief entries() filtered to one kind.
+       */
+      [[nodiscard]] std::vector<HydroCouple::IComponentInfo *> entries(
+        ComponentKind kind) const;
 
       /*!
        * \brief Metadata for the loaded library whose component id matches,
@@ -116,6 +155,26 @@ namespace HydroCouple::Composer
        */
       [[nodiscard]] std::unique_ptr<HydroCouple::IModelComponent>
       createInstance(const QString &componentId, QString &message);
+
+      //! Assign a document identity before initialization. SDK-free components
+      //! expose a scalar String configuration argument `hydrocouple.instance_id`
+      //! accepting ArgumentInputType::String and reflecting it in id().
+      //! Existing SDK components retain their setInstanceId() path.
+      [[nodiscard]] static bool assignInstanceIdentity(
+        HydroCouple::IModelComponent &component, const QString &instanceId,
+        QString &message);
+
+      /*!
+       * \brief Creates an adapted-output factory instance from a loaded
+       *        library.
+       * \param componentId Identifier of a registered
+       *        IAdaptedOutputFactoryComponentInfo.
+       * \param[out] message Diagnostic on failure.
+       * \returns The new factory, or nullptr. The caller owns it and must
+       *          destroy it before this registry is destroyed.
+       */
+      [[nodiscard]] std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent>
+      createAdaptedOutputFactory(const QString &componentId, QString &message);
 
       /*!
        * \brief Drops every loaded library.

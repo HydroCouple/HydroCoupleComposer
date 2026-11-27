@@ -19,6 +19,8 @@
 #define HYDROCOUPLECOMPOSER_MAP_MAPLAYER_H
 
 #include <QObject>
+#include <QJsonObject>
+#include <QUrl>
 #include <QRectF>
 #include <QString>
 
@@ -78,6 +80,24 @@ namespace HydroCouple::Composer
        * \param visible True to draw the layer.
        */
       void setVisible(bool visible);
+
+      /*!
+       * \brief Whether the layer joins the 3D scene, when it can.
+       *
+       * The 3D half of visibility. isVisible() stays the master switch --
+       * hiding a layer hides it everywhere, which is what every GIS user
+       * expects a tree checkbox to mean -- and this narrows it: a layer can
+       * be on the map and kept out of the scene. It cannot widen it, and it
+       * says nothing about layers with no 3D form at all; whether one exists
+       * is sceneSource()'s answer, not this flag's.
+       */
+      [[nodiscard]] bool isShownIn3D() const;
+
+      /*!
+       * \brief Keeps the layer out of the 3D scene, or lets it back in.
+       * \param shown True to let the layer join the scene.
+       */
+      void setShownIn3D(bool shown);
 
       /*!
        * \brief Draw opacity, from 0 (invisible) to 1 (opaque).
@@ -201,6 +221,42 @@ namespace HydroCouple::Composer
        *
        * An empty rectangle means the layer has no geometry to zoom to.
        */
+      /*!
+       * \brief How this layer would be made again, or an empty object.
+       *
+       * Recorded by whoever created the layer, because that is the only
+       * place that knows: a tile source is built from a capabilities
+       * document rather than from the address it came from, and cannot say
+       * afterwards where that was. An empty object means the layer is not
+       * one a reopened composition should try to rebuild -- a mesh domain,
+       * a component's data item -- which is the default.
+       *
+       * Never credentials. A project file is checked in, mailed and copied
+       * between machines.
+       */
+      [[nodiscard]] QJsonObject persistentState() const;
+
+      //! Records how this layer would be made again.
+      void setPersistentState(const QJsonObject &state);
+
+      /*!
+       * \brief The address a model argument could read this layer's data
+       *        from, or empty when there is not one.
+       *
+       * Distinct from sourceDescription(), which is prose for a properties
+       * dialog: this is fetchable. A file layer's is its path as a file:
+       * URI; a fetched layer's is the request that produced it, recorded at
+       * the time, because rebuilding it afterwards would mean repeating the
+       * capabilities conversation that chose it.
+       *
+       * Empty for a tile layer, which is a pyramid of images and not a
+       * document an argument could read, and for anything built in memory.
+       */
+      [[nodiscard]] QUrl sourceUri() const;
+
+      //! Records the address this layer's data can be read from.
+      void setSourceUri(const QUrl &uri);
+
       [[nodiscard]] virtual QRectF extent() const = 0;
 
       /*!
@@ -273,7 +329,10 @@ namespace HydroCouple::Composer
     private:
       QString m_id;
       QString m_name;
+      QJsonObject m_persistentState;
+      QUrl m_sourceUri;
       bool m_visible = true;
+      bool m_shownIn3D = true;
       double m_opacity = 1.0;
       std::shared_ptr<SpatialReference> m_crs;
       std::shared_ptr<SpatialReference> m_mapCrs;

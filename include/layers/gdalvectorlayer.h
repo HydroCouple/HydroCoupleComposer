@@ -4,7 +4,7 @@
  * \brief  GdalVectorLayer — a vector dataset read through OGR.
  *
  * A loader, not a renderer: it fills a FeatureLayer from a file and leaves
- * drawing, reprojection, styling and labelling to the base, which a
+ * drawing, reprojection, styling and labeling to the base, which a
  * component's spatial data items fill the same way.
  *
  * Reads once into memory rather than querying per frame. The datasets a

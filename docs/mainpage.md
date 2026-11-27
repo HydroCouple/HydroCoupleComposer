@@ -2,14 +2,17 @@
 
 **HydroCoupleComposer** is the graphical host for
 [HydroCouple 2.0](https://www.hydrocouple.org/HydroCouple/) model components:
-it composes them, configures them, runs them, and visualises what they
+it composes them, configures them, runs them, and visualizes what they
 produced.
 
 Composer is deliberately *model-agnostic*. It knows the interfaces and the
 [SDK](https://www.hydrocouple.org/HydroCoupleSDK/), never an individual model:
 a stored run is reopened from its run manifest through
-`HydroCouple::SDK::Component::ResultsModelComponent`, so results can be browsed
+`HydroCouple::SDK::ResultsModelComponent`, so results can be browsed
 and plotted for a component whose library is not even installed.
+
+The @subpage composer_guide walks through a coupled run. The
+[SDK developer guide](../HydroCoupleSDK/guide/index.html) covers model wrappers, exchange items and recorded outputs.
 
 ## Architecture at a glance
 

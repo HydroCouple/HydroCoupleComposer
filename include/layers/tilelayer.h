@@ -135,7 +135,7 @@ namespace HydroCouple::Composer
        *
        * Textured over the scene's focus rather than over this layer's own
        * extent, which is the planet: spending a megapixel on the whole world
-       * would leave the modelled catchment about a pixel across.
+       * would leave the modeled catchment about a pixel across.
        *
        * A scene with no data in it gets nothing. There is no rectangle a
        * backdrop should cover when there is nothing for it to be behind, and
@@ -180,7 +180,7 @@ namespace HydroCouple::Composer
        *
        * \param drape The placement wanted.
        */
-      void setDrape(SceneDrape drape) override;
+      void setZPolicy(const ZPolicy &policy) override;
 
       /*!
        * \brief Call when a requested tile has arrived.

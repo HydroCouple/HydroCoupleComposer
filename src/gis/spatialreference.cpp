@@ -2,6 +2,9 @@
 
 #include <ogr_spatialref.h>
 
+#include <cmath>
+#include <cstdlib>
+
 namespace HydroCouple::Composer
 {
 
@@ -83,6 +86,45 @@ namespace HydroCouple::Composer
     }
 
     CPLFree(wkt);
+
+    // The vertical component of a compound CRS. GDAL addresses it by the
+    // WKT1 node name; a horizontal-only CRS has none and the members keep
+    // their "undeclared" defaults.
+    if (m_reference->IsCompound())
+    {
+      if (const char *authority = m_reference->GetAuthorityName("VERT_CS"))
+      {
+        m_verticalAuthName = authority;
+      }
+
+      if (const char *code = m_reference->GetAuthorityCode("VERT_CS"))
+      {
+        m_verticalAuthSRID = std::atoi(code);
+      }
+
+      if (const OGR_SRSNode *vertical = m_reference->GetAttrNode("VERT_CS"))
+      {
+        char *verticalWkt = nullptr;
+
+        if (vertical->exportToWkt(&verticalWkt) == OGRERR_NONE && verticalWkt)
+        {
+          m_verticalSrText = verticalWkt;
+        }
+
+        CPLFree(verticalWkt);
+      }
+
+      const double metres = m_reference->GetTargetLinearUnits("VERT_CS", nullptr);
+
+      if (std::abs(metres - 1.0) < 1e-9)
+      {
+        m_verticalUnits = HydroCouple::IUnit::DistanceUnits::Meters;
+      }
+      else if (std::abs(metres - 0.3048) < 1e-6)
+      {
+        m_verticalUnits = HydroCouple::IUnit::DistanceUnits::Feet;
+      }
+    }
   }
 
   std::unique_ptr<SpatialReference> SpatialReference::fromAuthority(
@@ -104,7 +146,7 @@ namespace HydroCouple::Composer
     auto *reference = new OGRSpatialReference;
 
     // Traditional axis order keeps coordinates as (x, y) / (longitude,
-    // latitude) throughout. Without it, PROJ honours each CRS's declared axis
+    // latitude) throughout. Without it, PROJ honors each CRS's declared axis
     // order and EPSG:4326 arrives as (latitude, longitude) — which silently
     // transposes every map.
     reference->SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
@@ -151,6 +193,26 @@ namespace HydroCouple::Composer
   {
     return m_reference ? distanceUnitsFor(*m_reference)
                        : HydroCouple::IUnit::DistanceUnits::Unknown;
+  }
+
+  const std::string &SpatialReference::verticalAuthName() const
+  {
+    return m_verticalAuthName;
+  }
+
+  int SpatialReference::verticalAuthSRID() const
+  {
+    return m_verticalAuthSRID;
+  }
+
+  const std::string &SpatialReference::verticalSrText() const
+  {
+    return m_verticalSrText;
+  }
+
+  HydroCouple::IUnit::DistanceUnits SpatialReference::verticalDistanceUnits() const
+  {
+    return m_verticalUnits;
   }
 
   QString SpatialReference::description() const

@@ -1,0 +1,29 @@
+{
+  "type": "FeatureCollection",
+  "name": "gauges",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "Outlet gauge" },
+      "geometry": { "type": "Point", "coordinates": [-111.9060, 40.7520] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Upstream gauge" },
+      "geometry": { "type": "Point", "coordinates": [-111.9340, 40.7280] }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Sonde pair",
+        "note": "ONE feature holding TWO points"
+      },
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [
+          [-111.9200, 40.7300], [-111.9120, 40.7330]
+        ]
+      }
+    }
+  ]
+}

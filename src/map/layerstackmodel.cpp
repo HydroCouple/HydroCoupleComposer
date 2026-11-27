@@ -62,7 +62,7 @@ namespace HydroCouple::Composer
         return swatch(style->symbol().fill);
       }
 
-      // A striped swatch summarising the classes, so a collapsed layer still
+      // A striped swatch summarizing the classes, so a collapsed layer still
       // shows which palette it is drawn with.
       QPixmap pixmap(kSwatchSize, kSwatchSize);
       pixmap.fill(Qt::transparent);
@@ -259,10 +259,23 @@ namespace HydroCouple::Composer
 
       case Qt::ToolTipRole:
       {
+        // The 3D state is said here in words as well as shown as a badge,
+        // because the badge's third state -- no badge at all -- is exactly
+        // the one a tooltip has to explain.
+        QString sceneLine =
+          layer->sceneSource() == nullptr
+            ? tr("No 3D form")
+            : layer->isShownIn3D() ? tr("Shown in 3D") : tr("Kept out of 3D");
+
+        if (layer == electedTerrainLayer())
+        {
+          sceneLine += tr(" — the scene's terrain");
+        }
+
         const SpatialReference *crs = layer->crs();
-        return crs ? QStringLiteral("%1\n%2")
-                       .arg(layer->name(), crs->description())
-                   : layer->name();
+        return crs ? QStringLiteral("%1\n%2\n%3")
+                       .arg(layer->name(), crs->description(), sceneLine)
+                   : QStringLiteral("%1\n%2").arg(layer->name(), sceneLine);
       }
 
       case LayerIdRole:
@@ -279,6 +292,21 @@ namespace HydroCouple::Composer
 
       case LegendIndexRole:
         return -1;
+
+      case HasSceneFormRole:
+        return layer->sceneSource() != nullptr;
+
+      case ShownIn3DRole:
+        return layer->isShownIn3D();
+
+      case IsElectedTerrainRole:
+        return layer == electedTerrainLayer();
+
+      case TerrainEnabledRole:
+      {
+        const ISceneSource *source = layer->sceneSource();
+        return source != nullptr && source->terrainEnabled();
+      }
 
       default:
         return {};
@@ -327,6 +355,26 @@ namespace HydroCouple::Composer
       case Qt::CheckStateRole:
         layer->setVisible(value.toInt() == Qt::Checked);
         return true;
+
+      case ShownIn3DRole:
+        // Meaningful only for layers with a 3D form; setting it on one
+        // without is accepted and inert, the same as hiding a hidden layer.
+        layer->setShownIn3D(value.toBool());
+        Q_EMIT dataChanged(index, index);
+        return true;
+
+      case TerrainEnabledRole:
+        if (ISceneSource *source = layer->sceneSource())
+        {
+          source->setTerrainEnabled(value.toBool());
+
+          // The election may have moved to another row entirely, so the
+          // whole column is announced rather than this one cell.
+          Q_EMIT dataChanged(this->index(0, 0),
+                             this->index(rowCount() - 1, 0));
+          return true;
+        }
+        return false;
 
       case Qt::EditRole:
       {
@@ -507,6 +555,31 @@ namespace HydroCouple::Composer
     return removeRows(row, 1);
   }
 
+  MapLayer *LayerStackModel::electedTerrainLayer() const
+  {
+    MapLayer *elected = nullptr;
+
+    // renderOrder() is bottom-up -- a draw order -- so the last candidate it
+    // yields is the top one. The same rule the renderer has always applied,
+    // now asked here so every view reads one answer.
+    for (MapLayer *layer : renderOrder())
+    {
+      if (!layer->isVisible() || !layer->isShownIn3D())
+      {
+        continue;
+      }
+
+      const ISceneSource *source = layer->sceneSource();
+
+      if (source && source->terrain() && source->terrainEnabled())
+      {
+        elected = layer;
+      }
+    }
+
+    return elected;
+  }
+
   MapLayer *LayerStackModel::layerAt(int row) const
   {
     return row >= 0 && row < static_cast<int>(m_layers.size())
@@ -558,6 +631,60 @@ namespace HydroCouple::Composer
     // In terms of the set: one feature is a set of one, and a negative index
     // is the empty set, which is how a click on empty map says "nothing".
     selectOnly(layer, feature >= 0 ? QSet<int>{feature} : QSet<int>{});
+  }
+
+  SelectionMode selectionModeFor(Qt::KeyboardModifiers modifiers)
+  {
+    if (modifiers.testFlag(Qt::ShiftModifier))
+    {
+      return SelectionMode::Add;
+    }
+
+    // ControlModifier is ⌘ on macOS, so this one test is right everywhere.
+    if (modifiers.testFlag(Qt::ControlModifier))
+    {
+      return SelectionMode::Toggle;
+    }
+
+    return SelectionMode::Replace;
+  }
+
+  void LayerStackModel::select(MapLayer *layer, const QSet<int> &features,
+                               SelectionMode mode)
+  {
+    auto *target = dynamic_cast<FeatureLayer *>(layer);
+
+    if (mode == SelectionMode::Replace || !target)
+    {
+      selectOnly(layer, features);
+
+      return;
+    }
+
+    // Adding across layers needs no special case, and a guard for it was
+    // written here and then deleted: at most one layer holds a selection
+    // at a time (selectOnly clears the rest), so when another layer holds
+    // one this layer's own is empty — and a union with empty is exactly
+    // the replacement the guard was going to perform. It could not change
+    // an outcome, so it was code with nothing to say. The behavior it was
+    // protecting is still gated, by
+    // AddingAcrossLayersReplacesRatherThanSplitting; what enforces it is
+    // selectOnly below.
+    QSet<int> combined = target->selection();
+
+    for (int feature : features)
+    {
+      if (mode == SelectionMode::Toggle && combined.contains(feature))
+      {
+        combined.remove(feature);
+      }
+      else
+      {
+        combined.insert(feature);
+      }
+    }
+
+    selectOnly(layer, combined);
   }
 
   void LayerStackModel::selectOnly(MapLayer *layer, const QSet<int> &features)

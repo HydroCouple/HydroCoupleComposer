@@ -46,13 +46,13 @@ namespace HydroCouple::Composer
   {
       bool enabled = false;
 
-      //! Attribute whose value is drawn. Empty means nothing is labelled.
+      //! Attribute whose value is drawn. Empty means nothing is labeled.
       QString fieldName;
 
       QFont font;
       QColor color = Qt::black;
 
-      //! Halo colour drawn behind the text; transparent disables the halo.
+      //! Halo color drawn behind the text; transparent disables the halo.
       QColor haloColor = QColor(255, 255, 255, 220);
 
       double haloWidth = 2.0;

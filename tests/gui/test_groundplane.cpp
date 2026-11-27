@@ -222,7 +222,7 @@ namespace
     return layer;
   }
 
-  //! A tile source that hands back one solid colour for every tile.
+  //! A tile source that hands back one solid color for every tile.
   class SolidTiles : public ITileSource
   {
     public:
@@ -252,7 +252,7 @@ namespace
   };
 
   /*!
-   * \brief Mean brightness over a normalised window of \a image.
+   * \brief Mean brightness over a normalized window of \a image.
    *
    * u runs west to east, v north to south — the image's own axes, and the
    * world's, since every picture here spans the raster's extent exactly.
@@ -513,7 +513,7 @@ namespace
 
     const QVector3D slope(float(rasterExtent().width()), 0.0f, 20.0f);
 
-    // The interior, where a central difference has neighbours on both sides.
+    // The interior, where a central difference has neighbors on both sides.
     const SceneVertex &vertex =
       geometry.vertices.at(geometry.vertices.size() / 2);
     const QVector3D normal(vertex.nx, vertex.ny, vertex.nz);
@@ -703,7 +703,7 @@ namespace
     // Now asked to stay flat. Before C5d the surface layers passed the
     // context's terrain through unconditionally, so this was impossible to
     // express and a basemap draped whether or not anyone wanted it to.
-    layer->setDrape(SceneDrape::Flat);
+    layer->setZPolicy({ZMode::Constant, 0.0, {}, 0.0});
 
     const QVector<SceneGeometry> flat = layer->sceneGeometry(context);
     ASSERT_EQ(flat.size(), 1);
@@ -744,7 +744,7 @@ namespace
 
     EXPECT_TRUE(anyOffZero) << "the basemap did not drape by default";
 
-    tiles->setDrape(SceneDrape::Flat);
+    tiles->setZPolicy({ZMode::Constant, 0.0, {}, 0.0});
 
     const QVector<SceneGeometry> flat = tiles->sceneGeometry(context);
     ASSERT_EQ(flat.size(), 1);
@@ -765,12 +765,12 @@ namespace
 
     QSignalSpy rasterSpy(raster, &MapLayer::appearanceChanged);
 
-    raster->setDrape(SceneDrape::Flat);
+    raster->setZPolicy({ZMode::Constant, 0.0, {}, 0.0});
     EXPECT_EQ(rasterSpy.count(), 1);
 
     // Setting what is already set is not a change, and a redraw for it would
     // be a redraw of the whole scene for nothing.
-    raster->setDrape(SceneDrape::Flat);
+    raster->setZPolicy({ZMode::Constant, 0.0, {}, 0.0});
     EXPECT_EQ(rasterSpy.count(), 1);
 
     TileLayer tiles(QStringLiteral("basemap"),
@@ -778,7 +778,7 @@ namespace
 
     QSignalSpy tileSpy(&tiles, &MapLayer::appearanceChanged);
 
-    tiles.setDrape(SceneDrape::Flat);
+    tiles.setZPolicy({ZMode::Constant, 0.0, {}, 0.0});
     EXPECT_EQ(tileSpy.count(), 1);
 
     delete raster;
@@ -855,3 +855,331 @@ namespace
   }
 
 }
+
+// ── A DEM raster can BE the terrain (coherence plan T1+T2) ────────────────
+//
+// Only a face-mesh with elevations could serve heights before; a DEM
+// GeoTIFF in the stack showed as a flat colored sheet at z = 0 unless a
+// mesh was generated and sampled first. And capability is not consent: a
+// single band is not necessarily heights -- a rainfall grid is one band too
+// -- so a raster must be OFFERED as terrain before the election considers
+// it, where a surveyed mesh consents by default as it always has.
+
+namespace
+{
+  //! A 16x16 ramp whose value at cell (r, c) is exactly 2c + 3r.
+  QString writeRampDem()
+  {
+    const QString path = fixture(QStringLiteral("generated-ramp-dem.tif"));
+
+    GDALDriver *driver = GetGDALDriverManager()->GetDriverByName("GTiff");
+
+    if (!driver)
+    {
+      return QString();
+    }
+
+    GDALDataset *dataset =
+      driver->Create(path.toUtf8().constData(), 16, 16, 1, GDT_Float32,
+                     nullptr);
+
+    if (!dataset)
+    {
+      return QString();
+    }
+
+    // Origin (100, 200), 2-unit cells, north-up.
+    double geotransform[6] = {100.0, 2.0, 0.0, 200.0, 0.0, -2.0};
+    dataset->SetGeoTransform(geotransform);
+
+    OGRSpatialReference wgs84;
+    wgs84.importFromEPSG(4326);
+    wgs84.SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER);
+
+    char *wkt = nullptr;
+    wgs84.exportToWkt(&wkt);
+    dataset->SetProjection(wkt);
+    CPLFree(wkt);
+
+    std::vector<float> values(16 * 16);
+
+    for (int row = 0; row < 16; ++row)
+    {
+      for (int column = 0; column < 16; ++column)
+      {
+        values[size_t(row) * 16 + column] = float(2 * column + 3 * row);
+      }
+    }
+
+    // One hole, so declining is testable.
+    values[size_t(5) * 16 + 5] = float(kNoData);
+
+    GDALRasterBand *band = dataset->GetRasterBand(1);
+    band->SetNoDataValue(kNoData);
+    band->RasterIO(GF_Write, 0, 0, 16, 16, values.data(), 16, 16,
+                   GDT_Float32, 0, 0);
+
+    GDALClose(dataset);
+
+    return path;
+  }
+}
+
+TEST_F(GroundPlaneTest, ADemRasterServesElevationsInTheMapsCrs)
+{
+  const QString path = writeRampDem();
+  ASSERT_FALSE(path.isEmpty());
+
+  QString message;
+  const std::unique_ptr<GdalRasterLayer> dem =
+    GdalRasterLayer::open(path, message);
+  ASSERT_TRUE(dem) << message.toStdString();
+
+  ASSERT_NE(dem->terrain(), nullptr)
+    << "a single-band raster cannot serve heights at all";
+
+  EXPECT_NEAR(dem->terrainResolution(), 2.0, 1e-9);
+  EXPECT_EQ(dem->terrainExtent(),
+            QRectF(QPointF(100.0, 168.0), QPointF(132.0, 200.0)));
+
+  // Cell centers, where the value actually is: cell (r, c)'s center lies at
+  // (100 + 2c + 1, 200 - 2r - 1) and its height is exactly 2c + 3r.
+  double elevation = 0.0;
+
+  ASSERT_TRUE(dem->elevationAt(QPointF(101.0, 199.0), elevation));
+  EXPECT_NEAR(elevation, 0.0, 1e-4);
+
+  ASSERT_TRUE(dem->elevationAt(QPointF(107.0, 199.0), elevation));
+  EXPECT_NEAR(elevation, 6.0, 1e-4) << "columns are worth 2";
+
+  ASSERT_TRUE(dem->elevationAt(QPointF(101.0, 193.0), elevation));
+  EXPECT_NEAR(elevation, 9.0, 1e-4) << "rows are worth 3";
+
+  // Between two centers the ramp interpolates, not steps.
+  ASSERT_TRUE(dem->elevationAt(QPointF(102.0, 199.0), elevation));
+  EXPECT_NEAR(elevation, 1.0, 1e-4) << "nearest-neighbour, not bilinear";
+}
+
+TEST_F(GroundPlaneTest, AHoleInTheDemDeclinesInsteadOfAnsweringSeaLevel)
+{
+  const QString path = writeRampDem();
+  ASSERT_FALSE(path.isEmpty());
+
+  QString message;
+  const std::unique_ptr<GdalRasterLayer> dem =
+    GdalRasterLayer::open(path, message);
+  ASSERT_TRUE(dem) << message.toStdString();
+
+  // Cell (5, 5) is no-data; its center is (111, 189).
+  double elevation = 123.0;
+  EXPECT_FALSE(dem->elevationAt(QPointF(111.0, 189.0), elevation));
+
+  // And outside the raster entirely.
+  EXPECT_FALSE(dem->elevationAt(QPointF(500.0, 500.0), elevation));
+}
+
+TEST_F(GroundPlaneTest, ARasterMustConsentBeforeTheElectionConsidersIt)
+{
+  LayerStackModel stack;
+
+  MeshLayer *mesh = terrainLayer(tilted(8, 20.0)).release();
+  ASSERT_TRUE(mesh);
+  ASSERT_GE(stack.addLayer(mesh), 0);
+
+  const QString path = writeRampDem();
+  ASSERT_FALSE(path.isEmpty());
+
+  QString message;
+  GdalRasterLayer *dem = GdalRasterLayer::open(path, message).release();
+  ASSERT_TRUE(dem) << message.toStdString();
+  ASSERT_GE(stack.addLayer(dem), 0);
+
+  // Above the mesh, capable -- and not elected, because it has not been
+  // offered. A rainfall grid must not steal the ground.
+  EXPECT_EQ(stack.electedTerrainLayer(), mesh);
+
+  dem->setTerrainEnabled(true);
+  EXPECT_EQ(stack.electedTerrainLayer(), dem)
+    << "an offered DEM above the mesh should win the election";
+
+  // The renderer reads the same election.
+  SceneRenderer renderer;
+  renderer.setModel(&stack);
+  EXPECT_EQ(renderer.terrain(), dem->terrain());
+
+  // Withdrawing it promotes the next candidate rather than leaving the
+  // scene groundless.
+  dem->setTerrainEnabled(false);
+  EXPECT_EQ(stack.electedTerrainLayer(), mesh);
+  EXPECT_EQ(renderer.terrain(), mesh->terrain());
+}
+
+TEST_F(GroundPlaneTest, AColourImageIsAPictureOfTheGroundNotTheGround)
+{
+  const QString path = fixture(QStringLiteral("generated-colour.tif"));
+
+  GDALDriver *driver = GetGDALDriverManager()->GetDriverByName("GTiff");
+  ASSERT_NE(driver, nullptr);
+
+  GDALDataset *dataset = driver->Create(path.toUtf8().constData(), 8, 8, 3,
+                                        GDT_Byte, nullptr);
+  ASSERT_NE(dataset, nullptr);
+
+  double geotransform[6] = {0.0, 1.0, 0.0, 8.0, 0.0, -1.0};
+  dataset->SetGeoTransform(geotransform);
+  GDALClose(dataset);
+
+  QString message;
+  const std::unique_ptr<GdalRasterLayer> photo =
+    GdalRasterLayer::open(path, message);
+  ASSERT_TRUE(photo) << message.toStdString();
+
+  EXPECT_EQ(photo->terrain(), nullptr)
+    << "three bands of reflectance were offered as heights";
+}
+
+// ── Beyond the survey's edge (coherence plan T4) ──────────────────────────
+//
+// A basemap runs well past every terrain it is shown with, and points the
+// terrain declined used to stay at zero -- for ground standing at any real
+// elevation that turned the margins into a funnel diving to sea level,
+// while the draped vector path beside it held a conduit level off the same
+// edge. The two now agree: declined samples take the nearest answered
+// height.
+
+TEST_F(GroundPlaneTest, BeyondTheTerrainThePlaneHoldsTheEdgeHeight)
+{
+  // A flat patch at 30 in the plane's north-center, so the margins need all
+  // three fills: columns west of it (the leading run), columns east of it
+  // (the trailing run), and whole southern rows the survey never answers.
+  MeshDefinition patch;
+  patch.meshName = "patch";
+  patch.nodeX = {-2.0, 2.0, 2.0, -2.0};
+  patch.nodeY = {0.5, 0.5, 4.0, 4.0};
+  patch.nodeZ = {30.0, 30.0, 30.0, 30.0};
+  patch.faceNodeOffsets = {0, 3, 6};
+  patch.faceNodes = {0, 1, 2, 0, 2, 3};
+
+  const std::unique_ptr<MeshLayer> terrain = terrainLayer(patch);
+  ASSERT_TRUE(terrain);
+  ASSERT_NE(terrain->terrain(), nullptr);
+
+  GroundImage ground;
+  ground.image = QImage(4, 4, QImage::Format_ARGB32);
+  ground.image.fill(Qt::white);
+  ground.extent = rasterExtent();
+
+  const SceneGeometry geometry =
+    buildGroundPlane(ground, terrain->terrain());
+
+  ASSERT_FALSE(geometry.vertices.isEmpty());
+
+  int west = 0;
+  int east = 0;
+  int south = 0;
+
+  for (const SceneVertex &vertex : geometry.vertices)
+  {
+    // Every vertex holds the survey's one height: level with its edge in
+    // every direction, never diving to zero.
+    EXPECT_NEAR(double(vertex.z), 30.0, 1.0e-3)
+      << "at (" << vertex.x << ", " << vertex.y << ")";
+
+    west += vertex.x < -4.0f ? 1 : 0;
+    east += vertex.x > 4.0f ? 1 : 0;
+    south += vertex.y < -2.0f ? 1 : 0;
+  }
+
+  EXPECT_GT(west, 0) << "no leading run to fill";
+  EXPECT_GT(east, 0) << "no trailing run to fill";
+  EXPECT_GT(south, 0) << "no unanswered rows to fill";
+}
+
+TEST_F(GroundPlaneTest, AWorldWithNoAnswersAtAllStaysTheFlatZeroPlane)
+{
+  // A terrain source that declines everything: the plane must stay what it
+  // was without terrain -- flat at zero -- not chase heights that do not
+  // exist.
+  class Mute : public ITerrainSource
+  {
+    public:
+      bool elevationAt(const QPointF &, double &) const override
+      {
+        return false;
+      }
+
+      QRectF terrainExtent() const override
+      {
+        return QRectF(-8.0, -4.0, 16.0, 8.0);
+      }
+
+      double terrainResolution() const override { return 1.0; }
+  } mute;
+
+  GroundImage ground;
+  ground.image = QImage(4, 4, QImage::Format_ARGB32);
+  ground.image.fill(Qt::white);
+  ground.extent = rasterExtent();
+
+  const SceneGeometry geometry = buildGroundPlane(ground, &mute);
+
+  for (const SceneVertex &vertex : geometry.vertices)
+  {
+    EXPECT_FLOAT_EQ(vertex.z, 0.0f);
+  }
+}
+
+  // ── placement for surfaces (coherence plan Z) ───────────────────────────
+
+  TEST_F(GroundPlaneTest, ARasterAtAConstantLiesAtThatDatum)
+  {
+    LayerStackModel stack;
+
+    MeshLayer *terrain = terrainLayer(tilted(8, 20.0)).release();
+    ASSERT_TRUE(terrain);
+    ASSERT_GE(stack.addLayer(terrain), 0);
+
+    GdalRasterLayer *layer = openGroundRaster().release();
+    ASSERT_TRUE(layer);
+    layer->setZPolicy({ZMode::Constant, 30.0, {}, 0.0});
+    ASSERT_GE(stack.addLayer(layer), 0);
+
+    const QVector<SceneGeometry> batches =
+      layer->sceneGeometry({terrain->terrain(), rasterExtent()});
+    ASSERT_FALSE(batches.isEmpty());
+    ASSERT_FALSE(batches.first().vertices.isEmpty())
+      << "nothing to check is a pass for any mutation at all";
+
+    for (const SceneVertex &vertex : batches.first().vertices)
+    {
+      EXPECT_NEAR(double(vertex.z), 30.0, 1.0e-6)
+        << "a constant datum was bent by the terrain";
+    }
+  }
+
+  TEST_F(GroundPlaneTest, ADrapedSurfacesOffsetLiftsItOffTheGround)
+  {
+    const std::unique_ptr<MeshLayer> terrain = terrainLayer(tilted(8, 20.0));
+    ASSERT_TRUE(terrain);
+
+    GdalRasterLayer *layer = openGroundRaster().release();
+    ASSERT_TRUE(layer);
+    layer->setZPolicy({ZMode::OnTerrain, 0.0, {}, 2.5});
+
+    const SceneGeometry geometry =
+      layer->sceneGeometry({terrain->terrain(), rasterExtent()}).first();
+
+    ASSERT_FALSE(geometry.vertices.isEmpty());
+
+    for (const SceneVertex &vertex : geometry.vertices)
+    {
+      double surface = 0.0;
+
+      ASSERT_TRUE(
+        terrain->elevationAt(QPointF(vertex.x, vertex.y), surface));
+      EXPECT_NEAR(double(vertex.z), surface + 2.5, 1.0e-3)
+        << "at (" << vertex.x << ", " << vertex.y << ")";
+    }
+
+    delete layer;
+  }

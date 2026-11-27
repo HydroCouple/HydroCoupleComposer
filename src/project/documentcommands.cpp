@@ -87,6 +87,53 @@ namespace HydroCouple::Composer
 
   // ── MoveComponentCommand ───────────────────────────────────────────────
 
+  MoveAdapterCommand::MoveAdapterCommand(
+    CompositionDocument *document,
+    HydroCouple::SDK::IO::ConnectionSpec connection, int index,
+    QPointF before, QPointF after)
+    : QUndoCommand(QObject::tr("Move adapter")),
+      m_document(document),
+      m_connection(std::move(connection)),
+      m_index(index),
+      m_before(before),
+      m_after(after)
+  {
+  }
+
+  void MoveAdapterCommand::undo()
+  {
+    m_document->applyAdapterPlacement(m_connection, m_index, m_before);
+  }
+
+  void MoveAdapterCommand::redo()
+  {
+    m_document->applyAdapterPlacement(m_connection, m_index, m_after);
+  }
+
+  int MoveAdapterCommand::id() const
+  {
+    return Id;
+  }
+
+  bool MoveAdapterCommand::mergeWith(const QUndoCommand *other)
+  {
+    const auto *move = static_cast<const MoveAdapterCommand *>(other);
+
+    // Same step of the same connection identity (endpoints + role).
+    if (move->m_index != m_index ||
+        move->m_connection.fromComponent != m_connection.fromComponent ||
+        move->m_connection.output != m_connection.output ||
+        move->m_connection.toComponent != m_connection.toComponent ||
+        move->m_connection.input != m_connection.input ||
+        move->m_connection.role != m_connection.role)
+    {
+      return false;
+    }
+
+    m_after = move->m_after;
+    return true;
+  }
+
   MoveComponentCommand::MoveComponentCommand(CompositionDocument *document,
                                              QString componentId,
                                              QPointF before, QPointF after)

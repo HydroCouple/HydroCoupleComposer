@@ -5,7 +5,7 @@
  *
  * The ribbon style is shared with openswmm.gui so the two applications read as
  * one suite: a fixed-height row of large icon-over-label buttons, grouped under
- * a small centred caption and closed by a trailing rule (ArcGIS Pro
+ * a small centered caption and closed by a trailing rule (ArcGIS Pro
  * convention). The metrics and layout are taken from openswmm.gui's
  * `ui/toolbars/ribbongroup.h` rather than re-derived.
  *

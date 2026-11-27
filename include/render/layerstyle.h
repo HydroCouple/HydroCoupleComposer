@@ -5,8 +5,8 @@
  *         produces.
  *
  * One style object answers both questions a renderer and a legend ask, and
- * answers them from the same state: what colour is this feature, and what
- * does the reader need to see to interpret that colour. Keeping the legend
+ * answers them from the same state: what color is this feature, and what
+ * does the reader need to see to interpret that color. Keeping the legend
  * derived rather than stored is what stops a map and its legend disagreeing.
  */
 
@@ -26,13 +26,13 @@ namespace HydroCouple::Composer
   class IAttributeProvider;
 
   /*!
-   * \brief How a layer's colours are chosen.
+   * \brief How a layer's colors are chosen.
    */
   enum class StyleMode
   {
     Single,      //!< One symbol for every feature.
     Graduated,   //!< Numeric attribute split into ordered classes.
-    Categorized  //!< One colour per distinct value.
+    Categorized  //!< One color per distinct value.
   };
 
   /*!
@@ -47,7 +47,7 @@ namespace HydroCouple::Composer
   };
 
   /*!
-   * \brief One value of a categorised style.
+   * \brief One value of a categorized style.
    */
   struct StyleCategory
   {
@@ -79,18 +79,18 @@ namespace HydroCouple::Composer
       LayerStyle();
 
       /*!
-       * \brief The colouring mode.
+       * \brief The coloring mode.
        */
       [[nodiscard]] StyleMode mode() const;
 
       /*!
-       * \brief Sets the colouring mode.
+       * \brief Sets the coloring mode.
        * \param mode The mode to use.
        */
       void setMode(StyleMode mode);
 
       /*!
-       * \brief The attribute graduated and categorised modes read.
+       * \brief The attribute graduated and categorized modes read.
        */
       [[nodiscard]] QString attribute() const;
 
@@ -122,14 +122,14 @@ namespace HydroCouple::Composer
       [[nodiscard]] const Classification &classification() const;
 
       /*!
-       * \brief The categorised values.
+       * \brief The categorized values.
        */
       [[nodiscard]] const QVector<StyleCategory> &categories() const;
 
       /*!
-       * \brief How this layer's features are labelled.
+       * \brief How this layer's features are labeled.
        *
-       * Labelling lives in the style rather than beside it: both answer the
+       * Labeling lives in the style rather than beside it: both answer the
        * same question — how this layer appears — and a reader changing one
        * almost always wants the other to hand.
        */
@@ -146,14 +146,14 @@ namespace HydroCouple::Composer
        * Does nothing in Single mode, which needs no data to draw.
        *
        * \param provider The layer's attributes.
-       * \returns True when the style can now colour features.
+       * \returns True when the style can now color features.
        */
       bool rebuild(const IAttributeProvider &provider);
 
       /*!
-       * \brief The colour for one feature, or an invalid colour to skip it.
+       * \brief The color for one feature, or an invalid color to skip it.
        *
-       * An invalid colour means "do not draw": the feature falls outside
+       * An invalid color means "do not draw": the feature falls outside
        * every class, or its class has been switched off in the legend.
        *
        * \param provider The layer's attributes.
@@ -175,9 +175,9 @@ namespace HydroCouple::Composer
       void setLegendItemVisible(int index, bool visible);
 
       /*!
-       * \brief Sets one category's colour.
+       * \brief Sets one category's color.
        * \param index Category index.
-       * \param color The colour to use.
+       * \param color The color to use.
        */
       void setCategoryColor(int index, const QColor &color);
 

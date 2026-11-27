@@ -37,7 +37,7 @@ namespace HydroCouple::Composer::Testing
        * \brief Constructs a probe.
        * \param name Layer name.
        * \param extent The extent to report, in the layer's own CRS.
-       * \param color Fill colour, so overlapping probes can be told apart.
+       * \param color Fill color, so overlapping probes can be told apart.
        */
       ProbeLayer(const QString &name, const QRectF &extent,
                  const QColor &color = Qt::black)
@@ -89,7 +89,7 @@ namespace HydroCouple::Composer::Testing
   /*!
    * \brief A layer with features and attributes, for the styling tests.
    *
-   * Draws each feature as a dot in the colour its style chooses, so a test
+   * Draws each feature as a dot in the color its style chooses, so a test
    * can read the styling decision back out of the rendered image rather than
    * only out of the object that made it.
    */
@@ -172,8 +172,8 @@ namespace HydroCouple::Composer::Testing
         {
           const QColor color = m_style.colorFor(*this, i);
 
-          // An invalid colour means the style declined to draw this feature,
-          // which is not the same as drawing it in a default colour.
+          // An invalid color means the style declined to draw this feature,
+          // which is not the same as drawing it in a default color.
           if (!color.isValid())
           {
             continue;

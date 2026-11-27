@@ -1,5 +1,6 @@
 #include "map/mapcanvas.h"
 
+#include "core/preferencesmanager.h"
 #include "gis/spatialreference.h"
 #include "layers/featurelayer.h"
 #include "map/extentmath.h"
@@ -27,24 +28,6 @@ namespace HydroCouple::Composer
   {
     //! Wheel notches are 120 eighths of a degree; one notch is one step.
     constexpr double kWheelZoomFactor = 1.2;
-
-    /*!
-     * \brief How near a click has to land, in pixels.
-     *
-     * In pixels rather than map units because it is a property of pointing,
-     * not of the data: the same conduit is equally hard to hit at any zoom,
-     * and a tolerance in metres is generous on a city and useless on a pipe.
-     */
-    constexpr double kPickRadiusPixels = 6.0;
-
-    /*!
-     * \brief How far the mouse may move and still count as a click.
-     *
-     * Panning and picking share the left button, so they are told apart by
-     * whether the view moved. Zero would make every pick a matter of holding
-     * perfectly still.
-     */
-    constexpr int kClickSlopPixels = 3;
 
     /*!
      * \brief Air left around data when a command frames it.
@@ -116,6 +99,18 @@ namespace HydroCouple::Composer
     setAttribute(Qt::WA_OpaquePaintEvent);
 
     m_transform.setViewport(QSizeF(size()));
+
+    // The selection colour is read by the layers as they paint, so a change
+    // to it needs nothing more than a repaint.
+    connect(PreferencesManager::instance(),
+            &PreferencesManager::preferenceChanged, this,
+            [this](const QString &group, const QString &)
+            {
+              if (group == QLatin1String("Selection"))
+              {
+                update();
+              }
+            });
   }
 
   MapCanvas::~MapCanvas() = default;
@@ -501,7 +496,84 @@ namespace HydroCouple::Composer
     }
 
     paintTransectLine(painter);
+    paintSketch(painter);
+    paintVertexHandles(painter);
     paintAttribution(painter);
+  }
+
+  void MapCanvas::paintSketch(QPainter &painter) const
+  {
+    if (m_sketch.isEmpty())
+    {
+      return;
+    }
+
+    QPolygonF onScreen;
+    onScreen.reserve(m_sketch.size());
+
+    for (const QPointF &world : m_sketch)
+    {
+      onScreen.append(m_transform.toScreen(world));
+    }
+
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setOpacity(1.0);
+    painter.setBrush(Qt::NoBrush);
+
+    // Dashed, so a shape still being drawn is never mistaken for one that
+    // has been committed and is now part of the domain.
+    QPen pen(QColor(30, 90, 200), 1.5, Qt::DashLine);
+    painter.setPen(pen);
+
+    if (m_sketchClosed && onScreen.size() > 2)
+    {
+      painter.drawPolygon(onScreen);
+    }
+    else
+    {
+      painter.drawPolyline(onScreen);
+    }
+
+    painter.setPen(QPen(QColor(30, 90, 200), 1.0));
+    painter.setBrush(QColor(255, 255, 255));
+
+    for (const QPointF &vertex : onScreen)
+    {
+      painter.drawEllipse(vertex, 3.0, 3.0);
+    }
+
+    painter.restore();
+  }
+
+  void MapCanvas::paintVertexHandles(QPainter &painter) const
+  {
+    if (m_vertexHandles.isEmpty())
+    {
+      return;
+    }
+
+    painter.save();
+    painter.setRenderHint(QPainter::Antialiasing, false);
+    painter.setOpacity(1.0);
+
+    // Square handles, where the sketch draws round vertices: one shape says
+    // "this is being drawn" and the other says "this can be grabbed", and a
+    // user editing a domain they have just drawn should be able to tell
+    // which of the two they are looking at.
+    for (int index = 0; index < m_vertexHandles.size(); ++index)
+    {
+      const QPointF centre = m_transform.toScreen(m_vertexHandles.at(index));
+      const bool active = index == m_activeVertexHandle;
+      const double half = active ? 5.0 : 3.5;
+
+      painter.setPen(QPen(QColor(20, 20, 20), 1.0));
+      painter.setBrush(active ? QColor(255, 170, 40) : QColor(255, 255, 255));
+      painter.drawRect(QRectF(centre.x() - half, centre.y() - half,
+                              2.0 * half, 2.0 * half));
+    }
+
+    painter.restore();
   }
 
   void MapCanvas::paintTransectLine(QPainter &painter) const
@@ -645,12 +717,76 @@ namespace HydroCouple::Composer
     return m_transectLine;
   }
 
-  void MapCanvas::setToolKind(MapToolKind kind)
+  void MapCanvas::setSketch(const QPolygonF &world, bool closed)
   {
-    if (m_tool && m_toolKind == kind)
+    if (m_sketch == world && m_sketchClosed == closed)
     {
       return;
     }
+
+    m_sketch = world;
+    m_sketchClosed = closed;
+    update();
+  }
+
+  const QPolygonF &MapCanvas::sketch() const
+  {
+    return m_sketch;
+  }
+
+  void MapCanvas::setVertexHandles(const QVector<QPointF> &world, int active)
+  {
+    if (m_vertexHandles == world && m_activeVertexHandle == active)
+    {
+      return;
+    }
+
+    m_vertexHandles = world;
+    m_activeVertexHandle = active;
+
+    update();
+  }
+
+  const QVector<QPointF> &MapCanvas::vertexHandles() const
+  {
+    return m_vertexHandles;
+  }
+
+  int MapCanvas::activeVertexHandle() const
+  {
+    return m_activeVertexHandle;
+  }
+
+  void MapCanvas::setTool(std::unique_ptr<MapTool> tool)
+  {
+    if (m_tool)
+    {
+      m_tool->cancel();
+    }
+
+    if (!tool)
+    {
+      setToolKind(MapToolKind::Pan);
+      return;
+    }
+
+    m_tool = std::move(tool);
+    m_customTool = true;
+    setCursor(m_tool->idleCursor());
+  }
+
+  void MapCanvas::setToolKind(MapToolKind kind)
+  {
+    // m_customTool as well as the kind: a custom tool leaves m_toolKind
+    // naming whatever was installed before it, so the kind alone would
+    // report that the requested tool was already in place and leave the
+    // custom one running for good.
+    if (m_tool && !m_customTool && m_toolKind == kind)
+    {
+      return;
+    }
+
+    m_customTool = false;
 
     // Cancelled, then replaced. A rubber band would end by construction —
     // it is a child of the tool — but the section tool's preview lives on
@@ -789,7 +925,7 @@ namespace HydroCouple::Composer
     zoomAtPixel(factor, rectangle.center());
   }
 
-  void MapCanvas::selectIn(const QRect &rectangle)
+  void MapCanvas::selectIn(const QRect &rectangle, SelectionMode mode)
   {
     syncViewport();
 
@@ -824,7 +960,7 @@ namespace HydroCouple::Composer
 
       if (!caught.isEmpty())
       {
-        m_model->selectOnly(features, caught);
+        m_model->select(features, caught, mode);
 
         // The count, not one index: a band that caught forty features has
         // no single feature to name, and -1 would read as "nothing".
@@ -841,17 +977,26 @@ namespace HydroCouple::Composer
     Q_EMIT featurePicked(nullptr, -1);
   }
 
-  void MapCanvas::pickAndSelectAt(const QPoint &screen)
+  void MapCanvas::pickAndSelectAt(const QPoint &screen, SelectionMode mode)
   {
     int feature = -1;
     FeatureLayer *layer = pickAt(screen, feature);
 
     // Clicking empty map clears the selection, which is how a user says
     // "nothing" — leaving the last selection standing would make the table
-    // beside it describe somewhere they have navigated away from.
+    // beside it describe somewhere they have navigated away from. A
+    // modified click that misses is treated the same way: Shift-clicking
+    // nothing is still pointing at nothing.
     if (m_model)
     {
-      m_model->selectOnly(layer, feature);
+      if (!layer || feature < 0)
+      {
+        m_model->selectOnly(nullptr, QSet<int>{});
+      }
+      else
+      {
+        m_model->select(layer, QSet<int>{feature}, mode);
+      }
     }
 
     Q_EMIT featurePicked(layer, feature);
@@ -908,8 +1053,15 @@ namespace HydroCouple::Composer
       return nullptr;
     }
 
+    // The tolerance is a preference in pixels rather than map units because
+    // it is a property of pointing, not of the data: the same conduit is
+    // equally hard to hit at any zoom, and a tolerance in metres is generous
+    // on a city and useless on a pipe. Read here, on every pick, so a change
+    // in the preferences dialog applies to the next click.
     const QPointF world = m_transform.toWorld(QPointF(screen));
-    const double tolerance = kPickRadiusPixels / m_transform.scale();
+    const double tolerance =
+      PreferencesManager::instance()->pickTolerancePixels()
+      / m_transform.scale();
 
     // layers() is top-first, which is the order the answer has to come in:
     // the feature the user can see is the one on top.

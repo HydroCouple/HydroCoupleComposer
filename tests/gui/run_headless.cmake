@@ -1,5 +1,5 @@
 # Drives HydroCoupleComposer --run over a small composition and checks that it
-# produced the artefacts the composition asked for.
+# produced the artifacts the composition asked for.
 
 file(REMOVE_RECURSE "${WORK_DIR}")
 file(MAKE_DIRECTORY "${WORK_DIR}")
@@ -19,12 +19,22 @@ file(WRITE "${WORK_DIR}/composition.json" [=[{
   "run": { "manifest": "out/manifest.json" }
 }]=])
 
+if(USE_ENVIRONMENT_PATH)
+    set(ENV{HYDROCOUPLE_COMPONENT_PATH} "${FIXTURE_DIR}")
+    set(component_arguments)
+else()
+    set(component_arguments --components "${FIXTURE_DIR}")
+endif()
+
 execute_process(
     COMMAND "${COMPOSER_BINARY}" --run "${WORK_DIR}/composition.json"
-            --components "${FIXTURE_DIR}"
+            ${component_arguments}
     RESULT_VARIABLE exit_code
     OUTPUT_VARIABLE stdout_text
     ERROR_VARIABLE stderr_text)
+
+file(WRITE "${WORK_DIR}/stdout.log" "${stdout_text}")
+file(WRITE "${WORK_DIR}/stderr.log" "${stderr_text}")
 
 if(NOT exit_code EQUAL 0)
     message(FATAL_ERROR
@@ -39,7 +49,7 @@ if(NOT EXISTS "${WORK_DIR}/out/manifest.json")
     message(FATAL_ERROR "no run manifest was written\n${stdout_text}")
 endif()
 
-# The artefacts must hold content, not merely exist.
+# The artifacts must hold content, not merely exist.
 file(SIZE "${WORK_DIR}/out/values.csv" csv_size)
 if(csv_size LESS 128)
     message(FATAL_ERROR "the CSV holds no data (${csv_size} bytes)")

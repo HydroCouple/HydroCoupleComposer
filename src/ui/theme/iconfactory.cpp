@@ -17,8 +17,8 @@ namespace HydroCouple::Composer
     /*!
      * \brief The mid-gray family baked into the shared SVG chrome set.
      *
-     * Only these are substituted. Any other colour in an icon was chosen
-     * deliberately — a status red, a water blue — and recolouring it would
+     * Only these are substituted. Any other color in an icon was chosen
+     * deliberately — a status red, a water blue — and recoloring it would
      * throw away the one thing it was there to say.
      */
     const char *const kGlyphGrays[] = { "#777777", "#626262", "#989898",
@@ -65,7 +65,7 @@ namespace HydroCouple::Composer
     }
 
     /*!
-     * \brief Renders one SVG in the theme's glyph colour.
+     * \brief Renders one SVG in the theme's glyph color.
      */
     class ThemedIconEngine : public QIconEngine
     {

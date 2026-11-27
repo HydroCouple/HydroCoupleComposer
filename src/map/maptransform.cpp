@@ -86,7 +86,7 @@ namespace HydroCouple::Composer
 
   void MapTransform::setViewport(const QSizeF &viewport)
   {
-    // Centre and scale are preserved, so a resize reveals more of the world
+    // Center and scale are preserved, so a resize reveals more of the world
     // rather than rescaling what is already drawn.
     m_viewport = viewport;
   }
@@ -109,7 +109,7 @@ namespace HydroCouple::Composer
     }
 
     // Hold the world point under the anchor fixed: read it before the scale
-    // changes, then shift the centre so it lands back on the same pixel.
+    // changes, then shift the center so it lands back on the same pixel.
     const QPointF worldUnderAnchor = toWorld(anchor);
 
     m_scale *= factor;

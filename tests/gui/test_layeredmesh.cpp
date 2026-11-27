@@ -346,7 +346,7 @@ TEST_F(LayeredMeshTest, TheGeometryBoundsAreTheWholeBoxItOccupies)
 
 TEST_F(LayeredMeshTest, WallNormalsAreUnitAndPerpendicularToTheirEdge)
 {
-  // The material lights by these. Left unnormalised they scale the shading
+  // The material lights by these. Left unnormalized they scale the shading
   // term; pointing along the edge rather than across it, they shade a wall
   // as though it faced somewhere else. Both look like lighting choices.
   //
@@ -521,9 +521,9 @@ TEST_F(LayeredMeshTest, CellValuesColourTheLayerTheyBelongTo)
 
 TEST_F(LayeredMeshTest, ACellWhoseClassIsHiddenIsNotBuilt)
 {
-  // The prisms resolve colour through their own path — cell values do not
+  // The prisms resolve color through their own path — cell values do not
   // belong to a feature, so the feature-indexed colorFor() cannot serve them
-  // — which means the legend's class visibility has to be honoured here too,
+  // — which means the legend's class visibility has to be honored here too,
   // and separately. Hiding a class must remove those cells' geometry, not
   // merely blend them away: a hidden class on a large mesh is exactly how a
   // user makes one worth looking at.
@@ -860,9 +860,9 @@ TEST_F(LayeredMeshTest, AColumnProfileIsItsOwnCellsAtItsOwnElevations)
       EXPECT_NEAR(values.at(level), column * 100.0 + level, 1.0e-9)
         << "layer " << level;
 
-      // Each layer is 5 m thick over a 20 m column, so its centre sits at
+      // Each layer is 5 m thick over a 20 m column, so its center sits at
       // -2.5, -7.5, -12.5, -17.5 -- the midpoint of its interfaces, not
-      // either boundary it shares with a neighbour.
+      // either boundary it shares with a neighbor.
       EXPECT_NEAR(elevations.at(level), -2.5 - 5.0 * level, 1.0e-9)
         << "layer " << level;
     }
@@ -887,7 +887,7 @@ TEST_F(LayeredMeshTest, AProfileFollowsTheSurfaceItHangsUnder)
 
   ASSERT_EQ(elevations.size(), 2);
 
-  // Surface 6, bed -10: two 8 m layers centred at 2 and -6.
+  // Surface 6, bed -10: two 8 m layers centered at 2 and -6.
   EXPECT_NEAR(elevations.at(0), 2.0, 1.0e-9);
   EXPECT_NEAR(elevations.at(1), -6.0, 1.0e-9);
 }

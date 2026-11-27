@@ -75,7 +75,7 @@ TEST_F(CrsTest, ReportsDistanceUnits)
   EXPECT_EQ(SpatialReference::webMercator()->distanceUnits(),
             HydroCouple::IUnit::DistanceUnits::Meters);
 
-  // A CRS in US survey feet must not be reported as metres.
+  // A CRS in US survey feet must not be reported as meters.
   QString message;
   const std::unique_ptr<SpatialReference> stateplane =
     SpatialReference::fromAuthority(QStringLiteral("EPSG"), 2246, message);

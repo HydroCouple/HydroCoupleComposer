@@ -71,7 +71,7 @@ namespace HydroCouple::Composer
 
     // A field the layer does not have — a style carried over from another
     // dataset, or a renamed column — yields no values, so the paths below
-    // already refuse to colour anything. There is deliberately no separate
+    // already refuse to color anything. There is deliberately no separate
     // guard for it: the one that stood here reset the classification, which
     // threw away the ramp and class count the user had chosen.
     if (m_mode == StyleMode::Graduated)
@@ -81,7 +81,7 @@ namespace HydroCouple::Composer
 
     const QVector<QVariant> distinct = provider.distinctValues(m_attribute);
 
-    // Colours come from the same ramp the graduated mode uses, so switching
+    // Colors come from the same ramp the graduated mode uses, so switching
     // between the two modes does not change the layer's palette.
     const QVector<QColor> colors =
       m_classification.ramp().sample(static_cast<int>(distinct.size()));

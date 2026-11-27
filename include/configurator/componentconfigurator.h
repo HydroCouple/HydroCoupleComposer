@@ -22,15 +22,21 @@
 #include "project/compositiondocument.h"
 
 #include <QHash>
+#include <QPointer>
+#include <QUrl>
 #include <QWidget>
 
+#include <functional>
+
 class QFormLayout;
+class QLineEdit;
 class QPlainTextEdit;
 class QLabel;
 class QPushButton;
 
 namespace HydroCouple::Composer
 {
+  class ArgumentEditorDialog;
 
   /*!
    * \brief Argument editors and a raw payload pane for one component.
@@ -80,8 +86,103 @@ namespace HydroCouple::Composer
        * \param[out] message Diagnostic when rejected.
        * \returns true when accepted and recorded.
        */
+      /*!
+       * \brief Opens the window that edits \a argumentId, or raises it.
+       *
+       * Modeless, so the Mesh and Geometry editors can ask the user to
+       * pick on the map while open. The window is handed a committer
+       * that leads back to applyArgument(), which is the only path a
+       * payload takes to the component and the document (B2).
+       *
+       * \returns The window, or nullptr when there is no such argument.
+       */
+      ArgumentEditorDialog *editArgument(const QString &argumentId);
+
+      //! Closes every argument window this component has open.
+      void closeArgumentDialogs();
+
       bool applyArgument(const QString &argumentId,
                          const nlohmann::json &payload, QString &message);
+
+      /*!
+       * \brief Loads a file or URI into one argument, as the buttons do.
+       *
+       * The reference is read by the component first; the document then
+       * records what the component holds afterwards. For a file that is the
+       * values, because a path is not something the load path could act on;
+       * for a URI the component records the URI beside them, so a reopened
+       * composition goes back to the service rather than running on a copy.
+       *
+       * \param argumentId Argument to load.
+       * \param reference The file or URI to read.
+       * \param[out] message Diagnostic when the component cannot read it.
+       * \returns true when it was read and recorded.
+       */
+      bool applyArgumentReference(const QString &argumentId,
+                                  const QString &reference, QString &message);
+
+      /*!
+       * \brief A loaded map layer offered as a source for an argument.
+       */
+      struct LayerSource
+      {
+          QString name;
+          QUrl uri;
+      };
+
+      /*!
+       * \brief Tells the configurator which map layers can be read from.
+       *
+       * A callback rather than a list, because the layer stack changes while
+       * the panel is open and a snapshot taken when a component was selected
+       * would offer layers that have since been closed.
+       *
+       * \param provider Returns the layers that can name a source.
+       */
+      void setLayerSources(std::function<QVector<LayerSource>()> provider);
+
+      /*!
+       * \brief Another component's output offered as an argument's source.
+       */
+      struct OutputSource
+      {
+          QString componentId;
+          QString outputId;
+          QString caption;
+      };
+
+      /*!
+       * \brief The outputs an argument could be bound to.
+       *
+       * Every output of every OTHER component in the document. Deliberately
+       * unfiltered by type: there is no non-mutating way to ask an argument
+       * whether it could adopt a given item, and a heuristic (kind, rank)
+       * would wrongly exclude honest pairs — a mesh output's hyperslab
+       * plane says nothing about the surface a mesh argument reads. The
+       * run pipeline validates the pairing and names a mismatch.
+       *
+       * \param argumentId The argument the binding is for.
+       */
+      [[nodiscard]] QVector<OutputSource> bindableOutputsFor(
+        const QString &argumentId) const;
+
+      /*!
+       * \brief Binds an argument to another component's output.
+       *
+       * Records the reference — never a value: opening a composition shows
+       * provenance, and the value exists only after the provider has run,
+       * which is the run pipeline's job (the SDK's staged apply). The live
+       * component is deliberately not touched here.
+       *
+       * \param argumentId Argument to bind.
+       * \param providerId The providing component's document id.
+       * \param outputId The provider's output id.
+       * \param[out] message Diagnostic when refused.
+       * \returns true when the reference was recorded.
+       */
+      bool applyArgumentBinding(const QString &argumentId,
+                                const QString &providerId,
+                                const QString &outputId, QString &message);
 
       /*!
        * \brief The raw JSON pane's current text.
@@ -123,6 +224,8 @@ namespace HydroCouple::Composer
     private:
       void rebuild();
       void refreshRawPane();
+      void chooseLayerFor(const QString &argumentId, QLineEdit *line);
+      void chooseOutputFor(const QString &argumentId, QLineEdit *line);
       [[nodiscard]] HydroCouple::IArgument *argument(
         const QString &argumentId) const;
 
@@ -136,6 +239,23 @@ namespace HydroCouple::Composer
       QPlainTextEdit *m_rawPane = nullptr;
       QLabel *m_status = nullptr;
       QPushButton *m_componentEditorButton = nullptr;
+
+      /*!
+       * \brief The argument windows open on this component, by argument.
+       *
+       * One per argument at a time — a second window on the same
+       * argument would let a user apply two different payloads in an
+       * order they did not choose. They are modeless and delete
+       * themselves on close, so these are QPointers and a null entry
+       * means "closed" rather than "dangling".
+       *
+       * Closed when the component changes: a window editing an argument
+       * of a component that is no longer shown would offer payloads for
+       * something the form has moved on from.
+       */
+      QHash<QString, QPointer<ArgumentEditorDialog>> m_argumentDialogs;
+
+      std::function<QVector<LayerSource>()> m_layerSources;
   };
 
 } // namespace HydroCouple::Composer

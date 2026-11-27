@@ -2,7 +2,7 @@
 
 // C3c-2 — the textured ground plane's vertex stage.
 //
-// The only difference from scene.vert is where the colour comes from: an
+// The only difference from scene.vert is where the color comes from: an
 // image rather than the vertex. Texture coordinates are derived from world
 // position rather than carried per vertex, because a ground plane's are an
 // affine function of position — storing them would be storing the same four

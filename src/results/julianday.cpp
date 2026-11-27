@@ -29,8 +29,8 @@ namespace HydroCouple::Composer
 
     // Rounded rather than truncated: a step recorded on the hour arrives as
     // 59.9999 seconds of the previous minute often enough to matter, and a
-    // plot axis labelled one minute early is wrong in a way that looks like
-    // a modelling result.
+    // plot axis labeled one minute early is wrong in a way that looks like
+    // a modeling result.
     return QDateTime(date,
                      QTime(0, 0).addMSecs(static_cast<int>(
                        std::lround((hour * 3600.0 + minute * 60.0 + second)

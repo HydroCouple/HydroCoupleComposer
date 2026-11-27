@@ -23,6 +23,7 @@
 #include <QColor>
 #include <QPoint>
 #include <QPolygonF>
+#include <QVector>
 #include "map/maptool.h"
 
 #include <QWidget>
@@ -245,7 +246,8 @@ namespace HydroCouple::Composer
        *
        * \param rectangle Screen rectangle to select within.
        */
-      void selectIn(const QRect &rectangle);
+      void selectIn(const QRect &rectangle,
+                    SelectionMode mode = SelectionMode::Replace);
 
       /*!
        * \brief Identifies what is under \a screen and selects it.
@@ -256,7 +258,8 @@ namespace HydroCouple::Composer
        *
        * \param screen Widget position, as a click gives.
        */
-      void pickAndSelectAt(const QPoint &screen);
+      void pickAndSelectAt(const QPoint &screen,
+                           SelectionMode mode = SelectionMode::Replace);
 
       /*!
        * \brief Sets the section line drawn across the map.
@@ -272,6 +275,56 @@ namespace HydroCouple::Composer
 
       //! \returns The section line, in the map's CRS; empty when none.
       [[nodiscard]] const QPolygonF &transectLine() const;
+
+      /*!
+       * \brief Shows a shape being drawn right now.
+       *
+       * Distinct from the section line, which is a *result* and stays on the
+       * map after the gesture that made it. A sketch is the gesture itself:
+       * it is cleared when the tool finishes or is put away, and nothing
+       * reads it back. Two members rather than one because their lifetimes
+       * are opposite, not because the drawing differs.
+       *
+       * \param world The vertices so far, in the map's CRS; empty clears it.
+       * \param closed Whether to draw the closing edge, as a ring has.
+       */
+      void setSketch(const QPolygonF &world, bool closed);
+
+      //! \returns The shape being drawn, in the map's CRS; empty when none.
+      [[nodiscard]] const QPolygonF &sketch() const;
+
+      /*!
+       * \brief Shows the vertices an editor is offering to move.
+       *
+       * Drawn by the canvas rather than by the layer, because a handle is not
+       * part of the data: it appears when an editing tool is picked up and
+       * goes when it is put down, while the layer draws the same shapes
+       * whether anyone is editing them or not.
+       *
+       * \param world The handle positions in the map's CRS; empty clears
+       *        them.
+       * \param active Index of the one under the pointer or being dragged,
+       *        or -1.
+       */
+      void setVertexHandles(const QVector<QPointF> &world, int active);
+
+      //! \returns The handle positions, in the map's CRS.
+      [[nodiscard]] const QVector<QPointF> &vertexHandles() const;
+
+      //! \returns The index of the highlighted handle, or -1.
+      [[nodiscard]] int activeVertexHandle() const;
+
+      /*!
+       * \brief Installs a gesture set the canvas does not know by name.
+       *
+       * The kinds in MapToolKind are the map's own. A tool that acts on
+       * something else — a mesh domain, say — is built by whoever owns that
+       * thing and handed over here, so the canvas does not have to grow a
+       * kind, an include and a switch case for every editor in the program.
+       *
+       * \param tool The tool; the canvas takes ownership. Null restores Pan.
+       */
+      void setTool(std::unique_ptr<MapTool> tool);
 
     Q_SIGNALS:
       /*!
@@ -373,6 +426,18 @@ namespace HydroCouple::Composer
       void paintTransectLine(QPainter &painter) const;
 
       /*!
+       * \brief Draws the shape being drawn, if a tool is drawing one.
+       * \param painter Painter to draw with.
+       */
+      void paintSketch(QPainter &painter) const;
+
+      /*!
+       * \brief Draws the vertex handles, if an editor published any.
+       * \param painter Painter to draw with.
+       */
+      void paintVertexHandles(QPainter &painter) const;
+
+      /*!
        * \brief Brings the transform's viewport up to date with the widget.
        *
        * Called from every entry point that reads or moves the view rather
@@ -396,8 +461,20 @@ namespace HydroCouple::Composer
       std::unique_ptr<MapTool> m_tool;
       MapToolKind m_toolKind = MapToolKind::Pan;
 
+      //! Whether the installed tool is one setTool() supplied rather than
+      //! the one m_toolKind names. Without it, setToolKind() would see its
+      //! own stale kind, decide the right tool was already installed, and
+      //! leave a custom tool in place for good.
+      bool m_customTool = false;
+
       //! Where a section was cut, in the map's CRS; empty when none.
       QPolygonF m_transectLine;
+
+      //! The shape being drawn right now; cleared when the gesture ends.
+      QPolygonF m_sketch;
+      bool m_sketchClosed = false;
+      QVector<QPointF> m_vertexHandles;
+      int m_activeVertexHandle = -1;
 
       //! What scaleChanged() last reported, so a pan does not re-announce it.
       mutable double m_lastDenominator = 0.0;

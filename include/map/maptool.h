@@ -4,14 +4,14 @@
  * \brief  MapTool — what a press, drag and release do on the map.
  *
  * The canvas hard-coded its interactions: left drag panned, release picked,
- * wheel zoomed. Adding a fourth behaviour to that chain is where it stops
+ * wheel zoomed. Adding a fourth behavior to that chain is where it stops
  * scaling, so the gestures move out into small objects the canvas switches
  * between.
  *
  * Two tools, not the three the plan named. Pan already picks on a click that
  * did not move the view, so a separate Identify tool would duplicate it
  * exactly — and FeatureLayer holds one selection at a time, so there is no
- * box-select for it to offer instead. A mode that does nothing its neighbour
+ * box-select for it to offer instead. A mode that does nothing its neighbor
  * does not is a control that teaches the user nothing.
  *
  * Wheel zoom stays on the canvas: it works under every tool, and moving it
@@ -23,6 +23,8 @@
 
 #include <QCursor>
 #include <QPoint>
+
+#include "map/layerstackmodel.h"
 
 #include <memory>
 
@@ -178,6 +180,15 @@ namespace HydroCouple::Composer
        * \param pixel Where the click landed.
        */
       virtual void useClick(const QPoint &pixel) = 0;
+
+      /*!
+       * \brief What the modifiers asked for as the gesture ended.
+       *
+       * Recorded at release rather than at press: a user who starts a band
+       * and then reaches for Shift means to add, and asking at the end is
+       * what every GIS answers to.
+       */
+      SelectionMode m_selectionMode = SelectionMode::Replace;
 
     private:
       void endGesture();

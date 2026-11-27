@@ -277,7 +277,7 @@ TEST_F(TransectTest, AConcaveCellEnteredTwiceIsReportedTwice)
   // A C-shaped cell, opening to the right. A line through the opening leaves
   // it and comes back, which is two spans with a gap between them. Pairing
   // crossings up — first with second, third with fourth — would report one
-  // span straight through the notch and colour ground the cell does not
+  // span straight through the notch and color ground the cell does not
   // cover.
   const QPolygonF notched({QPointF(0.0, 0.0), QPointF(4.0, 0.0),
                            QPointF(4.0, 1.0), QPointF(1.0, 1.0),
@@ -311,7 +311,7 @@ TEST_F(TransectTest, AGapInTheMeshIsAGapInTheSection)
 {
   // Two cells with a unit hole between them. The section has to show the
   // hole where it is: a slicer that closed the gap would put the far cell a
-  // metre nearer than it is and mislabel every distance after it.
+  // meter nearer than it is and mislabel every distance after it.
   const QVector<QPolygonF> rings{square(0.0, 0.0), square(2.0, 0.0)};
 
   const QVector<TransectSpan> spans =
@@ -600,7 +600,7 @@ TEST_F(TransectTest, TheSectionIsRecutWhenTheValuesChange)
 
 TEST_F(TransectTest, ACellIsPaintedInTheColourTheMapGivesIt)
 {
-  // The gate is a pixel, because "the section is coloured by the layer's
+  // The gate is a pixel, because "the section is colored by the layer's
   // classification" is only observable where it is drawn — a section that
   // built the right cells and filled them from its own ramp would satisfy
   // every check made on the section itself.

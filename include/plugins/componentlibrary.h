@@ -94,6 +94,19 @@ namespace HydroCouple::Composer
        */
       [[nodiscard]] static QString librarySuffix();
 
+      /*!
+       * \brief Every extension a component plugin may carry here.
+       *
+       * More than one on macOS, and that is not pedantry: CMake gives a
+       * SHARED library ".dylib" but a MODULE library ".so", and a component
+       * plugin is a MODULE — so every shipped component is ".so" while a
+       * test fixture built as SHARED is ".dylib". A scan that knew only
+       * librarySuffix() found the fixtures and none of the real plugins.
+       *
+       * \returns Glob patterns, e.g. {"*.dylib", "*.so"}.
+       */
+      [[nodiscard]] static QStringList libraryFilters();
+
     private:
       ComponentLibrary(void *handle, QString filePath, QString abiStamp,
                        HydroCouple::IComponentInfo *info);

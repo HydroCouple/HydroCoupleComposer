@@ -29,7 +29,9 @@ namespace HydroCouple::Composer
       {
         ComponentIdRole = Qt::UserRole + 1,
         VersionRole,
-        LibraryRole
+        LibraryRole,
+        KindRole,    //!< ComponentRegistry::ComponentKind as int; -1 headers.
+        IsHeaderRole //!< true for a section-heading row.
       };
 
       /*!
@@ -54,10 +56,20 @@ namespace HydroCouple::Composer
         const QModelIndexList &indexes) const override;
 
     private:
+      /*!
+       * \brief One palette row: a section heading (info == nullptr) or a
+       *        loaded library's info.
+       */
+      struct Row
+      {
+          QString header;
+          HydroCouple::IComponentInfo *info = nullptr;
+      };
+
       void reload();
 
       ComponentRegistry *m_registry = nullptr;
-      std::vector<HydroCouple::IComponentInfo *> m_entries;
+      std::vector<Row> m_rows;
   };
 
 } // namespace HydroCouple::Composer

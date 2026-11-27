@@ -105,6 +105,26 @@ namespace HydroCouple::Composer
 
       [[nodiscard]] QStringList componentIds() const;
 
+      /*!
+       * \brief Replaces the orchestration block, undoably.
+       * \param workflow The workflow configuration to record.
+       */
+      bool setWorkflow(const HydroCouple::SDK::IO::WorkflowSpec &workflow);
+
+      /*!
+       * \brief Sets one component's execution mode, undoably.
+       *
+       * Mode "open" requires \a resultsManifest — the spec refuses an open
+       * block with nothing to open.
+       *
+       * \param componentId Component whose execution changes.
+       * \param mode run, open, or resume.
+       * \param resultsManifest Run manifest path for mode "open".
+       */
+      bool setComponentExecution(
+        const QString &componentId, HydroCouple::SDK::IO::ExecutionMode mode,
+        const QString &resultsManifest);
+
       [[nodiscard]] std::optional<ComponentSpec> component(
         const QString &componentId) const;
 
@@ -137,6 +157,51 @@ namespace HydroCouple::Composer
 
       bool removeConnection(const ConnectionSpec &connection);
 
+      // A connection's IDENTITY is its endpoints plus role — exactly what
+      // sameConnection() compares. The adaptation chain is content: the
+      // chain-editing calls below address a step as (identity, index).
+
+      /*!
+       * \brief Inserts one adaptation step into a connection's chain.
+       * \param connection Names the connection (endpoints + role).
+       * \param index Position in the chain, 0..size; the step before the
+       *        consumer is the chain's last.
+       * \param step The step to insert; its id must be non-empty (the spec
+       *        refuses id-less steps at parse time).
+       */
+      bool insertConnectionAdapter(
+        const ConnectionSpec &connection, int index,
+        const HydroCouple::SDK::IO::AdaptedOutputSpec &step);
+
+      /*!
+       * \brief Removes one adaptation step; later steps renumber down.
+       */
+      bool removeConnectionAdapter(const ConnectionSpec &connection,
+                                   int index);
+
+      /*!
+       * \brief Replaces one argument payload on a chain step.
+       */
+      bool setConnectionAdapterArgument(const ConnectionSpec &connection,
+                                        int index, const QString &argumentId,
+                                        const nlohmann::json &payload);
+
+      /*!
+       * \brief Changes a connection's provider role.
+       * \returns false when the connection is unknown, the role is
+       *          unchanged, or another connection already holds the
+       *          resulting identity.
+       */
+      bool setConnectionRole(const ConnectionSpec &connection,
+                             const QString &role);
+
+      /*!
+       * \brief Deletes one argument payload entirely (for example an \@from
+       *        binding), restoring the component's own default.
+       */
+      bool clearArgument(const QString &componentId,
+                         const QString &argumentId);
+
       /*!
        * \brief Replaces one argument payload on a component.
        * \param componentId Component owning the argument.
@@ -153,6 +218,15 @@ namespace HydroCouple::Composer
        */
       bool moveComponent(const QString &componentId, const QPointF &position);
 
+      /*!
+       * \brief Moves a spliced adapter node (presentation only).
+       * \param connection The connection whose chain holds the step.
+       * \param index Chain step; must exist in the connection's chain.
+       * \param position New canvas position.
+       */
+      bool moveConnectionAdapter(const ConnectionSpec &connection, int index,
+                                 const QPointF &position);
+
       // ── Command plumbing ────────────────────────────────────────────────
       //
       // Commands apply their effects through these; they are not the editing
@@ -164,6 +238,9 @@ namespace HydroCouple::Composer
                                    const ComponentPresentation &placement);
 
       void applyComponentRemovedFromPresentation(const QString &componentId);
+
+      void applyAdapterPlacement(const ConnectionSpec &connection, int index,
+                                 const QPointF &position);
 
     Q_SIGNALS:
       //! Emitted whenever the composition's content changes in any way.
@@ -177,6 +254,9 @@ namespace HydroCouple::Composer
 
       //! Emitted when a component's placement changes.
       void placementChanged(const QString &componentId);
+
+      //! Emitted when a spliced adapter node's placement changes.
+      void adapterPlacementChanged();
 
       void filePathChanged(const QString &filePath);
 

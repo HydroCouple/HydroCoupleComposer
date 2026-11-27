@@ -5,18 +5,18 @@
  *
  * The icons are openswmm.gui's, borrowed so the two applications read as one
  * family, and they carry that set's convention: a monochrome glyph drawn in a
- * mid-gray (#777777 and neighbours) on a 24×24 grid. A fixed gray is legible
+ * mid-gray (#777777 and neighbors) on a 24×24 grid. A fixed gray is legible
  * on exactly one theme, so this substitutes it with the current theme's glyph
- * colour **at render time**, per QIcon mode — normal, active, selected,
+ * color **at render time**, per QIcon mode — normal, active, selected,
  * disabled. The SVG files stay byte-identical to their openswmm.gui originals,
  * which is what lets a fix there be picked up here by copying a file.
  *
  * Pixmaps are cached per alias, scheme, mode, size and device pixel ratio. A
  * theme flip changes the cache key rather than invalidating anything, so a
- * repaint is all that is needed to pick up recoloured glyphs.
+ * repaint is all that is needed to pick up recolored glyphs.
  *
  * \note Qt's own QStyle::standardIcon is what this replaces. Those icons are
- *       full-colour platform artwork — a blue folder, a blue floppy disk —
+ *       full-color platform artwork — a blue folder, a blue floppy disk —
  *       which cannot be tinted and do not sit with a monochrome set.
  */
 

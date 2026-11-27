@@ -319,7 +319,7 @@ TEST_F(TimeControllerTest, AStaticLayerIsLeftAlone)
 //
 // A graduated style reclassifies on every restyle, and a data-item layer
 // restyles on every step. Left alone, that recomputes the class breaks from
-// whichever level is on screen: the same colour stands for a different number
+// whichever level is on screen: the same color stands for a different number
 // at every frame, and the legend beside the map is only correct for the frame
 // it was last computed on. The layer answers with every level it carries, so
 // the breaks are the run's, not the frame's.
@@ -473,7 +473,7 @@ TEST_F(TimeControllerTest, AStaticLayerIsThemedByWhatItHolds)
   // A static item has no levels to pool. Answering the classifier with the
   // pooled read anyway would hand it an empty set and leave the layer with
   // no classes at all — a layer that draws nothing rather than a layer with
-  // one colour.
+  // one color.
   Testing::StubGeometryItem still(
     "bathymetry",
     std::vector<HydroCouple::Spatial::IGeometry *>{

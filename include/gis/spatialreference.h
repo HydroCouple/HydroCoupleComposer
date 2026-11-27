@@ -45,7 +45,7 @@ namespace HydroCouple::Composer
       SpatialReference &operator=(const SpatialReference &) = delete;
 
       /*!
-       * \brief Builds a CRS from an authority code, e.g. EPSG:4326.
+       * \brief Builds a CRS from an authority code, for example EPSG:4326.
        * \param authName Authority name, typically "EPSG".
        * \param code Code within that authority.
        * \param[out] message Diagnostic on failure.
@@ -79,10 +79,25 @@ namespace HydroCouple::Composer
       [[nodiscard]] HydroCouple::IUnit::DistanceUnits distanceUnits()
         const override;
 
+      /*!
+       * \brief The vertical datum, when the CRS is a compound one.
+       *
+       * A compound CRS ("NAD83 + NAVD88 height", EPSG:5498 and the like)
+       * carries its vertical component, and that is what these answer. A
+       * horizontal-only CRS answers empty / 0 / Unknown: it declares no
+       * vertical datum, and a consumer comparing elevations across two such
+       * systems is told so rather than left to assume.
+       */
+      [[nodiscard]] const std::string &verticalAuthName() const override;
+      [[nodiscard]] int verticalAuthSRID() const override;
+      [[nodiscard]] const std::string &verticalSrText() const override;
+      [[nodiscard]] HydroCouple::IUnit::DistanceUnits verticalDistanceUnits()
+        const override;
+
       // ── Extras ───────────────────────────────────────────────────────────
 
       /*!
-       * \brief Human-readable name, e.g. "WGS 84 / Pseudo-Mercator".
+       * \brief Human-readable name, for example "WGS 84 / Pseudo-Mercator".
        */
       [[nodiscard]] QString description() const;
 
@@ -92,14 +107,14 @@ namespace HydroCouple::Composer
       [[nodiscard]] bool isGeographic() const;
 
       /*!
-       * \brief Whether coordinates are linear — metres, feet, and the like.
+       * \brief Whether coordinates are linear — meters, feet, and the like.
        */
       [[nodiscard]] bool isProjected() const;
 
       /*!
-       * \brief How many metres one of this system's linear units is.
+       * \brief How many meters one of this system's linear units is.
        *
-       * One for a metre-based system, 0.3048 for a foot-based one. Needed
+       * One for a meter-based system, 0.3048 for a foot-based one. Needed
        * wherever a length on the ground has to become a length in the world:
        * a scale computed without it reads the same 1:N over a survey-foot
        * state plane as over a metric one, and is wrong by 3.28 in the first.
@@ -129,6 +144,11 @@ namespace HydroCouple::Composer
       std::string m_authName;
       std::string m_srText;
       int m_authSRID = 0;
+      std::string m_verticalAuthName;
+      std::string m_verticalSrText;
+      int m_verticalAuthSRID = 0;
+      HydroCouple::IUnit::DistanceUnits m_verticalUnits =
+        HydroCouple::IUnit::DistanceUnits::Unknown;
   };
 
   /*!

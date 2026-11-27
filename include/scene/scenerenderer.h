@@ -28,6 +28,7 @@
 
 #include <QColor>
 #include <QObject>
+#include <QRect>
 #include <QString>
 
 #include <memory>
@@ -146,16 +147,27 @@ namespace HydroCouple::Composer
        * \brief Draws one frame into \a target.
        *
        * Begins and ends the render pass itself, because the depth buffer must
-       * be cleared with the colour and a caller that forgot would get a scene
+       * be cleared with the color and a caller that forgot would get a scene
        * whose first frame is correct and whose second is not.
        *
        * \param cb Command buffer of the frame in progress.
        * \param target Where to draw.
        * \param camera The view.
-       * \param background Colour to clear to.
+       * \param background Color to clear to.
        */
       void render(QRhiCommandBuffer *cb, QRhiRenderTarget *target,
                   const Camera &camera, const QColor &background);
+
+      /*!
+       * \brief Where to draw the orientation cue, in device pixels.
+       *
+       * An empty rectangle draws none, which is what a hidden cue and a
+       * view too small to hold one both come to. The rectangle is worked
+       * out by the view rather than here, because the view is the thing
+       * that has to hit-test clicks against it, and a corner computed in
+       * two places is a corner that will eventually be two corners.
+       */
+      void setAxisGizmoViewport(const QRect &deviceRect);
 
       /*!
        * \brief What the last render() call drew.
@@ -198,6 +210,13 @@ namespace HydroCouple::Composer
 
       void rebuildBatches();
 
+      //! Uploads the cue's geometry once, into \a updates. Returns false
+      //! if the device refused it, after which the cue is not drawn.
+      bool ensureAxisGizmo(QRhiResourceUpdateBatch *updates);
+
+      //! Draws the cue, if there is one and somewhere to put it.
+      void drawAxisGizmo(QRhiCommandBuffer *cb, const QSize &pixelSize);
+
       QRhi *m_rhi = nullptr;
       QRhiRenderPassDescriptor *m_descriptor = nullptr;
       int m_sampleCount = 1;
@@ -217,6 +236,28 @@ namespace HydroCouple::Composer
       //! changes, which is not necessarily inside a frame, and a resource
       //! update batch can only be submitted within one.
       std::vector<QRhiResourceUpdateBatch *> m_pendingUpdates;
+
+      /*!
+       * \brief The orientation cue's own resources.
+       *
+       * Built once and kept: the geometry never changes, because the
+       * camera moves around the cue rather than the cue moving. It
+       * borrows the triangle pipeline — same vertex layout, same binding
+       * layout — so it costs a buffer set and no pipeline at all.
+       */
+      struct Gizmo
+      {
+          std::unique_ptr<QRhiBuffer> vertexBuffer;
+          std::unique_ptr<QRhiBuffer> indexBuffer;
+          std::unique_ptr<QRhiBuffer> uniformBuffer;
+          std::unique_ptr<QRhiShaderResourceBindings> bindings;
+
+          quint32 indexCount = 0;
+          bool refused = false;
+      };
+
+      Gizmo m_gizmo;
+      QRect m_gizmoRect;
 
       LayerStackModel *m_model = nullptr;
       double m_ambient = 0.35;

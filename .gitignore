@@ -256,9 +256,11 @@ vcpkg_installed/
 CMakeUserPresets.json
 compile_commands.json
 
-# Local visual/verification artefacts (not committed)
+# Local visual/verification artifacts (not committed)
 artifacts/
 
 # Test fixtures the tests write themselves (inspectable, not committed)
 tests/fixtures/gis/generated-*
 tests/fixtures/results/
+tests/fixtures/preferences/*
+!tests/fixtures/preferences/README.md

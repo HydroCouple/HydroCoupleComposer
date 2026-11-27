@@ -45,7 +45,7 @@ namespace HydroCouple::Composer
       return 0;
     }
 
-    // At zoom z the world is 256·2^z pixels wide and 2·kWorldHalfSpan metres
+    // At zoom z the world is 256·2^z pixels wide and 2·kWorldHalfSpan meters
     // wide, so the scale that renders tiles at their native resolution is
     // 256·2^z / (2·kWorldHalfSpan). Solve for z.
     const double worldPixels = scale * kWorldHalfSpan * 2.0;

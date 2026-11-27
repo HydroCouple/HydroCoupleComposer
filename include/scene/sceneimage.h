@@ -34,7 +34,7 @@ namespace HydroCouple::Composer
    * \param renderer The scene to draw.
    * \param camera The view.
    * \param size Image size in pixels.
-   * \param background Colour to clear to.
+   * \param background Color to clear to.
    * \param[out] message Diagnostic on failure.
    * \returns The image, or a null image on failure.
    */

@@ -1,5 +1,6 @@
 #include "map/maptool.h"
 
+#include "core/preferencesmanager.h"
 #include "map/mapcanvas.h"
 
 #include <QMouseEvent>
@@ -14,11 +15,15 @@ namespace HydroCouple::Composer
     /*!
      * \brief How far the mouse may travel and still count as a click.
      *
-     * The same number the canvas used when pan and pick shared a button, and
-     * for the same reason: one gesture has to be told from the other by
-     * whether the view moved.
+     * A preference, read on every gesture rather than once, so a change in
+     * the dialog applies to the next press. One gesture has to be told from
+     * the other by whether the view moved; zero would make every pick a
+     * matter of holding perfectly still.
      */
-    constexpr int kClickSlopPixels = 3;
+    int clickSlopPixels()
+    {
+      return PreferencesManager::instance()->dragThresholdPixels();
+    }
 
     //! What a click zooms by, when a zoom drag turns out to be a click.
     constexpr double kClickZoomFactor = 2.0;
@@ -81,10 +86,13 @@ namespace HydroCouple::Composer
     // start on a feature from selecting it.
     const QPoint travelled = event->pos() - m_pressPosition;
 
-    if (std::abs(travelled.x()) <= kClickSlopPixels &&
-        std::abs(travelled.y()) <= kClickSlopPixels)
+    if (std::abs(travelled.x()) <= clickSlopPixels() &&
+        std::abs(travelled.y()) <= clickSlopPixels())
     {
-      m_canvas->pickAndSelectAt(event->pos());
+      // Shift adds and ⌘/Ctrl toggles, as every GIS does; the rule lives
+      // with the stack so the map and the 3D view cannot disagree on it.
+      m_canvas->pickAndSelectAt(event->pos(),
+                                selectionModeFor(event->modifiers()));
     }
 
     return true;
@@ -147,14 +155,17 @@ namespace HydroCouple::Composer
 
     const QRect rectangle = QRect(m_origin, event->pos()).normalized();
 
+    // Asked once, here, so the click and the rectangle paths agree.
+    m_selectionMode = selectionModeFor(event->modifiers());
+
     endGesture();
 
     // Width and height explicitly, not isNull() or isEmpty(): a zero-area
     // QRect reports itself null, so the obvious guard would also throw away
     // a legitimate one-pixel drag — and C4a already paid for that lesson
     // with QRectF and a point layer's bounds.
-    if (rectangle.width() > kClickSlopPixels &&
-        rectangle.height() > kClickSlopPixels)
+    if (rectangle.width() > clickSlopPixels() &&
+        rectangle.height() > clickSlopPixels())
     {
       useRectangle(rectangle);
     }
@@ -180,12 +191,12 @@ namespace HydroCouple::Composer
 
   void SelectTool::useRectangle(const QRect &rectangle)
   {
-    m_canvas->selectIn(rectangle);
+    m_canvas->selectIn(rectangle, m_selectionMode);
   }
 
   void SelectTool::useClick(const QPoint &pixel)
   {
-    m_canvas->pickAndSelectAt(pixel);
+    m_canvas->pickAndSelectAt(pixel, m_selectionMode);
   }
 
   QCursor SelectTool::idleCursor() const
@@ -275,8 +286,8 @@ namespace HydroCouple::Composer
     // Width and height separately, as the band tools check theirs: a section
     // drawn straight down a column is a vertical line, which has no width at
     // all and is exactly the drag someone cutting across a channel makes.
-    if (std::abs(travelled.x()) <= kClickSlopPixels
-        && std::abs(travelled.y()) <= kClickSlopPixels)
+    if (std::abs(travelled.x()) <= clickSlopPixels()
+        && std::abs(travelled.y()) <= clickSlopPixels())
     {
       // A click, not a line. The previous section is cleared rather than
       // left standing, the way clicking empty map clears a selection.

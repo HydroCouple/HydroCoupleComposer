@@ -22,6 +22,7 @@
 #include <QDir>
 #include <QGraphicsSceneMouseEvent>
 #include <QMimeData>
+#include <QSignalSpy>
 #include <QUndoStack>
 
 using namespace HydroCouple::Composer;
@@ -141,6 +142,7 @@ TEST_F(CanvasTest, BuildsCompositionByInteractionMatchingHandWrittenDocument)
   QString message;
 
   const QByteArray handWritten = R"({
+  "schema_version": "1.1",
   "components": [
     { "id": "upstream", "info": { "component_info_id": "composer.test.component" } },
     { "id": "downstream", "info": { "component_info_id": "composer.test.component" } }
@@ -308,4 +310,698 @@ TEST_F(CanvasTest, PaletteListsRegistryComponentsAndCarriesTheDropPayload)
   ASSERT_NE(mime, nullptr);
   EXPECT_EQ(QString::fromUtf8(mime->data(QLatin1String(kComponentMimeType))),
             QStringLiteral("composer.test.component"));
+}
+
+// ── @from binding edges ───────────────────────────────────────────────────
+
+namespace
+{
+  //! A provider + consumer whose "rating" argument is bound to the
+  //! provider's "values" output.
+  void loadBoundPair(CompositionDocument &document)
+  {
+    QString message;
+    const QByteArray text = R"({
+      "schema_version": "1.1",
+      "components": [
+        { "id": "prov",
+          "info": { "component_info_id": "composer.test.component" } },
+        { "id": "consumer",
+          "info": { "component_info_id": "composer.test.component" },
+          "arguments": { "rating": { "@from": {
+              "component": "prov", "output": "values" } } } }
+      ]
+    })";
+    ASSERT_TRUE(document.loadFromJson(text, message))
+      << message.toStdString();
+  }
+}
+
+TEST_F(CanvasTest, ABindingIsDrawnAsItsOwnKindOfEdge)
+{
+  loadBoundPair(document);
+
+  // One binding edge, and no exchange edge pretending to be one.
+  ASSERT_EQ(scene->bindingEdges().size(), 1);
+  EXPECT_EQ(scene->edges().size(), 0);
+
+  const BindingEdgeItem *edge = scene->bindingEdges().first();
+  EXPECT_EQ(edge->binding().provider, "prov");
+  EXPECT_EQ(edge->binding().component, "consumer");
+  EXPECT_EQ(edge->binding().argument, "rating");
+  EXPECT_NE(BindingEdgeItem::Type, ConnectionEdgeItem::Type);
+}
+
+TEST_F(CanvasTest, ABindingEdgeFollowsItsNodes)
+{
+  loadBoundPair(document);
+  ASSERT_EQ(scene->bindingEdges().size(), 1);
+  BindingEdgeItem *edge = scene->bindingEdges().first();
+
+  const QRectF before = edge->boundingRect();
+  document.moveComponent(QStringLiteral("prov"), QPointF(400.0, 250.0));
+  const QRectF after = edge->boundingRect();
+
+  EXPECT_NE(before, after) << "the edge did not follow the moved provider";
+}
+
+// ── Adapter factories in the palette and on the canvas (CONNECT B2) ─────────
+
+#include <QSignalSpy>
+
+TEST_F(CanvasTest, PaletteListsAdapterFactoriesUnderTheirOwnHeading)
+{
+  QString message;
+  ASSERT_NE(registry.loadLibrary(
+              fixturePath(QStringLiteral("testadapterfactory")), message),
+            nullptr)
+    << message.toStdString();
+
+  ComponentPaletteModel palette(&registry);
+
+  // Two sections: heading, model, heading, factory.
+  ASSERT_EQ(palette.rowCount(), 4);
+  EXPECT_TRUE(palette.data(palette.index(0, 0),
+                           ComponentPaletteModel::IsHeaderRole).toBool());
+  EXPECT_EQ(palette.data(palette.index(0, 0), Qt::DisplayRole).toString(),
+            QStringLiteral("Model components"));
+  EXPECT_EQ(palette.data(palette.index(1, 0),
+                         ComponentPaletteModel::ComponentIdRole).toString(),
+            QStringLiteral("composer.test.component"));
+  EXPECT_TRUE(palette.data(palette.index(2, 0),
+                           ComponentPaletteModel::IsHeaderRole).toBool());
+  EXPECT_EQ(palette.data(palette.index(2, 0), Qt::DisplayRole).toString(),
+            QStringLiteral("Adapter factories"));
+  EXPECT_EQ(palette.data(palette.index(3, 0),
+                         ComponentPaletteModel::ComponentIdRole).toString(),
+            QStringLiteral("composer.test.adapterfactory"));
+
+  // Headings are inert.
+  EXPECT_EQ(palette.flags(palette.index(0, 0)), Qt::NoItemFlags);
+
+  // A single-kind registry keeps the flat list it always had.
+  ComponentRegistry plainRegistry;
+  ASSERT_NE(plainRegistry.loadLibrary(
+              fixturePath(QStringLiteral("testcomponent")), message),
+            nullptr);
+  ComponentPaletteModel flat(&plainRegistry);
+  ASSERT_EQ(flat.rowCount(), 1);
+  EXPECT_FALSE(flat.data(flat.index(0, 0),
+                         ComponentPaletteModel::IsHeaderRole).toBool());
+}
+
+TEST_F(CanvasTest, AdapterFactoryRowsAreNotDraggable)
+{
+  QString message;
+  ASSERT_NE(registry.loadLibrary(
+              fixturePath(QStringLiteral("testadapterfactory")), message),
+            nullptr)
+    << message.toStdString();
+
+  ComponentPaletteModel palette(&registry);
+  ASSERT_EQ(palette.rowCount(), 4);
+
+  const QModelIndex factoryRow = palette.index(3, 0);
+  EXPECT_FALSE(palette.flags(factoryRow) & Qt::ItemIsDragEnabled);
+  EXPECT_EQ(palette.mimeData({factoryRow}), nullptr)
+    << "a factory row handed out a drop payload anyway";
+
+  const QModelIndex modelRow = palette.index(1, 0);
+  EXPECT_TRUE(palette.flags(modelRow) & Qt::ItemIsDragEnabled);
+  std::unique_ptr<QMimeData> mime(palette.mimeData({modelRow}));
+  ASSERT_NE(mime, nullptr);
+  EXPECT_EQ(QString::fromUtf8(mime->data(QLatin1String(kComponentMimeType))),
+            QStringLiteral("composer.test.component"));
+}
+
+TEST_F(CanvasTest, DroppingAFactoryOnTheCanvasLeavesTheDocumentUntouched)
+{
+  QString message;
+  ASSERT_NE(registry.loadLibrary(
+              fixturePath(QStringLiteral("testadapterfactory")), message),
+            nullptr)
+    << message.toStdString();
+
+  QSignalSpy refused(scene.get(), &CompositionScene::componentRefused);
+
+  EXPECT_TRUE(scene->addComponentAt(
+                QStringLiteral("composer.test.adapterfactory"),
+                QStringLiteral("factory"), QPointF(0, 0)).isEmpty());
+  EXPECT_TRUE(document.componentIds().isEmpty());
+  ASSERT_EQ(refused.count(), 1);
+  EXPECT_TRUE(refused.first().first().toString().contains(
+                QStringLiteral("attach to connections")))
+    << refused.first().first().toString().toStdString();
+
+  // A model component from the same registry still goes in.
+  EXPECT_FALSE(scene->addComponentAt(
+                 QStringLiteral("composer.test.component"),
+                 QStringLiteral("solver"), QPointF(0, 0)).isEmpty());
+  EXPECT_EQ(document.componentIds().size(), 1);
+}
+
+// ── Spliced adapter nodes (CONNECT C3) ──────────────────────────────────────
+
+namespace
+{
+  //! A provider→consumer document whose connection carries a two-step chain.
+  void loadAdaptedPair(CompositionDocument &document)
+  {
+    QString message;
+    const QByteArray text = R"({
+      "schema_version": "1.1",
+      "components": [
+        { "id": "prov",
+          "info": { "component_info_id": "composer.test.component" } },
+        { "id": "consumer",
+          "info": { "component_info_id": "composer.test.component" } }
+      ],
+      "connections": [
+        { "from": { "component": "prov", "output": "values",
+                    "adapted_outputs": [
+                      { "id": "scale" },
+                      { "id": "shift" } ] },
+          "to": { "component": "consumer", "input": "inflow" } }
+      ]
+    })";
+    ASSERT_TRUE(document.loadFromJson(text, message)) << message.toStdString();
+  }
+}
+
+TEST_F(CanvasTest, AnAdaptedConnectionGrowsASplicedAdapterNodePerChainStep)
+{
+  ASSERT_NO_FATAL_FAILURE(loadAdaptedPair(document));
+
+  const QList<AdapterNodeItem *> adapters = scene->adapterNodes();
+  ASSERT_EQ(adapters.size(), 2);
+  EXPECT_EQ(adapters[0]->step().id, "scale");
+  EXPECT_EQ(adapters[0]->stepIndex(), 0);
+  EXPECT_EQ(adapters[1]->step().id, "shift");
+  EXPECT_EQ(adapters[1]->stepIndex(), 1);
+
+  // Still ONE edge: the connection keeps a single selectable identity.
+  EXPECT_EQ(scene->edges().size(), 1);
+
+  // Unplaced steps sit spread along the edge, not stacked on one point.
+  EXPECT_NE(adapters[0]->pos(), adapters[1]->pos());
+}
+
+TEST_F(CanvasTest, TheEdgeRoutesThroughItsAdapterNodesInChainOrder)
+{
+  ASSERT_NO_FATAL_FAILURE(loadAdaptedPair(document));
+
+  const QList<AdapterNodeItem *> adapters = scene->adapterNodes();
+  ASSERT_EQ(adapters.size(), 2);
+  ConnectionEdgeItem *edge = scene->edges().first();
+
+  // The stroked shape passes through every adapter's anchors — the legs
+  // really do route through the spliced nodes.
+  for (AdapterNodeItem *adapter : adapters)
+  {
+    EXPECT_TRUE(edge->shape().contains(edge->mapFromScene(adapter->anchorIn())))
+      << "the edge does not reach " << adapter->step().id << "'s inlet";
+    EXPECT_TRUE(edge->shape().contains(edge->mapFromScene(adapter->anchorOut())))
+      << "the edge does not leave " << adapter->step().id << "'s outlet";
+  }
+
+  // And it follows a node that moves.
+  adapters[0]->setPos(adapters[0]->pos() + QPointF(0.0, 140.0));
+  edge->refresh();
+  EXPECT_TRUE(edge->shape().contains(edge->mapFromScene(adapters[0]->anchorIn())))
+    << "the edge did not follow the moved adapter";
+}
+
+TEST_F(CanvasTest, DraggingAnAdapterNodePersistsItsPositionInTheSidecar)
+{
+  ASSERT_NO_FATAL_FAILURE(loadAdaptedPair(document));
+
+  const QList<AdapterNodeItem *> adapters = scene->adapterNodes();
+  ASSERT_EQ(adapters.size(), 2);
+  AdapterNodeItem *adapter = adapters[1];
+  const ConnectionSpec identity = adapter->connection();
+  const QPointF target = adapter->pos() + QPointF(60.0, 90.0);
+
+  adapter->setSelected(true);
+  dragOnScene(scene.get(), adapter->pos(), target);
+
+  const QList<QPointF> saved =
+    document.presentation().adapterChain(identity);
+  ASSERT_GT(saved.size(), 1);
+  EXPECT_EQ(saved[1], target) << "the drag did not reach the sidecar";
+
+  // Through the document means undoable.
+  document.undoStack()->undo();
+  EXPECT_NE(document.presentation().adapterChain(identity).value(1), target);
+
+  // And a selected adapter survives a rebuild BY IDENTITY — in-place chain
+  // edits rebuild the scene mid-interaction, and a selection held by item
+  // pointer would be gone.
+  adapter = scene->adapterNodes()[1];
+  adapter->setSelected(true);
+  scene->rebuild();
+  bool reselected = false;
+  for (AdapterNodeItem *rebuilt : scene->adapterNodes())
+  {
+    if (rebuilt->stepIndex() == 1 && rebuilt->isSelected())
+    {
+      reselected = true;
+    }
+  }
+  EXPECT_TRUE(reselected) << "selection did not survive the rebuild";
+}
+
+// ── Adapter insertion through the menu seams (CONNECT C4) ───────────────────
+
+namespace
+{
+  //! A resolvable provider→consumer pair joined values→inflow.
+  void loadConnectedPair(CompositionDocument &document)
+  {
+    QString message;
+    const QByteArray text = R"({
+      "components": [
+        { "id": "prov",
+          "info": { "component_info_id": "composer.test.component" } },
+        { "id": "consumer",
+          "info": { "component_info_id": "composer.test.component" } }
+      ],
+      "connections": [
+        { "from": { "component": "prov", "output": "values" },
+          "to": { "component": "consumer", "input": "inflow" } }
+      ]
+    })";
+    ASSERT_TRUE(document.loadFromJson(text, message)) << message.toStdString();
+  }
+
+  ConnectionSpec pairIdentity()
+  {
+    ConnectionSpec identity;
+    identity.fromComponent = "prov";
+    identity.output = "values";
+    identity.toComponent = "consumer";
+    identity.input = "inflow";
+    return identity;
+  }
+}
+
+TEST_F(CanvasTest, TheInsertMenuOffersOnlyAdaptersTheFactoriesReportAvailable)
+{
+  QString message;
+  ASSERT_NE(registry.loadLibrary(
+              fixturePath(QStringLiteral("testadapterfactory")), message),
+            nullptr)
+    << message.toStdString();
+  ASSERT_NO_FATAL_FAILURE(loadConnectedPair(document));
+
+  const QList<CompositionScene::AdapterOffering> offerings =
+    scene->adapterOfferings(pairIdentity());
+
+  QStringList ids;
+  for (const CompositionScene::AdapterOffering &offering : offerings)
+  {
+    ids.append(offering.factoryId + QStringLiteral("/") + offering.adapterId);
+  }
+
+  // The SDK's factory rides along for every session; the standalone plugin
+  // adds its own; and what a factory does NOT offer for this output — the
+  // temporal adapter wants a time series, 'values' is a plain slab — never
+  // shows up.
+  EXPECT_TRUE(ids.contains(
+    QStringLiteral("hydrocouple.sdk.adapters/linear_transform")))
+    << ids.join(QStringLiteral(", ")).toStdString();
+  EXPECT_TRUE(ids.contains(QStringLiteral("hydrocouple.sdk.adapters/relaxation")));
+  EXPECT_TRUE(ids.contains(
+    QStringLiteral("composer.test.adapterfactory/double_it")));
+  EXPECT_FALSE(ids.join(QStringLiteral(",")).contains(
+    QStringLiteral("temporal_interpolation")))
+    << "an adapter the factory does not offer for this output was listed";
+}
+
+TEST_F(CanvasTest, InsertingAnAdapterThroughTheMenuMatchesTheHandWrittenDocument)
+{
+  ASSERT_NO_FATAL_FAILURE(loadConnectedPair(document));
+
+  ASSERT_TRUE(scene->insertAdapter(pairIdentity(), 0,
+                                   QStringLiteral("hydrocouple.sdk.adapters"),
+                                   QStringLiteral("linear_transform")));
+
+  const auto &chain = document.spec().connections[0].adaptedOutputs;
+  ASSERT_EQ(chain.size(), 1u);
+  EXPECT_EQ(chain[0].id, "linear_transform");
+  EXPECT_EQ(chain[0].factory, "hydrocouple.sdk.adapters");
+
+  // The scratch instance captured the argument keys and their defaults, so
+  // the inspector has editable payloads from the very first save.
+  ASSERT_TRUE(chain[0].arguments.contains("multiplier"))
+    << chain[0].arguments.dump();
+  EXPECT_EQ(chain[0].arguments["multiplier"]["values"][0].get<double>(), 1.0);
+  ASSERT_TRUE(chain[0].arguments.contains("offset"));
+  EXPECT_EQ(chain[0].arguments["offset"]["values"][0].get<double>(), 0.0);
+
+  // And the scratch is GONE: the live output's non-owning registry holds
+  // nothing, or the next refresh would chase a destroyed adapter.
+  HydroCouple::IModelComponent *prov =
+    instances->instance(QStringLiteral("prov"));
+  ASSERT_NE(prov, nullptr);
+  for (HydroCouple::IOutput *output : prov->outputs())
+  {
+    if (output && output->id() == "values")
+    {
+      EXPECT_TRUE(output->adaptedOutputs().empty())
+        << "the scratch adapted output was left registered";
+    }
+  }
+
+  // The canvas grew the spliced node.
+  ASSERT_EQ(scene->adapterNodes().size(), 1);
+  EXPECT_EQ(scene->adapterNodes().first()->step().id, "linear_transform");
+}
+
+TEST_F(CanvasTest, RemovingAnAdapterNodeShortensTheChainByOne)
+{
+  ASSERT_NO_FATAL_FAILURE(loadAdaptedPair(document));
+  ASSERT_EQ(scene->adapterNodes().size(), 2);
+
+  // What the node's Remove adapter action performs.
+  const AdapterNodeItem *first = scene->adapterNodes().first();
+  ASSERT_TRUE(document.removeConnectionAdapter(first->connection(),
+                                               first->stepIndex()));
+
+  ASSERT_EQ(scene->adapterNodes().size(), 1);
+  EXPECT_EQ(scene->adapterNodes().first()->step().id, "shift");
+  EXPECT_EQ(scene->adapterNodes().first()->stepIndex(), 0)
+    << "the surviving step did not renumber";
+}
+
+// ── Binding-edge deletion, snap radius, mixed selections (CONNECT C6) ───────
+
+namespace
+{
+  //! Two resolvable components, deliberately unconnected.
+  void loadUnconnectedPair(CompositionDocument &document)
+  {
+    QString message;
+    const QByteArray text = R"({
+      "components": [
+        { "id": "prov",
+          "info": { "component_info_id": "composer.test.component" } },
+        { "id": "consumer",
+          "info": { "component_info_id": "composer.test.component" } }
+      ]
+    })";
+    ASSERT_TRUE(document.loadFromJson(text, message)) << message.toStdString();
+  }
+}
+
+TEST_F(CanvasTest, ABindingEdgeCanBeSelectedAndDeletedRemovingTheBinding)
+{
+  ASSERT_NO_FATAL_FAILURE(loadBoundPair(document));
+  ASSERT_EQ(scene->bindingEdges().size(), 1);
+
+  BindingEdgeItem *edge = scene->bindingEdges().first();
+  EXPECT_TRUE(edge->flags() & QGraphicsItem::ItemIsSelectable)
+    << "a binding edge that cannot be selected cannot be deleted";
+
+  edge->setSelected(true);
+  EXPECT_EQ(scene->removeSelection(), 1);
+
+  // The @from payload is gone from the document, undoably, and the canvas
+  // followed.
+  EXPECT_FALSE(document.spec().component("consumer")
+                 ->arguments.contains("rating"));
+  EXPECT_TRUE(scene->bindingEdges().isEmpty());
+
+  document.undoStack()->undo();
+  EXPECT_TRUE(document.spec().component("consumer")
+                ->arguments.contains("rating"));
+  EXPECT_EQ(scene->bindingEdges().size(), 1);
+}
+
+TEST_F(CanvasTest, AReleaseNearAPortStillCompletesTheConnection)
+{
+  ASSERT_NO_FATAL_FAILURE(loadUnconnectedPair(document));
+
+  ComponentNodeItem *prov = scene->node(QStringLiteral("prov"));
+  ComponentNodeItem *consumer = scene->node(QStringLiteral("consumer"));
+  ASSERT_NE(prov, nullptr);
+  ASSERT_NE(consumer, nullptr);
+  consumer->setPos(QPointF(320.0, 0.0));
+
+  PortItem *output = prov->port(QStringLiteral("values"),
+                                PortItem::Direction::Output);
+  PortItem *input = consumer->port(QStringLiteral("inflow"),
+                                   PortItem::Direction::Input);
+  ASSERT_NE(output, nullptr);
+  ASSERT_NE(input, nullptr);
+
+  // Released 8 px off the 5 px dot: inside the snap radius, and exactly
+  // the kind of miss a hand makes.
+  dragOnScene(scene.get(), output->anchor(),
+              input->anchor() + QPointF(8.0, 5.0));
+
+  ASSERT_EQ(document.spec().connections.size(), 1u)
+    << "a near-miss release dropped the connection";
+  EXPECT_EQ(document.spec().connections[0].input, "inflow");
+
+  // A release far from any port still connects nothing.
+  document.undoStack()->undo();
+  ASSERT_TRUE(document.spec().connections.empty());
+  dragOnScene(scene.get(),
+              scene->node(QStringLiteral("prov"))
+                ->port(QStringLiteral("values"), PortItem::Direction::Output)
+                ->anchor(),
+              QPointF(150.0, 300.0));
+  EXPECT_TRUE(document.spec().connections.empty());
+}
+
+TEST_F(CanvasTest, DeletingASelectionCountsAdaptersConnectionsAndChainsOnce)
+{
+  ASSERT_NO_FATAL_FAILURE(loadAdaptedPair(document));
+  ASSERT_EQ(scene->adapterNodes().size(), 2);
+
+  // Both adapter steps selected, connection not: two removals, chain empty,
+  // connection intact — and the descending order means the first removal
+  // never renumbered the second out from under us.
+  for (AdapterNodeItem *adapter : scene->adapterNodes())
+  {
+    adapter->setSelected(true);
+  }
+  EXPECT_EQ(scene->removeSelection(), 2);
+  EXPECT_TRUE(document.spec().connections[0].adaptedOutputs.empty());
+  ASSERT_EQ(document.spec().connections.size(), 1u);
+
+  document.undoStack()->undo();
+  document.undoStack()->undo();
+  ASSERT_EQ(scene->adapterNodes().size(), 2);
+
+  // Adapters AND their connection selected: the connection removal takes
+  // the chain, and the steps are not double-counted.
+  for (AdapterNodeItem *adapter : scene->adapterNodes())
+  {
+    adapter->setSelected(true);
+  }
+  scene->edges().first()->setSelected(true);
+  EXPECT_EQ(scene->removeSelection(), 1);
+  EXPECT_TRUE(document.spec().connections.empty());
+}
+
+// ── Edit-time instances describe the DOCUMENT's component ─────────────────
+
+namespace
+{
+  //! Reads one argument off the live instance behind a document component.
+  QString liveArgument(ComponentInstances &instances, const QString &componentId,
+                       const QString &argumentId)
+  {
+    HydroCouple::IModelComponent *component = instances.instance(componentId);
+    EXPECT_NE(component, nullptr);
+
+    if (!component)
+    {
+      return {};
+    }
+
+    for (HydroCouple::IArgument *argument : component->arguments())
+    {
+      if (argument && QString::fromStdString(argument->id()) == argumentId)
+      {
+        std::string payload;
+        std::string message;
+        EXPECT_TRUE(argument->serialize(
+          HydroCouple::IArgument::ArgumentInputType::JSON, payload, message))
+          << message;
+
+        return QString::fromStdString(payload);
+      }
+    }
+
+    return {};
+  }
+}
+
+TEST_F(CanvasTest, TheDocumentsArgumentsReachTheLiveComponent)
+{
+  // What a component's PORTS are depends on its arguments — a provider
+  // publishes one output per series in its source file — so an instance
+  // realized without them describes a default component rather than the one
+  // the document asks for.
+  const QByteArray configured = R"({
+    "schema_version": "1.1",
+    "components": [
+      { "id": "unit",
+        "info": { "component_info_id": "composer.test.component" },
+        "arguments": { "iterations": { "values": [7] } } }
+    ]
+  })";
+
+  QString message;
+  ASSERT_TRUE(document.loadFromJson(configured, message))
+    << message.toStdString();
+
+  EXPECT_TRUE(liveArgument(*instances, QStringLiteral("unit"),
+                           QStringLiteral("iterations"))
+                .contains(QStringLiteral("7")))
+    << "the document's argument never reached the component";
+}
+
+TEST_F(CanvasTest, ChangingAnArgumentRealisesTheComponentAgain)
+{
+  const QByteArray configured = R"({
+    "schema_version": "1.1",
+    "components": [
+      { "id": "unit",
+        "info": { "component_info_id": "composer.test.component" },
+        "arguments": { "iterations": { "values": [7] } } }
+    ]
+  })";
+
+  QString message;
+  ASSERT_TRUE(document.loadFromJson(configured, message))
+    << message.toStdString();
+  ASSERT_TRUE(liveArgument(*instances, QStringLiteral("unit"),
+                           QStringLiteral("iterations"))
+                .contains(QStringLiteral("7")));
+
+  // Configuring a component is how its ports come to exist; an instance
+  // cached from the old arguments would keep describing the old component
+  // for the rest of the session.
+  ASSERT_TRUE(document.setArgument(QStringLiteral("unit"),
+                                   QStringLiteral("iterations"),
+                                   nlohmann::json{{"values", {9}}}));
+
+  EXPECT_TRUE(liveArgument(*instances, QStringLiteral("unit"),
+                           QStringLiteral("iterations"))
+                .contains(QStringLiteral("9")))
+    << "the instance was not realised again after its arguments changed";
+
+  // An edit that leaves this component's block alone must NOT churn it:
+  // adding an unrelated component changes the document, not this box.
+  // Observed through the signal rather than the pointer, because a freed
+  // instance is routinely re-allocated at the same address.
+  QSignalSpy realised(instances.get(), &ComponentInstances::instanceChanged);
+
+  HydroCouple::SDK::IO::ComponentSpec other;
+  other.id = "second";
+  other.info.componentInfoId = "composer.test.component";
+  ASSERT_TRUE(document.addComponent(other, {}));
+
+  for (const QList<QVariant> &event : realised)
+  {
+    EXPECT_NE(event.at(0).toString(), QStringLiteral("unit"))
+      << "an unrelated edit rebuilt a component that had not changed";
+  }
+}
+
+TEST_F(CanvasTest, ABoundArgumentIsNotResolvedWhileEditing)
+{
+  // Q9: opening a composition never executes anything. Resolving an @from
+  // means running its provider to completion, so at edit time the binding
+  // is left alone and the component keeps its own default.
+  const QByteArray bound = R"({
+    "schema_version": "1.1",
+    "components": [
+      { "id": "prov",
+        "info": { "component_info_id": "composer.test.component" } },
+      { "id": "unit",
+        "info": { "component_info_id": "composer.test.component" },
+        "arguments": {
+          "label": { "@from": { "component": "prov", "output": "values" } } } }
+    ]
+  })";
+
+  QString message;
+  ASSERT_TRUE(document.loadFromJson(bound, message)) << message.toStdString();
+
+  const QString payload =
+    liveArgument(*instances, QStringLiteral("unit"), QStringLiteral("label"));
+
+  EXPECT_FALSE(payload.contains(QStringLiteral("@from")))
+    << "the binding reference was fed to the component as a value";
+  EXPECT_FALSE(payload.isEmpty())
+    << "the component lost its own default to an unresolved binding";
+}
+
+TEST_F(CanvasTest, ANodeIsWideEnoughToReadItsPortNames)
+{
+  // A port whose name is clipped is the one thing a user has to be sure of
+  // before dragging a connection to it, so the box grows to fit.
+  const QList<ExchangeItemDescriptor> none;
+  const QList<ExchangeItemDescriptor> shortNames{{QStringLiteral("in"),
+                                                  QStringLiteral("In"), false}};
+  const QList<ExchangeItemDescriptor> longNames{
+    {QStringLiteral("air_temperature_at_two_metres"),
+     QStringLiteral("Air temperature"), false}};
+
+  ComponentNodeItem narrow(QStringLiteral("a"), QStringLiteral("a"),
+                           shortNames, none);
+  ComponentNodeItem wide(QStringLiteral("b"), QStringLiteral("b"), longNames,
+                         none);
+
+  EXPECT_GT(wide.boundingRect().width(), narrow.boundingRect().width())
+    << "a long port name did not widen its component";
+
+  // Clamped, or one component with a very long item id would push every
+  // other box off the canvas.
+  const QList<ExchangeItemDescriptor> absurd{
+    {QString(400, QLatin1Char('x')), QStringLiteral("Absurd"), false}};
+  ComponentNodeItem clamped(QStringLiteral("c"), QStringLiteral("c"), absurd,
+                            none);
+
+  EXPECT_LE(clamped.boundingRect().width(), 280.0)
+    << "the width is not clamped";
+}
+
+TEST_F(CanvasTest, AutoLayoutIsOneUndoStepAndOrdersProvidersFirst)
+{
+  const QString sink = scene->addComponentAt(
+    QStringLiteral("composer.test.component"), QStringLiteral("sink"),
+    QPointF(0.0, 0.0));
+  const QString source = scene->addComponentAt(
+    QStringLiteral("composer.test.component"), QStringLiteral("source"),
+    QPointF(0.0, 300.0));
+
+  ConnectionSpec connection;
+  connection.fromComponent = source.toStdString();
+  connection.output = "values";
+  connection.toComponent = sink.toStdString();
+  connection.input = "inflow";
+  ASSERT_TRUE(document.addConnection(connection));
+
+  const QPointF sinkBefore = document.presentation().component(sink).position;
+  const int undoBefore = document.undoStack()->count();
+
+  EXPECT_EQ(scene->applyAutoLayout(), 2);
+
+  // The provider ends up left of what it feeds, whatever they were dropped
+  // at — the arrangement comes from the connections.
+  EXPECT_LT(document.presentation().component(source).position.x(),
+            document.presentation().component(sink).position.x());
+
+  // One entry for the whole arrangement: a layout the user does not like is
+  // a single Ctrl+Z, not one per component.
+  EXPECT_EQ(document.undoStack()->count(), undoBefore + 1);
+
+  document.undoStack()->undo();
+  EXPECT_EQ(document.presentation().component(sink).position, sinkBefore)
+    << "undoing the layout did not put the components back";
 }

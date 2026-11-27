@@ -316,26 +316,16 @@ namespace HydroCouple::Composer
     if (const auto *network =
           dynamic_cast<const Spatial::INetworkComponentDataItem *>(m_item))
     {
-      return axisOf(*m_item,
-                    network->networkDataObjectType()
-                        == Spatial::NetworkDataObjectType::Edge
-                      ? network->edgeDimension()
-                      : network->vertexDimension());
+      return axisOf(*m_item, network->entityDimension());
     }
 
     if (const auto *surface =
           dynamic_cast<const Spatial::IPolyhedralSurfaceComponentDataItem *>(
             m_item))
     {
-      switch (surface->meshDataObjectType())
-      {
-        case Spatial::MeshDataObjectType::Vertex:
-          return axisOf(*m_item, surface->vertexDimension());
-        case Spatial::MeshDataObjectType::Edge:
-          return axisOf(*m_item, surface->edgeDimension());
-        default:
-          return axisOf(*m_item, surface->patchDimension());
-      }
+      // One entity dimension whatever the values are attached to; which
+      // entity that is comes from location(), not from which accessor answers.
+      return axisOf(*m_item, surface->entityDimension());
     }
 
     return -1;
@@ -391,8 +381,7 @@ namespace HydroCouple::Composer
       // whichever they describe — colouring edges by node values would put
       // each value on the wrong thing.
       const bool onEdges =
-        network->networkDataObjectType()
-        == Spatial::NetworkDataObjectType::Edge;
+        network->location() == Spatial::MeshLocation::Edge;
 
       if (onEdges)
       {
@@ -442,17 +431,16 @@ namespace HydroCouple::Composer
       // them, and drawing a different one draws the right number of features
       // only by coincidence -- a triangle has as many edges as vertices, and
       // a mesh of them has neither as many faces.
-      const Spatial::MeshDataObjectType attachedTo =
-        surfaceItem->meshDataObjectType();
+      const Spatial::MeshLocation attachedTo = surfaceItem->location();
 
-      if (attachedTo == Spatial::MeshDataObjectType::Vertex)
+      if (attachedTo == Spatial::MeshLocation::Node)
       {
         for (int64_t i = 0; i < surface->vertexCount(); ++i)
         {
           appendPointFeature(collected, surface->vertex(i));
         }
       }
-      else if (attachedTo == Spatial::MeshDataObjectType::Edge)
+      else if (attachedTo == Spatial::MeshLocation::Edge)
       {
         // Through the bulk view: a surface hands out patches and vertices as
         // objects, and its edges only as connectivity. The standard promises

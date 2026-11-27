@@ -142,7 +142,7 @@ namespace HydroCouple::Composer
 
       std::sort(boundaries.begin(), boundaries.end());
 
-      // Relative to the segment, so a section drawn across a metre-scale
+      // Relative to the segment, so a section drawn across a meter-scale
       // mesh and one across a continent are decided the same way.
       constexpr double kParameterEpsilon = 1e-9;
 

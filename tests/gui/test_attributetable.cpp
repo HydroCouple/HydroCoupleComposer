@@ -8,7 +8,7 @@
  * own — it is that setting one does not echo back and change the other.
  *
  * The panel is driven through its real widgets, because the interesting
- * behaviour is in the wiring rather than in the model: a table model that
+ * behavior is in the wiring rather than in the model: a table model that
  * reports the right rows while nothing connects them to the layer would pass
  * any test written against the model alone.
  */
@@ -450,7 +450,7 @@ namespace
     // the moment the layer does. Nothing else guarantees the order: a window
     // tears its layer stack down before the docks that show it, and a header
     // view re-laid-out during that teardown asks a destroyed layer how many
-    // features it has. Found by the sanitiser, not by reasoning.
+    // features it has. Found by the sanitizer, not by reasoning.
     AttributeTableModel model;
 
     {

@@ -21,8 +21,12 @@
 #include <QComboBox>
 #include <QDir>
 #include <QDoubleSpinBox>
+#include <QLabel>
 #include <QLineEdit>
+#include <QPushButton>
 #include <QSpinBox>
+#include <QTest>
+#include <QUrl>
 #include <QTableWidget>
 #include <QUndoStack>
 
@@ -30,6 +34,12 @@ using namespace HydroCouple::Composer;
 
 namespace
 {
+  QString dataPath(const QString &name)
+  {
+    return QDir(QStringLiteral(COMPOSER_CONFIGURATOR_FIXTURE_DIR))
+      .absoluteFilePath(name);
+  }
+
   QString fixturePath(const QString &stem)
   {
     return QDir(QStringLiteral(COMPOSER_FIXTURE_DIR))
@@ -129,9 +139,24 @@ TEST_F(ConfiguratorTest, DescribesEveryArgumentTheComponentPublishes)
 // The editor is chosen from what the component advertises, not from a schema.
 TEST_F(ConfiguratorTest, ChoosesEditorsFromComponentMetadata)
 {
-  EXPECT_EQ(descriptorFor(QStringLiteral("iterations")).kind,
-            ArgumentEditorKind::Integer);
+  // Two kinds, two meanings (U2a). `kind` is what the argument *is*;
+  // `inlineKind` is what the dock draws until that kind has a dialog of
+  // its own. For every argument this fixture publishes they agree — none
+  // of them answers a typed data-item interface — and saying so here is
+  // what would catch a typed kind leaking into the dock before its
+  // editor exists.
+  const ArgumentDescriptor iterations =
+    descriptorFor(QStringLiteral("iterations"));
+
+  EXPECT_EQ(iterations.kind, ArgumentEditorKind::Integer)
+    << "a count carrying a unitless coefficient is still a count: a unit "
+       "object is not a unit, and offering to convert between nothing and "
+       "nothing is not an editor";
+  EXPECT_EQ(iterations.inlineKind, ArgumentEditorKind::Integer);
+
   EXPECT_EQ(descriptorFor(QStringLiteral("label")).kind,
+            ArgumentEditorKind::Text);
+  EXPECT_EQ(descriptorFor(QStringLiteral("label")).inlineKind,
             ArgumentEditorKind::Text);
 
   // A value definition that enumerates categories becomes a choice.
@@ -144,6 +169,7 @@ TEST_F(ConfiguratorTest, ChoosesEditorsFromComponentMetadata)
   // Rank decides the table, and the shape comes from the component.
   const ArgumentDescriptor grid = descriptorFor(QStringLiteral("grid"));
   EXPECT_EQ(grid.kind, ArgumentEditorKind::Table);
+  EXPECT_EQ(grid.inlineKind, ArgumentEditorKind::Table);
   EXPECT_EQ(grid.rows, 2);
   EXPECT_EQ(grid.columns, 3);
 
@@ -344,4 +370,414 @@ TEST_F(ConfiguratorTest, ReportsComponentsThatCannotBeLoaded)
 
   EXPECT_TRUE(configurator->descriptors().isEmpty());
   EXPECT_FALSE(configurator->hasComponentEditor());
+}
+
+// ── A file argument ───────────────────────────────────────────────────────
+//
+// An argument advertises what it can read through fileFilters(); until this
+// slice the Composer collected them and then built a bare QLineEdit, so the
+// one thing the argument said about itself was the one thing discarded.
+
+TEST_F(ConfiguratorTest, AFileArgumentIsOfferedAChooserAndAPlainTextOneIsNot)
+{
+  EXPECT_EQ(descriptorFor(QStringLiteral("rating")).kind,
+            ArgumentEditorKind::FilePath);
+
+  EXPECT_NE(configurator->findChild<QLineEdit *>(
+              QStringLiteral("argument_rating_path")),
+            nullptr);
+  EXPECT_NE(configurator->findChild<QPushButton *>(
+              QStringLiteral("argument_rating_browse")),
+            nullptr)
+    << "a file argument was given a text box, not a chooser";
+
+  // 'label' is free text and must not sprout a file dialog.
+  EXPECT_EQ(configurator->findChild<QPushButton *>(
+              QStringLiteral("argument_label_browse")),
+            nullptr);
+}
+
+TEST_F(ConfiguratorTest, TheChooserOffersTheArgumentsOwnFiltersThenAllFiles)
+{
+  EXPECT_EQ(descriptorFor(QStringLiteral("rating")).fileFilters,
+            QStringList({QStringLiteral("Rating Tables (*.json)")}));
+
+  EXPECT_EQ(fileDialogFilter({QStringLiteral("Rating Tables (*.json)")}),
+            QStringLiteral("Rating Tables (*.json);;All Files (*)"));
+
+  // An argument that names no filter still gets a usable dialog.
+  EXPECT_EQ(fileDialogFilter({}), QStringLiteral("All Files (*)"));
+}
+
+TEST_F(ConfiguratorTest, ChoosingAFileLoadsItsValuesThroughTheComponent)
+{
+  QString message;
+  ASSERT_TRUE(configurator->applyArgumentReference(QStringLiteral("rating"),
+                                              dataPath(QStringLiteral("rating.json")),
+                                              message))
+    << message.toStdString();
+
+  // The component is what read the file, so it is what must now hold it.
+  configurator->setComponent(QStringLiteral("unit"));
+  const nlohmann::json payload = descriptorFor(QStringLiteral("rating")).payload;
+
+  ASSERT_TRUE(payload.contains("values"));
+  EXPECT_EQ(payload["values"], nlohmann::json({2.5, 3.5, 4.5}));
+}
+
+// The document's only channel to an argument is initialize(..., JSON, ...),
+// so a path recorded there would be handed back as JSON and refused. What is
+// recorded is what the file turned into.
+TEST_F(ConfiguratorTest, TheDocumentRecordsTheValuesTheFileProducedNotThePath)
+{
+  const QString path = dataPath(QStringLiteral("rating.json"));
+
+  QString message;
+  ASSERT_TRUE(configurator->applyArgumentReference(QStringLiteral("rating"), path,
+                                              message))
+    << message.toStdString();
+
+  const std::optional<CompositionDocument::ComponentSpec> spec =
+    document.component(QStringLiteral("unit"));
+  ASSERT_TRUE(spec.has_value());
+
+  ASSERT_TRUE(spec->arguments.contains("rating"));
+  EXPECT_EQ(spec->arguments["rating"]["values"],
+            nlohmann::json({2.5, 3.5, 4.5}));
+
+  const QString recorded =
+    QString::fromStdString(spec->arguments.dump());
+  EXPECT_FALSE(recorded.contains(path))
+    << "the path was recorded as if it were a value";
+}
+
+TEST_F(ConfiguratorTest, AFileTheComponentCannotReadIsRefusedAndNothingRecorded)
+{
+  const QByteArray before = document.toJson();
+
+  QString message;
+  EXPECT_FALSE(configurator->applyArgumentReference(
+    QStringLiteral("rating"), dataPath(QStringLiteral("rating-not-json.txt")),
+    message));
+  EXPECT_FALSE(message.isEmpty());
+  EXPECT_EQ(document.toJson(), before);
+}
+
+TEST_F(ConfiguratorTest, APathThatIsNotThereIsRefusedWithTheComponentsReason)
+{
+  const QByteArray before = document.toJson();
+
+  QString message;
+  EXPECT_FALSE(configurator->applyArgumentReference(
+    QStringLiteral("rating"), dataPath(QStringLiteral("nosuchfile.json")),
+    message));
+  EXPECT_TRUE(message.contains(QStringLiteral("nosuchfile.json")))
+    << "the refusal did not say which file: " << message.toStdString();
+  EXPECT_EQ(document.toJson(), before);
+}
+
+// A path typed into the box is a path chosen; the dialog is a convenience,
+// not the only way in.
+TEST_F(ConfiguratorTest, TypingAPathAndPressingReturnLoadsTheFile)
+{
+  auto *line = configurator->findChild<QLineEdit *>(
+    QStringLiteral("argument_rating_path"));
+  ASSERT_NE(line, nullptr);
+
+  line->setText(dataPath(QStringLiteral("rating.json")));
+  QTest::keyClick(line, Qt::Key_Return);
+
+  const std::optional<CompositionDocument::ComponentSpec> spec =
+    document.component(QStringLiteral("unit"));
+  ASSERT_TRUE(spec.has_value());
+  ASSERT_TRUE(spec->arguments.contains("rating"))
+    << "the path box is decoration: typing into it loaded nothing";
+  EXPECT_EQ(spec->arguments["rating"]["values"],
+            nlohmann::json({2.5, 3.5, 4.5}));
+}
+
+// ── Reading an argument from a layer ──────────────────────────────────────
+//
+// The point of the whole OGC program: a coverage fetched from a service is
+// on the map, and one click hands it to a model.
+
+TEST_F(ConfiguratorTest, AFileArgumentIsAlsoOfferedTheLayersOnTheMap)
+{
+  EXPECT_NE(configurator->findChild<QPushButton *>(
+              QStringLiteral("argument_rating_layer")),
+            nullptr);
+
+  // Free text is not read from a layer.
+  EXPECT_EQ(configurator->findChild<QPushButton *>(
+              QStringLiteral("argument_label_layer")),
+            nullptr);
+}
+
+TEST_F(ConfiguratorTest, ALayersAddressIsReadThroughTheComponent)
+{
+  const QUrl local =
+    QUrl::fromLocalFile(dataPath(QStringLiteral("rating.json")));
+
+  configurator->setLayerSources(
+    [local]
+    {
+      return QVector<ComponentConfigurator::LayerSource>{
+        {QStringLiteral("Rating coverage"), local}};
+    });
+
+  QString message;
+  ASSERT_TRUE(configurator->applyArgumentReference(
+    QStringLiteral("rating"), local.toString(), message))
+    << message.toStdString();
+
+  const std::optional<CompositionDocument::ComponentSpec> spec =
+    document.component(QStringLiteral("unit"));
+  ASSERT_TRUE(spec.has_value());
+  EXPECT_EQ(spec->arguments["rating"]["values"],
+            nlohmann::json({2.5, 3.5, 4.5}));
+}
+
+// An address with a scheme goes to the resolver, not to open(2). The scheme
+// is deliberately one nothing handles, so this stays a local test: an http
+// address here would really be fetched, because ComposerApplication installs
+// a live resolver.
+TEST_F(ConfiguratorTest, AnAddressWithASchemeIsResolvedRatherThanOpened)
+{
+  QString message;
+  EXPECT_FALSE(configurator->applyArgumentReference(
+    QStringLiteral("rating"), QStringLiteral("sensor://example.org/rating.json"),
+    message));
+  EXPECT_TRUE(message.contains(QStringLiteral("resolver")))
+    << "it was opened as a file path: " << message.toStdString();
+}
+
+// A Windows path is a path. The SDK's rule decides, so there is only one.
+TEST_F(ConfiguratorTest, ADriveLetterIsAPathAndNotAService)
+{
+  QString message;
+  EXPECT_FALSE(configurator->applyArgumentReference(
+    QStringLiteral("rating"), QStringLiteral("C:\\data\\rating.json"),
+    message));
+  EXPECT_EQ(message.indexOf(QStringLiteral("resolver")), -1)
+    << "a drive letter was taken for a URI scheme: " << message.toStdString();
+}
+
+// How an argument was read is part of what it records about itself, and the
+// only thing that tells a path from an address after the fact. A file: URI
+// is the pair's honest test: it has a scheme, so it goes in as a URL, and it
+// is read off local disk all the same.
+TEST_F(ConfiguratorTest, HowAReferenceWasReadIsRecordedOnTheArgument)
+{
+  HydroCouple::IModelComponent *component =
+    instances->instance(QStringLiteral("unit"));
+  ASSERT_NE(component, nullptr);
+
+  HydroCouple::IArgument *rating = nullptr;
+
+  for (HydroCouple::IArgument *candidate : component->arguments())
+  {
+    if (candidate && candidate->id() == "rating")
+    {
+      rating = candidate;
+    }
+  }
+
+  ASSERT_NE(rating, nullptr);
+
+  const QString path = dataPath(QStringLiteral("rating.json"));
+
+  QString message;
+  ASSERT_TRUE(writeArgumentReference(rating, path, message))
+    << message.toStdString();
+  EXPECT_EQ(rating->currentArgumentInputType(),
+            HydroCouple::IArgument::ArgumentInputType::File);
+
+  ASSERT_TRUE(writeArgumentReference(
+    rating, QStringLiteral("file://") + path, message))
+    << message.toStdString();
+  EXPECT_EQ(rating->currentArgumentInputType(),
+            HydroCouple::IArgument::ArgumentInputType::URL)
+    << "an address was recorded as though it had been a path";
+}
+
+// ── Arguments bound to another component's output (@from) ─────────────────
+
+namespace
+{
+  //! Adds a second component the bindings can point at.
+  void addProvider(CompositionDocument &document)
+  {
+    HydroCouple::SDK::IO::ComponentSpec spec;
+    spec.id = "prov";
+    spec.info.componentInfoId = "composer.test.component";
+    ASSERT_TRUE(document.addComponent(spec, {}));
+  }
+}
+
+TEST_F(ConfiguratorTest, BindingAnArgumentRecordsTheReferenceNotAValue)
+{
+  addProvider(document);
+
+  // The live argument's payload before, to prove binding leaves it alone.
+  QString message;
+  HydroCouple::IModelComponent *live =
+    instances->instance(QStringLiteral("unit"));
+  ASSERT_NE(live, nullptr);
+  std::string before, ignored;
+  for (HydroCouple::IArgument *argument : live->arguments())
+  {
+    if (argument->id() == "rating")
+    {
+      ASSERT_TRUE(argument->serialize(
+        HydroCouple::IArgument::ArgumentInputType::JSON, before, ignored));
+    }
+  }
+
+  ASSERT_TRUE(configurator->applyArgumentBinding(
+    QStringLiteral("rating"), QStringLiteral("prov"),
+    QStringLiteral("values"), message))
+    << message.toStdString();
+
+  const auto spec = document.component(QStringLiteral("unit"));
+  ASSERT_TRUE(spec.has_value());
+  ASSERT_TRUE(spec->arguments.contains("rating"));
+  const nlohmann::json &payload = spec->arguments["rating"];
+  ASSERT_TRUE(payload.contains("@from")) << payload.dump();
+  EXPECT_EQ(payload["@from"]["component"], "prov");
+  EXPECT_EQ(payload["@from"]["output"], "values");
+  EXPECT_FALSE(payload.contains("values"))
+    << "a value was baked in beside the reference";
+
+  // Q9: provenance now, value at run — the live component was not fed.
+  for (HydroCouple::IArgument *argument : live->arguments())
+  {
+    if (argument->id() == "rating")
+    {
+      std::string after;
+      ASSERT_TRUE(argument->serialize(
+        HydroCouple::IArgument::ArgumentInputType::JSON, after, ignored));
+      EXPECT_EQ(after, before);
+    }
+  }
+}
+
+TEST_F(ConfiguratorTest, BindableOutputsComeFromOtherComponentsOnly)
+{
+  addProvider(document);
+
+  const auto sources =
+    configurator->bindableOutputsFor(QStringLiteral("rating"));
+  ASSERT_EQ(sources.size(), 1);
+  EXPECT_EQ(sources[0].componentId, QStringLiteral("prov"));
+  EXPECT_EQ(sources[0].outputId, QStringLiteral("values"));
+}
+
+TEST_F(ConfiguratorTest, ABindingToAMissingOutputIsRefusedByName)
+{
+  addProvider(document);
+
+  QString message;
+  EXPECT_FALSE(configurator->applyArgumentBinding(
+    QStringLiteral("rating"), QStringLiteral("prov"),
+    QStringLiteral("ghost"), message));
+  EXPECT_TRUE(message.contains(QStringLiteral("ghost")))
+    << message.toStdString();
+
+  const auto spec = document.component(QStringLiteral("unit"));
+  ASSERT_TRUE(spec.has_value());
+  EXPECT_FALSE(spec->arguments.contains("rating"));
+}
+
+TEST_F(ConfiguratorTest, ASelfBindingIsRefused)
+{
+  QString message;
+  EXPECT_FALSE(configurator->applyArgumentBinding(
+    QStringLiteral("rating"), QStringLiteral("unit"),
+    QStringLiteral("values"), message));
+  EXPECT_TRUE(message.contains(QStringLiteral("own")))
+    << message.toStdString();
+}
+
+TEST_F(ConfiguratorTest, ABoundArgumentShowsItsProvenanceChip)
+{
+  addProvider(document);
+
+  QString message;
+  ASSERT_TRUE(configurator->applyArgumentBinding(
+    QStringLiteral("rating"), QStringLiteral("prov"),
+    QStringLiteral("values"), message))
+    << message.toStdString();
+
+  // Reopen the panel: the chip must come from the DOCUMENT, because the
+  // live argument holds no value yet.
+  configurator->setComponent(QString());
+  configurator->setComponent(QStringLiteral("unit"));
+
+  auto *badge = configurator->findChild<QLabel *>(
+    QStringLiteral("argument_rating_binding"));
+  ASSERT_NE(badge, nullptr);
+  EXPECT_EQ(badge->text(), QStringLiteral("@from prov.values"));
+  EXPECT_TRUE(badge->styleSheet().isEmpty())
+    << "a resolvable binding must not wear the dangling badge";
+
+  // The chip REPLACES the path box: a line edit showing "@from prov.values"
+  // would offer to load that text as a file the moment it was touched.
+  EXPECT_EQ(configurator->findChild<QLineEdit *>(
+              QStringLiteral("argument_rating_path")),
+            nullptr)
+    << "the binding is still presented as an editable path";
+}
+
+TEST_F(ConfiguratorTest, ADanglingBindingWearsARedBadge)
+{
+  // Removing a provider scrubs its bindings (the spec refuses documents
+  // naming undeclared components), so the reachable dangling state is a
+  // hand-authored payload — the raw pane and setArgument record without
+  // validating. Q11: worn visibly, repairable, never silently.
+  const nlohmann::json ghost = {
+    {HydroCouple::SDK::IO::kArgumentBindingKey,
+     {{"component", "ghost"}, {"output", "values"}}}};
+  ASSERT_TRUE(document.setArgument(QStringLiteral("unit"),
+                                   QStringLiteral("rating"), ghost));
+
+  configurator->setComponent(QString());
+  configurator->setComponent(QStringLiteral("unit"));
+
+  auto *badge = configurator->findChild<QLabel *>(
+    QStringLiteral("argument_rating_binding"));
+  ASSERT_NE(badge, nullptr);
+  EXPECT_FALSE(badge->styleSheet().isEmpty())
+    << "the dangling state is invisible";
+  EXPECT_TRUE(badge->toolTip().contains(QStringLiteral("ghost")))
+    << badge->toolTip().toStdString();
+}
+
+TEST_F(ConfiguratorTest, UnbindingRestoresTheFileRow)
+{
+  addProvider(document);
+
+  QString message;
+  ASSERT_TRUE(configurator->applyArgumentBinding(
+    QStringLiteral("rating"), QStringLiteral("prov"),
+    QStringLiteral("values"), message))
+    << message.toStdString();
+
+  configurator->setComponent(QString());
+  configurator->setComponent(QStringLiteral("unit"));
+
+  auto *unbind = configurator->findChild<QPushButton *>(
+    QStringLiteral("argument_rating_unbind"));
+  ASSERT_NE(unbind, nullptr);
+
+  unbind->click();
+  QCoreApplication::processEvents(); // the row swap is deferred
+
+  const auto spec = document.component(QStringLiteral("unit"));
+  ASSERT_TRUE(spec.has_value());
+  EXPECT_FALSE(spec->arguments.contains("rating"))
+    << "the binding survived the unbind";
+  EXPECT_NE(configurator->findChild<QLineEdit *>(
+              QStringLiteral("argument_rating_path")),
+            nullptr)
+    << "the file row never came back";
 }

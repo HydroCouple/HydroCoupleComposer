@@ -23,6 +23,9 @@
 #include "scene/sceneimage.h"
 #include "scene/scenerenderer.h"
 
+#include "probelayer.h"
+#include "vectorprobe.h"
+
 #include <gtest/gtest.h>
 
 #include <QApplication>
@@ -158,7 +161,7 @@ namespace
     return different;
   }
 
-  //! Pixels that are not the clear colour: what the scene actually drew.
+  //! Pixels that are not the clear color: what the scene actually drew.
   int countDrawn(const QImage &image, const QColor &background)
   {
     const QImage rgb = image.convertToFormat(QImage::Format_ARGB32);
@@ -234,7 +237,7 @@ namespace
       }
 
       /*!
-       * \brief An oblique camera aimed at the standard footprint's centre.
+       * \brief An oblique camera aimed at the standard footprint's center.
        *
        * Placed directly rather than through setGroundExtent(), because a
        * shallow camera asked to *contain* a rectangle must reach far enough
@@ -554,7 +557,7 @@ TEST_F(Scene3DTest, LayerOpacityReachesTheScene)
     renderScene(renderer, topDown(), QStringLiteral("opacity-quarter"));
   ASSERT_FALSE(faded.isNull());
 
-  // Still drawn, but no longer its own colour: blended against black.
+  // Still drawn, but no longer its own color: blended against black.
   EXPECT_GT(countDrawn(faded, kBackground), 0);
   EXPECT_EQ(countMatching(faded, red, 12), 0)
     << "opacity never reached the material";
@@ -613,7 +616,7 @@ TEST_F(Scene3DTest, AClassSwitchedOffInTheLegendIsNotDrawnInTheScene)
   EXPECT_GT(remaining, 0) << "hiding one class removed both";
 
   // And the hidden cell is left out of the geometry, not merely made
-  // invisible. An unclassified feature's colour is invalid, whose alpha is
+  // invisible. An unclassified feature's color is invalid, whose alpha is
   // zero, so uploading it anyway would look identical here — and would still
   // put every hidden cell on the bus, which at this phase's cell counts is
   // the difference the check is for.
@@ -624,15 +627,42 @@ TEST_F(Scene3DTest, AClassSwitchedOffInTheLegendIsNotDrawnInTheScene)
 
 // ── Geometry supply ─────────────────────────────────────────────────────────
 
-TEST_F(Scene3DTest, ANodeMeshSuppliesNoSceneGeometry)
+TEST_F(Scene3DTest, ANodeMeshSuppliesMarkersRatherThanNothing)
 {
+  // Until U3 this asserted the opposite, and it was right to: a node mesh
+  // is a cloud of values with no faces to drape them on, and inventing a
+  // surface between them would have been inventing data. What changed is
+  // not that answer but the question — the nodes are now drawn *as nodes*,
+  // one solid marker each, which asserts nothing about what lies between
+  // them.
   QString message;
   const std::unique_ptr<MeshLayer> layer = MeshLayer::create(
     QStringLiteral("nodes"), quadAt(0.0), MeshEntity::Node, message);
   ASSERT_NE(layer, nullptr);
 
   ASSERT_NE(layer->sceneSource(), nullptr);
-  EXPECT_TRUE(layer->sceneSource()->sceneGeometry({}).isEmpty());
+
+  const QVector<SceneGeometry> batches =
+    layer->sceneSource()->sceneGeometry({});
+
+  ASSERT_FALSE(batches.isEmpty())
+    << "a node mesh is invisible in 3D again";
+
+  int vertices = 0;
+
+  for (const SceneGeometry &batch : batches)
+  {
+    EXPECT_EQ(batch.primitive, ScenePrimitive::Triangles)
+      << "the nodes are drawn as solids, not stitched into a surface";
+    EXPECT_FALSE(batch.isEmpty()) << "an empty batch was handed over";
+
+    vertices += batch.vertices.size();
+  }
+
+  // Markers are solids of a fixed vertex count, so the total divides
+  // evenly by it. A surface stitched between the nodes would not.
+  EXPECT_GT(vertices, 0);
+  EXPECT_EQ(vertices % 4, 0);
 }
 
 TEST_F(Scene3DTest, AnEdgeMeshSuppliesLines)
@@ -751,7 +781,7 @@ TEST_F(Scene3DTest, ASurfaceSeenFromBelowIsLit)
   // underside of a floodplain or a pipe soffit. The light travels with the
   // eye, so from below it arrives from below, and a one-sided material would
   // return black for every face. This is what the material's two-sided term
-  // is for, and it is the reason the geometry does not normalise winding.
+  // is for, and it is the reason the geometry does not normalize winding.
   LayerStackModel stack;
   SceneRenderer renderer;
   renderer.setModel(&stack);
@@ -766,7 +796,7 @@ TEST_F(Scene3DTest, ASurfaceSeenFromBelowIsLit)
   const QImage image = renderScene(renderer, below, QStringLiteral("below"));
   ASSERT_FALSE(image.isNull());
 
-  // Its own colour, not merely "not the background": a one-sided material
+  // Its own color, not merely "not the background": a one-sided material
   // still leaves the ambient term, which is dim but visible, and asking only
   // whether something was drawn would accept that.
   EXPECT_GT(countMatching(image, red, 12), kSize.height() * kSize.height() / 2)
@@ -817,4 +847,372 @@ TEST_F(Scene3DTest, StatisticsCountWhatWasDrawn)
   EXPECT_EQ(statistics.batches, 1);
   EXPECT_EQ(statistics.vertices, 8);
   EXPECT_EQ(statistics.primitives, 4);
+}
+
+// ── Per-view visibility (coherence plan V4) ───────────────────────────────
+//
+// One checkbox used to govern both views, so there was no way to keep a
+// layer on the map and out of the scene. isShownIn3D() narrows visibility
+// for the scene only; the map never reads it.
+
+TEST_F(Scene3DTest, ALayerKeptOutOf3dLeavesTheSceneButNotTheMap)
+{
+  LayerStackModel stack;
+  SceneRenderer renderer;
+  renderer.setModel(&stack);
+
+  MeshLayer *layer = addOpaque(stack, QStringLiteral("quad"), quadAt(0.0),
+                               QColor(220, 40, 40));
+  ASSERT_NE(layer, nullptr);
+
+  ASSERT_GT(countDrawn(renderScene(renderer, topDown(),
+                                   QStringLiteral("in3d")),
+                       kBackground),
+            0);
+
+  layer->setShownIn3D(false);
+
+  const QImage kept =
+    renderScene(renderer, topDown(), QStringLiteral("keptout"));
+  ASSERT_FALSE(kept.isNull());
+
+  EXPECT_EQ(countDrawn(kept, kBackground), 0)
+    << "the scene kept drawing a layer that was kept out of 3D";
+
+  // The 2D half of visibility is untouched: the map still draws it.
+  EXPECT_TRUE(layer->isVisible());
+}
+
+TEST_F(Scene3DTest, KeepingALayerOutOf3dRemovesItFromTheSceneBounds)
+{
+  LayerStackModel stack;
+  SceneRenderer renderer;
+  renderer.setModel(&stack);
+
+  MeshLayer *tall = addOpaque(stack, QStringLiteral("tall"), quadAt(80.0),
+                              QColor(60, 60, 220));
+  ASSERT_NE(addOpaque(stack, QStringLiteral("flat"), quadAt(0.0),
+                      QColor(220, 40, 40)),
+            nullptr);
+  ASSERT_NE(tall, nullptr);
+
+  ASSERT_GT(renderer.sceneBounds().maximum().z(), 40.0f);
+
+  tall->setShownIn3D(false);
+
+  EXPECT_LT(renderer.sceneBounds().maximum().z(), 40.0f)
+    << "a layer kept out of 3D still frames the camera";
+}
+
+TEST_F(Scene3DTest, ATerrainKeptOutOf3dStopsBeingTheTerrain)
+{
+  LayerStackModel stack;
+  SceneRenderer renderer;
+  renderer.setModel(&stack);
+
+  MeshLayer *layer = addOpaque(stack, QStringLiteral("ridge"), ridge(40.0),
+                               QColor(120, 120, 120));
+  ASSERT_NE(layer, nullptr);
+  ASSERT_NE(renderer.terrain(), nullptr);
+
+  layer->setShownIn3D(false);
+
+  EXPECT_EQ(renderer.terrain(), nullptr)
+    << "everything still drapes on a surface that is not in the scene";
+}
+
+// ── Selection is visible in the scene (coherence plan V5) ─────────────────
+//
+// The 3D view could always SET the selection -- band select, click identify
+// -- and never displayed it: the highlight color was consulted only in the
+// 2D paint path, so selecting in 3D changed the attribute table and left the
+// scene looking exactly as before.
+
+TEST_F(Scene3DTest, ASelectedFeatureWearsTheSelectionColourInTheScene)
+{
+  LayerStackModel stack;
+  SceneRenderer renderer;
+  renderer.setModel(&stack);
+
+  MeshLayer *layer = addOpaque(stack, QStringLiteral("quad"), quadAt(0.0),
+                               QColor(220, 40, 40));
+  ASSERT_NE(layer, nullptr);
+
+  const QImage before =
+    renderScene(renderer, topDown(), QStringLiteral("unselected"));
+  ASSERT_FALSE(before.isNull());
+
+  // Cyan, the one color the layer is not: nothing in the unselected render
+  // may already look selected, or the gate proves nothing.
+  const auto selectionish = [](QRgb pixel)
+  {
+    return qBlue(pixel) > 180 && qGreen(pixel) > 120 && qRed(pixel) < 100;
+  };
+
+  int cyanBefore = 0;
+
+  for (int y = 0; y < before.height(); ++y)
+  {
+    for (int x = 0; x < before.width(); ++x)
+    {
+      cyanBefore += selectionish(before.pixel(x, y)) ? 1 : 0;
+    }
+  }
+
+  ASSERT_EQ(cyanBefore, 0);
+
+  layer->setSelection({0, 1});
+
+  const QImage after =
+    renderScene(renderer, topDown(), QStringLiteral("selected"));
+  ASSERT_FALSE(after.isNull());
+
+  int cyanAfter = 0;
+
+  for (int y = 0; y < after.height(); ++y)
+  {
+    for (int x = 0; x < after.width(); ++x)
+    {
+      cyanAfter += selectionish(after.pixel(x, y)) ? 1 : 0;
+    }
+  }
+
+  EXPECT_GT(cyanAfter, 0)
+    << "a selection made in 3D is invisible in 3D";
+}
+
+// The 2D paint path skips a legend-hidden feature entirely, halo included.
+// The scene tells the same story: selection does not resurrect a class the
+// legend switched off.
+TEST_F(Scene3DTest, SelectionDoesNotResurrectALegendHiddenClass)
+{
+  // The same classified two-cell setup the legend gate uses: two faces in
+  // two classes, one class switched off.
+  MeshDefinition twoCells = ridge(0.0);
+
+  QString message;
+  std::unique_ptr<MeshLayer> owned = MeshLayer::create(
+    QStringLiteral("classified"), twoCells, MeshEntity::Face, message);
+  ASSERT_NE(owned, nullptr) << message.toStdString();
+  ASSERT_TRUE(
+    owned->setValues(QStringLiteral("depth"), QVector<double>{ 1.0, 9.0 }));
+
+  LayerStyle *style = owned->style();
+  style->setMode(StyleMode::Graduated);
+  style->setAttribute(QStringLiteral("depth"));
+  style->classification().setMethod(ClassificationMethod::EqualInterval);
+  style->classification().setClassCount(2);
+  ASSERT_TRUE(style->rebuild(*owned));
+
+  LayerStackModel stack;
+  SceneRenderer renderer;
+  renderer.setModel(&stack);
+
+  MeshLayer *layer = owned.release();
+  ASSERT_GE(stack.addLayer(layer), 0);
+
+  style->classification().setClassVisible(0, false);
+  layer->setSelection({0, 1});
+  layer->notifyAppearanceChanged();
+
+  const int drawn = countDrawn(
+    renderScene(renderer, topDown(), QStringLiteral("hiddenclass")),
+    kBackground);
+
+  const int both = [&]
+  {
+    style->classification().setClassVisible(0, true);
+    layer->notifyAppearanceChanged();
+    return countDrawn(renderScene(renderer, topDown(),
+                                  QStringLiteral("bothclasses")),
+                      kBackground);
+  }();
+
+  ASSERT_GT(both, 0);
+  EXPECT_LT(drawn, both)
+    << "selection resurrected a class the legend switched off";
+}
+
+// ── Full extent means the same data in both views (V6) ────────────────────
+//
+// MapCanvas::fullExtent includes point layers; sceneBounds skipped every
+// layer that opted out of drawing, so "Zoom to Full Extent" framed a
+// different world in each view from a single button. Framing and drawing
+// are different questions: a point layer has no 3D form yet, but its
+// footprint still belongs in the framing.
+
+TEST_F(Scene3DTest, SceneBoundsCountLayersThatCannotBeDrawn)
+{
+  LayerStackModel stack;
+  SceneRenderer renderer;
+  renderer.setModel(&stack);
+
+  ASSERT_NE(addOpaque(stack, QStringLiteral("quad"), quadAt(0.0),
+                      QColor(220, 40, 40)),
+            nullptr);
+
+  // The property under test has not changed: a layer with no 3D form of
+  // its own still has to count toward the framing, or switching to the 3D
+  // tab would cut off half of what the map was showing.
+  //
+  // The *fixture* changed. This used to use a point layer, which had no
+  // sceneSource() until U3 gave points their markers — and the gate then
+  // failed with its own guard rather than its assertion, which is the
+  // fixture telling the truth about itself. A plain MapLayer has no 3D
+  // form and no prospect of one, so it cannot drift back.
+  auto *flat = new Testing::ProbeLayer(QStringLiteral("basemap"),
+                                       QRectF(900.0, 0.0, 100.0, 100.0));
+  ASSERT_EQ(flat->sceneSource(), nullptr)
+    << "the fixture stopped being the case under test";
+  ASSERT_GE(stack.addLayer(flat), 0);
+
+  EXPECT_GT(renderer.sceneBounds().maximum().x(), 800.0f)
+    << "a layer with no 3D form was left out of the framing";
+}
+
+// ── Terrain styling (coherence plan T3) ───────────────────────────────────
+
+namespace
+{
+  //! Two quads meeting at a ridge along x = 5, ten units high.
+  MeshDefinition tent()
+  {
+    MeshDefinition mesh;
+    mesh.meshName = "tent";
+    mesh.nodeX = {0.0, 5.0, 10.0, 0.0, 5.0, 10.0};
+    mesh.nodeY = {0.0, 0.0, 0.0, 10.0, 10.0, 10.0};
+    mesh.nodeZ = {0.0, 10.0, 0.0, 0.0, 10.0, 0.0};
+    mesh.faceNodeOffsets = {0, 4, 8};
+    mesh.faceNodes = {0, 1, 4, 3, 1, 2, 5, 4};
+
+    return mesh;
+  }
+
+  //! Every vertex the surface batch places on the ridge.
+  QVector<SceneVertex> ridgeVertices(const MeshLayer &layer)
+  {
+    QVector<SceneVertex> ridge;
+
+    const QVector<SceneGeometry> batches =
+      layer.sceneSource()->sceneGeometry({});
+
+    for (const SceneGeometry &batch : batches)
+    {
+      for (const SceneVertex &vertex : batch.vertices)
+      {
+        if (qFuzzyCompare(double(vertex.x), 5.0))
+        {
+          ridge.append(vertex);
+        }
+      }
+    }
+
+    return ridge;
+  }
+}
+
+TEST_F(Scene3DTest, ARidgesCornersShareOneAveragedNormalByDefault)
+{
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("tent"), tent(), MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  const QVector<SceneVertex> ridge = ridgeVertices(*layer);
+  ASSERT_EQ(ridge.size(), 4) << "two faces, two ridge corners each";
+
+  for (const SceneVertex &vertex : ridge)
+  {
+    // The west slope leans one way and the east the other; their average at
+    // the ridge stands straight up. A per-face normal here would lean.
+    EXPECT_NEAR(double(vertex.nx), 0.0, 1e-5)
+      << "a ridge corner still carries its face's leaning normal";
+    EXPECT_GT(double(vertex.nz), 0.9);
+  }
+}
+
+TEST_F(Scene3DTest, FlatShadingOptOutRestoresTheFacets)
+{
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("tent"), tent(), MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  layer->setFlatShading(true);
+
+  const QVector<SceneVertex> ridge = ridgeVertices(*layer);
+  ASSERT_EQ(ridge.size(), 4);
+
+  for (const SceneVertex &vertex : ridge)
+  {
+    EXPECT_GT(std::abs(double(vertex.nx)), 0.3)
+      << "flat shading was asked for and the corner is still averaged";
+  }
+}
+
+// A terrain's faces wind however the file wound them; two neighbors wound
+// opposite ways must not cancel to a null normal.
+TEST_F(Scene3DTest, OppositeWindingsDoNotCancelTheAverage)
+{
+  MeshDefinition mesh = tent();
+
+  // Reverse the second face's ring.
+  mesh.faceNodes = {0, 1, 4, 3, 4, 5, 2, 1};
+
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("tent"), mesh, MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  const QVector<SceneVertex> ridge = ridgeVertices(*layer);
+  ASSERT_EQ(ridge.size(), 4);
+
+  for (const SceneVertex &vertex : ridge)
+  {
+    const double length = std::sqrt(double(vertex.nx) * vertex.nx +
+                                    double(vertex.ny) * vertex.ny +
+                                    double(vertex.nz) * vertex.nz);
+    EXPECT_GT(length, 0.5) << "opposite windings cancelled the average";
+    EXPECT_GT(double(vertex.nz), 0.9);
+  }
+}
+
+// ── The default theme (T3) ────────────────────────────────────────────────
+
+TEST_F(Scene3DTest, AMeshWithReliefOffersAndWearsItsElevation)
+{
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("tent"), tent(), MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  // The field is offered to the ramp machinery...
+  bool offered = false;
+
+  for (const AttributeField &field : layer->attributeFields())
+  {
+    offered = offered || field.name == QStringLiteral("elevation");
+  }
+
+  EXPECT_TRUE(offered);
+  EXPECT_NEAR(
+    layer->attributeValue(0, QStringLiteral("elevation")).toDouble(), 5.0,
+    1e-9)
+    << "the west quad's mean node height is (0+10+10+0)/4";
+
+  // ...and a fresh mesh with relief wears it, instead of one flat default
+  // blue -- "terrain not rendered nicely" in its purest form.
+  EXPECT_EQ(layer->style()->mode(), StyleMode::Graduated);
+  EXPECT_EQ(layer->style()->attribute(), QStringLiteral("elevation"));
+}
+
+TEST_F(Scene3DTest, ASheetAtOneHeightIsNotGraduatedOverNothing)
+{
+  QString message;
+  std::unique_ptr<MeshLayer> layer = MeshLayer::create(
+    QStringLiteral("flat"), quadAt(7.0), MeshEntity::Face, message);
+  ASSERT_TRUE(layer) << message.toStdString();
+
+  EXPECT_EQ(layer->style()->mode(), StyleMode::Single)
+    << "a zero-span ramp is one class pretending to be seven";
 }

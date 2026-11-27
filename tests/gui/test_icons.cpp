@@ -1,14 +1,16 @@
 /*!
  * \file   test_icons.cpp
- * \brief  The shared SVG chrome set, and its theming.
+ * \brief  The shared SVG chrome set and its theming, plus the application's
+ *         own brand mark.
  *
  * An icon that fails to resolve renders as empty space, which looks like a
  * layout choice rather than a build that dropped a file — so the gates here
  * are mostly about *absence* being caught. The rest is that the glyph really
- * is recoloured per theme: a set that stayed mid-gray would be invisible on
+ * is recolored per theme: a set that stayed mid-gray would be invisible on
  * one of the two themes and nothing about the widget tree would say so.
  */
 
+#include "core/composerapplication.h"
 #include "ui/composermainwindow.h"
 #include "ui/panels/layertreepanel.h"
 #include "ui/theme/iconfactory.h"
@@ -53,7 +55,7 @@ namespace
     return inked;
   }
 
-  //! The mean colour of an icon's opaque pixels.
+  //! The mean color of an icon's opaque pixels.
   QColor glyphColor(const QIcon &icon, QIcon::Mode mode = QIcon::Normal)
   {
     const QImage image =
@@ -96,7 +98,9 @@ namespace
           static int argc = 1;
           static char name[] = "test_icons";
           static char *argv[] = { name, nullptr };
-          m_app = std::make_unique<QApplication>(argc, argv);
+          // The real application class, so what it does at startup — the
+          // window icon among it — is part of what these gates see.
+          m_app = std::make_unique<ComposerApplication>(argc, argv);
         }
       }
 
@@ -106,9 +110,48 @@ namespace
       }
 
     private:
-      std::unique_ptr<QApplication> m_app;
+      std::unique_ptr<ComposerApplication> m_app;
   };
 
+}
+
+// ── The application's own face ──────────────────────────────────────────────
+
+TEST_F(IconTest, TheApplicationShipsItsWindowIcon)
+{
+  // The v1→v2 CMake port shipped the app icon-less: CFBundleIconFile empty,
+  // no setWindowIcon anywhere. The window icon is the one face an offscreen
+  // gate can check on every platform; the bundle and .rc wiring ride the
+  // same tools/make_icons.sh artifacts.
+  const QIcon icon = QApplication::windowIcon();
+
+  ASSERT_FALSE(icon.isNull()) << "no window icon; :/branding did not "
+                                 "initialise or setWindowIcon is gone";
+  EXPECT_GT(inkedPixels(icon), 8) << "the mark rendered blank";
+
+  // And it is the full-color brand mark, not one of the recolorable
+  // monochrome chrome glyphs: the blue C-and-node must show up saturated.
+  const QImage image = icon.pixmap(QSize(24, 24))
+                         .toImage()
+                         .convertToFormat(QImage::Format_ARGB32);
+
+  int saturated = 0;
+
+  for (int y = 0; y < image.height(); ++y)
+  {
+    for (int x = 0; x < image.width(); ++x)
+    {
+      const QRgb pixel = image.pixel(x, y);
+
+      if (qAlpha(pixel) > 200 && QColor(pixel).saturation() > 40)
+      {
+        ++saturated;
+      }
+    }
+  }
+
+  EXPECT_GT(saturated, 40)
+    << "the window icon does not look like the brand mark";
 }
 
 // ── The set is present ──────────────────────────────────────────────────────
@@ -116,7 +159,7 @@ namespace
 TEST_F(IconTest, TheIconSetIsCompiledIn)
 {
   // A .qrc listing a file that is not there, or a resource that failed to
-  // initialise out of the static library, both end here.
+  // initialize out of the static library, both end here.
   const QStringList aliases = IconFactory::aliases();
 
   ASSERT_FALSE(aliases.isEmpty())
@@ -149,7 +192,7 @@ TEST_F(IconTest, AnUnknownAliasIsNullRatherThanBlank)
 
 TEST_F(IconTest, GlyphsFollowTheTheme)
 {
-  // The whole reason the set is recoloured at render time. Left at the mid
+  // The whole reason the set is recolored at render time. Left at the mid
   // gray the SVGs carry, every icon would be near-invisible on one theme.
   ThemeManager::instance()->setMode(ThemeManager::Mode::Light);
   const QColor onLight = glyphColor(IconFactory::icon(QStringLiteral("open")));
@@ -170,7 +213,7 @@ TEST_F(IconTest, GlyphsFollowTheTheme)
 
 TEST_F(IconTest, EveryIconIsDrawnEntirelyInTheThemeGlyphColour)
 {
-  // Per icon and per pixel. The recolouring works by substituting a known
+  // Per icon and per pixel. The recoloring works by substituting a known
   // family of mid-grays, so a path drawn in a gray outside that family is
   // left alone — and an averaged check misses it, because the paths that
   // *were* substituted drag the mean back into place. That is the realistic
@@ -199,7 +242,7 @@ TEST_F(IconTest, EveryIconIsDrawnEntirelyInTheThemeGlyphColour)
         const QRgb pixel = image.pixel(x, y);
 
         // Only fully opaque pixels: an antialiased edge is a blend toward
-        // transparency and is legitimately not the glyph colour.
+        // transparency and is legitimately not the glyph color.
         if (qAlpha(pixel) < 250)
         {
           continue;
@@ -250,9 +293,9 @@ TEST_F(IconTest, DisabledGlyphsAreFainterThanNormalOnes)
 
 TEST_F(IconTest, TheSetIsMonochromeSoItCanBeTinted)
 {
-  // A full-colour icon cannot be recoloured, so one that crept into the set
+  // A full-color icon cannot be recolored, so one that crept into the set
   // would render as itself on both themes and break the family. Checked by
-  // rendering: an SVG whose colours are hidden in a gradient or a filter
+  // rendering: an SVG whose colors are hidden in a gradient or a filter
   // would pass a grep of the file.
   ThemeManager::instance()->setMode(ThemeManager::Mode::Light);
 
@@ -276,7 +319,7 @@ TEST_F(IconTest, TheSetIsMonochromeSoItCanBeTinted)
           continue;
         }
 
-        // Saturation is what separates a tinted gray from a brand colour;
+        // Saturation is what separates a tinted gray from a brand color;
         // antialiasing never introduces any.
         if (QColor(pixel).saturation() > 40)
         {

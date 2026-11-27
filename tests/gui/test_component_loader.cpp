@@ -17,12 +17,76 @@
 #include <gtest/gtest.h>
 
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
 #include <QString>
 
 #include <set>
 
 using namespace HydroCouple::Composer;
+
+namespace
+{
+  QDir artifactDirectory(const QString &name)
+  {
+    return QDir(QDir(QStringLiteral(COMPOSER_LOADER_ARTIFACT_DIR)).filePath(name));
+  }
+
+  class ComponentPathEnvironment
+  {
+    const bool wasSet = qEnvironmentVariableIsSet("HYDROCOUPLE_COMPONENT_PATH");
+    const QByteArray previous = qgetenv("HYDROCOUPLE_COMPONENT_PATH");
+  public:
+    explicit ComponentPathEnvironment(const QString &value)
+    {
+      qputenv("HYDROCOUPLE_COMPONENT_PATH", value.toLocal8Bit());
+    }
+    ~ComponentPathEnvironment()
+    {
+      if (wasSet) qputenv("HYDROCOUPLE_COMPONENT_PATH", previous);
+      else qunsetenv("HYDROCOUPLE_COMPONENT_PATH");
+    }
+  };
+}
+
+TEST(ComponentDeployment, CombinesInstalledEnvironmentAndCallerPathsInOrder)
+{
+  const QDir root = artifactDirectory("search-path-order");
+  const QString executable = root.filePath("bin");
+  const QString adjacent = root.filePath("bin/components");
+  const QString installed = root.filePath("lib/hydrocouple/components");
+  const QString environment = root.filePath("environment with spaces");
+  const QString caller = root.filePath("caller");
+  const QString missing = root.filePath("missing");
+  for (const auto &path : {adjacent, installed, environment, caller})
+    ASSERT_TRUE(QDir().mkpath(path));
+  const QString separator(QDir::listSeparator());
+  ComponentPathEnvironment scope(separator + environment + separator + adjacent + separator);
+
+  EXPECT_EQ(ComponentRegistry::defaultSearchPaths({caller, environment, missing, ""}, executable),
+            (QStringList{QDir(adjacent).canonicalPath(), QDir(installed).canonicalPath(),
+                         QDir(environment).canonicalPath(), QDir(caller).canonicalPath(), missing}));
+}
+
+TEST(ComponentDeployment, DiscoversRelocatedInstalledFoldersWithoutUserPreferences)
+{
+  const QDir directory = artifactDirectory("relocated-install");
+  const auto executableDirectory=directory.filePath("bin");QDir().mkpath(executableDirectory);
+  const auto plugins=directory.filePath("lib/hydrocouple/components");QDir().mkpath(plugins);
+  const auto paths=ComponentRegistry::installedSearchPaths(executableDirectory);
+  EXPECT_TRUE(paths.contains(QDir(plugins).canonicalPath()));
+  EXPECT_FALSE(paths.contains(QDir(executableDirectory).canonicalPath()));
+}
+
+#ifdef Q_OS_MACOS
+TEST(ComponentDeployment, DiscoversBundleComponentsAfterMovingTheApplication)
+{
+  const QDir directory = artifactDirectory("bundle-install");
+  const auto executableDirectory=directory.filePath("Moved.app/Contents/MacOS");QDir().mkpath(executableDirectory);
+  const auto plugins=directory.filePath("Moved.app/Contents/PlugIns/HydroCouple");QDir().mkpath(plugins);
+  EXPECT_EQ(ComponentRegistry::installedSearchPaths(executableDirectory),QStringList{QDir(plugins).canonicalPath()});
+}
+#endif
 
 namespace
 {
@@ -95,6 +159,7 @@ TEST_F(LoaderTest, LoadsRealComponentLibraryAndReportsMetadata)
             fixturePath(QStringLiteral("testcomponent")).toStdString());
 
   EXPECT_EQ(library->abiStamp(), ComponentLibrary::hostAbiStamp());
+  EXPECT_TRUE(library->abiStamp().contains(QStringLiteral(";iface=5;")));
 }
 
 TEST_F(LoaderTest, InstantiatesAndDrivesComponentAcrossLibraryBoundary)
@@ -154,7 +219,7 @@ TEST_F(LoaderTest, RejectsForeignAbiStampWithoutCallingIntoTheLibrary)
   EXPECT_EQ(library, nullptr);
   EXPECT_TRUE(message.contains(QStringLiteral("incompatible toolchain")))
     << message.toStdString();
-  EXPECT_TRUE(message.contains(QStringLiteral("iface=99")))
+  EXPECT_TRUE(message.contains(QStringLiteral("iface=2")))
     << "the diagnostic should quote what the library actually reported";
 }
 
@@ -218,8 +283,9 @@ TEST_F(LoaderTest, ScanDirectoryKeepsComponentsAndRecordsRejections)
 
   const int loaded = registry.refresh();
 
-  EXPECT_EQ(loaded, 2) << "the stamped and the legacy component should load";
-  ASSERT_EQ(registry.entries().size(), 2u);
+  EXPECT_EQ(loaded, 3) << "the stamped component, the legacy component, and "
+                          "the adapter factory should load";
+  ASSERT_EQ(registry.entries().size(), 3u);
 
   std::set<std::string> ids;
   for (HydroCouple::IComponentInfo *info : registry.entries())
@@ -228,6 +294,7 @@ TEST_F(LoaderTest, ScanDirectoryKeepsComponentsAndRecordsRejections)
   }
   EXPECT_TRUE(ids.count("composer.test.component") == 1);
   EXPECT_TRUE(ids.count("composer.test.legacy") == 1);
+  EXPECT_TRUE(ids.count("composer.test.adapterfactory") == 1);
 
   // The rejections are diagnosable rather than silent.
   const std::vector<ComponentLoadFailure> failures = registry.failures();
@@ -258,4 +325,218 @@ TEST_F(LoaderTest, LoadingSamePathTwiceYieldsOneEntry)
   ASSERT_NE(first, nullptr) << message.toStdString();
   EXPECT_EQ(first, second) << "the info object is a library-owned singleton";
   EXPECT_EQ(registry.entries().size(), 1u);
+}
+
+TEST_F(LoaderTest, RescanningCountsOnlyNewLibraries)
+{
+  ComponentRegistry registry;
+  EXPECT_EQ(registry.scanDirectory(fixtureDir()), 3);
+  EXPECT_EQ(registry.scanDirectory(fixtureDir()), 0);
+  EXPECT_EQ(registry.entries().size(), 3u);
+}
+
+TEST_F(LoaderTest, RejectsDuplicateIdentityFromAnotherFile)
+{
+  const QDir directory = artifactDirectory("duplicate-identity");
+  ASSERT_TRUE(QDir().mkpath(directory.path()));
+  const QString original = fixturePath(QStringLiteral("testcomponent"));
+  const QString copy = directory.filePath(QFileInfo(original).fileName());
+  if (QFileInfo::exists(copy)) ASSERT_TRUE(QFile::remove(copy));
+  ASSERT_TRUE(QFile::copy(original, copy));
+
+  ComponentRegistry registry;
+  QString message;
+  auto *first = registry.loadLibrary(original, message);
+  ASSERT_NE(first, nullptr) << message.toStdString();
+  EXPECT_EQ(registry.loadLibrary(copy, message), nullptr);
+  EXPECT_TRUE(message.contains("duplicate component id")) << message.toStdString();
+  EXPECT_TRUE(message.contains(QFileInfo(original).canonicalFilePath()));
+  EXPECT_TRUE(message.contains(QFileInfo(copy).canonicalFilePath()));
+  EXPECT_EQ(registry.entries().size(), 1u);
+  EXPECT_EQ(first->libraryFilePath(), QFileInfo(original).canonicalFilePath().toStdString());
+}
+
+#ifndef Q_OS_WIN
+TEST_F(LoaderTest, CanonicalAliasesDoNotLoadTheLibraryTwice)
+{
+  const QDir directory = artifactDirectory("canonical-alias");
+  ASSERT_TRUE(QDir().mkpath(directory.path()));
+  const QString original = fixturePath(QStringLiteral("testcomponent"));
+  const QString alias = directory.filePath("alias" + ComponentLibrary::librarySuffix());
+  if (QFileInfo::exists(alias) || QFileInfo(alias).isSymLink()) ASSERT_TRUE(QFile::remove(alias));
+  ASSERT_TRUE(QFile::link(original, alias));
+  ComponentRegistry registry;
+  QString message;
+  auto *first = registry.loadLibrary(original, message);
+  ASSERT_NE(first, nullptr) << message.toStdString();
+  EXPECT_EQ(registry.loadLibrary(alias, message), first);
+  EXPECT_EQ(registry.entries().size(), 1u);
+  EXPECT_EQ(first->libraryFilePath(), QFileInfo(original).canonicalFilePath().toStdString());
+}
+#endif
+
+TEST_F(LoaderTest, RefreshPreservesALiveInstanceWhenItsPathIsRemoved)
+{
+  ComponentRegistry registry;
+  QString message;
+  ASSERT_NE(registry.loadLibrary(fixturePath(QStringLiteral("testcomponent")), message), nullptr);
+  auto instance = registry.createInstance("composer.test.component", message);
+  ASSERT_NE(instance, nullptr) << message.toStdString();
+  instance->initialize();
+  auto *info = registry.entry("composer.test.component");
+  ASSERT_NE(info, nullptr);
+
+  registry.setSearchPaths({artifactDirectory("missing-refresh-path").path()});
+  EXPECT_EQ(registry.refresh(), 0);
+  // Check the catalogue before calling across the boundary: a failure must
+  // report the lifetime bug rather than dereference unloaded component code.
+  ASSERT_EQ(registry.entry("composer.test.component"), info);
+  EXPECT_EQ(instance->status(), HydroCouple::IModelComponent::ComponentStatus::Initialized);
+  EXPECT_TRUE(instance->validate().empty());
+  EXPECT_EQ(instance->status(), HydroCouple::IModelComponent::ComponentStatus::Valid);
+  EXPECT_EQ(registry.failures().size(), 1u);
+  registry.setSearchPaths({});
+  EXPECT_EQ(registry.refresh(), 0);
+  EXPECT_TRUE(registry.failures().empty());
+  EXPECT_EQ(registry.entry("composer.test.component"), info);
+  instance.reset();
+  registry.clear();
+  EXPECT_TRUE(registry.entries().empty());
+}
+
+// ── Adapter-factory components (CONNECT B1) ─────────────────────────────────
+
+#include "hydrocouplesdk/data/exchangeitems1d.h"
+#include "hydrocouplesdk/core/dimension.h"
+#include "hydrocouplesdk/core/valuedefinition.h"
+
+TEST_F(LoaderTest, RegistryTellsModelComponentsFromAdapterFactories)
+{
+  ComponentRegistry registry;
+  QString message;
+
+  ASSERT_NE(registry.loadLibrary(fixturePath(QStringLiteral("testcomponent")),
+                                 message),
+            nullptr)
+    << message.toStdString();
+  HydroCouple::IComponentInfo *factoryInfo = registry.loadLibrary(
+    fixturePath(QStringLiteral("testadapterfactory")), message);
+  ASSERT_NE(factoryInfo, nullptr) << message.toStdString();
+
+  EXPECT_EQ(ComponentRegistry::kindOf(
+              registry.entry(QStringLiteral("composer.test.component"))),
+            ComponentRegistry::ComponentKind::Model);
+  EXPECT_EQ(ComponentRegistry::kindOf(factoryInfo),
+            ComponentRegistry::ComponentKind::AdapterFactory);
+
+  const auto models =
+    registry.entries(ComponentRegistry::ComponentKind::Model);
+  ASSERT_EQ(models.size(), 1u);
+  EXPECT_EQ(models[0]->id(), "composer.test.component");
+
+  const auto factories =
+    registry.entries(ComponentRegistry::ComponentKind::AdapterFactory);
+  ASSERT_EQ(factories.size(), 1u);
+  EXPECT_EQ(factories[0]->id(), "composer.test.adapterfactory");
+
+  // Placing a factory as a component is refused with a message that says
+  // where adapters actually belong.
+  std::unique_ptr<HydroCouple::IModelComponent> instance =
+    registry.createInstance(QStringLiteral("composer.test.adapterfactory"),
+                            message);
+  EXPECT_EQ(instance, nullptr);
+  EXPECT_TRUE(message.contains(QStringLiteral("attach to connections")))
+    << message.toStdString();
+}
+
+TEST_F(LoaderTest, CreatesAnAdapterFactoryFromItsLibrary)
+{
+  ComponentRegistry registry;
+  QString message;
+
+  ASSERT_NE(registry.loadLibrary(
+              fixturePath(QStringLiteral("testadapterfactory")), message),
+            nullptr)
+    << message.toStdString();
+
+  std::unique_ptr<HydroCouple::IAdaptedOutputFactoryComponent> factory =
+    registry.createAdaptedOutputFactory(
+      QStringLiteral("composer.test.adapterfactory"), message);
+  ASSERT_NE(factory, nullptr) << message.toStdString();
+  EXPECT_NE(factory->componentInfo(), nullptr);
+
+  // Offer → create → transform, across the library boundary: the whole
+  // factory pathway, not just a successful dlopen.
+  HydroCouple::SDK::Dimension dimension{"i"};
+  std::unique_ptr<HydroCouple::SDK::Quantity> quantity{
+    HydroCouple::SDK::Quantity::unitLess("Q")};
+  HydroCouple::SDK::Output1DDouble produced("produced", &dimension, 2,
+                                            quantity.get(), nullptr);
+  produced[0] = 3.0;
+  produced[1] = 4.0;
+
+  const std::vector<HydroCouple::IIdentity *> offerings =
+    factory->getAvailableAdaptedOutputIds(&produced);
+  ASSERT_EQ(offerings.size(), 1u);
+  EXPECT_EQ(offerings[0]->id(), "double_it");
+
+  std::unique_ptr<HydroCouple::IAdaptedOutput> adapted =
+    factory->createAdaptedOutput(offerings[0], &produced);
+  ASSERT_NE(adapted, nullptr);
+  adapted->initialize();
+
+  double values[2] = {0.0, 0.0};
+  const int64_t shape[1] = {2};
+  HydroCouple::BufferDescriptor destination;
+  destination.data  = values;
+  destination.kind  = HydroCouple::DataKind::Float64;
+  destination.rank  = 1;
+  destination.shape = shape;
+  const int64_t start = 0;
+  std::string readMessage;
+  ASSERT_TRUE(adapted->getValuesInto(destination,
+                                     std::span<const int64_t>(&start, 1),
+                                     std::span<const int64_t>(shape, 1),
+                                     &readMessage))
+    << readMessage;
+  EXPECT_DOUBLE_EQ(values[0], 6.0);
+  EXPECT_DOUBLE_EQ(values[1], 8.0);
+
+  // The provider's registry is non-owning; unregister, then destroy the
+  // adapter and factory before the registry drops the library.
+  EXPECT_TRUE(produced.removeAdaptedOutput(adapted.get()));
+  adapted.reset();
+  factory.reset();
+}
+
+TEST_F(LoaderTest, AModuleStyleFileNameIsScannedLikeAnyOtherPlugin)
+{
+  // Every SHIPPED component is a CMake MODULE library, which on macOS is
+  // named ".so" and not ".dylib" — while this suite's own fixtures are
+  // SHARED and so are ".dylib". A scan that knew only the SHARED spelling
+  // found the fixtures and none of the real plugins, which is exactly why
+  // Load Directory came back empty against a real component build.
+  const QDir directory = artifactDirectory("module-filename");
+  ASSERT_TRUE(QDir().mkpath(directory.path()));
+
+  const QString source =
+    QDir(fixtureDir())
+      .absoluteFilePath(QStringLiteral("libtestcomponent")
+                        + ComponentLibrary::librarySuffix());
+  ASSERT_TRUE(QFileInfo::exists(source)) << source.toStdString();
+
+  // The same library, named the way a MODULE build names it.
+  const QString moduleStyle =
+    directory.filePath(QStringLiteral("libhcc_meshgenerator.so"));
+  if (QFileInfo::exists(moduleStyle)) ASSERT_TRUE(QFile::remove(moduleStyle));
+  ASSERT_TRUE(QFile::copy(source, moduleStyle));
+
+  ComponentRegistry registry;
+  registry.setSearchPaths({directory.path()});
+
+  EXPECT_EQ(registry.refresh(), 1)
+    << "a module-style plugin was not scanned";
+  ASSERT_EQ(registry.entries().size(), 1u);
+  EXPECT_EQ(registry.entries().front()->id(),
+            std::string("composer.test.component"));
 }

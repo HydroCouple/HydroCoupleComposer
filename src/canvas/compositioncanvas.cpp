@@ -26,6 +26,26 @@ namespace HydroCouple::Composer
     return m_scene;
   }
 
+  void CompositionCanvas::frameComposition()
+  {
+    if (!scene())
+    {
+      return;
+    }
+
+    const QRectF bounds = scene()->itemsBoundingRect();
+
+    if (bounds.isEmpty())
+    {
+      return;
+    }
+
+    // A margin, so the outermost ports are not flush against the frame and
+    // still have room for the connection stubs that leave them.
+    fitInView(bounds.adjusted(-40.0, -40.0, 40.0, 40.0),
+              Qt::KeepAspectRatio);
+  }
+
   void CompositionCanvas::keyPressEvent(QKeyEvent *event)
   {
     if (event->key() == Qt::Key_Delete || event->key() == Qt::Key_Backspace)

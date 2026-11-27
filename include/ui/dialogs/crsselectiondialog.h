@@ -45,7 +45,7 @@ namespace HydroCouple::Composer
       ~CrsSelectionDialog() override;
 
       /*!
-       * \brief Selects \a current when it is in the catalogue.
+       * \brief Selects \a current when it is in the catalog.
        *
        * So that opening the chooser shows what is already in use rather than
        * an arbitrary first row.
@@ -55,7 +55,7 @@ namespace HydroCouple::Composer
       void setCurrentCrs(const SpatialReference *current);
 
       /*!
-       * \brief The authority and code chosen, e.g. "EPSG:3857", or empty.
+       * \brief The authority and code chosen, for example "EPSG:3857", or empty.
        */
       [[nodiscard]] QString selectedAuthCode() const;
 
